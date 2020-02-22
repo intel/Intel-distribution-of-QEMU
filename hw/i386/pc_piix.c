@@ -406,8 +406,14 @@ static void pc_i440fx_init(MachineState *machine)
 #define DEFINE_I440FX_MACHINE(major, minor) \
     DEFINE_PC_VER_MACHINE(pc_i440fx, "pc-i440fx", pc_i440fx_init, false, NULL, major, minor);
 
+#ifdef CONFIG_MICROVM_DEFAULT
+#define LATEST_IS_DEFAULT false
+#else
+#define LATEST_IS_DEFAULT true
+#endif
+
 #define DEFINE_I440FX_MACHINE_AS_LATEST(major, minor) \
-    DEFINE_PC_VER_MACHINE(pc_i440fx, "pc-i440fx", pc_i440fx_init, true, "pc", major, minor);
+    DEFINE_PC_VER_MACHINE(pc_i440fx, "pc-i440fx", pc_i440fx_init, LATEST_IS_DEFAULT, "pc", major, minor);
 
 static void pc_i440fx_machine_options(MachineClass *m)
 {

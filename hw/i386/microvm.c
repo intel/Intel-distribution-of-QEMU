@@ -651,6 +651,9 @@ static void microvm_class_init(ObjectClass *oc, const void *data)
 
     mc->family = "microvm_i386";
     mc->desc = "microvm (i386)";
+#ifdef CONFIG_MICROVM_DEFAULT
+    mc->is_default = true;
+#endif
     mc->units_per_default_bus = 1;
     mc->no_floppy = 1;
     mc->max_cpus = 288;
