@@ -125,9 +125,8 @@ def main():
         if not ver:
             ver = "?"
     if not cleanbuild:
-        btime = time.strftime("%Y%m%d_%H%M%S")
-        hostname = socket.gethostname()
-        ver = "%s-%s-%s" % (ver, btime, hostname)
+        btime = time.strftime("%Y%m%d_%H%M%S", time.gmtime(int(os.environ.get('SOURCE_DATE_EPOCH', time.time()))))
+        ver = "%s-%s" % (ver, btime)
     write_version(outfile, ver + options.extra, toolstr)
 
 if __name__ == '__main__':
