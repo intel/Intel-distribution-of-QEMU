@@ -56,14 +56,14 @@ versions: $(ODIR)/target/include/openbios-version.h $(ODIR)/forth/version.fs
 
 $(ODIR)/forth/version.fs:
 	$(call quiet-command,true, "  GEN   $(TARGET_DIR)$@")
-	@DATE="$(shell echo `LC_ALL=C TZ=UTC date +'%b %e %Y %H:%M'`)" ;  \
+	@DATE="$(shell echo `LC_ALL=C date --utc --date=@$(SOURCE_DATE_EPOCH) +'%b %e %Y %H:%M'`)" ;  \
 		( echo ": builddate \" $$DATE\" ; " ;     \
 		  echo ": version \" $(VERSION)\" ; " ; ) \
 		  > $(dir $@)/version.fs
 
 $(ODIR)/target/include/openbios-version.h:
 	$(call quiet-command,true, "  GEN   $(TARGET_DIR)$@")
-	@DATE="$(shell echo `LC_ALL=C TZ=UTC date +'%b %e %Y %H:%M'`)" ; \
+	@DATE="$(shell echo `LC_ALL=C date --utc --date=@$(SOURCE_DATE_EPOCH) +'%b %e %Y %H:%M'`)" ; \
           ( echo "#define OPENBIOS_BUILD_DATE \"$$DATE\"" ; \
            echo "#define OPENBIOS_VERSION_STR \"$(VERSION)\"" ; ) \
          > $(dir $@)/openbios-version.h
