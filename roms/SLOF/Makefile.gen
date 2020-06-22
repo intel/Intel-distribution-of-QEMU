@@ -62,7 +62,7 @@ romfs_build:
 ../build_info.img:
 	@echo "$(CC)" > ../build_info.img
 	@$(CC) -v >> ../build_info.img 2>&1
-	@$(LD) -V >> ../build_info.img 2>&1
+	@LC_ALL=C $(LD) -V >> ../build_info.img 2>&1
 
 ../$(SUBBOARD).dtb:
 	@if [ -e dts/$(SUBBOARD).dts ]; then \
