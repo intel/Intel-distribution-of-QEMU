@@ -26,7 +26,7 @@ RELEASE=git-$(shell git rev-parse --short=16 HEAD)
 export DRIVER_NAME=git-$(shell git rev-parse --short=12 HEAD)
 else
 ifneq (,$(shell cat ../VERSION))
-RELEASE="$(USER)@$(HOSTNAME) release $(shell cat ../VERSION)"
+RELEASE="release $(shell cat ../VERSION)"
 export DRIVER_NAME=HEAD
 else
 RELEASE="$(USER)@$(HOSTNAME)(private build)"
