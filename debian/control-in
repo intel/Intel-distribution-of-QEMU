@@ -4,8 +4,7 @@ Priority: optional
 :debian:Maintainer: Debian QEMU Team <pkg-qemu-devel@lists.alioth.debian.org>
 :ubuntu:Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
 :ubuntu:XSBC-Original-Maintainer: Debian QEMU Team <pkg-qemu-devel@lists.alioth.debian.org>
-Uploaders: Aurelien Jarno <aurel32@debian.org>,
-	Riku Voipio <riku.voipio@iki.fi>,
+Uploaders: Riku Voipio <riku.voipio@iki.fi>,
 	Michael Tokarev <mjt@tls.msk.ru>
 Build-Depends: debhelper (>= 12),
 # In comments below we also specify (system-specific) arguments
@@ -32,7 +31,6 @@ Build-Depends: debhelper (>= 12),
  libbrlapi-dev,
 # --enable-virtfs	linux-*
 # needed for virtfs
- libcap-dev [linux-any],
 # --enable-cap-ng	linux-*
  libcap-ng-dev [linux-any],
 # --enable-curl
@@ -58,8 +56,8 @@ Build-Depends: debhelper (>= 12),
 # --enable-smartcard
  libcacard-dev,
  libpixman-1-dev,
-# --enable-rbd		amd64|arm64|armel|armhf|i386|mips64el|mipsel|ppc64el|s390x|ppc64|riscv64|sparc64
- librbd-dev            [amd64 arm64 armel armhf i386 mips64el mipsel ppc64el s390x ppc64 riscv64 sparc64],
+# --enable-rbd		amd64|arm64|armel|armhf|i386|mips64el|mipsel|ppc64el|s390x|ppc64|sparc64
+ librbd-dev            [amd64 arm64 armel armhf i386 mips64el mipsel ppc64el s390x ppc64 sparc64],
 # glusterfs is debian-only since ubuntu/glusterfs is in universe (MIR LP: #1274247)
 # before buster it was glusterfs-common so keep it for now for bpo
 :debian:# --enable-glusterfs	linux-any
@@ -105,8 +103,8 @@ Build-Depends: debhelper (>= 12),
  libjpeg-dev,
 # --enable-vnc-png
  libpng-dev,
-# --enable-libpmem	linux-amd64|linux-arm64|linux-ppc64el
- libpmem-dev [linux-amd64 linux-arm64 linux-ppc64el],
+# --enable-libpmem	linux-amd64|linux-arm64
+ libpmem-dev [linux-amd64 linux-arm64],
 # --enable-kvm		linux-*
 # --enable-vhost-net	linux-*	# is it really linux-specific?
 ##--enable-lzo todo, for (memory) dumps

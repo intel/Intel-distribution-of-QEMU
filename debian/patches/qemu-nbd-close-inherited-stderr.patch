@@ -1,0 +1,39 @@
+Commit-Id: 0eaf453ebf6788885fbb5d40426b154ef8805407
+From: Raphael Pour <raphael.pour@hetzner.com>
+Date: Fri, 15 May 2020 08:36:07 +0200
+Subject: qemu-nbd: Close inherited stderr
+
+Close inherited stderr of the parent if fork_process is false.
+Otherwise no one will close it. (introduced by e6df58a5)
+
+This only affected 'qemu-nbd -c /dev/nbd0'.
+
+Signed-off-by: Raphael Pour <raphael.pour@hetzner.com>
+Message-Id: <d8ddc993-9816-836e-a3de-c6edab9d9c49@hetzner.com>
+Reviewed-by: Eric Blake <eblake@redhat.com>
+[eblake: Enhance commit message]
+Signed-off-by: Eric Blake <eblake@redhat.com>
+---
+ qemu-nbd.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/qemu-nbd.c b/qemu-nbd.c
+index 4aa005004eb..306e44fb0a4 100644
+--- a/qemu-nbd.c
++++ b/qemu-nbd.c
+@@ -916,7 +916,11 @@ int main(int argc, char **argv)
+         } else if (pid == 0) {
+             close(stderr_fd[0]);
+ 
+-            old_stderr = dup(STDERR_FILENO);
++            /* Remember parent's stderr if we will be restoring it. */
++            if (fork_process) {
++                old_stderr = dup(STDERR_FILENO);
++            }
++
+             ret = qemu_daemon(1, 0);
+ 
+             /* Temporarily redirect stderr to the parent's pipe...  */
+-- 
+2.20.1
+

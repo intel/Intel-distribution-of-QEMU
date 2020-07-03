@@ -36,6 +36,8 @@ enable_system = $(if $(filter qemu-system,${BUILD_PACKAGES}),enable,disable)
 enable_linux_user = $(if $(filter qemu-user,${BUILD_PACKAGES}),enable,disable)
 
 FIRMWAREPATH = /usr/share/qemu:/usr/share/seabios:/usr/lib/ipxe/qemu
+PKGVERSION = Debian ${DEB_VERSION}
+SAVEMODDIR = /run/qemu/$(shell echo -n "${PKGVERSION}" | tr --complement '[:alnum:]+-.~' '_')
 sysdatadir = debian/qemu-system-data/usr/share/qemu
 
 ALPHAEV67_CROSSPFX = alpha-linux-gnu-
@@ -43,7 +45,7 @@ PPC64_CROSSPFX = powerpc64-linux-gnu-
 
 # we add another set of configure options from debian/control
 common_configure_opts = \
-	--with-pkgversion="Debian $(DEB_VERSION)" \
+	--with-pkgversion="$(PKGVERSION)" \
 	--extra-cflags="$(CFLAGS) $(CPPFLAGS)" --extra-ldflags="$(LDFLAGS) -Wl,--as-needed" \
 	--prefix=/usr \
 	--sysconfdir=/etc \
@@ -75,9 +77,10 @@ system_targets = \
  sh4 sh4eb sparc sparc64 s390x tricore xtensa xtensaeb unicore32
 
 # qemu-system subpackages, from d/control
-sys_systems = arm mips ppc sparc x86
 ifeq ($(VENDOR),UBUNTU)
-sys_systems = ${sys_systems} s390x
+sys_systems = arm mips ppc sparc x86 s390x
+else
+sys_systems = arm mips ppc sparc x86
 endif
 systems = ${sys_systems} misc
 sysarch_arm   = $(filter aarch64 arm,${system_targets})
@@ -129,10 +132,11 @@ b/configure-stamp: configure
 		--${enable_system}-system \
 		--${enable_linux_user}-linux-user \
 		--enable-modules \
+		--enable-module-upgrades \
 		$(shell sh debian/extract-config-opts \
 		    $(DEB_HOST_ARCH_OS)-$(DEB_HOST_ARCH) debian/control) \
 		$(QEMU_CONFIGURE_OPTIONS) || \
-	 { echo ===== CONFIGURE FAILED ===; tail -n 50 config.log; exit 1; }
+	 { echo ===== CONFIGURE FAILED ===; tail -n 50 b/qemu/config.log; exit 1; }
 
 # switch some simple UI and simple audio modules to be built-ins,
 # but keep more complex to be modules to move to a separate package
@@ -169,7 +173,7 @@ ifneq ($(filter $(DEB_HOST_ARCH),amd64),)
 		--disable-tcg-interpreter --disable-tcg \
 		--without-default-devices \
 		$(QEMU_CONFIGURE_OPTIONS) || \
-	 { echo ===== CONFIGURE FAILED ===; tail -n 50 config.log; exit 1; }
+	 { echo ===== CONFIGURE FAILED ===; tail -n 50 b/qemu-microvm/config.log; exit 1; }
 	echo "#define CONFIG_MICROVM_DEFAULT 1" >> b/qemu-microvm/x86_64-softmmu/config-target.h
 endif
 
@@ -238,6 +242,13 @@ binary-arch:
 	$(MAKE) -C b/qemu DESTDIR=$(CURDIR)/debian/tmp install \
 	  KEYMAPS= ICON_SIZES=
 
+# save block-extra loadable modules on upgrades
+# other module types for now (5.0) can't be loaded at runtime, only at startup
+	echo 'case $$1 in (upgrade|deconfigure) mkdir -p ${SAVEMODDIR}; cp -p ${libdir}/qemu/block-*.so ${SAVEMODDIR}/;; esac' \
+	  >> debian/qemu-block-extra.prerm.debhelper
+	echo 'case $$1 in (purge|remove) rm -f ${SAVEMODDIR}/block-*.so;; esac' \
+	  >> debian/qemu-block-extra.postrm.debhelper
+
 ifeq (${enable_system},enable)
 
 	# qemu-system subpackages
@@ -258,9 +269,11 @@ ifneq ($(filter $(DEB_HOST_ARCH),amd64 i386),)
 	dh_install -pqemu-kvm debian/kvm /usr/bin/
 	dh_install -pqemu-kvm debian/kvm.1 /usr/share/man/man1/
 ifeq ($(VENDOR),UBUNTU)
-# on ubuntu there was kvm-spice package/binary which was used in libvirt xml
-	dh_link -pqemu-kvm usr/bin/kvm usr/bin/kvm-spice \
-		usr/bin/qemu-system-x86_64 usr/bin/qemu-system-x86_64-spice
+# on ubuntu *-spice existed, may be used in libvirt xml and scripts - keep links for compatibility
+	dh_link -pqemu-kvm usr/bin/kvm                usr/bin/kvm-spice
+	echo ".so man1/kvm.1" > debian/qemu-system-x86/usr/share/man/man1/kvm-spice.1
+	dh_link -pqemu-kvm usr/bin/qemu-system-x86_64 usr/bin/qemu-system-x86_64-spice
+	echo ".so man1/qemu-system.1" > debian/qemu-system-x86/usr/share/man/man1/qemu-system-x86_64-spice.1
 endif
 endif
 ifeq ($(VENDOR),UBUNTU)

@@ -1,3 +1,75 @@
+qemu (1:5.0-6) unstable; urgency=medium
+
+  [ Christian Ehrhardt ]
+  * d/control-in: disable pmem on ppc64 as it is currently considered
+    experimental on that architecture
+  * d/rules: makefile definitions can't be recursive - sys_systems for s390x
+  * d/rules: report config log from the correct subdir - base build
+  * d/rules: report config log from the correct subdir - microvm build
+  * d/control-in: disable rbd support unavailable on riscv
+  * fix assert in qemu guest agent that crashes on shutdown (LP: #1878973)
+  * d/control-in: build-dep libcap is no more needed
+  * d/rules: update -spice compat (Ubuntu only)
+
+  [ Michael Tokarev ]
+  * save block modules on upgrades (LP: #1847361)
+    After upgrade a still running qemu of a former version can't load the
+    new modules e.g. for extended storage support. Qemu 5.0 has the code to
+    allow defining a path that it will load these modules from.
+  * ati-vga-check-mm_index-before-recursive-call-CVE-2020-13800.patch
+    Closes: CVE-2020-13800, ati-vga allows guest OS users to trigger
+    infinite recursion via a crafted mm_index value during
+    ati_mm_read or ati_mm_write call.
+  * revert-memory-accept-mismatching-sizes-in-memory_region_access_valid...patch
+    Closes: CVE-2020-13754, possible OOB memory accesses in a bunch of qemu
+    devices which uses min_access_size and max_access_size Memory API fields.
+    Also closes: CVE-2020-13791
+  * exec-set-map-length-to-zero-when-returning-NULL-CVE-2020-13659.patch
+    CVE-2020-13659: address_space_map in exec.c can trigger
+    a NULL pointer dereference related to BounceBuffer
+  * megasas-use-unsigned-type-for-reply_queue_head-and-check-index...patch
+    Closes: #961887, CVE-2020-13362, megasas_lookup_frame in hw/scsi/megasas.c
+    has an OOB read via a crafted reply_queue_head field from a guest OS user
+  * megasas-use-unsigned-type-for-positive-numeric-fields.patch
+    fix other possible cases like in CVE-2020-13362 (#961887)
+  * megasas-fix-possible-out-of-bounds-array-access.patch
+    Some tracepoints use a guest-controlled value as an index into the
+    mfi_frame_desc[] array. Thus a malicious guest could cause a very low
+    impact OOB errors here
+  * nbd-server-avoid-long-error-message-assertions-CVE-2020-10761.patch
+    Closes: CVE-2020-10761, An assertion failure issue in the QEMU NBD Server.
+    This flaw occurs when an nbd-client sends a spec-compliant request that is
+    near the boundary of maximum permitted request length. A remote nbd-client
+    could use this flaw to crash the qemu-nbd server resulting in a DoS.
+  * es1370-check-total-frame-count-against-current-frame-CVE-2020-13361.patch
+    Closes: CVE-2020-13361, es1370_transfer_audio in hw/audio/es1370.c does not
+    properly validate the frame count, which allows guest OS users to trigger
+    an out-of-bounds access during an es1370_write() operation
+  * sdcard-dont-switch-to-ReceivingData-if-address-is-in...-CVE-2020-13253.patch
+    CVE-2020-13253: sd_wp_addr in hw/sd/sd.c in QEMU 4.2.0 uses an unvalidated
+    address, which leads to an out-of-bounds read during sdhci_write()
+    operations.  A guest OS user can crash the QEMU process.
+    And a preparational patch,
+    sdcard-update-coding-style-to-make-checkpatch-happy.patch
+  * a few patches from the stable series:
+    - fix-tulip-breakage.patch
+      The tulip network driver in a qemu-system-hppa emulation is broken in
+      the sense that bigger network packages aren't received any longer and
+      thus even running e.g. "apt update" inside the VM fails. Fix this.
+    - 9p-lock-directory-streams-with-a-CoMutex.patch
+      Prevent deadlocks in 9pfs readdir code
+    - net-do-not-include-a-newline-in-the-id-of-nic-device.patch
+      Fix newline accidentally sneaked into id string of a nic
+    - qemu-nbd-close-inherited-stderr.patch
+    - virtio-balloon-fix-free-page-hinting-check-on-unreal.patch
+    - virtio-balloon-fix-free-page-hinting-without-an-iothread.patch
+    - virtio-balloon-unref-the-iothread-when-unrealizing.patch
+
+  [ Aurelien Jarno ]
+  * Remove myself from maintainers
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 03 Jul 2020 18:24:48 +0300
+
 qemu (1:5.0-5) unstable; urgency=medium
 
   * more binfmt-install updates

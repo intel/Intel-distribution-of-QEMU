@@ -1,0 +1,108 @@
+Commit-Id: 12fc8903a8ee09fb5f642de82699a0b211e1b5a7
+From: David Hildenbrand <david@redhat.com>
+Date: Wed, 20 May 2020 12:04:37 +0200
+Subject: virtio-balloon: fix free page hinting without an iothread
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+In case we don't have an iothread, we mark the feature as abscent but
+still add the queue. 'free_page_bh' remains set to NULL.
+
+qemu-system-i386 \
+        -M microvm \
+        -nographic \
+        -device virtio-balloon-device,free-page-hint=true \
+        -nographic \
+        -display none \
+        -monitor none \
+        -serial none \
+        -qtest stdio
+
+Doing a "write 0xc0000e30 0x24
+0x030000000300000003000000030000000300000003000000030000000300000003000000"
+
+We will trigger a SEGFAULT. Let's move the check and bail out.
+
+While at it, move the static initializations to instance_init().
+free_page_report_status and block_iothread are implicitly set to the
+right values (0/false) already, so drop the initialization.
+
+Reviewed-by: Alexander Duyck <alexander.h.duyck@linux.intel.com>
+Reviewed-by: Philippe Mathieu-Daudé <philmd@redhat.com>
+Fixes: c13c4153f76d ("virtio-balloon: VIRTIO_BALLOON_F_FREE_PAGE_HINT")
+Reported-by: Alexander Bulekov <alxndr@bu.edu>
+Cc: qemu-stable@nongnu.org
+Cc: Wei Wang <wei.w.wang@intel.com>
+Cc: Michael S. Tsirkin <mst@redhat.com>
+Cc: Philippe Mathieu-Daudé <philmd@redhat.com>
+Cc: Alexander Duyck <alexander.duyck@gmail.com>
+Signed-off-by: David Hildenbrand <david@redhat.com>
+Message-Id: <20200520100439.19872-2-david@redhat.com>
+Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ hw/virtio/virtio-balloon.c | 33 ++++++++++++++++-----------------
+ 1 file changed, 16 insertions(+), 17 deletions(-)
+
+diff --git a/hw/virtio/virtio-balloon.c b/hw/virtio/virtio-balloon.c
+index 065cd450f10..7ff6a7aa7cf 100644
+--- a/hw/virtio/virtio-balloon.c
++++ b/hw/virtio/virtio-balloon.c
+@@ -789,6 +789,13 @@ static void virtio_balloon_device_realize(DeviceState *dev, Error **errp)
+         return;
+     }
+ 
++    if (virtio_has_feature(s->host_features, VIRTIO_BALLOON_F_FREE_PAGE_HINT) &&
++        !s->iothread) {
++        error_setg(errp, "'free-page-hint' requires 'iothread' to be set");
++        virtio_cleanup(vdev);
++        return;
++    }
++
+     s->ivq = virtio_add_queue(vdev, 128, virtio_balloon_handle_output);
+     s->dvq = virtio_add_queue(vdev, 128, virtio_balloon_handle_output);
+     s->svq = virtio_add_queue(vdev, 128, virtio_balloon_receive_stats);
+@@ -797,24 +804,11 @@ static void virtio_balloon_device_realize(DeviceState *dev, Error **errp)
+                            VIRTIO_BALLOON_F_FREE_PAGE_HINT)) {
+         s->free_page_vq = virtio_add_queue(vdev, VIRTQUEUE_MAX_SIZE,
+                                            virtio_balloon_handle_free_page_vq);
+-        s->free_page_report_status = FREE_PAGE_REPORT_S_STOP;
+-        s->free_page_report_cmd_id =
+-                           VIRTIO_BALLOON_FREE_PAGE_REPORT_CMD_ID_MIN;
+-        s->free_page_report_notify.notify =
+-                                       virtio_balloon_free_page_report_notify;
+         precopy_add_notifier(&s->free_page_report_notify);
+-        if (s->iothread) {
+-            object_ref(OBJECT(s->iothread));
+-            s->free_page_bh = aio_bh_new(iothread_get_aio_context(s->iothread),
+-                                       virtio_ballloon_get_free_page_hints, s);
+-            qemu_mutex_init(&s->free_page_lock);
+-            qemu_cond_init(&s->free_page_cond);
+-            s->block_iothread = false;
+-        } else {
+-            /* Simply disable this feature if the iothread wasn't created. */
+-            s->host_features &= ~(1 << VIRTIO_BALLOON_F_FREE_PAGE_HINT);
+-            virtio_error(vdev, "iothread is missing");
+-        }
++
++        object_ref(OBJECT(s->iothread));
++        s->free_page_bh = aio_bh_new(iothread_get_aio_context(s->iothread),
++                                     virtio_ballloon_get_free_page_hints, s);
+     }
+     reset_stats(s);
+ }
+@@ -892,6 +886,11 @@ static void virtio_balloon_instance_init(Object *obj)
+     object_property_add(obj, "guest-stats", "guest statistics",
+                         balloon_stats_get_all, NULL, NULL, s, NULL);
+ 
++    qemu_mutex_init(&s->free_page_lock);
++    qemu_cond_init(&s->free_page_cond);
++    s->free_page_report_cmd_id = VIRTIO_BALLOON_FREE_PAGE_REPORT_CMD_ID_MIN;
++    s->free_page_report_notify.notify = virtio_balloon_free_page_report_notify;
++
+     object_property_add(obj, "guest-stats-polling-interval", "int",
+                         balloon_stats_get_poll_interval,
+                         balloon_stats_set_poll_interval,
+-- 
+2.20.1
