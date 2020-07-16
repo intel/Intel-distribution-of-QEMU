@@ -1,3 +1,16 @@
+qemu (1:5.0-7) unstable; urgency=medium
+
+  * Revert "d/rules: report config log from the correct subdir - base build"
+  * Revert "d/rules: report config log from the correct subdir - microvm build"
+  * acpi-tmr-allow-2-byte-reads.patch (Closes: #964247)
+  * remove sdcard-dont-switch-to-ReceivingData-if-add...-CVE-2020-13253.patch -
+    upstream decided to fix it differently (Reopens: #961297, CVE-2020-13253)
+  * explicitly specify --enable-tools on hppa and do the same trick
+    with --enable-tcg-interpreter --enable-tools on a few other unnsupported
+    arches (Closes: #964372)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 16 Jul 2020 18:36:08 +0300
+
 qemu (1:5.0-6) unstable; urgency=medium
 
   [ Christian Ehrhardt ]

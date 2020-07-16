@@ -63,9 +63,9 @@ ifneq ($(DEB_BUILD_GNU_TYPE), $(DEB_HOST_GNU_TYPE))
 common_configure_opts  += --cross-prefix=$(DEB_HOST_GNU_TYPE)-
 endif
 
-ifeq ($(DEB_TARGET_ARCH), hppa)
+ifneq ($(filter $(DEB_TARGET_ARCH), alpha ia64 hppa m68k sh4 sparc), )
 # allow configure to run on unsupported arches to build qemu-utils and the like
-common_configure_opts += --enable-tcg-interpreter
+common_configure_opts += --enable-tcg-interpreter --enable-tools
 endif
 
 ifeq (${enable_system},enable)
@@ -136,7 +136,7 @@ b/configure-stamp: configure
 		$(shell sh debian/extract-config-opts \
 		    $(DEB_HOST_ARCH_OS)-$(DEB_HOST_ARCH) debian/control) \
 		$(QEMU_CONFIGURE_OPTIONS) || \
-	 { echo ===== CONFIGURE FAILED ===; tail -n 50 b/qemu/config.log; exit 1; }
+	 { echo ===== CONFIGURE FAILED ===; tail -n 50 config.log; exit 1; }
 
 # switch some simple UI and simple audio modules to be built-ins,
 # but keep more complex to be modules to move to a separate package
@@ -173,7 +173,7 @@ ifneq ($(filter $(DEB_HOST_ARCH),amd64),)
 		--disable-tcg-interpreter --disable-tcg \
 		--without-default-devices \
 		$(QEMU_CONFIGURE_OPTIONS) || \
-	 { echo ===== CONFIGURE FAILED ===; tail -n 50 b/qemu-microvm/config.log; exit 1; }
+	 { echo ===== CONFIGURE FAILED ===; tail -n 50 config.log; exit 1; }
 	echo "#define CONFIG_MICROVM_DEFAULT 1" >> b/qemu-microvm/x86_64-softmmu/config-target.h
 endif
 
