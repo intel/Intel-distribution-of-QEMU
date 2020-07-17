@@ -3,6 +3,10 @@ microvm-default-machine-type.patch
 qboot-stop-using-inttypes.patch
 qboot-no-jump-tables.diff
 openbios-address-of-packet-member.patch
+openbios-use-source_date_epoch-in-makefile.patch
+seabios-hppa-use-consistant-date-and-remove-hostname.patch
+slof-remove-user-and-host-from-release-version.patch
+slof-ensure-ld-is-called-with-C-locale.patch
 virtiofsd-add-rlimit-nofile-NUM-option.patch
 virtiofsd-stay-below-fs.file-max-CVE-2020-10717.patch
 aio-posix-dont-duplicate-fd-handler-deletion-in-fdmon_io_uring_destroy.patch
@@ -26,3 +30,7 @@ megasas-use-unsigned-type-for-positive-numeric-fields.patch
 megasas-fix-possible-out-of-bounds-array-access.patch
 nbd-server-avoid-long-error-message-assertions-CVE-2020-10761.patch
 es1370-check-total-frame-count-against-current-frame-CVE-2020-13361.patch
+sdcard-simplify-realize-a-bit.patch
+sdcard-dont-allow-invalid-SD-card-sizes.patch
+sdcard-update-coding-style-to-make-checkpatch-happy.patch
+sdcard-dont-switch-to-ReceivingData-if-address-is-invalid-CVE-2020-13253.patch

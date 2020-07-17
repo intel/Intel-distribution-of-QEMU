@@ -72,8 +72,8 @@ Build-Depends: debhelper (>= 12),
 # --enable-spice	linux-amd64|linux-i386|linux-arm64
  libspice-server-dev (>= 0.12.5~) [linux-amd64 linux-i386 linux-arm64],
  libspice-protocol-dev (>= 0.12.3~) [linux-amd64 linux-i386 linux-arm64],
-# --enable-rdma
- librdmacm-dev, libibverbs-dev, libibumad-dev,
+# --enable-rdma		linux-*
+ librdmacm-dev [linux-any], libibverbs-dev [linux-any], libibumad-dev [linux-any],
 # --enable-linux-io-uring	linux-*
  liburing-dev [linux-any],
 # --enable-libusb	linux-*

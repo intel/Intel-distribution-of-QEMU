@@ -1,3 +1,24 @@
+qemu (1:5.0-8) unstable; urgency=medium
+
+  * d/control: rdma is linux-only, do not enable it on kfreebsd & hurd
+  * add comment about virtiofsd conditional to d/qemu-system-common.install
+    Now qemu FTBFS on sparc64 since virtiofsd is not built due to missing
+    seccomp onn that platform, we should either make virtiofsd conditional
+    (!sparc64) or fix seccomp on sparc64 and build-depend on it
+  * openbios-use-source_date_epoch-in-makefile.patch (Closes: #963466)
+  * seabios-hppa-use-consistant-date-and-remove-hostname.patch (Closes: #963467)
+  * slof-remove-user-and-host-from-release-version.patch (Closes: #963472)
+  * slof-ensure-ld-is-called-with-C-locale.patch (Closes: #963470)
+  * update previous changelog, mention #945997
+  * reapply CVE-2020-13253 fixed from upstream:
+    sdcard-simplify-realize-a-bit.patch (preparation for the next patch)
+    sdcard-dont-allow-invalid-SD-card-sizes.patch (half part of CVE-2020-13253)
+    sdcard-update-coding-style-to-make-checkpatch-happy.patch (preparational)
+    sdcard-dont-switch-to-ReceivingData-if-address-is-in..-CVE-2020-13253.patch
+    Closes: #961297, CVE-2020-13253
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 17 Jul 2020 09:12:43 +0300
+
 qemu (1:5.0-7) unstable; urgency=medium
 
   * Revert "d/rules: report config log from the correct subdir - base build"
@@ -6,8 +27,8 @@ qemu (1:5.0-7) unstable; urgency=medium
   * remove sdcard-dont-switch-to-ReceivingData-if-add...-CVE-2020-13253.patch -
     upstream decided to fix it differently (Reopens: #961297, CVE-2020-13253)
   * explicitly specify --enable-tools on hppa and do the same trick
-    with --enable-tcg-interpreter --enable-tools on a few other unnsupported
-    arches (Closes: #964372)
+    with --enable-tcg-interpreter --enable-tools on a few other unsupported
+    arches (Closes: #964372, #945997)
 
  -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 16 Jul 2020 18:36:08 +0300
 

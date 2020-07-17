@@ -1,0 +1,86 @@
+Commit-Id: 794d68de2f021a6d3874df41d6bbe8590ec05207
+From: Philippe Mathieu-Daudé <f4bug@amsat.org>
+Date: Mon, 13 Jul 2020 09:27:35 +0200
+Subject: hw/sd/sdcard: Update coding style to make checkpatch.pl happy
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+To make the next commit easier to review, clean this code first.
+
+Reviewed-by: Peter Maydell <peter.maydell@linaro.org>
+Signed-off-by: Philippe Mathieu-Daudé <f4bug@amsat.org>
+Reviewed-by: Alistair Francis <alistair.francis@wdc.com>
+Reviewed-by: Alexander Bulekov <alxndr@bu.edu>
+Message-Id: <20200630133912.9428-3-f4bug@amsat.org>
+---
+ hw/sd/sd.c | 24 ++++++++++++++++--------
+ 1 file changed, 16 insertions(+), 8 deletions(-)
+
+diff --git a/hw/sd/sd.c b/hw/sd/sd.c
+index 76d68359a4..f4f76f8fd2 100644
+--- a/hw/sd/sd.c
++++ b/hw/sd/sd.c
+@@ -1160,8 +1160,9 @@ static sd_rsp_type_t sd_normal_command(SDState *sd, SDRequest req)
+             sd->data_start = addr;
+             sd->data_offset = 0;
+ 
+-            if (sd->data_start + sd->blk_len > sd->size)
++            if (sd->data_start + sd->blk_len > sd->size) {
+                 sd->card_status |= ADDRESS_ERROR;
++            }
+             return sd_r1;
+ 
+         default:
+@@ -1191,8 +1192,9 @@ static sd_rsp_type_t sd_normal_command(SDState *sd, SDRequest req)
+             sd->data_start = addr;
+             sd->data_offset = 0;
+ 
+-            if (sd->data_start + sd->blk_len > sd->size)
++            if (sd->data_start + sd->blk_len > sd->size) {
+                 sd->card_status |= ADDRESS_ERROR;
++            }
+             return sd_r1;
+ 
+         default:
+@@ -1237,12 +1239,15 @@ static sd_rsp_type_t sd_normal_command(SDState *sd, SDRequest req)
+             sd->data_offset = 0;
+             sd->blk_written = 0;
+ 
+-            if (sd->data_start + sd->blk_len > sd->size)
++            if (sd->data_start + sd->blk_len > sd->size) {
+                 sd->card_status |= ADDRESS_ERROR;
+-            if (sd_wp_addr(sd, sd->data_start))
++            }
++            if (sd_wp_addr(sd, sd->data_start)) {
+                 sd->card_status |= WP_VIOLATION;
+-            if (sd->csd[14] & 0x30)
++            }
++            if (sd->csd[14] & 0x30) {
+                 sd->card_status |= WP_VIOLATION;
++            }
+             return sd_r1;
+ 
+         default:
+@@ -1261,12 +1266,15 @@ static sd_rsp_type_t sd_normal_command(SDState *sd, SDRequest req)
+             sd->data_offset = 0;
+             sd->blk_written = 0;
+ 
+-            if (sd->data_start + sd->blk_len > sd->size)
++            if (sd->data_start + sd->blk_len > sd->size) {
+                 sd->card_status |= ADDRESS_ERROR;
+-            if (sd_wp_addr(sd, sd->data_start))
++            }
++            if (sd_wp_addr(sd, sd->data_start)) {
+                 sd->card_status |= WP_VIOLATION;
+-            if (sd->csd[14] & 0x30)
++            }
++            if (sd->csd[14] & 0x30) {
+                 sd->card_status |= WP_VIOLATION;
++            }
+             return sd_r1;
+ 
+         default:
+-- 
+2.20.1
+
