@@ -3,11 +3,6 @@ debian/tmp/usr/share/man/man1/qemu-system.1
 debian/tmp/usr/share/qemu/trace-events-all
 debian/tmp/usr/share/qemu/vhost-user/50-qemu-gpu.json
 debian/tmp/usr/lib/qemu/vhost-user-gpu
-# virtiofsd requires softmmu, linux, seccomp, & libcap_ng
-debian/tmp/usr/lib/qemu/virtiofsd
-debian/tmp/usr/share/man/man1/virtiofsd.1
-debian/tmp/usr/share/qemu/vhost-user/50-qemu-virtiofsd.json
-#
 debian/tmp/usr/share/man/man7/qemu-qmp-ref.7
 debian/tmp/usr/share/man/man7/qemu-block-drivers.7
 debian/tmp/usr/share/man/man7/qemu-cpu-models.7

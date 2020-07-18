@@ -1,3 +1,30 @@
+qemu (1:5.0-9) unstable; urgency=medium
+
+  * move kvm executable/script from qemu-kvm to qemu-system-foo,
+    make it multi-arch, and remove qemu-kvm package
+  * remove libcacard leftovers from d/.gitignore
+  * linux-user-refactor-ipc-syscall-and-support-of-semtimedop.patch
+    (Closes: #965109)
+  * linux-user-add-netlink-RTM_SETLINK-command.patch (Closes: #964289)
+  * libudev is linux-specific, do not build-depend on it
+    on kfreebsd and others
+  * install virtiofsd in d/rules (!sparc64) instead of
+    d/qemu-system-common.install (fixes FTBFS on sparc64)
+  * confirm -static-pie not working today still
+  * d/control: since qemu-system-data now contains module(s),
+    it can't be multi-arch. Ditto for qemu-block-extra.
+  * qemu-system-foo: depend on exact version of qemu-system-data,
+    due to the latter having modules
+  * build all modules since there are modules anyway,
+    no need to hack them in d/rules
+  * fix spelling in a patch name/subject inlast upload
+  * d/rules: do not use dh_install and dh_movefiles for individual
+    pkgs, open-code mkdir+cp/mv, b/c dh_install acts on all files
+    listed in d/foo.install too, in addition to given on command-line
+  * remove trailing whitespace from d/changelog
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 18 Jul 2020 08:29:38 +0300
+
 qemu (1:5.0-8) unstable; urgency=medium
 
   * d/control: rdma is linux-only, do not enable it on kfreebsd & hurd
@@ -1256,7 +1283,7 @@ qemu (1:2.4+dfsg-3) unstable; urgency=high
     fix for Heap overflow vulnerability in ne2000_receive() function
     (Closes: #799074 CVE-2015-5279)
   * ne2000-avoid-infinite-loop-when-receiving-packets-CVE-2015-5278.patch
-    (Closes: #799073 CVE-2015-5278) 
+    (Closes: #799073 CVE-2015-5278)
   * some binfmt reorg:
    - extend aarch64 to include one more byte as other arches do
    - set OSABI mask to 0xfc for i386, ppc*, s390x, sparc*, to recognize
@@ -1626,7 +1653,7 @@ qemu (2.1+dfsg-1) unstable; urgency=medium
 
 qemu (2.0.0+dfsg-7) unstable; urgency=medium
 
-  * clarify description of qemu-user-binfmt a bit 
+  * clarify description of qemu-user-binfmt a bit
   * build-depend on acpica-tools (iasl) in order to rebuild .dsl files
   * remove qemu-keymaps package, since it is not used by other tools
     anymore, and ship keymaps in qemu-system-common.
@@ -1711,7 +1738,7 @@ qemu (2.0.0+dfsg-1) unstable; urgency=low
   * kmod dependency is linux-any
   * doc-grammify-allows-to.patch: fix some lintian warnings
   * remove alternatives for qemu: different architectures
-    aren't really alternatives and never had been 
+    aren't really alternatives and never had been
   * update Standards-Version to 3.9.5 (no changes needed)
   * exec-limit-translation-limiting-in-address_space_translate-to-xen.diff -
     fixes windows BSOD with virtio-scsi when upgrading from 1.7.0 to 1.7.1

@@ -1,3 +1,16 @@
+qemu (1:5.0-9) unstable; urgency=medium
+
+  With this version, kvm wrapper (initially from the separate kvm
+  package, which were later renamed to qemu-kvm) is merged back
+  to qemu-system-x86 package, replacing old qemu-kvm package.
+  'kvm' command name turned out to be very handy for manual
+  execution of qemu with kvm enabled, and we now rely on the
+  upstream behavor - when executable name ends with "kvm" it
+  enables the kvm mode by default if available, and falls back
+  to TCG if not.
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 17 Jul 2020 12:54:35 +0300
+
 qemu (1.7.0+dfsg-2) unstable; urgency=low
 
   Since version 1.7.0+dfsg-2, qemu-system-x86 switched from vgabios for

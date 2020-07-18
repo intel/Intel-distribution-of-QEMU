@@ -1,7 +1,7 @@
 From: Vagrant Cascadian <vagrant@reproducible-builds.org>
 Date: Sun, 21 Jun 2020 19:38:39 +0000
 X-Dgit-Generated: 1:5.0-6~0~20200621~20 92cdacf1c512114ca313800748a5fc162775f51e
-Subject: roms/seabios-hppa: Use consistant date and remove hostname.
+Subject: roms/seabios-hppa: Use consistent date and remove hostname.
 
 Two issues break reproducibility; the time and hostname get embedded
 in the resulting seabios binary.

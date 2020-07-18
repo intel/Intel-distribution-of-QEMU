@@ -110,7 +110,7 @@ user_targets = \
 endif	# enable_linux_user
 
 ifneq ($(filter $(DEB_HOST_ARCH),i386 x32),)
-# XXX as of 2020-04-29, i386 buildd fails to link -static-pie executable:
+# XXX as of 2020-04-29 and 2020-07-17, i386 buildd fails to link -static-pie executable:
 # /usr/bin/ld: /usr/lib/i386-linux-gnu/libc.a(memset_chk-nonshared.o):
 #	unsupported non-PIC call to IFUNC `memset'
 # so disable PIE for qemu-user-static build on i386 for now.
@@ -137,11 +137,6 @@ b/configure-stamp: configure
 		    $(DEB_HOST_ARCH_OS)-$(DEB_HOST_ARCH) debian/control) \
 		$(QEMU_CONFIGURE_OPTIONS) || \
 	 { echo ===== CONFIGURE FAILED ===; tail -n 50 config.log; exit 1; }
-
-# switch some simple UI and simple audio modules to be built-ins,
-# but keep more complex to be modules to move to a separate package
-	sed -i -r 's/(CONFIG_(CURSES|-GTK|-SDL|AUDIO_(-PA|OSS|ALSA|-SDL)))=m/\1=y/' \
-		b/qemu/config-host.mak
 
 ifneq ($(filter $(DEB_HOST_ARCH),amd64),)
 	# microvm system
@@ -231,6 +226,13 @@ ${sysarch_$1}) \
 	dh_link -pqemu-system-$1 usr/share/doc/qemu-system-common usr/share/doc/qemu-system-$1/common
 
 endef
+# inst-kvm-link package binary-suffix
+define inst-kvm-link
+	dh_link -p $1 usr/bin/qemu-system-$2 usr/bin/kvm
+	mkdir -p debian/$1/usr/share/man/man1
+	sed 's/@ARCH@/$2/g' debian/kvm.1 > debian/$1/usr/share/man/man1/kvm.1
+	touch -r debian/kvm.1 debian/$1/usr/share/man/man1/kvm.1
+endef
 
 binary-arch:
 	dh_testdir
@@ -263,23 +265,36 @@ endif
 
 ifeq ($(DEB_HOST_ARCH_OS),linux)
 
-# /usr/bin/kvm compat script.  This needs some more work for other arches
-# How about a manpage for it?
-ifneq ($(filter $(DEB_HOST_ARCH),amd64 i386),)
-	dh_install -pqemu-kvm debian/kvm /usr/bin/
-	dh_install -pqemu-kvm debian/kvm.1 /usr/share/man/man1/
-ifeq ($(VENDOR),UBUNTU)
+# /usr/bin/kvm handy link multi-arch from old qemu-kvm package
+# on i386, should we link to qemu-system-i386? how about x32?
+ifneq ($(filter ${DEB_HOST_ARCH},amd64 i386),)
+	$(call inst-kvm-link,qemu-system-x86,x86_64)
+ifeq (${VENDOR},UBUNTU)
 # on ubuntu *-spice existed, may be used in libvirt xml and scripts - keep links for compatibility
-	dh_link -pqemu-kvm usr/bin/kvm                usr/bin/kvm-spice
-	echo ".so man1/kvm.1" > debian/qemu-system-x86/usr/share/man/man1/kvm-spice.1
-	dh_link -pqemu-kvm usr/bin/qemu-system-x86_64 usr/bin/qemu-system-x86_64-spice
-	echo ".so man1/qemu-system.1" > debian/qemu-system-x86/usr/share/man/man1/qemu-system-x86_64-spice.1
+	sed 's/@KVM@/ -enable-kvm/' debian/kvm-spice > debian/qemu-system-x86/usr/bin/kvm-spice
+	sed 's/@KVM@//' debian/kvm-spice > debian/qemu-system-x86/usr/bin/qemu-system-x86_64-spice
+	touch -r debian/kvm-spice debian/qemu-system-x86/usr/bin/kvm-spice debian/qemu-system-x86/usr/bin/qemu-system-x86_64-spice
+	chmod 0755                debian/qemu-system-x86/usr/bin/kvm-spice debian/qemu-system-x86/usr/bin/qemu-system-x86_64-spice
+	install -p -t debian/qemu-system-x86/usr/share/man/man1/ debian/kvm-spice.1
+	echo ".so man1/kvm-spice.1" > debian/qemu-system-x86/usr/share/man/man1/qemu-system-x86_64-spice.1
 endif
+endif
+ifneq ($(filter ${DEB_HOST_ARCH},arm64),)
+	$(call inst-kvm-link,qemu-system-arm,aarch64)
+endif
+ifneq ($(filter ${DEB_HOST_ARCH},armhf armel),)
+	$(call inst-kvm-link,qemu-system-arm,arm)
+endif
+ifneq ($(filter ${DEB_HOST_ARCH},ppc64 ppc64el),)
+	$(call inst-kvm-link,qemu-system-ppc,ppc64)
+endif
+ifneq ($(filter ${DEB_HOST_ARCH},s390x),)
+	$(call inst-kvm-link,qemu-system-$(if ifeq(${VENDOR},UBUNTU),s390x,misc)),s390x)
 endif
 ifeq ($(VENDOR),UBUNTU)
 # apport hook is ubuntu-specific
-	dh_install -pqemu-system-common debian/source_qemu.py \
-		usr/share/apport/package-hooks/
+	install -p -D -t debian/qemu-system-common/usr/share/apport/package-hooks/ \
+		 debian/source_qemu.py
 endif
 
 # virtfs-proxy-helper and qemu-bridge-helper are linux-specific
@@ -290,6 +305,18 @@ endif
 	  mkdir -p debian/qemu-system-common/$${f%/*} ; \
 	  mv debian/tmp/$$f debian/qemu-system-common/$$f ; \
 	done
+
+ifneq (${DEB_HOST_ARCH},sparc64)
+# virtiofsd needs libseccomp which is not ported to sparc (not even the kernel part),
+# so install it only on non-sparc
+	for f in usr/lib/qemu/virtiofsd \
+		 usr/share/man/man1/virtiofsd.1 \
+		 usr/share/qemu/vhost-user/50-qemu-virtiofsd.json \
+	; do \
+	  mkdir -p debian/qemu-system-common/$${f%/*} ; \
+	  mv debian/tmp/$$f debian/qemu-system-common/$$f ; \
+	done
+endif
 
 # ui-spice-app is optional (see d/control for spice)
 	if [ -f debian/tmp${libdir}/qemu/ui-spice-app.so ]; then \
@@ -303,7 +330,8 @@ endif # linux
 endif # enable_system
 
 ifeq ($(enable_linux_user),enable)
-	dh_movefiles -p qemu-user $(patsubst %,usr/bin/qemu-%,${user_targets})
+	mkdir -p debian/qemu-user/usr/bin
+	mv -t debian/qemu-user/usr/bin $(patsubst %,debian/tmp/usr/bin/qemu-%,${user_targets})
 	dh_link -p qemu-user $(patsubst %,usr/share/man/man1/qemu-user.1 usr/share/man/man1/qemu-%.1,${user_targets})
 
 	# qemu-user-static
