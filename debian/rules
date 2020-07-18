@@ -77,11 +77,7 @@ system_targets = \
  sh4 sh4eb sparc sparc64 s390x tricore xtensa xtensaeb unicore32
 
 # qemu-system subpackages, from d/control
-ifeq ($(VENDOR),UBUNTU)
-sys_systems = arm mips ppc sparc x86 s390x
-else
-sys_systems = arm mips ppc sparc x86
-endif
+sys_systems = arm mips ppc sparc x86 $(if $(filter ${VENDOR},UBUNTU),s390x,)
 systems = ${sys_systems} misc
 sysarch_arm   = $(filter aarch64 arm,${system_targets})
 sysarch_mips  = $(filter mips mipsel mips64 mips64el,${system_targets})
@@ -289,7 +285,7 @@ ifneq ($(filter ${DEB_HOST_ARCH},ppc64 ppc64el),)
 	$(call inst-kvm-link,qemu-system-ppc,ppc64)
 endif
 ifneq ($(filter ${DEB_HOST_ARCH},s390x),)
-	$(call inst-kvm-link,qemu-system-$(if ifeq(${VENDOR},UBUNTU),s390x,misc)),s390x)
+	$(call inst-kvm-link,qemu-system-$(if $(filter ${VENDOR},UBUNTU),s390x,misc),s390x)
 endif
 ifeq ($(VENDOR),UBUNTU)
 # apport hook is ubuntu-specific

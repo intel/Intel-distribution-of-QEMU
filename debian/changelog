@@ -1,3 +1,10 @@
+qemu (1:5.0-10) unstable; urgency=medium
+
+  * fix the wrong $(if) construct for s390x kvm link (FTBFS on s390x)
+  * use the same $(if) construct to simplify #ifdeffery
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 18 Jul 2020 10:02:41 +0300
+
 qemu (1:5.0-9) unstable; urgency=medium
 
   * move kvm executable/script from qemu-kvm to qemu-system-foo,
