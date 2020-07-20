@@ -1,3 +1,17 @@
+qemu (1:5.0-11) unstable; urgency=high
+
+  * d/control-in: only enable opengl (libdrm&Co) on linux
+  * d/control-in: spice: drop versioned deps (even jessie version is enough),
+    drop libspice-protocol-dev (automatically pulled by libspice-server-dev),
+    and build on more architectures
+  * change from debhelper versioned dependency to debhelper-compat (=12)
+  * acpi-allow-accessing-acpi-cnt-register-by-byte.patch' (Closes: #964793)
+    This is another incarnation of the recent bugfix which actually enabled
+    memory access constraints, like #964247
+    Urgency = high due to this issue.
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 20 Jul 2020 18:41:17 +0300
+
 qemu (1:5.0-10) unstable; urgency=medium
 
   * fix the wrong $(if) construct for s390x kvm link (FTBFS on s390x)
