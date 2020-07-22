@@ -1,3 +1,25 @@
+qemu (1:5.0-12) unstable; urgency=medium
+
+  * acpi-accept-byte-and-word-access-to-core-ACPI-registers.patch
+    this replace cpi-allow-accessing-acpi-cnt-register-by-byte.patch
+    and acpi-tmr-allow-2-byte-reads.patch, a more complete fix
+  * xhci-fix-valid.max_access_size-to-access-address-registers.patch
+    fix one more incarnation of the breakage after the CVE-2020-13754 fix
+  * do not install outdated (0.12 and before) Changelog (Closes: #965381)
+  * xgmac-fix-buffer-overflow-in-xgmac_enet_send-CVE-2020-15863.patch
+    ARM-only XGMAC NIC, possible buffer overflow during packet transmission
+    Closes: CVE-2020-15863
+  * sm501 OOB read/write due to integer overflow in sm501_2d_operation()
+    List of patches:
+     sm501-convert-printf-abort-to-qemu_log_mask.patch
+     sm501-shorten-long-variable-names-in-sm501_2d_operation.patch
+     sm501-use-BIT-macro-to-shorten-constant.patch
+     sm501-clean-up-local-variables-in-sm501_2d_operation.patch
+     sm501-replace-hand-written-implementation-with-pixman-CVE-2020-12829.patch
+    Closes: #961451, CVE-2020-12829
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 22 Jul 2020 19:42:29 +0300
+
 qemu (1:5.0-11) unstable; urgency=high
 
   * d/control-in: only enable opengl (libdrm&Co) on linux

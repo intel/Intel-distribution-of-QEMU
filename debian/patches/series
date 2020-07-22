@@ -25,8 +25,8 @@ fix-tulip-breakage.patch
 fix-qga-assert-regression.patch
 ati-vga-check-mm_index-before-recursive-call-CVE-2020-13800.patch
 revert-memory-accept-mismatching-sizes-in-memory_region_access_valid-CVE-2020-13754.patch
-acpi-tmr-allow-2-byte-reads.patch
-acpi-allow-accessing-acpi-cnt-register-by-byte.patch
+acpi-accept-byte-and-word-access-to-core-ACPI-registers.patch
+xhci-fix-valid.max_access_size-to-access-address-registers.patch
 exec-set-map-length-to-zero-when-returning-NULL-CVE-2020-13659.patch
 megasas-use-unsigned-type-for-reply_queue_head-and-check-index-CVE-2020-13362.patch
 megasas-use-unsigned-type-for-positive-numeric-fields.patch
@@ -37,3 +37,9 @@ sdcard-simplify-realize-a-bit.patch
 sdcard-dont-allow-invalid-SD-card-sizes.patch
 sdcard-update-coding-style-to-make-checkpatch-happy.patch
 sdcard-dont-switch-to-ReceivingData-if-address-is-invalid-CVE-2020-13253.patch
+xgmac-fix-buffer-overflow-in-xgmac_enet_send-CVE-2020-15863.patch
+sm501-convert-printf-abort-to-qemu_log_mask.patch
+sm501-shorten-long-variable-names-in-sm501_2d_operation.patch
+sm501-use-BIT-macro-to-shorten-constant.patch
+sm501-clean-up-local-variables-in-sm501_2d_operation.patch
+sm501-replace-hand-written-implementation-with-pixman-CVE-2020-12829.patch
