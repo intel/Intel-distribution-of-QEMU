@@ -1,3 +1,10 @@
+qemu (1:5.0-13) unstable; urgency=medium
+
+  * seabios-hppa-fno-ipa-sra.patch
+    fix ftbfs with gcc-10
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 22 Jul 2020 22:16:41 +0300
+
 qemu (1:5.0-12) unstable; urgency=medium
 
   * acpi-accept-byte-and-word-access-to-core-ACPI-registers.patch
