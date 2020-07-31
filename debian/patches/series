@@ -28,6 +28,7 @@ ati-vga-check-mm_index-before-recursive-call-CVE-2020-13800.patch
 revert-memory-accept-mismatching-sizes-in-memory_region_access_valid-CVE-2020-13754.patch
 acpi-accept-byte-and-word-access-to-core-ACPI-registers.patch
 xhci-fix-valid.max_access_size-to-access-address-registers.patch
+riscv-allow-64-bit-access-to-SiFive-CLINT.patch
 exec-set-map-length-to-zero-when-returning-NULL-CVE-2020-13659.patch
 megasas-use-unsigned-type-for-reply_queue_head-and-check-index-CVE-2020-13362.patch
 megasas-use-unsigned-type-for-positive-numeric-fields.patch

@@ -13,3 +13,4 @@ debian/tmp/usr/bin/ivshmem-server
 debian/tmp/usr/bin/ivshmem-client
 debian/tmp/usr/bin/qemu-pr-helper
 debian/tmp/usr/bin/qemu-storage-daemon
+debian/tmp/usr/lib/*/qemu/ui-curses.so

@@ -1,3 +1,13 @@
+qemu (1:5.0-14) unstable; urgency=high
+
+  * this is a bugfix release before breaking toys with the new upstream
+  * riscv-allow-64-bit-access-to-SiFive-CLINT.patch
+    (another fix for revert-memory-accept-..-CVE-2020-13754)
+  * install /usr/lib/*/qemu/ui-curses.so in qemu-system-common
+    Closes: #966517
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 31 Jul 2020 11:45:25 +0300
+
 qemu (1:5.0-13) unstable; urgency=medium
 
   * seabios-hppa-fno-ipa-sra.patch
