@@ -1,3 +1,20 @@
+qemu (1:5.1+dfsg-0exp1) experimental; urgency=medium
+
+  * new upstream release 5.1.0. Make source DFSG-clean again
+    Closes: #968088
+  * remove all patches which are applied upstream
+  * do not install non-existing doc/qemu/*-ref.*
+  * qemu-pr-helper is now in /usr/lib/qemu not /usr/bin
+  * virtfs-proxy-helper is in /usr/lib/qemu now, not /usr/bin
+  * new architecture: qemu-system-avr
+  * refresh d/get-orig-source.sh
+  * d/get-orig-source.sh: report already removed files in dfsg-clean
+  * install common modules in qemu-system-common
+  * lintian tag renamed: shared-lib-without-dependency-information to
+    shared-library-lacks-prerequisites
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 12 Aug 2020 19:09:24 +0300
+
 qemu (1:5.0-14) unstable; urgency=high
 
   * this is a bugfix release before breaking toys with the new upstream

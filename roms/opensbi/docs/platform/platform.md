@@ -25,6 +25,9 @@ OpenSBI currently supports the following virtual and hardware platforms:
 
 * **Spike**: Platform support for the Spike emulator.
 
+* **OpenPiton FPGA SoC**: Platform support OpenPiton research platform based on
+ariane core.
+
 The code for these supported platforms can be used as example to implement
 support for other platforms. The *platform/template* directory also provides
 template files for implementing support for a new platform. The *object.mk*,
@@ -33,7 +36,8 @@ facilitate the implementation.
 
 [qemu_virt.md]: qemu_virt.md
 [sifive_fu540.md]: sifive_fu540.md
-[ariane-fpga.md]: ariane-fpga.md
+[fpga-ariane.md]: fpga-ariane.md
 [andes_ae350.md]: andes-ae350.md
 [thead-c910.md]: thead-c910.md
 [spike.md]: spike.md
+[fpga_openpiton.md]: fpga_openpiton.md

@@ -10,9 +10,10 @@
 #ifndef __SBI_PLATFORM_H__
 #define __SBI_PLATFORM_H__
 
-/** OpenSBI 32-bit platform version with:
- *  1. upper 16-bits as major number
- *  2. lower 16-bits as minor number
+/**
+ * OpenSBI 32-bit platform version with:
+ * 1. upper 16-bits as major number
+ * 2. lower 16-bits as minor number
  */
 #define SBI_PLATFORM_VERSION(Major, Minor) ((Major << 16) | Minor)
 
@@ -28,12 +29,12 @@
 #define SBI_PLATFORM_HART_COUNT_OFFSET (0x50)
 /** Offset of hart_stack_size in struct sbi_platform */
 #define SBI_PLATFORM_HART_STACK_SIZE_OFFSET (0x54)
-/** Offset of disabled_hart_mask in struct sbi_platform */
-#define SBI_PLATFORM_DISABLED_HART_OFFSET (0x58)
 /** Offset of platform_ops_addr in struct sbi_platform */
-#define SBI_PLATFORM_OPS_OFFSET (0x60)
+#define SBI_PLATFORM_OPS_OFFSET (0x58)
 /** Offset of firmware_context in struct sbi_platform */
-#define SBI_PLATFORM_FIRMWARE_CONTEXT_OFFSET (0x60 + __SIZEOF_POINTER__)
+#define SBI_PLATFORM_FIRMWARE_CONTEXT_OFFSET (0x58 + __SIZEOF_POINTER__)
+/** Offset of hart_index2id in struct sbi_platform */
+#define SBI_PLATFORM_HART_INDEX2ID_OFFSET (0x58 + (__SIZEOF_POINTER__ * 2))
 
 #define SBI_PLATFORM_TLB_RANGE_FLUSH_LIMIT_DEFAULT		(1UL << 12)
 
@@ -59,6 +60,8 @@ enum sbi_platform_features {
 	SBI_PLATFORM_HAS_MCOUNTEREN = (1 << 4),
 	/** Platform has fault delegation support */
 	SBI_PLATFORM_HAS_MFAULTS_DELEGATION = (1 << 5),
+	/** Platform has custom secondary hart booting support */
+	SBI_PLATFORM_HAS_HART_SECONDARY_BOOT = (1 << 6),
 };
 
 /** Default feature set for a platform */
@@ -79,12 +82,14 @@ struct sbi_platform_operations {
 	/** Platform final exit */
 	void (*final_exit)(void);
 
-	/** For platforms that do not implement misa, non-standard
+	/**
+	 * For platforms that do not implement misa, non-standard
 	 * methods are needed to determine cpu extension.
 	 */
 	int (*misa_check_extension)(char ext);
 
-	/** For platforms that do not implement misa, non-standard
+	/**
+	 * For platforms that do not implement misa, non-standard
 	 * methods are needed to get MXL field of misa.
 	 */
 	int (*misa_get_xlen)(void);
@@ -133,6 +138,14 @@ struct sbi_platform_operations {
 	/** Exit platform timer for current HART */
 	void (*timer_exit)(void);
 
+	/** Bringup the given hart */
+	int (*hart_start)(u32 hartid, ulong saddr);
+	/**
+	 * Stop the current hart from running. This call doesn't expect to
+	 * return if success.
+	 */
+	int (*hart_stop)(void);
+
 	/** Reboot the platform */
 	int (*system_reboot)(u32 type);
 	/** Shutdown or poweroff the platform */
@@ -146,6 +159,9 @@ struct sbi_platform_operations {
 				   unsigned long *out_value,
 				   struct sbi_trap_info *out_trap);
 } __packed;
+
+/** Platform default per-HART stack size for exception/interrupt handling */
+#define SBI_PLATFORM_DEFAULT_HART_STACK_SIZE	8192
 
 /** Representation of a platform */
 struct sbi_platform {
@@ -169,12 +185,26 @@ struct sbi_platform {
 	u32 hart_count;
 	/** Per-HART stack size for exception/interrupt handling */
 	u32 hart_stack_size;
-	/** Mask representing the set of disabled HARTs */
-	u64 disabled_hart_mask;
 	/** Pointer to sbi platform operations */
 	unsigned long platform_ops_addr;
 	/** Pointer to system firmware specific context */
 	unsigned long firmware_context;
+	/**
+	 * HART index to HART id table
+	 *
+	 * For used HART index <abc>:
+	 *     hart_index2id[<abc>] = some HART id
+	 * For unused HART index <abc>:
+	 *     hart_index2id[<abc>] = -1U
+	 *
+	 * If hart_index2id == NULL then we assume identity mapping
+	 *     hart_index2id[<abc>] = <abc>
+	 *
+	 * We have only two restrictions:
+	 * 1. HART index < sbi_platform hart_count
+	 * 2. HART id < SBI_HARTMASK_MAX_BITS
+	 */
+	const u32 *hart_index2id;
 } __packed;
 
 /** Get pointer to sbi_platform for sbi_scratch pointer */
@@ -204,6 +234,9 @@ struct sbi_platform {
 /** Check whether the platform supports fault delegation */
 #define sbi_platform_has_mfaults_delegation(__p) \
 	((__p)->features & SBI_PLATFORM_HAS_MFAULTS_DELEGATION)
+/** Check whether the platform supports custom secondary hart booting support */
+#define sbi_platform_has_hart_secondary_boot(__p) \
+	((__p)->features & SBI_PLATFORM_HAS_HART_SECONDARY_BOOT)
 
 /**
  * Get name of the platform
@@ -217,22 +250,6 @@ static inline const char *sbi_platform_name(const struct sbi_platform *plat)
 	if (plat)
 		return plat->name;
 	return "Unknown";
-}
-
-/**
- * Check whether the given HART is disabled
- *
- * @param plat pointer to struct sbi_platform
- * @param hartid HART ID
- *
- * @return TRUE if HART is disabled and FALSE otherwise
- */
-static inline bool sbi_platform_hart_disabled(const struct sbi_platform *plat,
-					      u32 hartid)
-{
-	if (plat && (plat->disabled_hart_mask & (1 << hartid)))
-		return TRUE;
-	return FALSE;
 }
 
 /**
@@ -277,6 +294,83 @@ static inline u32 sbi_platform_hart_stack_size(const struct sbi_platform *plat)
 	if (plat)
 		return plat->hart_stack_size;
 	return 0;
+}
+
+/**
+ * Get HART index for the given HART
+ *
+ * @param plat pointer to struct sbi_platform
+ * @param hartid HART ID
+ *
+ * @return 0 <= value < hart_count for valid HART otherwise -1U
+ */
+static inline u32 sbi_platform_hart_index(const struct sbi_platform *plat,
+					  u32 hartid)
+{
+	u32 i;
+
+	if (!plat)
+		return -1U;
+	if (plat->hart_index2id) {
+		for (i = 0; i < plat->hart_count; i++) {
+			if (plat->hart_index2id[i] == hartid)
+				return i;
+		}
+		return -1U;
+	}
+
+	return hartid;
+}
+
+/**
+ * Check whether given HART is invalid
+ *
+ * @param plat pointer to struct sbi_platform
+ * @param hartid HART ID
+ *
+ * @return TRUE if HART is invalid and FALSE otherwise
+ */
+static inline bool sbi_platform_hart_invalid(const struct sbi_platform *plat,
+					     u32 hartid)
+{
+	if (!plat)
+		return TRUE;
+	if (plat->hart_count <= sbi_platform_hart_index(plat, hartid))
+		return TRUE;
+	return FALSE;
+}
+
+/**
+ * Bringup a given hart from previous stage. Platform should implement this
+ * operation if they support a custom mechanism to start a hart. Otherwise,
+ * a generic WFI based approach will be used to start/stop a hart in OpenSBI.
+ *
+ * @param plat pointer to struct sbi_platform
+ * @param hartid HART id
+ * @param saddr M-mode start physical address for the HART
+ *
+ * @return 0 if sucessful and negative error code on failure
+ */
+static inline int sbi_platform_hart_start(const struct sbi_platform *plat,
+					  u32 hartid, ulong saddr)
+{
+	if (plat && sbi_platform_ops(plat)->hart_start)
+		return sbi_platform_ops(plat)->hart_start(hartid, saddr);
+	return SBI_ENOTSUPP;
+}
+
+/**
+ * Stop the current hart in OpenSBI.
+ *
+ * @param plat pointer to struct sbi_platform
+ *
+ * @return Negative error code on failure. It doesn't return on success.
+ */
+static inline int sbi_platform_hart_stop(const struct sbi_platform *plat)
+{
+	if (plat && sbi_platform_ops(plat)->hart_stop)
+		return sbi_platform_ops(plat)->hart_stop();
+	return SBI_ENOTSUPP;
 }
 
 /**

@@ -9,15 +9,15 @@
 
 #include <sbi/riscv_asm.h>
 #include <sbi/riscv_encoding.h>
-#include <sbi/sbi_bits.h>
+#include <sbi/sbi_bitops.h>
 #include <sbi/sbi_console.h>
 #include <sbi/sbi_emulate_csr.h>
 #include <sbi/sbi_error.h>
 #include <sbi/sbi_timer.h>
 #include <sbi/sbi_trap.h>
 
-int sbi_emulate_csr_read(int csr_num, u32 hartid, struct sbi_trap_regs *regs,
-			 struct sbi_scratch *scratch, ulong *csr_val)
+int sbi_emulate_csr_read(int csr_num, struct sbi_trap_regs *regs,
+			 ulong *csr_val)
 {
 	int ret = 0;
 	ulong cen = -1UL;
@@ -34,7 +34,7 @@ int sbi_emulate_csr_read(int csr_num, u32 hartid, struct sbi_trap_regs *regs,
 	switch (csr_num) {
 	case CSR_HTIMEDELTA:
 		if (prev_mode == PRV_S && !virt)
-			*csr_val = sbi_timer_get_delta(scratch);
+			*csr_val = sbi_timer_get_delta();
 		else
 			ret = SBI_ENOTSUPP;
 		break;
@@ -46,8 +46,8 @@ int sbi_emulate_csr_read(int csr_num, u32 hartid, struct sbi_trap_regs *regs,
 	case CSR_TIME:
 		if (!((cen >> (CSR_TIME - CSR_CYCLE)) & 1))
 			return -1;
-		*csr_val = (virt) ? sbi_timer_virt_value(scratch):
-				    sbi_timer_value(scratch);
+		*csr_val = (virt) ? sbi_timer_virt_value():
+				    sbi_timer_value();
 		break;
 	case CSR_INSTRET:
 		if (!((cen >> (CSR_INSTRET - CSR_CYCLE)) & 1))
@@ -67,7 +67,7 @@ int sbi_emulate_csr_read(int csr_num, u32 hartid, struct sbi_trap_regs *regs,
 #if __riscv_xlen == 32
 	case CSR_HTIMEDELTAH:
 		if (prev_mode == PRV_S && !virt)
-			*csr_val = sbi_timer_get_delta(scratch) >> 32;
+			*csr_val = sbi_timer_get_delta() >> 32;
 		else
 			ret = SBI_ENOTSUPP;
 		break;
@@ -79,8 +79,8 @@ int sbi_emulate_csr_read(int csr_num, u32 hartid, struct sbi_trap_regs *regs,
 	case CSR_TIMEH:
 		if (!((cen >> (CSR_TIME - CSR_CYCLE)) & 1))
 			return -1;
-		*csr_val = (virt) ? sbi_timer_virt_value(scratch) >> 32:
-				    sbi_timer_value(scratch) >> 32;
+		*csr_val = (virt) ? sbi_timer_virt_value() >> 32:
+				    sbi_timer_value() >> 32;
 		break;
 	case CSR_INSTRETH:
 		if (!((cen >> (CSR_INSTRET - CSR_CYCLE)) & 1))
@@ -110,14 +110,14 @@ int sbi_emulate_csr_read(int csr_num, u32 hartid, struct sbi_trap_regs *regs,
 	};
 
 	if (ret)
-		sbi_dprintf(scratch, "%s: hartid%d: invalid csr_num=0x%x\n",
-			    __func__, hartid, csr_num);
+		sbi_dprintf("%s: hartid%d: invalid csr_num=0x%x\n",
+			    __func__, current_hartid(), csr_num);
 
 	return ret;
 }
 
-int sbi_emulate_csr_write(int csr_num, u32 hartid, struct sbi_trap_regs *regs,
-			  struct sbi_scratch *scratch, ulong csr_val)
+int sbi_emulate_csr_write(int csr_num, struct sbi_trap_regs *regs,
+			  ulong csr_val)
 {
 	int ret = 0;
 	ulong prev_mode = (regs->mstatus & MSTATUS_MPP) >> MSTATUS_MPP_SHIFT;
@@ -130,7 +130,7 @@ int sbi_emulate_csr_write(int csr_num, u32 hartid, struct sbi_trap_regs *regs,
 	switch (csr_num) {
 	case CSR_HTIMEDELTA:
 		if (prev_mode == PRV_S && !virt)
-			sbi_timer_set_delta(scratch, csr_val);
+			sbi_timer_set_delta(csr_val);
 		else
 			ret = SBI_ENOTSUPP;
 		break;
@@ -149,7 +149,7 @@ int sbi_emulate_csr_write(int csr_num, u32 hartid, struct sbi_trap_regs *regs,
 #if __riscv_xlen == 32
 	case CSR_HTIMEDELTAH:
 		if (prev_mode == PRV_S && !virt)
-			sbi_timer_set_delta_upper(scratch, csr_val);
+			sbi_timer_set_delta_upper(csr_val);
 		else
 			ret = SBI_ENOTSUPP;
 		break;
@@ -178,8 +178,8 @@ int sbi_emulate_csr_write(int csr_num, u32 hartid, struct sbi_trap_regs *regs,
 	};
 
 	if (ret)
-		sbi_dprintf(scratch, "%s: hartid%d: invalid csr_num=0x%x\n",
-			    __func__, hartid, csr_num);
+		sbi_dprintf("%s: hartid%d: invalid csr_num=0x%x\n",
+			    __func__, current_hartid(), csr_num);
 
 	return ret;
 }

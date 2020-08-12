@@ -187,20 +187,19 @@ static void sbi_tlb_local_flush(struct sbi_tlb_info *tinfo)
 	return;
 }
 
-static void sbi_tlb_entry_process(struct sbi_scratch *scratch,
-				  struct sbi_tlb_info *tinfo)
+static void sbi_tlb_entry_process(struct sbi_tlb_info *tinfo)
 {
-	u32 i;
-	u64 m;
+	u32 rhartid;
 	struct sbi_scratch *rscratch = NULL;
 	unsigned long *rtlb_sync = NULL;
 
 	sbi_tlb_local_flush(tinfo);
-	for (i = 0, m = tinfo->shart_mask; m; i++, m >>= 1) {
-		if (!(m & 1UL))
+
+	sbi_hartmask_for_each_hart(rhartid, &tinfo->smask) {
+		rscratch = sbi_hartid_to_scratch(rhartid);
+		if (!rscratch)
 			continue;
 
-		rscratch = sbi_hart_id_to_scratch(scratch, i);
 		rtlb_sync = sbi_scratch_offset_ptr(rscratch, tlb_sync_off);
 		while (atomic_raw_xchg_ulong(rtlb_sync, 1)) ;
 	}
@@ -214,7 +213,7 @@ static void sbi_tlb_process_count(struct sbi_scratch *scratch, int count)
 			sbi_scratch_offset_ptr(scratch, tlb_fifo_off);
 
 	while (!sbi_fifo_dequeue(tlb_fifo, &tinfo)) {
-		sbi_tlb_entry_process(scratch, &tinfo);
+		sbi_tlb_entry_process(&tinfo);
 		deq_count++;
 		if (deq_count > count)
 			break;
@@ -229,7 +228,7 @@ static void sbi_tlb_process(struct sbi_scratch *scratch)
 			sbi_scratch_offset_ptr(scratch, tlb_fifo_off);
 
 	while (!sbi_fifo_dequeue(tlb_fifo, &tinfo))
-		sbi_tlb_entry_process(scratch, &tinfo);
+		sbi_tlb_entry_process(&tinfo);
 }
 
 static void sbi_tlb_sync(struct sbi_scratch *scratch)
@@ -263,11 +262,11 @@ static inline int __sbi_tlb_range_check(struct sbi_tlb_info *curr,
 	if (next->start <= curr->start && next_end > curr_end) {
 		curr->start = next->start;
 		curr->size  = next->size;
-		curr->shart_mask = curr->shart_mask | next->shart_mask;
-		ret	    = SBI_FIFO_UPDATED;
+		sbi_hartmask_or(&curr->smask, &curr->smask, &next->smask);
+		ret = SBI_FIFO_UPDATED;
 	} else if (next->start >= curr->start && next_end <= curr_end) {
-		curr->shart_mask = curr->shart_mask | next->shart_mask;
-		ret		 = SBI_FIFO_SKIP;
+		sbi_hartmask_or(&curr->smask, &curr->smask, &next->smask);
+		ret = SBI_FIFO_SKIP;
 	}
 
 	return ret;
@@ -322,7 +321,7 @@ static int sbi_tlb_update(struct sbi_scratch *scratch,
 	int ret;
 	struct sbi_fifo *tlb_fifo_r;
 	struct sbi_tlb_info *tinfo = data;
-	u32 curr_hartid = sbi_current_hartid();
+	u32 curr_hartid = current_hartid();
 
 	/*
 	 * If address range to flush is too big then simply
@@ -360,7 +359,7 @@ static int sbi_tlb_update(struct sbi_scratch *scratch,
 		 * this properly.
 		 */
 		sbi_tlb_process_count(scratch, 1);
-		sbi_dprintf(remote_scratch, "hart%d: hart%d tlb fifo full\n",
+		sbi_dprintf("hart%d: hart%d tlb fifo full\n",
 			    curr_hartid, remote_hartid);
 	}
 
@@ -376,10 +375,9 @@ static struct sbi_ipi_event_ops tlb_ops = {
 
 static u32 tlb_event = SBI_IPI_EVENT_MAX;
 
-int sbi_tlb_request(struct sbi_scratch *scratch, ulong hmask,
-		    ulong hbase, struct sbi_tlb_info *tinfo)
+int sbi_tlb_request(ulong hmask, ulong hbase, struct sbi_tlb_info *tinfo)
 {
-	return sbi_ipi_send_many(scratch, hmask, hbase, tlb_event, tinfo);
+	return sbi_ipi_send_many(hmask, hbase, tlb_event, tinfo);
 }
 
 int sbi_tlb_init(struct sbi_scratch *scratch, bool cold_boot)
@@ -392,11 +390,11 @@ int sbi_tlb_init(struct sbi_scratch *scratch, bool cold_boot)
 
 	if (cold_boot) {
 		tlb_sync_off = sbi_scratch_alloc_offset(sizeof(*tlb_sync),
-							    "IPI_TLB_SYNC");
+							"IPI_TLB_SYNC");
 		if (!tlb_sync_off)
 			return SBI_ENOMEM;
 		tlb_fifo_off = sbi_scratch_alloc_offset(sizeof(*tlb_q),
-							    "IPI_TLB_FIFO");
+							"IPI_TLB_FIFO");
 		if (!tlb_fifo_off) {
 			sbi_scratch_free_offset(tlb_sync_off);
 			return SBI_ENOMEM;

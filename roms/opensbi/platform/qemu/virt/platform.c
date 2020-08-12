@@ -8,11 +8,13 @@
  *   Nick Kossifidis <mick@ics.forth.gr>
  */
 
+#include <sbi/riscv_asm.h>
 #include <sbi/riscv_encoding.h>
 #include <sbi/riscv_io.h>
 #include <sbi/sbi_const.h>
 #include <sbi/sbi_hart.h>
 #include <sbi/sbi_platform.h>
+#include <sbi_utils/fdt/fdt_fixup.h>
 #include <sbi_utils/irqchip/plic.h>
 #include <sbi_utils/serial/uart8250.h>
 #include <sbi_utils/sys/clint.h>
@@ -20,7 +22,6 @@
 /* clang-format off */
 
 #define VIRT_HART_COUNT			8
-#define VIRT_HART_STACK_SIZE		8192
 
 #define VIRT_TEST_ADDR			0x100000
 #define VIRT_TEST_FINISHER_FAIL		0x3333
@@ -46,7 +47,7 @@ static int virt_final_init(bool cold_boot)
 		return 0;
 
 	fdt = sbi_scratch_thishart_arg1_ptr();
-	plic_fdt_fixup(fdt, "riscv,plic0");
+	fdt_fixups(fdt);
 
 	return 0;
 }
@@ -84,7 +85,7 @@ static int virt_console_init(void)
 static int virt_irqchip_init(bool cold_boot)
 {
 	int rc;
-	u32 hartid = sbi_current_hartid();
+	u32 hartid = current_hartid();
 
 	if (cold_boot) {
 		rc = plic_cold_irqchip_init(
@@ -158,7 +159,6 @@ const struct sbi_platform platform = {
 	.name			= "QEMU Virt Machine",
 	.features		= SBI_PLATFORM_DEFAULT_FEATURES,
 	.hart_count		= VIRT_HART_COUNT,
-	.hart_stack_size	= VIRT_HART_STACK_SIZE,
-	.disabled_hart_mask	= 0,
+	.hart_stack_size	= SBI_PLATFORM_DEFAULT_HART_STACK_SIZE,
 	.platform_ops_addr	= (unsigned long)&platform_ops
 };

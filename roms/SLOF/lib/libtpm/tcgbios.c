@@ -33,6 +33,7 @@
 #include "helpers.h"
 #include "version.h"
 #include "OF.h"
+#include "libelf.h"
 
 #undef TCGBIOS_DEBUG
 //#define TCGBIOS_DEBUG
@@ -68,6 +69,9 @@ static struct {
 #define TPM2_ALG_SHA384_FLAG        (1 << 2)
 #define TPM2_ALG_SHA512_FLAG        (1 << 3)
 #define TPM2_ALG_SM3_256_FLAG       (1 << 4)
+#define TPM2_ALG_SHA3_256_FLAG      (1 << 5)
+#define TPM2_ALG_SHA3_384_FLAG      (1 << 6)
+#define TPM2_ALG_SHA3_512_FLAG      (1 << 7)
 
 static const uint8_t ZeroGuid[16] = { 0 };
 
@@ -114,9 +118,10 @@ static void probe_tpm(void)
 struct tpm_log_entry {
 	TCG_PCR_EVENT2_Header hdr;
 	uint8_t pad[sizeof(struct TPML_DIGEST_VALUES)
-	   + 5 * sizeof(struct TPMT_HA)
+	   + 8 * sizeof(struct TPMT_HA)
 	   + SHA1_BUFSIZE + SHA256_BUFSIZE + SHA384_BUFSIZE
-	   + SHA512_BUFSIZE + SM3_256_BUFSIZE];
+	   + SHA512_BUFSIZE + SM3_256_BUFSIZE + SHA3_256_BUFSIZE
+	   + SHA3_384_BUFSIZE + SHA3_512_BUFSIZE];
 } __attribute__((packed));
 
 static const struct hash_parameters {
@@ -151,6 +156,21 @@ static const struct hash_parameters {
 		.hashalg_flag = TPM2_ALG_SM3_256_FLAG,
 		.hash_buffersize = SM3_256_BUFSIZE,
 		.name = "SM3-256",
+	}, {
+		.hashalg = TPM2_ALG_SHA3_256,
+		.hashalg_flag = TPM2_ALG_SHA3_256_FLAG,
+		.hash_buffersize = SHA3_256_BUFSIZE,
+		.name = "SHA3-256",
+	}, {
+		.hashalg = TPM2_ALG_SHA3_384,
+		.hashalg_flag = TPM2_ALG_SHA3_384_FLAG,
+		.hash_buffersize = SHA3_384_BUFSIZE,
+		.name = "SHA3-384",
+	}, {
+		.hashalg = TPM2_ALG_SHA3_512,
+		.hashalg_flag = TPM2_ALG_SHA3_512_FLAG,
+		.hash_buffersize = SHA3_512_BUFSIZE,
+		.name = "SHA3-512",
 	}
 };
 
@@ -236,7 +256,7 @@ static int tpm20_build_digest(struct tpm_log_entry *le, const uint8_t *sha256,
 	struct tpms_pcr_selection *sel;
 	void *nsel, *end;
 	void *dest = le->hdr.digests + sizeof(struct TPML_DIGEST_VALUES);
-	uint32_t count;
+	uint32_t count, numAlgs;
 	struct TPMT_HA *v;
 	struct TPML_DIGEST_VALUES *vs;
 
@@ -244,7 +264,7 @@ static int tpm20_build_digest(struct tpm_log_entry *le, const uint8_t *sha256,
 	end = (void *)tpm_state.tpm20_pcr_selection +
 		tpm_state.tpm20_pcr_selection_size;
 
-	for (count = 0;
+	for (count = 0, numAlgs = 0;
 	     count < be32_to_cpu(tpm_state.tpm20_pcr_selection->count);
 	     count++) {
 		int hsize;
@@ -253,6 +273,12 @@ static int tpm20_build_digest(struct tpm_log_entry *le, const uint8_t *sha256,
 		nsel = (void*)sel + sizeof(*sel) + sizeOfSelect;
 		if (nsel > end)
 			break;
+
+		/* PCR 0-7 unused ? -- skip */
+		if (!sizeOfSelect || sel->pcrSelect[0] == 0) {
+			sel = nsel;
+			continue;
+		}
 
 		hsize = tpm20_get_hash_buffersize(be16_to_cpu(sel->hashAlg));
 		if (hsize < 0) {
@@ -279,6 +305,8 @@ static int tpm20_build_digest(struct tpm_log_entry *le, const uint8_t *sha256,
 
 		dest += sizeof(*v) + hsize;
 		sel = nsel;
+
+		numAlgs++;
 	}
 
 	if (sel != end) {
@@ -288,9 +316,9 @@ static int tpm20_build_digest(struct tpm_log_entry *le, const uint8_t *sha256,
 
 	vs = (void*)le->hdr.digests;
 	if (bigEndian)
-		vs->count = cpu_to_be32(count);
+		vs->count = cpu_to_be32(numAlgs);
 	else
-		vs->count = cpu_to_le32(count);
+		vs->count = cpu_to_le32(numAlgs);
 
 	return dest - (void*)le->hdr.digests;
 }
@@ -626,7 +654,8 @@ static int tpm20_write_EfiSpecIdEventStruct(void)
 {
 	struct {
 		struct TCG_EfiSpecIdEventStruct hdr;
-		uint32_t pad[256];
+		uint32_t pad[sizeof(struct tpm_log_entry) +
+		             sizeof(uint8_t)];
 	} event = {
 		.hdr.signature = "Spec ID Event03",
 		.hdr.platformClass = TPM_TCPA_ACPI_CLASS_CLIENT,
@@ -638,17 +667,17 @@ static int tpm20_write_EfiSpecIdEventStruct(void)
 	struct tpms_pcr_selection *sel;
 	void *nsel, *end;
 	int event_size;
-	uint32_t *vendorInfoSize;
+	uint8_t *vendorInfoSize;
 	struct tpm_log_entry le = {
 		.hdr.eventtype = cpu_to_log32(EV_NO_ACTION),
 	};
-	uint32_t count;
+	uint32_t count, numAlgs;
 
 	sel = tpm_state.tpm20_pcr_selection->selections;
 	end = (void*)tpm_state.tpm20_pcr_selection +
 	      tpm_state.tpm20_pcr_selection_size;
 
-	for (count = 0;
+	for (count = 0, numAlgs = 0;
 	     count < be32_to_cpu(tpm_state.tpm20_pcr_selection->count);
 	     count++) {
 		int hsize;
@@ -657,6 +686,12 @@ static int tpm20_write_EfiSpecIdEventStruct(void)
 		nsel = (void*)sel + sizeof(*sel) + sizeOfSelect;
 		if (nsel > end)
 			break;
+
+		/* PCR 0-7 unused ? -- skip */
+		if (!sizeOfSelect || sel->pcrSelect[0] == 0) {
+			sel = nsel;
+			continue;
+		}
 
 		hsize = tpm20_get_hash_buffersize(be16_to_cpu(sel->hashAlg));
 		if (hsize < 0) {
@@ -667,14 +702,15 @@ static int tpm20_write_EfiSpecIdEventStruct(void)
 
 		event_size = offset_of(struct TCG_EfiSpecIdEventStruct,
 				       digestSizes[count+1]);
-		if (event_size > sizeof(event) - sizeof(uint32_t)) {
+		if (event_size > sizeof(event) - sizeof(uint8_t)) {
 			dprintf("EfiSpecIdEventStruct pad too small\n");
 			return -1;
 		}
 
-		event.hdr.digestSizes[count].algorithmId =
+		event.hdr.digestSizes[numAlgs].algorithmId =
 			cpu_to_log16(be16_to_cpu(sel->hashAlg));
-		event.hdr.digestSizes[count].digestSize = cpu_to_log16(hsize);
+		event.hdr.digestSizes[numAlgs].digestSize = cpu_to_log16(hsize);
+		numAlgs++;
 
 		sel = nsel;
 	}
@@ -684,9 +720,9 @@ static int tpm20_write_EfiSpecIdEventStruct(void)
 		return -1;
 	}
 
-	event.hdr.numberOfAlgorithms = cpu_to_log32(count);
+	event.hdr.numberOfAlgorithms = cpu_to_log32(numAlgs);
 	event_size = offset_of(struct TCG_EfiSpecIdEventStruct,
-			       digestSizes[count]);
+			       digestSizes[numAlgs]);
 	vendorInfoSize = (void*)&event + event_size;
 	*vendorInfoSize = 0;
 	event_size += sizeof(*vendorInfoSize);
@@ -850,6 +886,49 @@ static uint32_t tpm_add_measurement_to_log(uint32_t pcrindex,
 	}
 	tpm20_build_digest(&le, hash, false);
 	return tpm_log_event_long(&le.hdr, digest_len, info, infolen);
+}
+
+/*
+ * Measure the contents of a buffer into the given PCR and log it with the
+ * given eventtype. If is_elf is true, try to determine the size of the
+ * ELF file in the buffer and use its size rather than the much larger data
+ * buffer it is held in. In case of failure to detect the ELF file size,
+ * log an error.
+ *
+ * Input parameters:
+ *  @pcrindex : PCR to extend
+ *  @eventtype : type of event
+ *  @data: the buffer to measure
+ *  @datalen: length of the buffer
+ *  @desc: The description to log
+ *  @desclen: The length of the description
+ *  @is_elf: Whether data buffer holds an ELF file and we should determine
+ *           the original file size.
+ *
+ *  Returns 0 on success, an error code otherwise.
+ */
+uint32_t tpm_hash_log_extend_event_buffer(uint32_t pcrindex, uint32_t eventtype,
+					  const void *data, uint64_t datalen,
+					  const char *desc, uint32_t desclen,
+					  bool is_elf)
+{
+	long len;
+	char buf[256];
+
+	if (is_elf) {
+		len = elf_get_file_size(data, datalen);
+		if (len > 0) {
+			datalen = len;
+		} else {
+			snprintf(buf, sizeof(buf), "BAD ELF FILE: %s", desc);
+			return tpm_add_measurement_to_log(pcrindex, eventtype,
+					  buf, strlen(buf),
+					  (uint8_t *)buf, strlen(buf));
+		}
+	}
+	return tpm_add_measurement_to_log(pcrindex, eventtype,
+					  desc, desclen,
+					  data, datalen);
 }
 
 /*

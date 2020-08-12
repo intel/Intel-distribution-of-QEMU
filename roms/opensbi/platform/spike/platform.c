@@ -5,13 +5,12 @@
  */
 
 #include <sbi/sbi_platform.h>
-#include <sbi_utils/sys/htif.h>
 #include <sbi_utils/sys/clint.h>
+#include <sbi_utils/sys/htif.h>
 
 /* clang-format off */
 
 #define SPIKE_HART_COUNT			8
-#define SPIKE_HART_STACK_SIZE			8192
 
 #define SPIKE_CLINT_ADDR			0x2000000
 
@@ -109,7 +108,6 @@ const struct sbi_platform platform = {
 	.name			= "Spike",
 	.features		= SBI_PLATFORM_DEFAULT_FEATURES,
 	.hart_count		= SPIKE_HART_COUNT,
-	.hart_stack_size	= SPIKE_HART_STACK_SIZE,
-	.disabled_hart_mask	= 0,
+	.hart_stack_size	= SBI_PLATFORM_DEFAULT_HART_STACK_SIZE,
 	.platform_ops_addr	= (unsigned long)&platform_ops
 };

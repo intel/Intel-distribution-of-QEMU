@@ -72,7 +72,7 @@ ifeq (${enable_system},enable)
 
 # list of system (softmmu) targets, from ./configure
 system_targets = \
- i386 x86_64 alpha aarch64 arm cris lm32 hppa m68k microblaze microblazeel \
+ i386 x86_64 alpha aarch64 arm avr cris lm32 hppa m68k microblaze microblazeel \
  mips mipsel mips64 mips64el moxie nios2 or1k ppc ppc64 riscv32 riscv64 rx \
  sh4 sh4eb sparc sparc64 s390x tricore xtensa xtensaeb unicore32
 
@@ -147,7 +147,7 @@ ifneq ($(filter $(DEB_HOST_ARCH),amd64),)
 		--disable-cocoa --disable-lzfse \
 		--disable-guest-agent --disable-guest-agent-msi --disable-tools \
 		--disable-gnutls --disable-gcrypt --disable-auth-pam \
-		--disable-replication --disable-vxhs --disable-bochs --disable-cloop \
+		--disable-replication --disable-bochs --disable-cloop \
 		--disable-dmg --disable-parallels --disable-qed --disable-vdi \
 		--disable-sheepdog --disable-capstone --disable-libpmem --disable-plugins \
 		--disable-snappy --disable-lzo --disable-usb-redir \
@@ -294,7 +294,7 @@ ifeq ($(VENDOR),UBUNTU)
 endif
 
 # virtfs-proxy-helper and qemu-bridge-helper are linux-specific
-	for f in usr/bin/virtfs-proxy-helper \
+	for f in usr/lib/qemu/virtfs-proxy-helper \
 	         usr/share/man/man1/virtfs-proxy-helper.1 \
 		 usr/lib/qemu/qemu-bridge-helper \
 	; do \

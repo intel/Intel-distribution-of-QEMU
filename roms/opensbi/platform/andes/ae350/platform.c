@@ -8,16 +8,17 @@
  *   Nylon Chen <nylon7@andestech.com>
  */
 
+#include <sbi/riscv_asm.h>
 #include <sbi/riscv_encoding.h>
-#include <sbi/sbi_const.h>
-#include <sbi/sbi_hart.h>
-#include <sbi/sbi_platform.h>
 #include <sbi/sbi_console.h>
-#include <sbi_utils/serial/uart8250.h>
+#include <sbi/sbi_const.h>
+#include <sbi/sbi_platform.h>
+#include <sbi_utils/fdt/fdt_fixup.h>
 #include <sbi_utils/irqchip/plic.h>
+#include <sbi_utils/serial/uart8250.h>
 #include "platform.h"
-#include "plmt.h"
 #include "plicsw.h"
+#include "plmt.h"
 
 /* Platform final initialization. */
 static int ae350_final_init(bool cold_boot)
@@ -47,7 +48,7 @@ static int ae350_final_init(bool cold_boot)
 		return 0;
 
 	fdt = sbi_scratch_thishart_arg1_ptr();
-	plic_fdt_fixup(fdt, "riscv,plic0");
+	fdt_fixups(fdt);
 
 	return 0;
 }
@@ -94,7 +95,7 @@ static int ae350_console_init(void)
 /* Initialize the platform interrupt controller for current HART. */
 static int ae350_irqchip_init(bool cold_boot)
 {
-	u32 hartid = sbi_current_hartid();
+	u32 hartid = current_hartid();
 	int ret;
 
 	if (cold_boot) {
@@ -156,7 +157,6 @@ static int ae350_system_shutdown(u32 type)
 
 /* Platform descriptor. */
 const struct sbi_platform_operations platform_ops = {
-
 	.final_init = ae350_final_init,
 
 	.pmp_region_count = ae350_pmp_region_count,
@@ -182,13 +182,11 @@ const struct sbi_platform_operations platform_ops = {
 };
 
 const struct sbi_platform platform = {
-
 	.opensbi_version = OPENSBI_VERSION,
 	.platform_version = SBI_PLATFORM_VERSION(0x0, 0x01),
 	.name = "Andes AE350",
 	.features = SBI_PLATFORM_DEFAULT_FEATURES,
 	.hart_count = AE350_HART_COUNT,
-	.hart_stack_size = AE350_HART_STACK_SIZE,
-	.disabled_hart_mask = 0,
+	.hart_stack_size = SBI_PLATFORM_DEFAULT_HART_STACK_SIZE,
 	.platform_ops_addr = (unsigned long)&platform_ops
 };

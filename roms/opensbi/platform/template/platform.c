@@ -4,6 +4,7 @@
  * Copyright (c) 2019 Western Digital Corporation or its affiliates.
  */
 
+#include <sbi/riscv_asm.h>
 #include <sbi/riscv_encoding.h>
 #include <sbi/sbi_const.h>
 #include <sbi/sbi_platform.h>
@@ -82,7 +83,7 @@ static int platform_console_getc(void)
  */
 static int platform_irqchip_init(bool cold_boot)
 {
-	u32 hartid = sbi_current_hartid();
+	u32 hartid = current_hartid();
 	int ret;
 
 	/* Example if the generic PLIC driver is used */
@@ -222,7 +223,6 @@ const struct sbi_platform platform = {
 	.name			= "platform-name",
 	.features		= SBI_PLATFORM_DEFAULT_FEATURES,
 	.hart_count		= 1,
-	.hart_stack_size	= 4096,
-	.disabled_hart_mask	= 0,
+	.hart_stack_size	= SBI_PLATFORM_DEFAULT_HART_STACK_SIZE,
 	.platform_ops_addr	= (unsigned long)&platform_ops
 };

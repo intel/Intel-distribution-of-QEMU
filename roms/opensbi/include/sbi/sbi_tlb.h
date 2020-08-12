@@ -12,6 +12,7 @@
 #define __SBI_TLB_H__
 
 #include <sbi/sbi_types.h>
+#include <sbi/sbi_hartmask.h>
 
 /* clang-format off */
 
@@ -38,13 +39,21 @@ struct sbi_tlb_info {
 	unsigned long size;
 	unsigned long asid;
 	unsigned long type;
-	unsigned long shart_mask;
+	struct sbi_hartmask smask;
 };
 
-#define SBI_TLB_INFO_SIZE			sizeof(struct sbi_tlb_info)
+#define SBI_TLB_INFO_INIT(__ptr, __start, __size, __asid, __type, __src_hart) \
+do { \
+	(__ptr)->start = (__start); \
+	(__ptr)->size = (__size); \
+	(__ptr)->asid = (__asid); \
+	(__ptr)->type = (__type); \
+	SBI_HARTMASK_INIT_EXCEPT(&(__ptr)->smask, (__src_hart)); \
+} while (0)
 
-int sbi_tlb_request(struct sbi_scratch *scratch, ulong hmask,
-		    ulong hbase, struct sbi_tlb_info *tinfo);
+#define SBI_TLB_INFO_SIZE		sizeof(struct sbi_tlb_info)
+
+int sbi_tlb_request(ulong hmask, ulong hbase, struct sbi_tlb_info *tinfo);
 
 int sbi_tlb_init(struct sbi_scratch *scratch, bool cold_boot);
 

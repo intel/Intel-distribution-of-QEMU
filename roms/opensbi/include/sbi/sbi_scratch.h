@@ -36,8 +36,8 @@
 #define SBI_SCRATCH_OPTIONS_OFFSET		(9 * __SIZEOF_POINTER__)
 /** Offset of extra space in sbi_scratch */
 #define SBI_SCRATCH_EXTRA_SPACE_OFFSET		(10 * __SIZEOF_POINTER__)
-/** Maximum size of sbi_scratch */
-#define SBI_SCRATCH_SIZE			(64 * __SIZEOF_POINTER__)
+/** Maximum size of sbi_scratch (4KB) */
+#define SBI_SCRATCH_SIZE			(0x1000)
 
 /* clang-format on */
 
@@ -85,7 +85,11 @@ enum sbi_scratch_options {
 #define sbi_scratch_thishart_arg1_ptr() \
 	((void *)(sbi_scratch_thishart_ptr()->next_arg1))
 
-/** Allocate from extra space in sbi_scratch
+/** Initialize scatch table and allocator */
+int sbi_scratch_init(struct sbi_scratch *scratch);
+
+/**
+ * Allocate from extra space in sbi_scratch
  *
  * @return zero on failure and non-zero (>= SBI_SCRATCH_EXTRA_SPACE_OFFSET)
  * on success
@@ -101,6 +105,19 @@ void sbi_scratch_free_offset(unsigned long offset);
 /** Get pointer from offset in sbi_scratch for current HART */
 #define sbi_scratch_thishart_offset_ptr(offset)	\
 	((void *)sbi_scratch_thishart_ptr() + (offset))
+
+/** HART id to scratch table */
+extern struct sbi_scratch *hartid_to_scratch_table[];
+
+/** Get sbi_scratch from HART id */
+#define sbi_hartid_to_scratch(__hartid) \
+	hartid_to_scratch_table[__hartid]
+
+/** Last HART id having a sbi_scratch pointer */
+extern u32 last_hartid_having_scratch;
+
+/** Get last HART id having a sbi_scratch pointer */
+#define sbi_scratch_last_hartid()	last_hartid_having_scratch
 
 #endif
 

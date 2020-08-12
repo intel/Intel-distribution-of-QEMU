@@ -28,9 +28,9 @@
 #error "Unexpected __riscv_xlen"
 #endif
 
-#define PAGE_SHIFT      (12)
-#define PAGE_SIZE       (_AC(1, UL) << PAGE_SHIFT)
-#define PAGE_MASK       (~(PAGE_SIZE - 1))
+#define PAGE_SHIFT	(12)
+#define PAGE_SIZE	(_AC(1, UL) << PAGE_SHIFT)
+#define PAGE_MASK	(~(PAGE_SIZE - 1))
 
 #define REG_L		__REG_SEL(ld, lw)
 #define REG_S		__REG_SEL(sd, sw)
@@ -38,7 +38,6 @@
 #define LGREG		__REG_SEL(3, 2)
 
 #if __SIZEOF_POINTER__ == 8
-#define BITS_PER_LONG		64
 #ifdef __ASSEMBLY__
 #define RISCV_PTR		.dword
 #define RISCV_SZPTR		8
@@ -49,7 +48,6 @@
 #define RISCV_LGPTR		"3"
 #endif
 #elif __SIZEOF_POINTER__ == 4
-#define BITS_PER_LONG		32
 #ifdef __ASSEMBLY__
 #define RISCV_PTR		.word
 #define RISCV_SZPTR		4
@@ -159,6 +157,8 @@ void csr_write_num(int csr_num, unsigned long val);
 		__asm__ __volatile__("wfi" ::: "memory"); \
 	} while (0)
 
+/* Get current HART id */
+#define current_hartid()	((unsigned int)csr_read(CSR_MHARTID))
 
 /* determine CPU extension, return non-zero support */
 int misa_extension_imp(char ext);
@@ -191,7 +191,7 @@ int pmp_set(unsigned int n, unsigned long prot, unsigned long addr,
 	    unsigned long log2len);
 
 int pmp_get(unsigned int n, unsigned long *prot_out, unsigned long *addr_out,
-	    unsigned long *log2len_out);
+	    unsigned long *size);
 
 #endif /* !__ASSEMBLY__ */
 
