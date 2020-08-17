@@ -318,8 +318,8 @@ endif
 # hw-display-qxl depends on spice
 	mkdir -p debian/qemu-system-common${libdir}/qemu
 	for f in ui-spice-app.so hw-display-qxl.so; do \
-	  [ -f debian/tmp${libdir}/qemu/$$f ] && \
-	    mv debian/tmp${libdir}/qemu/$$f \
+	  [ ! -f debian/tmp${libdir}/qemu/$$f ] || \
+	      mv debian/tmp${libdir}/qemu/$$f \
 	       debian/qemu-system-common${libdir}/qemu/ ; \
 	done
 

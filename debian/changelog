@@ -1,3 +1,10 @@
+qemu (1:5.1+dfsg-3) unstable; urgency=medium
+
+  * fix one more issue in last upload. This is what happens when
+    you do "obvious" stuff in a hurry without proper testing..
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 17 Aug 2020 22:19:55 +0300
+
 qemu (1:5.1+dfsg-2) unstable; urgency=medium
 
   * fix brown-paper bag bug in last upload 
