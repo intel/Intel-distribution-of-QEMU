@@ -1,3 +1,17 @@
+qemu (1:5.1+dfsg-2) unstable; urgency=medium
+
+  * fix brown-paper bag bug in last upload 
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 17 Aug 2020 20:58:52 +0300
+
+qemu (1:5.1+dfsg-1) unstable; urgency=medium
+
+  * hw-display-qxl.so depends on spice so install it
+    only if it is built just like ui-spice-app
+  * note #931046 for libfdt
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 17 Aug 2020 18:57:14 +0300
+
 qemu (1:5.1+dfsg-0exp1) experimental; urgency=medium
 
   * new upstream release 5.1.0. Make source DFSG-clean again

@@ -15,5 +15,4 @@ debian/tmp/usr/bin/qemu-storage-daemon
 debian/tmp/usr/lib/*/qemu/ui-curses.so
 debian/tmp/usr/lib/*/qemu/hw-usb-redirect.so
 debian/tmp/usr/lib/*/qemu/hw-usb-smartcard.so
-debian/tmp/usr/lib/*/qemu/hw-display-qxl.so
 debian/tmp/usr/lib/*/qemu/chardev-baum.so

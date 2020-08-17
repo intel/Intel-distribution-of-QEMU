@@ -315,11 +315,13 @@ ifneq (${DEB_HOST_ARCH},sparc64)
 endif
 
 # ui-spice-app is optional (see d/control for spice)
-	if [ -f debian/tmp${libdir}/qemu/ui-spice-app.so ]; then \
-	  mkdir -p debian/qemu-system-common${libdir}/qemu ; \
-	  mv debian/tmp${libdir}/qemu/ui-spice-app.so \
-	     debian/qemu-system-common${libdir}/qemu/ ; \
-	fi
+# hw-display-qxl depends on spice
+	mkdir -p debian/qemu-system-common${libdir}/qemu
+	for f in ui-spice-app.so hw-display-qxl.so; do \
+	  [ -f debian/tmp${libdir}/qemu/$$f ] && \
+	    mv debian/tmp${libdir}/qemu/$$f \
+	       debian/qemu-system-common${libdir}/qemu/ ; \
+	done
 
 endif # linux
 
