@@ -1,3 +1,12 @@
+qemu (1:5.1+dfsg-4) unstable; urgency=high
+
+  * mention closing of CVE-2020-16092 by 5.1
+  * usb-fix-setup_len-init-CVE-2020-14364.patch
+    Closes: #968947, CVE-2020-14364
+    (OOB r/w access in USB emulation)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 02 Sep 2020 16:14:52 +0300
+
 qemu (1:5.1+dfsg-3) unstable; urgency=medium
 
   * fix one more issue in last upload. This is what happens when
@@ -23,6 +32,7 @@ qemu (1:5.1+dfsg-0exp1) experimental; urgency=medium
 
   * new upstream release 5.1.0. Make source DFSG-clean again
     Closes: #968088
+    Closes: CVE-2020-16092 (net_tx_pkt_add_raw_fragment in e1000e & vmxnet3)
   * remove all patches which are applied upstream
   * do not install non-existing doc/qemu/*-ref.*
   * qemu-pr-helper is now in /usr/lib/qemu not /usr/bin
