@@ -83,11 +83,11 @@ reset_entry:
 	.stringz "https://github.com/hdeller/seabios-hppa"
 	.stringz BUILD_VERSION
 
-
 /*******************************************************
 	Firmware startup code
  *******************************************************/
 
+        .align 0x80
 ENTRY(startup)
 	/* Make sure space registers are set to zero */
 	mtsp    %r0,%sr0
@@ -177,6 +177,7 @@ $bss_loop:
         stw,ma          %r22,4(%r1)
         stw,ma          %r21,4(%r1)
         stw,ma          %r20,4(%r1)
+        stw,ma          %r19,4(%r1)
 
 	load32	BOOTADDR(start_parisc_firmware),%r3
 	bv	0(%r3)
@@ -266,13 +267,14 @@ END(iodc_entry)
 
 	.data
 ENTRY(boot_args)
-        .word 0 /* arg0: ramsize */
-        .word 0 /* arg1: kernel entry point */
-        .word 0 /* arg2: cmdline */
-        .word 0 /* arg3: initrd_start */
-        .word 0 /* arg4: initrd_end */
-        .word 0 /* arg5: num CPUs */
-        .word 0 /* arg6: pdc_debug */
+        .word 0 /* r26: ramsize */
+        .word 0 /* r25: kernel entry point */
+        .word 0 /* r24: cmdline */
+        .word 0 /* r23: initrd_start */
+        .word 0 /* r22: initrd_end */
+        .word 0 /* r21: num CPUs */
+        .word 0 /* r20: pdc_debug */
+        .word 0 /* r19: fw_cfg port */
 END(boot_args)
 
 

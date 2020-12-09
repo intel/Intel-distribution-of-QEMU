@@ -24,13 +24,19 @@
 #define ARIANE_PLIC_ADDR			0xc000000
 #define ARIANE_PLIC_NUM_SOURCES			3
 #define ARIANE_HART_COUNT			1
-#define ARIANE_CLINT_ADDR 0x2000000
+#define ARIANE_CLINT_ADDR			0x2000000
 
-#define SBI_ARIANE_FEATURES	\
-	(SBI_PLATFORM_HAS_TIMER_VALUE | \
-	 SBI_PLATFORM_HAS_SCOUNTEREN | \
-	 SBI_PLATFORM_HAS_MCOUNTEREN | \
-	 SBI_PLATFORM_HAS_MFAULTS_DELEGATION)
+static struct plic_data plic = {
+	.addr = ARIANE_PLIC_ADDR,
+	.num_src = ARIANE_PLIC_NUM_SOURCES,
+};
+
+static struct clint_data clint = {
+	.addr = ARIANE_CLINT_ADDR,
+	.first_hartid = 0,
+	.hart_count = ARIANE_HART_COUNT,
+	.has_64bit_mmio = TRUE,
+};
 
 /*
  * Ariane platform early initialization.
@@ -69,29 +75,26 @@ static int ariane_console_init(void)
 			     ARIANE_UART_REG_WIDTH);
 }
 
-static int plic_ariane_warm_irqchip_init(u32 target_hart,
-			   int m_cntx_id, int s_cntx_id)
+static int plic_ariane_warm_irqchip_init(int m_cntx_id, int s_cntx_id)
 {
 	size_t i, ie_words = ARIANE_PLIC_NUM_SOURCES / 32 + 1;
 
-	if (ARIANE_HART_COUNT <= target_hart)
-		return -1;
 	/* By default, enable all IRQs for M-mode of target HART */
 	if (m_cntx_id > -1) {
 		for (i = 0; i < ie_words; i++)
-			plic_set_ie(m_cntx_id, i, 1);
+			plic_set_ie(&plic, m_cntx_id, i, 1);
 	}
 	/* Enable all IRQs for S-mode of target HART */
 	if (s_cntx_id > -1) {
 		for (i = 0; i < ie_words; i++)
-			plic_set_ie(s_cntx_id, i, 1);
+			plic_set_ie(&plic, s_cntx_id, i, 1);
 	}
 	/* By default, enable M-mode threshold */
 	if (m_cntx_id > -1)
-		plic_set_thresh(m_cntx_id, 1);
+		plic_set_thresh(&plic, m_cntx_id, 1);
 	/* By default, disable S-mode threshold */
 	if (s_cntx_id > -1)
-		plic_set_thresh(s_cntx_id, 0);
+		plic_set_thresh(&plic, s_cntx_id, 0);
 
 	return 0;
 }
@@ -105,14 +108,11 @@ static int ariane_irqchip_init(bool cold_boot)
 	int ret;
 
 	if (cold_boot) {
-		ret = plic_cold_irqchip_init(ARIANE_PLIC_ADDR,
-					     ARIANE_PLIC_NUM_SOURCES,
-					     ARIANE_HART_COUNT);
+		ret = plic_cold_irqchip_init(&plic);
 		if (ret)
 			return ret;
 	}
-	return plic_ariane_warm_irqchip_init(hartid,
-					2 * hartid, 2 * hartid + 1);
+	return plic_ariane_warm_irqchip_init(2 * hartid, 2 * hartid + 1);
 }
 
 /*
@@ -123,8 +123,7 @@ static int ariane_ipi_init(bool cold_boot)
 	int ret;
 
 	if (cold_boot) {
-		ret = clint_cold_ipi_init(ARIANE_CLINT_ADDR,
-					  ARIANE_HART_COUNT);
+		ret = clint_cold_ipi_init(&clint);
 		if (ret)
 			return ret;
 	}
@@ -140,8 +139,7 @@ static int ariane_timer_init(bool cold_boot)
 	int ret;
 
 	if (cold_boot) {
-		ret = clint_cold_timer_init(ARIANE_CLINT_ADDR,
-					    ARIANE_HART_COUNT, TRUE);
+		ret = clint_cold_timer_init(&clint, NULL);
 		if (ret)
 			return ret;
 	}
@@ -150,22 +148,12 @@ static int ariane_timer_init(bool cold_boot)
 }
 
 /*
- * Reboot the ariane.
+ * Reset the ariane.
  */
-static int ariane_system_reboot(u32 type)
+static int ariane_system_reset(u32 type)
 {
 	/* For now nothing to do. */
-	sbi_printf("System reboot\n");
-	return 0;
-}
-
-/*
- * Shutdown or poweroff the ariane.
- */
-static int ariane_system_shutdown(u32 type)
-{
-	/* For now nothing to do. */
-	sbi_printf("System shutdown\n");
+	sbi_printf("System reset\n");
 	return 0;
 }
 
@@ -186,15 +174,14 @@ const struct sbi_platform_operations platform_ops = {
 	.timer_value = clint_timer_value,
 	.timer_event_start = clint_timer_event_start,
 	.timer_event_stop = clint_timer_event_stop,
-	.system_reboot = ariane_system_reboot,
-	.system_shutdown = ariane_system_shutdown
+	.system_reset = ariane_system_reset
 };
 
 const struct sbi_platform platform = {
 	.opensbi_version = OPENSBI_VERSION,
 	.platform_version = SBI_PLATFORM_VERSION(0x0, 0x01),
 	.name = "ARIANE RISC-V",
-	.features = SBI_ARIANE_FEATURES,
+	.features = SBI_PLATFORM_DEFAULT_FEATURES,
 	.hart_count = ARIANE_HART_COUNT,
 	.hart_stack_size = SBI_PLATFORM_DEFAULT_HART_STACK_SIZE,
 	.platform_ops_addr = (unsigned long)&platform_ops

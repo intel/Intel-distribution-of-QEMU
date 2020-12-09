@@ -13,6 +13,7 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
+   build-system
    kconfig
    loads-stores
    memory
@@ -20,6 +21,8 @@ Contents:
    atomics
    stable-process
    testing
+   qtest
+   fuzzing
    decodetree
    secure-coding-practices
    tcg
@@ -30,3 +33,5 @@ Contents:
    reset
    s390-dasd-ipl
    clocks
+   qom
+   block-coroutine-wrapper

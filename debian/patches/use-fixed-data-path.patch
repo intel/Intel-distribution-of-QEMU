@@ -8,35 +8,41 @@ This way it is possible to move qemu binary to another directory
 and it will still work.
 
 diff --git a/softmmu/vl.c b/softmmu/vl.c
+index e6e0ad5a925..de716a8635b 100644
 --- a/softmmu/vl.c
 +++ b/softmmu/vl.c
-@@ -3051,1 +3051,1 @@ int main(int argc, char **argv, char **e
--    char *dir, **dirs;
-+    char **dirs;
-@@ -4170,11 +4170,6 @@ int main(int argc, char **argv, char **e
-     }
-     g_strfreev(dirs);
- 
--    /* try to find datadir relative to the executable path */
--    dir = os_find_datadir();
--    qemu_add_data_dir(dir);
--    g_free(dir);
--
-     /* add the datadir specified when building */
-     qemu_add_data_dir(CONFIG_QEMU_DATADIR);
- 
-diff --git a/os-posix.c b/os-posix.c
---- a/os-posix.c
-+++ b/os-posix.c
-@@ -81,4 +81,5 @@ void os_setup_signal_handling(void)
- }
- 
+@@ -2853,12 +2853,14 @@ static void create_default_memdev(MachineState *ms, const char *path)
+  */
+ static char *find_datadir(void)
+ {
 +#if 0
- /*
-  * Find a likely location for support files using the location of the binary.
-@@ -101,4 +102,5 @@ char *os_find_datadir(void)
-     return g_strdup(CONFIG_QEMU_DATADIR);
- }
+     g_autofree char *dir = NULL;
+ 
+     dir = g_build_filename(qemu_get_exec_dir(), "pc-bios", NULL);
+     if (g_file_test(dir, G_FILE_TEST_IS_DIR)) {
+         return g_steal_pointer(&dir);
+     }
 +#endif
  
- void os_set_proc_name(const char *s)
+     return get_relocated_path(CONFIG_QEMU_DATADIR);
+ }
+diff --git a/util/cutils.c b/util/cutils.c
+index 0b5073b3301..8808a1bc85d 100644
+--- a/util/cutils.c
++++ b/util/cutils.c
+@@ -929,6 +929,9 @@ static inline const char *next_component(const char *dir, int *p_len)
+ 
+ char *get_relocated_path(const char *dir)
+ {
++#if 1	/* for Debian we dont need paths to be relocable */
++    return g_strdup(dir);
++#else
+     size_t prefix_len = strlen(CONFIG_PREFIX);
+     const char *bindir = CONFIG_BINDIR;
+     const char *exec_dir = qemu_get_exec_dir();
+@@ -964,4 +967,5 @@ char *get_relocated_path(const char *dir)
+         g_string_append(result, dir - 1);
+     }
+     return result->str;
++#endif
+ }

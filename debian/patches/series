@@ -1,11 +1,9 @@
 use-fixed-data-path.patch
 microvm-default-machine-type.patch
-qboot-stop-using-inttypes.patch
-qboot-no-jump-tables.diff
 openbios-address-of-packet-member.patch
 openbios-use-source_date_epoch-in-makefile.patch
 seabios-hppa-use-consistent-date-and-remove-hostname.patch
-seabios-hppa-fno-ipa-sra.patch
 slof-remove-user-and-host-from-release-version.patch
 slof-ensure-ld-is-called-with-C-locale.patch
-usb-fix-setup_len-init-CVE-2020-14364.patch
+skip-meson-pc-bios.diff
+spelling.diff

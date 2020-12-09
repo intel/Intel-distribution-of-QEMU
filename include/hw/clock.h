@@ -18,7 +18,7 @@
 #include "qemu/queue.h"
 
 #define TYPE_CLOCK "clock"
-#define CLOCK(obj) OBJECT_CHECK(Clock, (obj), TYPE_CLOCK)
+OBJECT_DECLARE_SIMPLE_TYPE(Clock, CLOCK)
 
 typedef void ClockCallback(void *opaque);
 
@@ -54,7 +54,6 @@ typedef void ClockCallback(void *opaque);
  * @sibling: structure used to form a clock list
  */
 
-typedef struct Clock Clock;
 
 struct Clock {
     /*< private >*/
@@ -82,6 +81,11 @@ extern const VMStateDescription vmstate_clock;
     VMSTATE_CLOCK_V(field, state, 0)
 #define VMSTATE_CLOCK_V(field, state, version) \
     VMSTATE_STRUCT_POINTER_V(field, state, version, vmstate_clock, Clock)
+#define VMSTATE_ARRAY_CLOCK(field, state, num) \
+    VMSTATE_ARRAY_CLOCK_V(field, state, num, 0)
+#define VMSTATE_ARRAY_CLOCK_V(field, state, num, version)          \
+    VMSTATE_ARRAY_OF_POINTER_TO_STRUCT(field, state, num, version, \
+                                       vmstate_clock, Clock)
 
 /**
  * clock_setup_canonical_path:
@@ -90,6 +94,19 @@ extern const VMStateDescription vmstate_clock;
  * compute the canonical path of the clock (used by log messages)
  */
 void clock_setup_canonical_path(Clock *clk);
+
+/**
+ * clock_new:
+ * @parent: the clock parent
+ * @name: the clock object name
+ *
+ * Helper function to create a new clock and parent it to @parent. There is no
+ * need to call clock_setup_canonical_path on the returned clock as it is done
+ * by this function.
+ *
+ * @return the newly created clock
+ */
+Clock *clock_new(Object *parent, const char *name);
 
 /**
  * clock_set_callback:
@@ -127,17 +144,19 @@ void clock_set_source(Clock *clk, Clock *src);
  * @value: the clock's value, 0 means unclocked
  *
  * Set the local cached period value of @clk to @value.
+ *
+ * @return: true if the clock is changed.
  */
-void clock_set(Clock *clk, uint64_t value);
+bool clock_set(Clock *clk, uint64_t value);
 
-static inline void clock_set_hz(Clock *clk, unsigned hz)
+static inline bool clock_set_hz(Clock *clk, unsigned hz)
 {
-    clock_set(clk, CLOCK_PERIOD_FROM_HZ(hz));
+    return clock_set(clk, CLOCK_PERIOD_FROM_HZ(hz));
 }
 
-static inline void clock_set_ns(Clock *clk, unsigned ns)
+static inline bool clock_set_ns(Clock *clk, unsigned ns)
 {
-    clock_set(clk, CLOCK_PERIOD_FROM_NS(ns));
+    return clock_set(clk, CLOCK_PERIOD_FROM_NS(ns));
 }
 
 /**
@@ -163,8 +182,9 @@ void clock_propagate(Clock *clk);
  */
 static inline void clock_update(Clock *clk, uint64_t value)
 {
-    clock_set(clk, value);
-    clock_propagate(clk);
+    if (clock_set(clk, value)) {
+        clock_propagate(clk);
+    }
 }
 
 static inline void clock_update_hz(Clock *clk, unsigned hz)
@@ -207,19 +227,6 @@ static inline unsigned clock_get_ns(Clock *clk)
 static inline bool clock_is_enabled(const Clock *clk)
 {
     return clock_get(clk) != 0;
-}
-
-static inline void clock_init(Clock *clk, uint64_t value)
-{
-    clock_set(clk, value);
-}
-static inline void clock_init_hz(Clock *clk, uint64_t value)
-{
-    clock_set_hz(clk, value);
-}
-static inline void clock_init_ns(Clock *clk, uint64_t value)
-{
-    clock_set_ns(clk, value);
 }
 
 #endif /* QEMU_HW_CLOCK_H */

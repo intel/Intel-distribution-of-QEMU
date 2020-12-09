@@ -33,11 +33,13 @@ class FreeBSDVM(basevm.BaseVM):
         "pkgconf",
         "bzip2",
         "python37",
+        "ninja",
 
         # gnu tools
         "bash",
         "gmake",
         "gsed",
+        "gettext",
 
         # libs: crypto
         "gnutls",

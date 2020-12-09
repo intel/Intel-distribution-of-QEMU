@@ -7,6 +7,7 @@ OUT =
 S390X_CROSSPFX=s390x-linux-gnu-
 
 LDFLAGS = -Wl,-pie -fPIE -nostdlib \
+ -std=gnu99 -fwrapv -fno-common \
  -ffreestanding -fno-delete-null-pointer-checks -msoft-float \
  -march=z900 -fPIE -fno-strict-aliasing -fno-stack-protector \
  -fno-asynchronous-unwind-tables

@@ -6,7 +6,7 @@
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
+ * version 2.1 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -29,10 +29,12 @@ const char *argv0;
 
 #define PAGE_SIZE 4096
 
+#ifndef CONFIG_GETTID
 static int gettid(void)
 {
     return syscall(SYS_gettid);
 }
+#endif
 
 static __attribute__((noreturn)) void exit_failure(void)
 {
@@ -44,19 +46,6 @@ static __attribute__((noreturn)) void exit_failure(void)
         abort();
     } else {
         exit(1);
-    }
-}
-
-static __attribute__((noreturn)) void exit_success(void)
-{
-    if (getpid() == 1) {
-        sync();
-        reboot(RB_POWER_OFF);
-        fprintf(stderr, "%s (%05d): ERROR: cannot reboot: %s\n",
-                argv0, gettid(), strerror(errno));
-        abort();
-    } else {
-        exit(0);
     }
 }
 

@@ -160,10 +160,47 @@ _relocate_done:
 	li	ra, 0
 	call	_reset_regs
 
+	/* Zero-out BSS */
+	la	s4, _bss_start
+	la	s5, _bss_end
+_bss_zero:
+	REG_S	zero, (s4)
+	add	s4, s4, __SIZEOF_POINTER__
+	blt	s4, s5, _bss_zero
+
+	/* Setup temporary trap handler */
+	la	s4, _start_hang
+	csrw	CSR_MTVEC, s4
+
+	/* Setup temporary stack */
+	la	s4, _fw_end
+	li	s5, (SBI_SCRATCH_SIZE * 2)
+	add	sp, s4, s5
+
 	/* Allow main firmware to save info */
 	MOV_5R	s0, a0, s1, a1, s2, a2, s3, a3, s4, a4
 	call	fw_save_info
 	MOV_5R	a0, s0, a1, s1, a2, s2, a3, s3, a4, s4
+
+	/* Override previous arg1 */
+	MOV_3R	s0, a0, s1, a1, s2, a2
+	call	fw_prev_arg1
+	add	t1, a0, zero
+	MOV_3R	a0, s0, a1, s1, a2, s2
+	beqz	t1, _prev_arg1_override_done
+	add	a1, t1, zero
+_prev_arg1_override_done:
+
+	/*
+	 * Initialize platform
+	 * Note: The a0 to a4 registers passed to the
+	 * firmware are parameters to this function.
+	 */
+	MOV_5R	s0, a0, s1, a1, s2, a2, s3, a3, s4, a4
+	call	fw_platform_init
+	add	t0, a0, zero
+	MOV_5R	a0, s0, a1, s1, a2, s2, a3, s3, a4, s4
+	add	a1, t0, zero
 
 	/* Preload HART details
 	 * s7 -> HART Count
@@ -233,34 +270,15 @@ _scratch_init:
 	/* Store firmware options in scratch space */
 	MOV_3R	s0, a0, s1, a1, s2, a2
 #ifdef FW_OPTIONS
-	li	a4, FW_OPTIONS
+	li	a0, FW_OPTIONS
 #else
-	add	a4, zero, zero
-#endif
 	call	fw_options
-	or	a4, a4, a0
-	REG_S	a4, SBI_SCRATCH_OPTIONS_OFFSET(tp)
+#endif
+	REG_S	a0, SBI_SCRATCH_OPTIONS_OFFSET(tp)
 	MOV_3R	a0, s0, a1, s1, a2, s2
 	/* Move to next scratch space */
 	add	t1, t1, t2
 	blt	t1, s7, _scratch_init
-
-	/* Zero-out BSS */
-	la	a4, _bss_start
-	la	a5, _bss_end
-_bss_zero:
-	REG_S	zero, (a4)
-	add	a4, a4, __SIZEOF_POINTER__
-	blt	a4, a5, _bss_zero
-
-	/* Override pervious arg1 */
-	MOV_3R	s0, a0, s1, a1, s2, a2
-	call	fw_prev_arg1
-	add	t1, a0, zero
-	MOV_3R	a0, s0, a1, s1, a2, s2
-	beqz	t1, _prev_arg1_override_done
-	add	a1, t1, zero
-_prev_arg1_override_done:
 
 	/*
 	 * Relocate Flatened Device Tree (FDT)
@@ -331,7 +349,7 @@ _fdt_reloc_done:
 	fence	rw, rw
 	j	_start_warm
 
-	/* waitting for boot hart done (_boot_status == 2) */
+	/* waiting for boot hart to be done (_boot_status == 2) */
 _wait_for_boot_hart:
 	li	t0, BOOT_STATUS_BOOT_HART_DONE
 	la	t1, _boot_status
@@ -400,9 +418,6 @@ _start_warm:
 	/* Setup trap handler */
 	la	a4, _trap_handler
 	csrw	CSR_MTVEC, a4
-	/* Make sure that mtvec is updated */
-1:	csrr	a5, CSR_MTVEC
-	bne	a4, a5, 1b
 
 	/* Initialize SBI runtime */
 	csrr	a0, CSR_MSCRATCH
@@ -456,6 +471,14 @@ _hartid_to_scratch:
 _start_hang:
 	wfi
 	j	_start_hang
+
+	.section .entry, "ax", %progbits
+	.align 3
+	.globl fw_platform_init
+	.weak fw_platform_init
+fw_platform_init:
+	add	a0, a1, zero
+	ret
 
 	.section .entry, "ax", %progbits
 	.align 3

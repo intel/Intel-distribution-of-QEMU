@@ -46,11 +46,30 @@
 
 /* clang-format on */
 
+static struct plic_data plic = {
+	.addr = FU540_PLIC_ADDR,
+	.num_src = FU540_PLIC_NUM_SOURCES,
+};
+
+static struct clint_data clint = {
+	.addr = FU540_CLINT_ADDR,
+	.first_hartid = 0,
+	.hart_count = FU540_HART_COUNT,
+	.has_64bit_mmio = TRUE,
+};
+
 static void fu540_modify_dt(void *fdt)
 {
 	fdt_cpu_fixup(fdt);
 
 	fdt_fixups(fdt);
+
+	/*
+	 * SiFive Freedom U540 has an erratum that prevents S-mode software
+	 * to access a PMP protected region using 1GB page table mapping, so
+	 * always add the no-map attribute on this platform.
+	 */
+	fdt_reserved_memory_nomap_fixup(fdt);
 }
 
 static int fu540_final_init(bool cold_boot)
@@ -64,30 +83,6 @@ static int fu540_final_init(bool cold_boot)
 	fu540_modify_dt(fdt);
 
 	return 0;
-}
-
-static u32 fu540_pmp_region_count(u32 hartid)
-{
-	return 1;
-}
-
-static int fu540_pmp_region_info(u32 hartid, u32 index, ulong *prot,
-				 ulong *addr, ulong *log2size)
-{
-	int ret = 0;
-
-	switch (index) {
-	case 0:
-		*prot	  = PMP_R | PMP_W | PMP_X;
-		*addr	  = 0;
-		*log2size = __riscv_xlen;
-		break;
-	default:
-		ret = -1;
-		break;
-	};
-
-	return ret;
 }
 
 static int fu540_console_init(void)
@@ -112,14 +107,12 @@ static int fu540_irqchip_init(bool cold_boot)
 	u32 hartid = current_hartid();
 
 	if (cold_boot) {
-		rc = plic_cold_irqchip_init(FU540_PLIC_ADDR,
-					    FU540_PLIC_NUM_SOURCES,
-					    FU540_HART_COUNT);
+		rc = plic_cold_irqchip_init(&plic);
 		if (rc)
 			return rc;
 	}
 
-	return plic_warm_irqchip_init(hartid, (hartid) ? (2 * hartid - 1) : 0,
+	return plic_warm_irqchip_init(&plic, (hartid) ? (2 * hartid - 1) : 0,
 				      (hartid) ? (2 * hartid) : -1);
 }
 
@@ -128,7 +121,7 @@ static int fu540_ipi_init(bool cold_boot)
 	int rc;
 
 	if (cold_boot) {
-		rc = clint_cold_ipi_init(FU540_CLINT_ADDR, FU540_HART_COUNT);
+		rc = clint_cold_ipi_init(&clint);
 		if (rc)
 			return rc;
 	}
@@ -146,8 +139,7 @@ static int fu540_timer_init(bool cold_boot)
 	int rc;
 
 	if (cold_boot) {
-		rc = clint_cold_timer_init(FU540_CLINT_ADDR,
-					   FU540_HART_COUNT, TRUE);
+		rc = clint_cold_timer_init(&clint, NULL);
 		if (rc)
 			return rc;
 	}
@@ -162,15 +154,13 @@ static u32 fu540_hart_index2id[FU540_HART_COUNT - 1] = {
 	[3] = 4,
 };
 
-static int fu540_system_down(u32 type)
+static int fu540_system_reset(u32 type)
 {
 	/* For now nothing to do. */
 	return 0;
 }
 
 const struct sbi_platform_operations platform_ops = {
-	.pmp_region_count	= fu540_pmp_region_count,
-	.pmp_region_info	= fu540_pmp_region_info,
 	.final_init		= fu540_final_init,
 	.console_putc		= sifive_uart_putc,
 	.console_getc		= sifive_uart_getc,
@@ -184,8 +174,7 @@ const struct sbi_platform_operations platform_ops = {
 	.timer_event_stop	= clint_timer_event_stop,
 	.timer_event_start	= clint_timer_event_start,
 	.timer_init		= fu540_timer_init,
-	.system_reboot		= fu540_system_down,
-	.system_shutdown	= fu540_system_down
+	.system_reset		= fu540_system_reset
 };
 
 const struct sbi_platform platform = {

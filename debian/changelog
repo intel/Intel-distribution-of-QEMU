@@ -1,3 +1,39 @@
+qemu (1:5.2+dfsg-1) unstable; urgency=medium
+
+  * new upstream release
+    Closes: #965978, CVE-2020-15859 (22dc8663d9fc7baa22100544c600b6285a63c7a3)
+    Closes: #970539, CVE-2020-25084 (21bc31524e8ca487e976f713b878d7338ee00df2)
+    Closes: #970540, CVE-2020-25085 (dfba99f17feb6d4a129da19d38df1bcd8579d1c3)
+    Closes: #970541, CVE-2020-25624 (1328fe0c32d5474604105b8105310e944976b058)
+    Closes: #970542, CVE-2020-25625 (1be90ebecc95b09a2ee5af3f60c412b45a766c4f)
+    Closes: #974687, CVE-2020-25707 (c2cb511634012344e3d0fe49a037a33b12d8a98a)
+    Closes: #975276, CVE-2020-25723 (2fdb42d840400d58f2e706ecca82c142b97bcbd6)
+    Closes: #975265, CVE-2020-27616 (ca1f9cbfdce4d63b10d57de80fef89a89d92a540)
+    Closes: #973324, CVE-2020-27617 (7564bf7701f00214cdc8a678a9f7df765244def1)
+    Closes: #972864, CVE-2020-27661 (bea2a9e3e00b275dc40cfa09c760c715b8753e03)
+    Closes: CVE-2020-27821 (1370d61ae3c9934861d2349349447605202f04e9)
+    Closes: #976388, CVE-2020-28916 (c2cb511634012344e3d0fe49a037a33b12d8a98a)
+  * remove obsolete patches
+  * refresh use-fixed-data-path.patch and debian/get-orig-source.sh
+  * bump minimum meson version required for build to 0.55.3
+  * update build rules for several components
+  * remove deprecated lm32 and unicore32 system emulators
+  * remove deprecated ppc64abi32 and tilegx linux-user emulators
+  * install ui-spice-core.so & chardev-spice.so in qemu-system-common
+  * install ui-egl-headless.so in qemu-system-common
+  * install hw-display-virtio-*.so in qemu-system-common
+  * install ui-opengl.so in qemu-system-gui
+  * install qemu-pr-helper.8 in qemu-system-common
+  * qemu-pr-helper moved to usr/bin/ again
+  * qboot.rom renamed from bios-microvm.bin
+  * remove several unused lintian overrides
+  * add spelling.diff patch to fix a few spelling errors
+  * update Standards-Version to 4.5.1
+  * fix a few trailing whitespaces in d/control and d/changelog
+  * require libcapstone >= 4.0.2 (v4) for build
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 09 Dec 2020 08:57:41 +0300
+
 qemu (1:5.1+dfsg-4) unstable; urgency=high
 
   * mention closing of CVE-2020-16092 by 5.1
@@ -16,7 +52,7 @@ qemu (1:5.1+dfsg-3) unstable; urgency=medium
 
 qemu (1:5.1+dfsg-2) unstable; urgency=medium
 
-  * fix brown-paper bag bug in last upload 
+  * fix brown-paper bag bug in last upload
 
  -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 17 Aug 2020 20:58:52 +0300
 
@@ -4305,4 +4341,3 @@ qemu (0.5.2-1) unstable; urgency=low
   * Initial Release. (Closes: #187407)
 
  -- Paul Russell <prussell@debian.org>  Wed,  3 Mar 2004 02:18:54 +0100
-

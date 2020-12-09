@@ -17,6 +17,27 @@
 #include <sbi_utils/sys/clint.h>
 #include "platform.h"
 
+extern const char dt_k210_start[];
+
+unsigned long fw_platform_init(unsigned long arg0, unsigned long arg1,
+				unsigned long arg2, unsigned long arg3,
+				unsigned long arg4)
+{
+	return (unsigned long)&dt_k210_start[0];
+}
+
+static struct plic_data plic = {
+	.addr = K210_PLIC_BASE_ADDR,
+	.num_src = K210_PLIC_NUM_SOURCES,
+};
+
+static struct clint_data clint = {
+	.addr = K210_CLINT_BASE_ADDR,
+	.first_hartid = 0,
+	.hart_count = K210_HART_COUNT,
+	.has_64bit_mmio = TRUE,
+};
+
 static u32 k210_get_clk_freq(void)
 {
 	u32 clksel0, pll0;
@@ -58,14 +79,12 @@ static int k210_irqchip_init(bool cold_boot)
 	u32 hartid = current_hartid();
 
 	if (cold_boot) {
-		rc = plic_cold_irqchip_init(K210_PLIC_BASE_ADDR,
-					    K210_PLIC_NUM_SOURCES,
-					    K210_HART_COUNT);
+		rc = plic_cold_irqchip_init(&plic);
 		if (rc)
 			return rc;
 	}
 
-	return plic_warm_irqchip_init(hartid, hartid * 2, hartid * 2 + 1);
+	return plic_warm_irqchip_init(&plic, hartid * 2, hartid * 2 + 1);
 }
 
 static int k210_ipi_init(bool cold_boot)
@@ -73,8 +92,7 @@ static int k210_ipi_init(bool cold_boot)
 	int rc;
 
 	if (cold_boot) {
-		rc = clint_cold_ipi_init(K210_CLINT_BASE_ADDR,
-					 K210_HART_COUNT);
+		rc = clint_cold_ipi_init(&clint);
 		if (rc)
 			return rc;
 	}
@@ -87,8 +105,7 @@ static int k210_timer_init(bool cold_boot)
 	int rc;
 
 	if (cold_boot) {
-		rc = clint_cold_timer_init(K210_CLINT_BASE_ADDR,
-					   K210_HART_COUNT, TRUE);
+		rc = clint_cold_timer_init(&clint, NULL);
 		if (rc)
 			return rc;
 	}
@@ -96,18 +113,10 @@ static int k210_timer_init(bool cold_boot)
 	return clint_warm_timer_init();
 }
 
-static int k210_system_reboot(u32 type)
+static int k210_system_reset(u32 type)
 {
 	/* For now nothing to do. */
-	sbi_printf("System reboot\n");
-
-	return 0;
-}
-
-static int k210_system_shutdown(u32 type)
-{
-	/* For now nothing to do. */
-	sbi_printf("System shutdown\n");
+	sbi_printf("System reset\n");
 
 	return 0;
 }
@@ -128,8 +137,7 @@ const struct sbi_platform_operations platform_ops = {
 	.timer_event_stop  = clint_timer_event_stop,
 	.timer_event_start = clint_timer_event_start,
 
-	.system_reboot	 = k210_system_reboot,
-	.system_shutdown = k210_system_shutdown
+	.system_reset	 = k210_system_reset
 };
 
 const struct sbi_platform platform = {

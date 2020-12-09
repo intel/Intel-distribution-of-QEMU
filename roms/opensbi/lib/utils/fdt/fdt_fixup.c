@@ -8,19 +8,20 @@
  */
 
 #include <libfdt.h>
-#include <sbi/riscv_asm.h>
 #include <sbi/sbi_console.h>
+#include <sbi/sbi_math.h>
+#include <sbi/sbi_hart.h>
 #include <sbi/sbi_platform.h>
 #include <sbi/sbi_scratch.h>
 #include <sbi/sbi_string.h>
+#include <sbi_utils/fdt/fdt_fixup.h>
+#include <sbi_utils/fdt/fdt_helper.h>
 
 void fdt_cpu_fixup(void *fdt)
 {
 	struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
 	const struct sbi_platform *plat = sbi_platform_ptr(scratch);
-	int err, len, cpu_offset, cpus_offset;
-	const fdt32_t *val;
-	const void *prop;
+	int err, cpu_offset, cpus_offset;
 	u32 hartid;
 
 	err = fdt_open_into(fdt, fdt, fdt_totalsize(fdt) + 32);
@@ -32,19 +33,9 @@ void fdt_cpu_fixup(void *fdt)
 		return;
 
 	fdt_for_each_subnode(cpu_offset, fdt, cpus_offset) {
-		prop = fdt_getprop(fdt, cpu_offset, "device_type", &len);
-		if (!prop || !len)
+		err = fdt_parse_hart_id(fdt, cpu_offset, &hartid);
+		if (err)
 			continue;
-		if (sbi_strcmp(prop, "cpu"))
-			continue;
-
-		val = fdt_getprop(fdt, cpu_offset, "reg", &len);
-		if (!val || len < sizeof(fdt32_t))
-			continue;
-
-		if (len > sizeof(fdt32_t))
-			val++;
-		hartid = fdt32_to_cpu(*val);
 
 		if (sbi_platform_hart_invalid(plat, hartid))
 			fdt_setprop_string(fdt, cpu_offset, "status",
@@ -77,6 +68,65 @@ void fdt_plic_fixup(void *fdt, const char *compat)
 	}
 }
 
+static int fdt_resv_memory_update_node(void *fdt, unsigned long addr,
+				       unsigned long size, int index,
+				       int parent, bool no_map)
+{
+	int na = fdt_address_cells(fdt, 0);
+	int ns = fdt_size_cells(fdt, 0);
+	fdt32_t addr_high, addr_low;
+	fdt32_t size_high, size_low;
+	int subnode, err;
+	fdt32_t reg[4];
+	fdt32_t *val;
+	char name[32];
+
+	addr_high = (u64)addr >> 32;
+	addr_low = addr;
+	size_high = (u64)size >> 32;
+	size_low = size;
+
+	if (na > 1 && addr_high)
+		sbi_snprintf(name, sizeof(name),
+			     "mmode_pmp%d@%x,%x", index,
+			     addr_high, addr_low);
+	else
+		sbi_snprintf(name, sizeof(name),
+			     "mmode_pmp%d@%x", index,
+			     addr_low);
+
+	subnode = fdt_add_subnode(fdt, parent, name);
+	if (subnode < 0)
+		return subnode;
+
+	if (no_map) {
+		/*
+		 * Tell operating system not to create a virtual
+		 * mapping of the region as part of its standard
+		 * mapping of system memory.
+		 */
+		err = fdt_setprop_empty(fdt, subnode, "no-map");
+		if (err < 0)
+			return err;
+	}
+
+	/* encode the <reg> property value */
+	val = reg;
+	if (na > 1)
+		*val++ = cpu_to_fdt32(addr_high);
+	*val++ = cpu_to_fdt32(addr_low);
+	if (ns > 1)
+		*val++ = cpu_to_fdt32(size_high);
+	*val++ = cpu_to_fdt32(size_low);
+
+	err = fdt_setprop(fdt, subnode, "reg", reg,
+			  (na + ns) * sizeof(fdt32_t));
+	if (err < 0)
+		return err;
+
+	return 0;
+}
+
 /**
  * We use PMP to protect OpenSBI firmware to safe-guard it from buggy S-mode
  * software, see pmp_init() in lib/sbi/sbi_hart.c. The protected memory region
@@ -95,21 +145,11 @@ void fdt_plic_fixup(void *fdt, const char *compat)
 int fdt_reserved_memory_fixup(void *fdt)
 {
 	struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
-	const struct sbi_platform *plat = sbi_platform_ptr(scratch);
 	unsigned long prot, addr, size;
+	int parent, i, j;
+	int err;
 	int na = fdt_address_cells(fdt, 0);
 	int ns = fdt_size_cells(fdt, 0);
-	fdt32_t addr_high, addr_low;
-	fdt32_t size_high, size_low;
-	fdt32_t reg[4];
-	fdt32_t *val;
-	char name[32];
-	int parent, subnode;
-	int i, j;
-	int err;
-
-	if (!sbi_platform_has_pmp(plat))
-		return 0;
 
 	/* expand the device tree to accommodate new node */
 	err  = fdt_open_into(fdt, fdt, fdt_totalsize(fdt) + 256);
@@ -153,54 +193,53 @@ int fdt_reserved_memory_fixup(void *fdt)
 	 * With above assumption, we create child nodes directly.
 	 */
 
-	for (i = 0, j = 0; i < PMP_COUNT; i++) {
-		pmp_get(i, &prot, &addr, &size);
+	if (!sbi_hart_has_feature(scratch, SBI_HART_HAS_PMP)) {
+		/*
+		 * Update the DT with firmware start & size even if PMP is not
+		 * supported. This makes sure that supervisor OS is always
+		 * aware of OpenSBI resident memory area.
+		 */
+		addr = scratch->fw_start & ~(scratch->fw_size - 1UL);
+		size = (1UL << log2roundup(scratch->fw_size));
+		return fdt_resv_memory_update_node(fdt, addr, size,
+						   0, parent, true);
+	}
+
+	for (i = 0, j = 0; i < sbi_hart_pmp_count(scratch); i++) {
+		err = sbi_hart_pmp_get(scratch, i, &prot, &addr, &size);
+		if (err)
+			continue;
 		if (!(prot & PMP_A))
 			continue;
-		if (!(prot & (PMP_R | PMP_W | PMP_X))) {
-			addr_high = (u64)addr >> 32;
-			addr_low = addr;
-			size_high = (u64)size >> 32;
-			size_low = size;
+		if (prot & (PMP_R | PMP_W | PMP_X))
+			continue;
 
-			if (na > 1 && addr_high)
-				sbi_snprintf(name, sizeof(name),
-					     "mmode_pmp%d@%x,%x", j,
-					     addr_high, addr_low);
-			else
-				sbi_snprintf(name, sizeof(name),
-					     "mmode_pmp%d@%x", j,
-					     addr_low);
+		fdt_resv_memory_update_node(fdt, addr, size, j, parent, false);
+		j++;
+	}
 
-			subnode = fdt_add_subnode(fdt, parent, name);
-			if (subnode < 0)
-				return subnode;
+	return 0;
+}
 
-			/*
-			 * Tell operating system not to create a virtual
-			 * mapping of the region as part of its standard
-			 * mapping of system memory.
-			 */
-			err = fdt_setprop_empty(fdt, subnode, "no-map");
-			if (err < 0)
-				return err;
+int fdt_reserved_memory_nomap_fixup(void *fdt)
+{
+	int parent, subnode;
+	int err;
 
-			/* encode the <reg> property value */
-			val = reg;
-			if (na > 1)
-				*val++ = cpu_to_fdt32(addr_high);
-			*val++ = cpu_to_fdt32(addr_low);
-			if (ns > 1)
-				*val++ = cpu_to_fdt32(size_high);
-			*val++ = cpu_to_fdt32(size_low);
+	/* Locate the reserved memory node */
+	parent = fdt_path_offset(fdt, "/reserved-memory");
+	if (parent < 0)
+		return parent;
 
-			err = fdt_setprop(fdt, subnode, "reg", reg,
-					  (na + ns) * sizeof(fdt32_t));
-			if (err < 0)
-				return err;
-
-			j++;
-		}
+	fdt_for_each_subnode(subnode, fdt, parent) {
+		/*
+		 * Tell operating system not to create a virtual
+		 * mapping of the region as part of its standard
+		 * mapping of system memory.
+		 */
+		err = fdt_setprop_empty(fdt, subnode, "no-map");
+		if (err < 0)
+			return err;
 	}
 
 	return 0;

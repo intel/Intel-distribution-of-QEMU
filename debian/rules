@@ -72,9 +72,9 @@ ifeq (${enable_system},enable)
 
 # list of system (softmmu) targets, from ./configure
 system_targets = \
- i386 x86_64 alpha aarch64 arm avr cris lm32 hppa m68k microblaze microblazeel \
+ i386 x86_64 alpha aarch64 arm avr cris hppa m68k microblaze microblazeel \
  mips mipsel mips64 mips64el moxie nios2 or1k ppc ppc64 riscv32 riscv64 rx \
- sh4 sh4eb sparc sparc64 s390x tricore xtensa xtensaeb unicore32
+ sh4 sh4eb sparc sparc64 s390x tricore xtensa xtensaeb
 
 # qemu-system subpackages, from d/control
 sys_systems = arm mips ppc sparc x86 $(if $(filter ${VENDOR},UBUNTU),s390x,)
@@ -100,8 +100,8 @@ ifeq (${enable_linux_user},enable)
 user_targets = \
  i386 x86_64 alpha aarch64 aarch64_be arm armeb cris hppa m68k microblaze microblazeel \
  mips mipsel mips64 mips64el mipsn32 mipsn32el nios2 or1k \
- ppc ppc64 ppc64abi32 ppc64le riscv32 riscv64 sh4 sh4eb sparc sparc64 sparc32plus \
- s390x tilegx xtensa xtensaeb
+ ppc ppc64 ppc64le riscv32 riscv64 sh4 sh4eb sparc sparc64 sparc32plus \
+ s390x xtensa xtensaeb
 
 endif	# enable_linux_user
 
@@ -199,7 +199,7 @@ endif
 ifeq ($(enable_linux_user),enable)
 	# user-static build
 	# we use this invocation to build just the binaries
-	$(MAKE) -C b/user-static V=${V} $(patsubst %,%-linux-user/all,${user_targets})
+	$(MAKE) -C b/user-static V=${V} $(addprefix qemu-,${user_targets})
 	sed -e 's/qemu\\-user\\-static/qemu\\-user/g' \
 	    -e 's/ (static version)//' \
 	    debian/qemu-user-static.1 > debian/qemu-user.1
@@ -317,11 +317,16 @@ endif
 # ui-spice-app is optional (see d/control for spice)
 # hw-display-qxl depends on spice
 	mkdir -p debian/qemu-system-common${libdir}/qemu
-	for f in ui-spice-app.so hw-display-qxl.so; do \
+	for f in ui-spice-core.so ui-spice-app.so hw-display-qxl.so chardev-spice.so; do \
 	  [ ! -f debian/tmp${libdir}/qemu/$$f ] || \
 	      mv debian/tmp${libdir}/qemu/$$f \
 	       debian/qemu-system-common${libdir}/qemu/ ; \
 	done
+
+# ui-egl-headless is linux-specific
+	[ -f debian/qemu-system-common${libdir}/qemu/ui-egl-headless.so ] || \
+	    mv debian/tmp${libdir}/qemu/ui-egl-headless.so \
+		debian/qemu-system-common${libdir}/qemu/
 
 endif # linux
 
@@ -426,7 +431,7 @@ sysdata-components += skiboot
 build-x86-optionrom: b/optionrom/built
 b/optionrom/built:
 	mkdir -p b/optionrom
-	${MAKE) -f ${CURDIR}/debian/optionrom.mak -C b/optionrom SRC_PATH="${CURDIR}" all
+	${MAKE} -f ${CURDIR}/debian/optionrom.mak -C b/optionrom SRC_PATH="${CURDIR}" all
 	touch $@
 install-x86-optionrom: build-x86-optionrom b/install-indep-prep.stamp | ${sysdatadir}
 	${MAKE} -f ${CURDIR}/debian/optionrom.mak -C b/optionrom SRC_PATH="${CURDIR}" install DESTDIR="${CURDIR}/${sysdatadir}"
@@ -452,10 +457,13 @@ sysdata-components += sgabios
 ### qboot, aka bios-microvm
 build-qboot: b/qboot/bios.bin
 b/qboot/bios.bin:
-	cp -al roms/qboot b/
-	${MAKE} -C ${CURDIR}/b/qboot
+	rm -rf b/qboot
+	meson setup roms/qboot b/qboot
+	ninja -C b/qboot
 install-qboot: b/qboot/bios.bin
-	install -m 0644 $< ${sysdatadir}/bios-microvm.bin
+	install -m 0644 $< ${sysdatadir}/qboot.rom
+	# 5.0 & 5.1 compat symlink, can go for bullseye final
+	ln -s qboot.rom ${sysdatadir}/bios-microvm.bin
 sysdata-components += qboot
 
 ### alpha firmware in roms/palcode-clipper
@@ -502,12 +510,12 @@ sysdata-components += hppa-fw
 build-opensbi: b/opensbi/.built
 b/opensbi/.built: | b
 	mkdir -p b/opensbi
-	${MAKE} -C roms/opensbi O=../../b/opensbi CROSS_COMPILE=riscv64-linux-gnu- V=${V} PLATFORM=qemu/virt
-	${MAKE} -C roms/opensbi O=../../b/opensbi CROSS_COMPILE=riscv64-linux-gnu- V=${V} PLATFORM=sifive/fu540
+	${MAKE} -C roms/opensbi O=../../b/opensbi CROSS_COMPILE=riscv64-linux-gnu- V=${V} PLATFORM=generic
+	riscv64-linux-gnu-strip --strip-unneeded -R.comment -R.note b/opensbi/platform/generic/firmware/fw_dynamic.elf
 	touch $@
 install-opensbi: build-opensbi
-	install -m 0644 b/opensbi/platform/qemu/virt/firmware/fw_jump.bin ${sysdatadir}/opensbi-riscv64-virt-fw_jump.bin
-	install -m 0644 b/opensbi/platform/sifive/fu540/firmware/fw_jump.bin ${sysdatadir}/opensbi-riscv64-sifive_u-fw_jump.bin
+	install -m 0644 b/opensbi/platform/generic/firmware/fw_dynamic.bin ${sysdatadir}/opensbi-riscv64-generic-fw_dynamic.bin
+	install -m 0644 b/opensbi/platform/generic/firmware/fw_dynamic.elf ${sysdatadir}/opensbi-riscv64-generic-fw_dynamic.elf
 sysdata-components += opensbi
 
 build-indep: $(addprefix build-, ${sysdata-components})
@@ -559,4 +567,3 @@ get-orig-source:
 	./debian/get-orig-source.sh ${DEB_VERSION}
 
 .PHONY: get-orig-source
-

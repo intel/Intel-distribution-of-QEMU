@@ -15,6 +15,7 @@
 #include <sbi/sbi_error.h>
 #include <sbi/sbi_hsm.h>
 #include <sbi/sbi_ipi.h>
+#include <sbi/sbi_platform.h>
 #include <sbi/sbi_system.h>
 #include <sbi/sbi_timer.h>
 #include <sbi/sbi_tlb.h>
@@ -75,7 +76,7 @@ static int sbi_ecall_legacy_handler(unsigned long extid, unsigned long funcid,
 		ret = sbi_load_hart_mask_unpriv((ulong *)args[0],
 						&hmask, out_trap);
 		if (ret != SBI_ETRAP) {
-			SBI_TLB_INFO_INIT(&tlb_info, 0, 0, 0,
+			SBI_TLB_INFO_INIT(&tlb_info, 0, 0, 0, 0,
 					  SBI_ITLB_FLUSH, source_hart);
 			ret = sbi_tlb_request(hmask, 0, &tlb_info);
 		}
@@ -84,7 +85,7 @@ static int sbi_ecall_legacy_handler(unsigned long extid, unsigned long funcid,
 		ret = sbi_load_hart_mask_unpriv((ulong *)args[0],
 						&hmask, out_trap);
 		if (ret != SBI_ETRAP) {
-			SBI_TLB_INFO_INIT(&tlb_info, args[1], args[2], 0,
+			SBI_TLB_INFO_INIT(&tlb_info, args[1], args[2], 0, 0,
 					  SBI_TLB_FLUSH_VMA, source_hart);
 			ret = sbi_tlb_request(hmask, 0, &tlb_info);
 		}
@@ -94,12 +95,13 @@ static int sbi_ecall_legacy_handler(unsigned long extid, unsigned long funcid,
 						&hmask, out_trap);
 		if (ret != SBI_ETRAP) {
 			SBI_TLB_INFO_INIT(&tlb_info, args[1], args[2], args[3],
-					  SBI_TLB_FLUSH_VMA_ASID, source_hart);
+					  0, SBI_TLB_FLUSH_VMA_ASID,
+					  source_hart);
 			ret = sbi_tlb_request(hmask, 0, &tlb_info);
 		}
 		break;
 	case SBI_EXT_0_1_SHUTDOWN:
-		sbi_system_shutdown(0);
+		sbi_system_reset(SBI_PLATFORM_RESET_SHUTDOWN);
 		break;
 	default:
 		ret = SBI_ENOTSUPP;

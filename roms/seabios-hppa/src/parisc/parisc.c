@@ -31,6 +31,8 @@
 
 #include "vgabios.h"
 
+#define SEABIOS_HPPA_VERSION 1
+
 /*
  * Various variables which are needed by x86 code.
  * Defined here to be able to link seabios.
@@ -94,7 +96,16 @@ extern unsigned long boot_args[];
 #define initrd_start		(boot_args[3])
 #define initrd_end		(boot_args[4])
 #define smp_cpus		(boot_args[5])
-#define pdc_debug		0 // (boot_args[6])
+#define pdc_debug               (boot_args[6])
+#define fw_cfg_port		(boot_args[7])
+
+/* flags for pdc_debug */
+#define DEBUG_PDC       0x0001
+#define DEBUG_IODC      0x0002
+
+unsigned long PORT_QEMU_CFG_CTL;
+unsigned int tlb_entries = 256;
+unsigned int btlb_entries = 8;
 
 #define PARISC_SERIAL_CONSOLE   PORT_SERIAL1
 
@@ -135,6 +146,14 @@ static unsigned long GoldenMemory = MIN_RAM_SIZE;
 
 static unsigned int chassis_code = 0;
 
+/*
+ * Emulate the power switch button flag in head section of firmware.
+ * Bit 31 (the lowest bit) is the status of the power switch.
+ * This bit is "1" if the button is NOT pressed.
+ */
+int powersw_nop;
+int *powersw_ptr;
+
 void __VISIBLE __noreturn hlt(void)
 {
     if (pdc_debug)
@@ -144,12 +163,22 @@ void __VISIBLE __noreturn hlt(void)
     while (1);
 }
 
+static void check_powersw_button(void)
+{
+    /* halt immediately if power button was pressed. */
+    if ((*powersw_ptr & 1) == 0) {
+        printf("SeaBIOS machine power switch was pressed.\n");
+        hlt();
+    }
+}
+
 void __noreturn reset(void)
 {
     if (pdc_debug)
         printf("RESET initiated from %p\n",  __builtin_return_address(0));
     printf("SeaBIOS wants SYSTEM RESET.\n"
             "***************************\n");
+    check_powersw_button();
     PAGE0->imm_soft_boot = 1;
     asm volatile("\t.word 0xfffdead1": : :"memory");
     while (1);
@@ -495,7 +524,7 @@ void parisc_screenc(char c)
 
 void iodc_log_call(unsigned int *arg, const char *func)
 {
-    if (pdc_debug) {
+    if (pdc_debug & DEBUG_IODC) {
         printf("\nIODC %s called: hpa=0x%x (%s) option=0x%x arg2=0x%x arg3=0x%x ", func, ARG0, hpa_name(ARG0), ARG1, ARG2, ARG3);
         printf("result=0x%x arg5=0x%x arg6=0x%x arg7=0x%x\n", ARG4, ARG5, ARG6, ARG7);
     }
@@ -867,9 +896,8 @@ static int pdc_cache(unsigned int *arg)
     switch (option) {
         case PDC_CACHE_INFO:
             BUG_ON(sizeof(cache_info) != sizeof(*machine_cache_info));
-            // XXX: number of TLB entries should be aligned with qemu
-            machine_cache_info->it_size = 256;
-            machine_cache_info->dt_size = 256;
+            machine_cache_info->it_size = tlb_entries;
+            machine_cache_info->dt_size = tlb_entries;
             machine_cache_info->it_loop = 1;
             machine_cache_info->dt_loop = 1;
 
@@ -1132,9 +1160,17 @@ static int pdc_block_tlb(unsigned int *arg)
 
     switch (option) {
         case PDC_BTLB_INFO:
-            /* tell operating system that we don't have any BTLBs */
             memset(info, 0, sizeof(*info));
+            if (btlb_entries) {
+                /* TODO: fill in BTLB info */
+            }
             return PDC_OK;
+        case PDC_BTLB_INSERT:
+        case PDC_BTLB_PURGE:
+        case PDC_BTLB_PURGE_ALL:
+            /* TODO: implement above functions */
+            return PDC_BAD_OPTION;
+
     }
     return PDC_BAD_OPTION;
 }
@@ -1266,10 +1302,17 @@ static int pdc_system_map(unsigned int *arg)
 static int pdc_soft_power(unsigned int *arg)
 {
     unsigned long option = ARG1;
+    unsigned long *result = (unsigned long *)ARG2;
 
     switch (option) {
+        case PDC_SOFT_POWER_INFO:
+            result[0] = (unsigned long) powersw_ptr;
+            return PDC_OK;
         case PDC_SOFT_POWER_ENABLE:
-            /* put soft power button under hardware (ARG3=0) or software (ARG3=1) control. */
+            /* put soft power button under hardware (ARG3=0) or
+             * software (ARG3=1) control. */
+            *powersw_ptr = (ARG3 & 1) << 8 | (*powersw_ptr & 1);
+            check_powersw_button();
             return PDC_OK;
     }
     // dprintf(0, "\n\nSeaBIOS: PDC_SOFT_POWER called with ARG2=%x ARG3=%x ARG4=%x\n", ARG2, ARG3, ARG4);
@@ -1388,7 +1431,7 @@ int __VISIBLE parisc_pdc_entry(unsigned int *arg FUNC_MANY_ARGS)
     unsigned long proc = ARG0;
     unsigned long option = ARG1;
 
-    if (pdc_debug) {
+    if (pdc_debug & DEBUG_PDC) {
         printf("\nSeaBIOS: Start PDC proc %s(%d) option %d result=0x%x ARG3=0x%x %s ",
                 pdc_name(ARG0), ARG0, ARG1, ARG2, ARG3, (proc == PDC_IODC)?hpa_name(ARG3):"");
         printf("ARG4=0x%x ARG5=0x%x ARG6=0x%x ARG7=0x%x\n", ARG4, ARG5, ARG6, ARG7);
@@ -1475,6 +1518,11 @@ int __VISIBLE parisc_pdc_entry(unsigned int *arg FUNC_MANY_ARGS)
 	case PDC_MEM_MAP:
             return pdc_mem_map(arg);
 
+        case 134:
+            if (ARG1 == 1 || ARG1 == 513) /* HP-UX 11.11 ask for it. */
+                return PDC_BAD_PROC;
+            break;
+
         case PDC_IO:
             return pdc_io(arg);
 
@@ -1485,6 +1533,11 @@ int __VISIBLE parisc_pdc_entry(unsigned int *arg FUNC_MANY_ARGS)
 
         case PDC_LAN_STATION_ID:
             return pdc_lan_station_id(arg);
+
+        case PDC_SYSTEM_INFO:
+            if (ARG1 == PDC_SYSINFO_RETURN_INFO_SIZE)
+                return PDC_BAD_PROC;
+            break;
 
         case PDC_PCI_INDEX:
             return pdc_pci_index(arg);
@@ -1692,6 +1745,25 @@ static int artist_present(void)
     return !!(*(u32 *)0xf8380004 == 0x6dc20006);
 }
 
+unsigned long _atoul(char *str)
+{
+    unsigned long val = 0;
+    while (*str) {
+        val *= 10;
+        val += *str - '0';
+        str++;
+    }
+    return val;
+}
+
+unsigned long romfile_loadstring_to_int(const char *name, unsigned long defval)
+{
+    char *str = romfile_loadfile(name, NULL);
+    if (str)
+        return _atoul(str);
+    return defval;
+}
+
 void __VISIBLE start_parisc_firmware(void)
 {
     unsigned int i, cpu_hz;
@@ -1706,6 +1778,27 @@ void __VISIBLE start_parisc_firmware(void)
     if (ram_size >= FIRMWARE_START)
         ram_size = FIRMWARE_START;
 
+    /* Initialize qemu fw_cfg interface */
+    PORT_QEMU_CFG_CTL = fw_cfg_port;
+    qemu_cfg_init();
+
+    i = romfile_loadint("/etc/firmware-min-version", 0);
+    if (i && i > SEABIOS_HPPA_VERSION) {
+        printf("\nSeaBIOS firmware is version %d, but version %d is required. "
+            "Please update.\n", (int)SEABIOS_HPPA_VERSION, i);
+        hlt();
+    }
+
+    tlb_entries = romfile_loadint("/etc/cpu/tlb_entries", 256);
+    dprintf(0, "fw_cfg: TLB entries %d\n", tlb_entries);
+
+    btlb_entries = romfile_loadint("/etc/cpu/btlb_entries", 8);
+    dprintf(0, "fw_cfg: BTLB entries %d\n", btlb_entries);
+
+    powersw_ptr = (int *) (unsigned long)
+        romfile_loadint("/etc/power-button-addr", (unsigned long)&powersw_nop);
+
+    pdc_debug = romfile_loadstring_to_int("opt/pdc_debug", 0);
 
     /* Initialize PAGE0 */
     memset((void*)PAGE0, 0, sizeof(*PAGE0));
@@ -1729,6 +1822,9 @@ void __VISIBLE start_parisc_firmware(void)
     /* Put QEMU/SeaBIOS marker in PAGE0.
      * The Linux kernel will search for it. */
     memcpy((char*)&PAGE0->pad0, "SeaBIOS", 8);
+    PAGE0->pad0[2] = ((unsigned long long)PORT_QEMU_CFG_CTL) >> 32; /* store as 64bit value */
+    PAGE0->pad0[3] = PORT_QEMU_CFG_CTL;
+    *powersw_ptr = 0x01; /* button not pressed, hw controlled. */
 
     PAGE0->imm_hpa = MEMORY_HPA;
     PAGE0->imm_spa_size = ram_size;
@@ -1795,13 +1891,13 @@ void __VISIBLE start_parisc_firmware(void)
     block_setup();
 
     printf("\n");
-    printf("Firmware Version 6.1\n"
+    printf("SeaBIOS PA-RISC Firmware Version %d\n"
             "\n"
             "Duplex Console IO Dependent Code (IODC) revision 1\n"
             "\n"
-            "Memory Test/Initialization Completed\n\n");
+            "Memory Test/Initialization Completed\n\n", SEABIOS_HPPA_VERSION);
     printf("------------------------------------------------------------------------------\n"
-            "  (c) Copyright 2017-2019 Helge Deller <deller@gmx.de> and SeaBIOS developers.\n"
+            "  (c) Copyright 2017-2020 Helge Deller <deller@gmx.de> and SeaBIOS developers.\n"
             "------------------------------------------------------------------------------\n\n");
     printf( "  Processor   Speed            State           Coprocessor State  Cache Size\n"
             "  ---------  --------   ---------------------  -----------------  ----------\n");

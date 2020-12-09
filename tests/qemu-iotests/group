@@ -88,7 +88,7 @@
 064 rw quick
 065 rw quick
 066 rw auto quick
-067 rw quick
+# 067 was removed, do not reuse
 068 rw quick
 069 rw auto quick
 070 rw quick
@@ -284,6 +284,7 @@
 267 rw auto quick snapshot
 268 rw auto quick
 270 rw backing quick
+271 rw auto
 272 rw
 273 backing quick
 274 rw backing
@@ -307,5 +308,11 @@
 296 rw
 297 meta
 299 auto quick
+300 migration
 301 backing quick
 302 quick
+303 rw quick
+304 rw quick
+305 rw quick
+307 rw quick export
+309 rw auto quick

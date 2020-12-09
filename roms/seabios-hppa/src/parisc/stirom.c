@@ -30,12 +30,19 @@
 
 #define __stifunc(_name) __attribute__((section(".sti.text." _name)))
 
-static const __stidata char user_data[256];
-static const u32 sti_region_list[STI_REGION_MAX] __stidata = { 0x8002, 0x40009000, 0x04008280, 0x0e024001, 0, 0  };
-static const struct font __stidata sti_rom_font = {
+static const __stidata char user_data[256] __aligned(32);
+
+static const region_t sti_region_list[STI_REGION_MAX] __stidata __aligned(32) = {
+    { .region_desc = { .offset = 0, .btlb = 1, .length = 2 }, },
+    { .region_desc = { .offset = (ARTIST_FB_ADDR - LASI_GFX_HPA) / 4096, .btlb = 1, .length = (ARTIST_FB_ADDR - LASI_GFX_HPA) / 4096} },
+    { .region_desc = { .offset = (0xf8100000 - LASI_GFX_HPA)/ 4096, .btlb = 1, .length = ((0xf8380000-0xf8100000) / 4096), } },
+    { .region_desc = { .offset = (0xf8380000 - LASI_GFX_HPA)/ 4096, .sys_only = 1, .length = 1, .last = 1, } }
+};
+
+static const struct font __stidata __aligned(32) sti_rom_font = {
     .hdr = {
         .first_char = 0,
-        .last_char = 0,
+        .last_char = 255,
         .width = 8,
         .height = 16,
         .font_type = STI_FONT_HPROMAN8,
@@ -312,7 +319,7 @@ static const mon_tbl_desc __stidata sti_mon_table[] = {
 
 struct sti_rom __stiheader sti_proc_rom = {
     .type = { 0x03, 0x03, 0x03, 0x03 },
-    .num_mons = 1,
+    .num_mons = ARRAY_SIZE(sti_mon_table),
     .revno = { 0x84, 0x07 },
     .graphics_id = { 0x2b4ded6d, 0x40a00499 },
 };
@@ -404,8 +411,11 @@ static int __stifunc("init_graph") sti_init_graph(struct sti_init_flags *flags,
     if (resolution & (1 << 31)) {
         cfg->text_planes = 1;
     } else {
-        out->text_planes = in->text_planes;
+        cfg->text_planes = in->text_planes;
+        if (cfg->text_planes < 0 || cfg->text_planes > 3)
+            cfg->text_planes = 3;
     }
+    out->text_planes = cfg->text_planes;
 
     cfg->onscreen_x = (resolution >> 16) & 0xfff;
     cfg->onscreen_y = resolution & 0xfff;
@@ -468,6 +478,7 @@ static __stifunc("inq_conf") int sti_inq_conf(struct sti_conf_flags *flags,
     out->total_x = cfg->total_x;
     out->total_y = cfg->total_y;
     out->bits_per_pixel = 8;
+    out->bits_used = 8;
     out->planes = cfg->text_planes;
     out->dev_name[0] = 'H';
     out->dev_name[1] = 'P';
@@ -571,6 +582,16 @@ static void update_crc(struct sti_rom *rom)
 
 void sti_rom_init(void)
 {
+    unsigned int sti_rom_size;
+
+    sti_rom_size = (_sti_rom_end - _sti_rom_start) / 4096;
+    if (sti_region_list[0].region_desc.length != sti_rom_size) {
+        /* The STI ROM size is wrong. Try to fix it.
+         * If it's not writeable, we have to patch the source code. */
+        region_t *rp = (region_t *) &sti_region_list[0];
+        rp->region_desc.length = sti_rom_size;
+    }
+
     sti_proc_rom.last_addr = _sti_rom_end - _sti_rom_start - 1;
 
     sti_proc_rom.font_start = STI_OFFSET(sti_rom_font);

@@ -23,6 +23,7 @@
 #include "qemu/module.h"
 #include "hw/irq.h"
 #include "hw/qdev-properties.h"
+#include "qom/object.h"
 
 #define D(x)
 
@@ -43,8 +44,8 @@
 #define R_END                   0x64
 
 #define TYPE_LOONGSON_LIOINTC "loongson.liointc"
-#define LOONGSON_LIOINTC(obj) \
-        OBJECT_CHECK(struct loongson_liointc, (obj), TYPE_LOONGSON_LIOINTC)
+DECLARE_INSTANCE_CHECKER(struct loongson_liointc, LOONGSON_LIOINTC,
+                         TYPE_LOONGSON_LIOINTC)
 
 struct loongson_liointc {
     SysBusDevice parent_obj;
@@ -129,7 +130,7 @@ liointc_read(void *opaque, hwaddr addr, unsigned int size)
 
     if (addr >= R_PERCORE_ISR(0) &&
         addr < R_PERCORE_ISR(NUM_CORES)) {
-        int core = (addr - R_PERCORE_ISR(0)) / 4;
+        int core = (addr - R_PERCORE_ISR(0)) / 8;
         r = p->per_core_isr[core];
         goto out;
     }
@@ -172,7 +173,7 @@ liointc_write(void *opaque, hwaddr addr,
 
     if (addr >= R_PERCORE_ISR(0) &&
         addr < R_PERCORE_ISR(NUM_CORES)) {
-        int core = (addr - R_PERCORE_ISR(0)) / 4;
+        int core = (addr - R_PERCORE_ISR(0)) / 8;
         p->per_core_isr[core] = value;
         goto out;
     }

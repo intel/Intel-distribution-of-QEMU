@@ -15,6 +15,13 @@
 
 static struct c910_regs_struct c910_regs;
 
+static struct clint_data clint = {
+	.addr = 0, /* Updated at cold boot time */
+	.first_hartid = 0,
+	.hart_count = C910_HART_COUNT,
+	.has_64bit_mmio = FALSE,
+};
+
 static int c910_early_init(bool cold_boot)
 {
 	if (cold_boot) {
@@ -78,7 +85,8 @@ static int c910_ipi_init(bool cold_boot)
 	int rc;
 
 	if (cold_boot) {
-		rc = clint_cold_ipi_init(c910_regs.clint_base_addr, C910_HART_COUNT);
+		clint.addr = c910_regs.clint_base_addr;
+		rc = clint_cold_ipi_init(&clint);
 		if (rc)
 			return rc;
 	}
@@ -91,8 +99,8 @@ static int c910_timer_init(bool cold_boot)
 	int ret;
 
 	if (cold_boot) {
-		ret = clint_cold_timer_init(c910_regs.clint_base_addr,
-					C910_HART_COUNT, FALSE);
+		clint.addr = c910_regs.clint_base_addr;
+		ret = clint_cold_timer_init(&clint, NULL);
 		if (ret)
 			return ret;
 	}
@@ -100,7 +108,7 @@ static int c910_timer_init(bool cold_boot)
 	return clint_warm_timer_init();
 }
 
-static int c910_system_shutdown(u32 type)
+static int c910_system_reset(u32 type)
 {
 	asm volatile ("ebreak");
 	return 0;
@@ -127,7 +135,7 @@ const struct sbi_platform_operations platform_ops = {
 	.timer_init          = c910_timer_init,
 	.timer_event_start   = clint_timer_event_start,
 
-	.system_shutdown     = c910_system_shutdown,
+	.system_reset        = c910_system_reset,
 
 	.hart_start          = c910_hart_start,
 };

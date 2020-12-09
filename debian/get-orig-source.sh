@@ -30,7 +30,8 @@ clean_dfsg() {
 
 file pc-bios/bios.bin		# roms/seabios/
 file pc-bios/bios-256k.bin	# roms/seabios/
-file pc-bios/bios-microvm.bin	# roms/qboot/
+file pc-bios/bios-microvm.bin	# roms/qboot/ (old)
+file pc-bios/qboot.rom		# roms/qboot/
 file pc-bios/hppa-firmware.img	# roms/seabios-hppa/
 file pc-bios/sgabios.bin	# roms/sgabios/
 file pc-bios/slof.bin		# roms/SLOF/
@@ -42,6 +43,7 @@ file pc-bios/bamboo.dtb		# pc-bios/bamboo.dts
 file pc-bios/canyonlands.dtb
 file pc-bios/openbios-*		# roms/openbios/
 file pc-bios/opensbi-*.bin	# roms/opensbi/
+file pc-bios/opensbi-*.elf	# roms/opensbi/
 file pc-bios/palcode-clipper	# roms/qemu-palcode/ alpha palcode
 file pc-bios/s390-ccw.img	# pc-bios/s390-ccw/
 file pc-bios/s390-netboot.img	# pc-bios/s390-ccw/
@@ -71,6 +73,7 @@ dir roms/QemuMacDrivers
 dir dtc		# system dtc exists and used
 dir capstone	# system capstone exists and used
 dir slirp	# system libslirp exists and used
+dir meson	# meson build system
 
 }
 

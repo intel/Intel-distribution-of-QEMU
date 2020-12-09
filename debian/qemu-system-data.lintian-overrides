@@ -14,3 +14,7 @@ qemu-system-data: statically-linked-binary usr/share/qemu/palcode-clipper
 qemu-system-data: arch-dependent-file-in-usr-share usr/share/qemu/openbios-*
 qemu-system-data: arch-independent-package-contains-binary-or-object usr/share/qemu/openbios-*
 qemu-system-data: statically-linked-binary usr/share/qemu/openbios-*
+# opensbi binaries
+qemu-system-data: arch-dependent-file-in-usr-share usr/share/qemu/opensbi-*
+qemu-system-data: arch-independent-package-contains-binary-or-object usr/share/qemu/opensbi-*
+qemu-system-data: statically-linked-binary usr/share/qemu/opensbi-*

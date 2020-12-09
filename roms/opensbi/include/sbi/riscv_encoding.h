@@ -61,12 +61,20 @@
 #define SSTATUS64_UXL			MSTATUS_UXL
 #define SSTATUS64_SD			MSTATUS64_SD
 
+#if __riscv_xlen == 64
+#define HSTATUS_VSXL			_UL(0x300000000)
+#define HSTATUS_VSXL_SHIFT		32
+#endif
 #define HSTATUS_VTSR			_UL(0x00400000)
+#define HSTATUS_VTW			_UL(0x00200000)
 #define HSTATUS_VTVM			_UL(0x00100000)
-#define HSTATUS_SP2V			_UL(0x00000200)
-#define HSTATUS_SP2P			_UL(0x00000100)
+#define HSTATUS_VGEIN			_UL(0x0003f000)
+#define HSTATUS_VGEIN_SHIFT		12
+#define HSTATUS_HU			_UL(0x00000200)
+#define HSTATUS_SPVP			_UL(0x00000100)
 #define HSTATUS_SPV			_UL(0x00000080)
-#define HSTATUS_SPRV			_UL(0x00000001)
+#define HSTATUS_GVA			_UL(0x00000040)
+#define HSTATUS_VSBE			_UL(0x00000020)
 
 #define IRQ_S_SOFT			1
 #define IRQ_VS_SOFT			2
@@ -111,6 +119,21 @@
 #define SATP_MODE_SV57			_UL(10)
 #define SATP_MODE_SV64			_UL(11)
 
+#define HGATP_MODE_OFF			_UL(0)
+#define HGATP_MODE_SV32X4		_UL(1)
+#define HGATP_MODE_SV39X4		_UL(8)
+#define HGATP_MODE_SV48X4		_UL(9)
+
+#define HGATP32_MODE_SHIFT		31
+#define HGATP32_VMID_SHIFT		22
+#define HGATP32_VMID_MASK		_UL(0x1FC00000)
+#define HGATP32_PPN			_UL(0x003FFFFF)
+
+#define HGATP64_MODE_SHIFT		60
+#define HGATP64_VMID_SHIFT		44
+#define HGATP64_VMID_MASK		_ULL(0x03FFF00000000000)
+#define HGATP64_PPN			_ULL(0x00000FFFFFFFFFFF)
+
 #define PMP_R				_UL(0x01)
 #define PMP_W				_UL(0x02)
 #define PMP_X				_UL(0x04)
@@ -123,35 +146,25 @@
 #define PMP_SHIFT			2
 #define PMP_COUNT			16
 
-/* page table entry (PTE) fields */
-#define PTE_V				_UL(0x001) /* Valid */
-#define PTE_R				_UL(0x002) /* Read */
-#define PTE_W				_UL(0x004) /* Write */
-#define PTE_X				_UL(0x008) /* Execute */
-#define PTE_U				_UL(0x010) /* User */
-#define PTE_G				_UL(0x020) /* Global */
-#define PTE_A				_UL(0x040) /* Accessed */
-#define PTE_D				_UL(0x080) /* Dirty */
-#define PTE_SOFT			_UL(0x300) /* Reserved for Software */
-
-#define PTE_PPN_SHIFT			10
-
-#define PTE_TABLE(PTE)			\
-	(((PTE) & (PTE_V | PTE_R | PTE_W | PTE_X)) == PTE_V)
-
 #if __riscv_xlen == 64
 #define MSTATUS_SD			MSTATUS64_SD
 #define SSTATUS_SD			SSTATUS64_SD
-#define RISCV_PGLEVEL_BITS		9
 #define SATP_MODE			SATP64_MODE
+
+#define HGATP_PPN			HGATP64_PPN
+#define HGATP_VMID_SHIFT		HGATP64_VMID_SHIFT
+#define HGATP_VMID_MASK			HGATP64_VMID_MASK
+#define HGATP_MODE_SHIFT		HGATP64_MODE_SHIFT
 #else
 #define MSTATUS_SD			MSTATUS32_SD
 #define SSTATUS_SD			SSTATUS32_SD
-#define RISCV_PGLEVEL_BITS		10
 #define SATP_MODE			SATP32_MODE
+
+#define HGATP_PPN			HGATP32_PPN
+#define HGATP_VMID_SHIFT		HGATP32_VMID_SHIFT
+#define HGATP_VMID_MASK			HGATP32_VMID_MASK
+#define HGATP_MODE_SHIFT		HGATP32_MODE_SHIFT
 #endif
-#define RISCV_PGSHIFT			12
-#define RISCV_PGSIZE			(1 << RISCV_PGSHIFT)
 
 #define CSR_USTATUS			0x0
 #define CSR_FFLAGS			0x1
@@ -419,6 +432,7 @@
 #define CAUSE_STORE_PAGE_FAULT		0xf
 #define CAUSE_FETCH_GUEST_PAGE_FAULT	0x14
 #define CAUSE_LOAD_GUEST_PAGE_FAULT	0x15
+#define CAUSE_VIRTUAL_INST_FAULT	0x16
 #define CAUSE_STORE_GUEST_PAGE_FAULT	0x17
 
 #define INSN_MATCH_LB			0x3

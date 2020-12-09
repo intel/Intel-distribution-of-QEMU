@@ -238,6 +238,10 @@ MachineInfoList *qmp_query_machines(Error **errp)
             info->default_cpu_type = g_strdup(mc->default_cpu_type);
             info->has_default_cpu_type = true;
         }
+        if (mc->default_ram_id) {
+            info->default_ram_id = g_strdup(mc->default_ram_id);
+            info->has_default_ram_id = true;
+        }
 
         entry = g_malloc0(sizeof(*entry));
         entry->value = info;
@@ -278,18 +282,6 @@ HotpluggableCPUList *qmp_query_hotpluggable_cpus(Error **errp)
     }
 
     return machine_query_hotpluggable_cpus(ms);
-}
-
-void qmp_cpu_add(int64_t id, Error **errp)
-{
-    MachineClass *mc;
-
-    mc = MACHINE_GET_CLASS(current_machine);
-    if (mc->hot_add_cpu) {
-        mc->hot_add_cpu(current_machine, id, errp);
-    } else {
-        error_setg(errp, "Not supported");
-    }
 }
 
 void qmp_set_numa_node(NumaOptions *cmd, Error **errp)

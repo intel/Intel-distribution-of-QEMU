@@ -1,9 +1,0 @@
-# source fir these files is actually present and is being built on debian too
-qemu source: source-is-missing pc-bios/hppa-firmware.img
-qemu source: source-is-missing pc-bios/openbios-ppc
-qemu source: source-is-missing pc-bios/openbios-sparc32
-qemu source: source-is-missing pc-bios/openbios-sparc64
-qemu source: source-is-missing pc-bios/palcode-clipper
-qemu source: source-is-missing pc-bios/s390-ccw.img
-qemu source: source-is-missing pc-bios/s390-netboot.img
-qemu source: source-is-missing pc-bios/u-boot.e500
