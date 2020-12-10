@@ -1,3 +1,12 @@
+qemu (1:5.2+dfsg-2) unstable; urgency=medium
+
+  * move ui-opengl.so module from qemu-system-gui to qemu-system-common,
+    as other modules want it (Closes: #976996, #977022)
+  * do not install dropped ppc64abi32 binfmt for qemu-user[-static]
+    (Closes: #977015)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 10 Dec 2020 11:15:43 +0300
+
 qemu (1:5.2+dfsg-1) unstable; urgency=medium
 
   * new upstream release
