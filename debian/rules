@@ -105,19 +105,6 @@ user_targets = \
 
 endif	# enable_linux_user
 
-ifneq ($(filter $(DEB_HOST_ARCH),i386 x32),)
-# XXX as of 2020-04-29 and 2020-07-17, i386 buildd fails to link -static-pie executable:
-# /usr/bin/ld: /usr/lib/i386-linux-gnu/libc.a(memset_chk-nonshared.o):
-#	unsupported non-PIC call to IFUNC `memset'
-# so disable PIE for qemu-user-static build on i386 for now.
-# On x32 -static-pie fails in different way.
-# On amd64 -static-pie appears to work fine.
-# On other architectures qemu correctly detect that -static-pie is not available
-XXXstaticpie = --disable-pie
-else
-XXXstaticpie =
-endif
-
 b/configure-stamp: configure
 	dh_testdir
 
@@ -171,10 +158,13 @@ endif
 ifeq ($(enable_linux_user),enable)
 # do not use debian/configure-opts here, all optional stuff will be enabled
 # automatically, dependencies are already verified in the main build
+# by default this would detect linker option --static-pie, but that
+# breaks some use cases of qemu-static builds (LP: #1908331), therefore
+# add --disable-pie to get "real static" builds.
 	rm -rf b/user-static; mkdir b/user-static
 	cd b/user-static && \
 	    ../../configure ${common_configure_opts} \
-		--static ${XXXstaticpie} --disable-system \
+		--static --disable-pie --disable-system \
 		--target-list="$(addsuffix -linux-user,${user_targets})"
 endif
 	touch $@
@@ -314,19 +304,23 @@ ifneq (${DEB_HOST_ARCH},sparc64)
 	done
 endif
 
-# ui-spice-app is optional (see d/control for spice)
-# hw-display-qxl depends on spice
-	mkdir -p debian/qemu-system-common${libdir}/qemu
-	for f in ui-spice-core.so ui-spice-app.so hw-display-qxl.so chardev-spice.so; do \
-	  [ ! -f debian/tmp${libdir}/qemu/$$f ] || \
-	      mv debian/tmp${libdir}/qemu/$$f \
-	       debian/qemu-system-common${libdir}/qemu/ ; \
-	done
-
-# ui-egl-headless is linux-specific
-	[ -f debian/qemu-system-common${libdir}/qemu/ui-egl-headless.so ] || \
-	    mv debian/tmp${libdir}/qemu/ui-egl-headless.so \
-		debian/qemu-system-common${libdir}/qemu/
+## spice is optional (see d/control)
+## hw-display-qxl depends on spice
+#	mkdir -p debian/qemu-system-common${libdir}/qemu
+#	for f in ui-spice-core.so ui-spice-app.so hw-display-qxl.so chardev-spice.so audio-spice.so; do \
+#	  [ ! -f debian/tmp${libdir}/qemu/$$f ] || \
+#	      mv debian/tmp${libdir}/qemu/$$f \
+#	       debian/qemu-system-common${libdir}/qemu/ ; \
+#	done
+#
+## ui-egl-headless is linux-specific
+#	[ -f debian/qemu-system-common${libdir}/qemu/ui-egl-headless.so ] || \
+#	    mv debian/tmp${libdir}/qemu/ui-egl-headless.so \
+#		debian/qemu-system-common${libdir}/qemu/
+## alsa is linux-specific
+#	[ -f debian/qemu-system-common${libdir}/qemu/audio-alsa.so ] || \
+#	    mv debian/tmp${libdir}/qemu/audio-alsa.so \
+#		debian/qemu-system-common${libdir}/qemu/
 
 endif # linux
 

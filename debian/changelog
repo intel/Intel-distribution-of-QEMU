@@ -1,3 +1,19 @@
+qemu (1:5.2+dfsg-3) unstable; urgency=medium
+
+  [ Christian Ehrhardt ]
+  * d/rules: fix qemu-user-static to really be static (LP: #1908331)
+
+  [ Michael Tokarev ]
+  * build most modules statically (besides block and gui parts).
+    This makes qemu-system-common package to be of less strict dependency
+    for other qemu-system-* packages, and also Closes: #977301, #978131
+  * especially remove removed binfmts in qemu-user-{static,binfmt}.preinst
+    (really Closes: #977015)
+  * memory-clamp-cached-translation-MMIO-region-CVE-2020-27821.patch
+    (Closes: #977616, CVE-2020-27821)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 29 Dec 2020 15:07:03 +0300
+
 qemu (1:5.2+dfsg-2) unstable; urgency=medium
 
   * move ui-opengl.so module from qemu-system-gui to qemu-system-common,

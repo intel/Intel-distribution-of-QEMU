@@ -2,7 +2,8 @@
 
 PACKAGE="$1"
 
-fmts="aarch64 alpha arm armeb cris hppa i386 m68k microblaze mips mipsel mipsn32 mipsn32el mips64 mips64el ppc ppc64 ppc64abi32 ppc64le riscv32 riscv64 s390x sh4 sh4eb sparc sparc32plus sparc64 x86_64 xtensa xtensaeb"
+fmts="aarch64 alpha arm armeb cris hppa i386 m68k microblaze mips mipsel mipsn32 mipsn32el mips64 mips64el ppc ppc64 ppc64le riscv32 riscv64 s390x sh4 sh4eb sparc sparc32plus sparc64 x86_64 xtensa xtensaeb"
+removed_fmts="ppc64abi32"
 
 # linux ELF_OSABI(byte7) can be 0 (traditional,SYSV) or 3 (GNU/LINUX extensions)
 # binfmt registration does not allow a enum, only value&mask.  So we use broader mask
@@ -43,8 +44,6 @@ fmts="aarch64 alpha arm armeb cris hppa i386 m68k microblaze mips mipsel mipsn32
          ppc_mask='\xff\xff\xff\xff\xff\xff\xff\xfc\xff\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff'
       ppc64_magic='\x7f\x45\x4c\x46\x02\x02\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x15'
        ppc64_mask='\xff\xff\xff\xff\xff\xff\xff\xfc\xff\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff'
-#ppc64abi32_magic='\x7f\x45\x4c\x46\x01\x02\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x15'
-# ppc64abi32_mask='\xff\xff\xff\xff\xff\xff\xff\xfc\xff\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff'
     ppc64le_magic='\x7f\x45\x4c\x46\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x15\x00'
      ppc64le_mask='\xff\xff\xff\xff\xff\xff\xff\xfc\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff\x00'
     riscv32_magic='\x7f\x45\x4c\x46\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\xf3\x00'
@@ -114,7 +113,6 @@ do
 
     ifs="$IFS"; IFS=:; set $action; IFS="$ifs"
     cat >>debian/$PACKAGE.$1.debhelper <<EOF
-# binfmt support
 binfmt_update() {
   test $2 = "\$1" || return 0
   command -v update-binfmts >/dev/null || return 0
@@ -130,5 +128,20 @@ binfmt_update() {
 }
 binfmt_update "\$1"
 EOF
-
 done
+# also generate a preinst script to unregister removed fmts if any
+cat >>debian/$PACKAGE.preinst.debhelper <<EOF
+binfmt_update() {
+  test upgrade = "\$1" || return 0
+  dpkg --compare-versions "\$2" le "1:5.2+dfsg-3~" || return 0
+  command -v update-binfmts >/dev/null || return 0
+  for fmt in $removed_fmts; do
+    if [ -f /var/lib/binfmts/qemu-\$fmt ]; then
+      [ -f /usr/bin/qemu-\$fmt$SUFFIX ] ||
+        echo "$PACKAGE.preinst: note: the warning from update-binfmts about missing qemu-\$fmt$SUFFIX is okay" >&2
+      update-binfmts --package $PACKAGE --remove qemu-\$fmt /usr/bin/qemu-\$fmt$SUFFIX
+    fi
+  done
+}
+binfmt_update "\$1" "\$2"
+EOF
