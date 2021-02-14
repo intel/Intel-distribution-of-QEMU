@@ -1,3 +1,44 @@
+qemu (1:5.2+dfsg-5) unstable; urgency=medium
+
+  * d/rules: ensure b/ subdir exists before building palcode and qboot
+  * d/changelog: #959530 is not fixed by 5.2+dfsg-4
+  * 3 virtiofsd patches Closes: #980814, CVE-2020-35517
+    virtiofsd: potential privileged host device access from guest
+    - virtiofsd-extract-lo_do_open-from-lo_open.patch
+    - virtiofsd-optionally-return-inode-pointer-from-lo_do_lookup.patch
+    - virtiofsd-prevent-opening-of-special-files-CVE-2020-35517.patch
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 14 Feb 2021 17:44:06 +0300
+
+qemu (1:5.2+dfsg-4) unstable; urgency=medium
+
+  [ Michael Tokarev ]
+  * require libfdt >= 1.5.0-2 due to #931046
+  * qemu-user: attempt to preserve argv[0] when run under binfmt
+    (Closes: #970460)
+    This changes the enterpreter name for all linux-user registered
+    binfmts, so it potentially can break stuff.  The actual binary
+    being registered now is /usr/libexec/qemu-binfmt/foo-binfmt-P,
+    which is a symlink to actual /usr/lib/qemu-foo[-static].
+  * ignore .git-submodule-status when building source
+  * some security fixes from upstream:
+    o arm_gic-fix-interrupt-ID-in-GICD_SGIR-CVE-2021-20221.patch
+      Closes: CVE-2021-20221
+      GIC (armv7): out-of-bound heap buffer access via an interrupt ID field
+    o 9pfs-Fully-restart-unreclaim-loop-CVE-2021-20181.patch
+      Closes: CVE-2021-20181
+  * non-security fixes from upstream:
+    pc-bios-descriptors-fix-paths-in-json-files.patch - fixes wrong paths
+    in edk2-firmware-related json files introduced in 5.2
+
+  [ Christian Ehrhardt ]
+  * d/control-in: avoid version mismatch of installed binaries
+    (Closes: #956377)
+
+  [ Dan Streetman ]
+  * Backport configure param --with-git-submodules and set to 'ignore'
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 14 Feb 2021 16:52:10 +0300
+
 qemu (1:5.2+dfsg-3) unstable; urgency=medium
 
   [ Christian Ehrhardt ]

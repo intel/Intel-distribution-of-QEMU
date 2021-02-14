@@ -2,6 +2,7 @@ use-fixed-data-path.patch
 microvm-default-machine-type.patch
 build-most-modules-statically-hack.diff
 skip-meson-pc-bios.diff
+linux-user-binfmt-P.diff
 #
 openbios-address-of-packet-member.patch
 openbios-use-source_date_epoch-in-makefile.patch
@@ -9,4 +10,11 @@ seabios-hppa-use-consistent-date-and-remove-hostname.patch
 slof-remove-user-and-host-from-release-version.patch
 slof-ensure-ld-is-called-with-C-locale.patch
 spelling.diff
+pc-bios-descriptors-fix-paths-in-json-files.patch
 memory-clamp-cached-translation-if-points-to-MMIO-region-CVE-2020-27821.patch
+configure-replace-enable-disable-git-update-with-wit.patch
+arm_gic-fix-interrupt-ID-in-GICD_SGIR-CVE-2021-20221.patch
+9pfs-Fully-restart-unreclaim-loop-CVE-2021-20181.patch
+virtiofsd-extract-lo_do_open-from-lo_open.patch
+virtiofsd-optionally-return-inode-pointer-from-lo_do_lookup.patch
+virtiofsd-prevent-opening-of-special-files-CVE-2020-35517.patch

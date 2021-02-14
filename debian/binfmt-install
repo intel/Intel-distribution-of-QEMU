@@ -91,19 +91,24 @@ case "$PACKAGE" in
 esac
 
 mkdir -p debian/$PACKAGE/usr/share/binfmts
+mkdir -p debian/$PACKAGE/usr/libexec/qemu-binfmt
 installed_fmts=
 for fmt in $fmts ; do
     eval "case $fmt in $omit) magic= ;; *) magic=\"\$${fmt}_magic\" mask=\"\$${fmt}_mask\" ;; esac"
     [ -z "$magic" ] && continue
     installed_fmts="$installed_fmts $fmt"
+    # use a special name ending with -binfmt-P so qemu-user
+    # knows it is run by kernel binfmt with P (preserve) flag
+    ln -s ../../bin/qemu-$fmt$SUFFIX debian/$PACKAGE/usr/libexec/qemu-binfmt/$fmt-binfmt-P
     cat >>debian/$PACKAGE/usr/share/binfmts/qemu-$fmt <<EOF
 package $PACKAGE
-interpreter /usr/bin/qemu-$fmt$SUFFIX
+interpreter /usr/libexec/qemu-binfmt/$fmt-binfmt-P
 magic $magic
 offset 0
 mask $mask
 credentials yes
 fix_binary $FIX_BINARY
+preserve yes
 EOF
 done
 
