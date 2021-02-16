@@ -1,3 +1,14 @@
+qemu (1:5.2+dfsg-6) unstable; urgency=medium
+
+  * deprecate qemu-debootstrap. It is not needed anymore with
+    binfmt F flag, since everything now works without --foreign
+    debootstrap argument and copying the right qemu binary into
+    the chroot. Closes: #901197
+  * fix the brown-paper bag bug: wrong argument order
+    in the linux-user-binfmt patch (really closes: #970460)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 16 Feb 2021 12:11:20 +0300
+
 qemu (1:5.2+dfsg-5) unstable; urgency=medium
 
   * d/rules: ensure b/ subdir exists before building palcode and qboot
