@@ -1,3 +1,22 @@
+qemu (1:5.2+dfsg-8) unstable; urgency=medium
+
+  * a no-change upload to fix broken previous upload
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 14 Mar 2021 12:21:37 +0300
+
+qemu (1:5.2+dfsg-7) unstable; urgency=high
+
+  * do not make qemu-system-common dependent on qemu-system-foo.
+    We removed modules from qemu-system-common for now, so there's no
+    need for it to depend on any of qemu-system-foo of the same version.
+    Among other things this fixes #983756 (which should be fixes some
+    other way anyway, but it should be ok for now).
+    Closes: #983756, #983921, #985195
+    Urgency is high because a single bin-NMU of qemu package made it
+    uninstallable.
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 14 Mar 2021 11:32:54 +0300
+
 qemu (1:5.2+dfsg-6) unstable; urgency=medium
 
   * deprecate qemu-debootstrap. It is not needed anymore with

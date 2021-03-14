@@ -217,7 +217,6 @@ Multi-Arch: no
 Replaces: qemu-system-data (<< 1:3.1+dfsg-1~), qemu-utils (<< 1:3.1+dfsg-3~)
 Breaks:   qemu-system-data (<< 1:3.1+dfsg-1~), qemu-utils (<< 1:3.1+dfsg-3~)
 Depends: ${misc:Depends}, ${shlibs:Depends},
-         qemu-system-x86 (= ${binary:Version}) | qemu-system-arm (= ${binary:Version}) | qemu-system-mips (= ${binary:Version}) | qemu-system-ppc (= ${binary:Version}) | qemu-system-sparc (= ${binary:Version}) | qemu-system-misc (= ${binary:Version}) | qemu-system-s390x (= ${binary:Version}) | qemu-system-x86-xen (= ${binary:Version}),
 # to fix wrong acl for newly created device node on ubuntu:
 :ubuntu: acl
 Description: QEMU full system emulation binaries (common files)
