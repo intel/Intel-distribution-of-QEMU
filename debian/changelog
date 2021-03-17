@@ -1,3 +1,23 @@
+qemu (1:5.2+dfsg-9) unstable; urgency=medium
+
+  * do not make qemu-system-data dependent on qemu-system-foo
+    (Closes: #985040)
+  * CVE-2021-20263 - implement dropping security.capability xattr
+    This adds two patches from upstream:
+    virtiofsd-save-error-code-early-at-the-failure-callsite.patch
+    virtiofsd-drop-remapped-security.capability-..-needed-CVE-2021-20263.patch
+    Closes: #985083, CVE-2021-20263
+  * CVE-2021-3416 fix from upstream
+    Fixes infinite loop in loopback mode of various network devices,
+    adding 10 patches from upstream
+    Closes: #984448, CVE-2021-3416
+  * net-e1000-fail-early-for-evil-descriptor-CVE-2021-20257.patch
+    Fix CVE-2021-20257 from upstream: e1000: infinite loop while processing
+    transmit descriptors
+    Closes: #984450, CVE-2021-20257
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 17 Mar 2021 21:02:30 +0300
+
 qemu (1:5.2+dfsg-8) unstable; urgency=medium
 
   * a no-change upload to fix broken previous upload
