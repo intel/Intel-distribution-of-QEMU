@@ -1,3 +1,18 @@
+qemu (1:5.2+dfsg-10) unstable; urgency=medium
+
+  * 5 sdhci fixes from upstream:
+    dont-transfer-any-data-when-command-time-out.patch
+    dont-write-to-SDHC_SYSAD-register-when-transfer-is-in-progress.patch
+    correctly-set-the-controller-status-for-ADMA.patch
+    limit-block-size-only-when-SDHC_BLKSIZE-register-is-writable.patch
+    reset-the-data-pointer-of-s-fifo_buffer-when-a-different-block-size...patch
+    (Closes: #986795, #970937, CVE-2021-3409, CVE-2020-17380, CVE-2020-25085)
+  * mptsas-remove-unused-MPTSASState.pending-CVE-2021-3392.patch
+    fix possible use-after-free in mptsas_free_request
+    (Cloese: #984449, CVE-2021-3392)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 16 Apr 2021 12:43:36 +0300
+
 qemu (1:5.2+dfsg-9) unstable; urgency=medium
 
   * do not make qemu-system-data dependent on qemu-system-foo

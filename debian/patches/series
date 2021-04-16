@@ -32,3 +32,10 @@ net-qemu_receive_packet-for-loopback-rtl8139.patch
 net-qemu_receive_packet-for-loopback-sungem.patch
 net-qemu_receive_packet-for-loopback-tx_pkt-iov.patch
 net-e1000-fail-early-for-evil-descriptor-CVE-2021-20257.patch
+# sd/sdhci fixes: CVE-2020-17380 CVE-2020-25085 CVE-2021-3409
+sdhci/dont-transfer-any-data-when-command-time-out.patch
+sdhci/dont-write-to-SDHC_SYSAD-register-when-transfer-is-in-progress.patch
+sdhci/correctly-set-the-controller-status-for-ADMA.patch
+sdhci/limit-block-size-only-when-SDHC_BLKSIZE-register-is-writable.patch
+sdhci/reset-the-data-pointer-of-s-fifo_buffer-when-a-different-block-size-is-programmed.patch
+mptsas-remove-unused-MPTSASState.pending-CVE-2021-3392.patch
