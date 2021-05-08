@@ -1356,7 +1356,7 @@ static void ob_pci_add_properties(phandle_t phandle,
 }
 
 #ifdef CONFIG_XBOX
-static char pci_xbox_blacklisted (int bus, int devnum, int fn)
+static char pci_xbox_ignore_device (int bus, int devnum, int fn)
 {
 	/*
 	 * The Xbox MCPX chipset is a derivative of the nForce 1
@@ -1387,9 +1387,6 @@ static char pci_xbox_blacklisted (int bus, int devnum, int fn)
 	if (bus >= 2)
 		return 1;
 
-	/*
-	 * The device is not blacklisted.
-	 */
 	return 0;
 }
 #endif
@@ -1708,7 +1705,7 @@ static int ob_pci_read_identification(int bus, int devnum, int fn,
     pci_addr addr;
 
 #ifdef CONFIG_XBOX
-    if (pci_xbox_blacklisted (bus, devnum, fn))
+    if (pci_xbox_ignore_device (bus, devnum, fn))
         return;
 #endif
     addr = PCI_ADDR(bus, devnum, fn);
@@ -1991,28 +1988,15 @@ static void ob_pci_host_bus_interrupt(ucell dnode, u32 *props, int *ncells, u32 
 {
     *ncells += pci_encode_phys_addr(props + *ncells, 0, 0, addr, 0, 0);
 
-    if (is_oldworld() || is_newworld()) {
-        /* Mac machines */
-        props[(*ncells)++] = intno;
-        props[(*ncells)++] = dnode;
-        props[(*ncells)++] = arch->irqs[((intno - 1) + (addr >> 11)) & 3];
-        props[(*ncells)++] = 1;
+    props[(*ncells)++] = intno;
+    props[(*ncells)++] = dnode;
+    if (!is_apple() && (PCI_DEV(addr) == 1 && PCI_FN(addr) == 0)) {
+        /* On PReP machine the LSI SCSI has fixed routing to IRQ 13 */
+        props[(*ncells)++] = 13;
     } else {
-        /* PReP machines */
-        props[(*ncells)++] = intno;
-        props[(*ncells)++] = dnode;
-
-        if (PCI_DEV(addr) == 1 && PCI_FN(addr) == 0) {
-            /* LSI SCSI has fixed routing to IRQ 13 */
-            props[(*ncells)++] = 13;
-        } else {
-            /* Use the same "physical" routing as QEMU's raven_map_irq() although
-               ultimately all 4 PCI interrupts are ORd to IRQ 15 as indicated
-               by the PReP specification */
-            props[(*ncells)++] = arch->irqs[((intno - 1) + (addr >> 11)) & 1];
-        }
-        props[(*ncells)++] = 1;
+        props[(*ncells)++] = arch->irqs[((intno - 1) + (addr >> 11)) & 3];
     }
+    props[(*ncells)++] = 1;
 }
 
 #elif defined(CONFIG_SPARC64)

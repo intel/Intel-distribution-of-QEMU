@@ -182,14 +182,10 @@ _bss_zero:
 	call	fw_save_info
 	MOV_5R	a0, s0, a1, s1, a2, s2, a3, s3, a4, s4
 
+#ifdef FW_FDT_PATH
 	/* Override previous arg1 */
-	MOV_3R	s0, a0, s1, a1, s2, a2
-	call	fw_prev_arg1
-	add	t1, a0, zero
-	MOV_3R	a0, s0, a1, s1, a2, s2
-	beqz	t1, _prev_arg1_override_done
-	add	a1, t1, zero
-_prev_arg1_override_done:
+	la	a1, fw_fdt_bin
+#endif
 
 	/*
 	 * Initialize platform
@@ -265,6 +261,9 @@ _scratch_init:
 	/* Store hartid-to-scratch function address in scratch space */
 	la	a4, _hartid_to_scratch
 	REG_S	a4, SBI_SCRATCH_HARTID_TO_SCRATCH_OFFSET(tp)
+	/* Store trap-exit function address in scratch space */
+	la	a4, _trap_exit
+	REG_S	a4, SBI_SCRATCH_TRAP_EXIT_OFFSET(tp)
 	/* Clear tmp0 in scratch space */
 	REG_S	zero, SBI_SCRATCH_TMP0_OFFSET(tp)
 	/* Store firmware options in scratch space */
@@ -417,7 +416,27 @@ _start_warm:
 
 	/* Setup trap handler */
 	la	a4, _trap_handler
+#if __riscv_xlen == 32
+	csrr	a5, CSR_MISA
+	srli	a5, a5, ('H' - 'A')
+	andi	a5, a5, 0x1
+	beq	a5, zero, _skip_trap_handler_rv32_hyp
+	la	a4, _trap_handler_rv32_hyp
+_skip_trap_handler_rv32_hyp:
+#endif
 	csrw	CSR_MTVEC, a4
+
+#if __riscv_xlen == 32
+	/* Override trap exit for H-extension */
+	csrr	a5, CSR_MISA
+	srli	a5, a5, ('H' - 'A')
+	andi	a5, a5, 0x1
+	beq	a5, zero, _skip_trap_exit_rv32_hyp
+	la	a4, _trap_exit_rv32_hyp
+	csrr	a5, CSR_MSCRATCH
+	REG_S	a4, SBI_SCRATCH_TRAP_EXIT_OFFSET(a5)
+_skip_trap_exit_rv32_hyp:
+#endif
 
 	/* Initialize SBI runtime */
 	csrr	a0, CSR_MSCRATCH
@@ -480,45 +499,37 @@ fw_platform_init:
 	add	a0, a1, zero
 	ret
 
-	.section .entry, "ax", %progbits
-	.align 3
-	.globl _trap_handler
-_trap_handler:
+.macro	TRAP_SAVE_AND_SETUP_SP_T0
 	/* Swap TP and MSCRATCH */
 	csrrw	tp, CSR_MSCRATCH, tp
 
 	/* Save T0 in scratch space */
 	REG_S	t0, SBI_SCRATCH_TMP0_OFFSET(tp)
 
-	/* Check which mode we came from */
+	/*
+	 * Set T0 to appropriate exception stack
+	 *
+	 * Came_From_M_Mode = ((MSTATUS.MPP < PRV_M) ? 1 : 0) - 1;
+	 * Exception_Stack = TP ^ (Came_From_M_Mode & (SP ^ TP))
+	 *
+	 * Came_From_M_Mode = 0    ==>    Exception_Stack = TP
+	 * Came_From_M_Mode = -1   ==>    Exception_Stack = SP
+	 */
 	csrr	t0, CSR_MSTATUS
 	srl	t0, t0, MSTATUS_MPP_SHIFT
 	and	t0, t0, PRV_M
-	xori	t0, t0, PRV_M
-	beq	t0, zero, _trap_handler_m_mode
+	slti	t0, t0, PRV_M
+	add	t0, t0, -1
+	xor	sp, sp, tp
+	and	t0, t0, sp
+	xor	sp, sp, tp
+	xor	t0, tp, t0
 
-	/* We came from S-mode or U-mode */
-_trap_handler_s_mode:
-	/* Set T0 to original SP */
-	add	t0, sp, zero
+	/* Save original SP on exception stack */
+	REG_S	sp, (SBI_TRAP_REGS_OFFSET(sp) - SBI_TRAP_REGS_SIZE)(t0)
 
-	/* Setup exception stack */
-	add	sp, tp, -(SBI_TRAP_REGS_SIZE)
-
-	/* Jump to code common for all modes */
-	j	_trap_handler_all_mode
-
-	/* We came from M-mode */
-_trap_handler_m_mode:
-	/* Set T0 to original SP */
-	add	t0, sp, zero
-
-	/* Re-use current SP as exception stack */
-	add	sp, sp, -(SBI_TRAP_REGS_SIZE)
-
-_trap_handler_all_mode:
-	/* Save original SP (from T0) on stack */
-	REG_S	t0, SBI_TRAP_REGS_OFFSET(sp)(sp)
+	/* Set SP to exception stack and make room for trap registers */
+	add	sp, t0, -(SBI_TRAP_REGS_SIZE)
 
 	/* Restore T0 from scratch space */
 	REG_L	t0, SBI_SCRATCH_TMP0_OFFSET(tp)
@@ -528,23 +539,23 @@ _trap_handler_all_mode:
 
 	/* Swap TP and MSCRATCH */
 	csrrw	tp, CSR_MSCRATCH, tp
+.endm
 
+.macro	TRAP_SAVE_MEPC_MSTATUS have_mstatush
 	/* Save MEPC and MSTATUS CSRs */
 	csrr	t0, CSR_MEPC
 	REG_S	t0, SBI_TRAP_REGS_OFFSET(mepc)(sp)
 	csrr	t0, CSR_MSTATUS
 	REG_S	t0, SBI_TRAP_REGS_OFFSET(mstatus)(sp)
-	REG_S	zero, SBI_TRAP_REGS_OFFSET(mstatusH)(sp)
-#if __riscv_xlen == 32
-	csrr	t0, CSR_MISA
-	srli	t0, t0, ('H' - 'A')
-	andi	t0, t0, 0x1
-	beq	t0, zero, _skip_mstatush_save
+	.if \have_mstatush
 	csrr	t0, CSR_MSTATUSH
 	REG_S	t0, SBI_TRAP_REGS_OFFSET(mstatusH)(sp)
-_skip_mstatush_save:
-#endif
+	.else
+	REG_S	zero, SBI_TRAP_REGS_OFFSET(mstatusH)(sp)
+	.endif
+.endm
 
+.macro	TRAP_SAVE_GENERAL_REGS_EXCEPT_SP_T0
 	/* Save all general regisers except SP and T0 */
 	REG_S	zero, SBI_TRAP_REGS_OFFSET(zero)(sp)
 	REG_S	ra, SBI_TRAP_REGS_OFFSET(ra)(sp)
@@ -576,11 +587,15 @@ _skip_mstatush_save:
 	REG_S	t4, SBI_TRAP_REGS_OFFSET(t4)(sp)
 	REG_S	t5, SBI_TRAP_REGS_OFFSET(t5)(sp)
 	REG_S	t6, SBI_TRAP_REGS_OFFSET(t6)(sp)
+.endm
 
+.macro	TRAP_CALL_C_ROUTINE
 	/* Call C routine */
 	add	a0, sp, zero
 	call	sbi_trap_handler
+.endm
 
+.macro	TRAP_RESTORE_GENERAL_REGS_EXCEPT_SP_T0
 	/* Restore all general regisers except SP and T0 */
 	REG_L	ra, SBI_TRAP_REGS_OFFSET(ra)(sp)
 	REG_L	gp, SBI_TRAP_REGS_OFFSET(gp)(sp)
@@ -611,29 +626,97 @@ _skip_mstatush_save:
 	REG_L	t4, SBI_TRAP_REGS_OFFSET(t4)(sp)
 	REG_L	t5, SBI_TRAP_REGS_OFFSET(t5)(sp)
 	REG_L	t6, SBI_TRAP_REGS_OFFSET(t6)(sp)
+.endm
 
+.macro	TRAP_RESTORE_MEPC_MSTATUS have_mstatush
 	/* Restore MEPC and MSTATUS CSRs */
 	REG_L	t0, SBI_TRAP_REGS_OFFSET(mepc)(sp)
 	csrw	CSR_MEPC, t0
 	REG_L	t0, SBI_TRAP_REGS_OFFSET(mstatus)(sp)
 	csrw	CSR_MSTATUS, t0
-#if __riscv_xlen == 32
-	csrr	t0, CSR_MISA
-	srli	t0, t0, ('H' - 'A')
-	andi	t0, t0, 0x1
-	beq	t0, zero, _skip_mstatush_restore
+	.if \have_mstatush
 	REG_L	t0, SBI_TRAP_REGS_OFFSET(mstatusH)(sp)
 	csrw	CSR_MSTATUSH, t0
-_skip_mstatush_restore:
-#endif
+	.endif
+.endm
 
+.macro TRAP_RESTORE_SP_T0
 	/* Restore T0 */
 	REG_L	t0, SBI_TRAP_REGS_OFFSET(t0)(sp)
 
 	/* Restore SP */
 	REG_L	sp, SBI_TRAP_REGS_OFFSET(sp)(sp)
+.endm
+
+	.section .entry, "ax", %progbits
+	.align 3
+	.globl _trap_handler
+_trap_handler:
+	TRAP_SAVE_AND_SETUP_SP_T0
+
+	TRAP_SAVE_MEPC_MSTATUS 0
+
+	TRAP_SAVE_GENERAL_REGS_EXCEPT_SP_T0
+
+	TRAP_CALL_C_ROUTINE
+
+	TRAP_RESTORE_GENERAL_REGS_EXCEPT_SP_T0
+
+	TRAP_RESTORE_MEPC_MSTATUS 0
+
+	TRAP_RESTORE_SP_T0
 
 	mret
+
+	.section .entry, "ax", %progbits
+	.align 3
+	.globl _trap_exit
+_trap_exit:
+	add	sp, a0, zero
+
+	TRAP_RESTORE_GENERAL_REGS_EXCEPT_SP_T0
+
+	TRAP_RESTORE_MEPC_MSTATUS 0
+
+	TRAP_RESTORE_SP_T0
+
+	mret
+
+#if __riscv_xlen == 32
+	.section .entry, "ax", %progbits
+	.align 3
+	.globl _trap_handler_rv32_hyp
+_trap_handler_rv32_hyp:
+	TRAP_SAVE_AND_SETUP_SP_T0
+
+	TRAP_SAVE_MEPC_MSTATUS 1
+
+	TRAP_SAVE_GENERAL_REGS_EXCEPT_SP_T0
+
+	TRAP_CALL_C_ROUTINE
+
+	TRAP_RESTORE_GENERAL_REGS_EXCEPT_SP_T0
+
+	TRAP_RESTORE_MEPC_MSTATUS 1
+
+	TRAP_RESTORE_SP_T0
+
+	mret
+
+	.section .entry, "ax", %progbits
+	.align 3
+	.globl _trap_exit_rv32_hyp
+_trap_exit_rv32_hyp:
+	add	sp, a0, zero
+
+	TRAP_RESTORE_GENERAL_REGS_EXCEPT_SP_T0
+
+	TRAP_RESTORE_MEPC_MSTATUS 1
+
+	TRAP_RESTORE_SP_T0
+
+	mret
+#endif
 
 	.section .entry, "ax", %progbits
 	.align 3
@@ -673,3 +756,14 @@ _reset_regs:
 	csrw CSR_MSCRATCH, 0
 
 	ret
+
+#ifdef FW_FDT_PATH
+	.section .rodata
+	.align 4
+	.globl fw_fdt_bin
+fw_fdt_bin:
+	.incbin FW_FDT_PATH
+#ifdef FW_FDT_PADDING
+	.fill FW_FDT_PADDING, 1, 0
+#endif
+#endif

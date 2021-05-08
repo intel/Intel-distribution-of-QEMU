@@ -13,6 +13,7 @@
 #include <sbi/riscv_atomic.h>
 #include <sbi/sbi_bitops.h>
 #include <sbi/sbi_console.h>
+#include <sbi/sbi_domain.h>
 #include <sbi/sbi_error.h>
 #include <sbi/sbi_ecall_interface.h>
 #include <sbi/sbi_hart.h>
@@ -56,7 +57,7 @@ int sbi_hsm_hart_state_to_status(int state)
 	return ret;
 }
 
-int sbi_hsm_hart_get_state(u32 hartid)
+static inline int __sbi_hsm_hart_get_state(u32 hartid)
 {
 	struct sbi_hsm_data *hdata;
 	struct sbi_scratch *scratch;
@@ -66,13 +67,20 @@ int sbi_hsm_hart_get_state(u32 hartid)
 		return SBI_HART_UNKNOWN;
 
 	hdata = sbi_scratch_offset_ptr(scratch, hart_data_offset);
-
 	return atomic_read(&hdata->state);
 }
 
-bool sbi_hsm_hart_started(u32 hartid)
+int sbi_hsm_hart_get_state(const struct sbi_domain *dom, u32 hartid)
 {
-	if (sbi_hsm_hart_get_state(hartid) == SBI_HART_STARTED)
+	if (!sbi_domain_is_assigned_hart(dom, hartid))
+		return SBI_HART_UNKNOWN;
+
+	return __sbi_hsm_hart_get_state(hartid);
+}
+
+static bool sbi_hsm_hart_started(const struct sbi_domain *dom, u32 hartid)
+{
+	if (sbi_hsm_hart_get_state(dom, hartid) == SBI_HART_STARTED)
 		return TRUE;
 	else
 		return FALSE;
@@ -80,25 +88,30 @@ bool sbi_hsm_hart_started(u32 hartid)
 
 /**
  * Get ulong HART mask for given HART base ID
+ * @param dom the domain to be used for output HART mask
  * @param hbase the HART base ID
  * @param out_hmask the output ulong HART mask
  * @return 0 on success and SBI_Exxx (< 0) on failure
  * Note: the output HART mask will be set to zero on failure as well.
  */
-int sbi_hsm_hart_started_mask(ulong hbase, ulong *out_hmask)
+int sbi_hsm_hart_started_mask(const struct sbi_domain *dom,
+			      ulong hbase, ulong *out_hmask)
 {
-	ulong i;
-	ulong hcount = sbi_scratch_last_hartid() + 1;
+	ulong i, hmask, dmask;
+	ulong hend = sbi_scratch_last_hartid() + 1;
 
 	*out_hmask = 0;
-	if (hcount <= hbase)
+	if (hend <= hbase)
 		return SBI_EINVAL;
-	if (BITS_PER_LONG < (hcount - hbase))
-		hcount = BITS_PER_LONG;
+	if (BITS_PER_LONG < (hend - hbase))
+		hend = hbase + BITS_PER_LONG;
 
-	for (i = hbase; i < hcount; i++) {
-		if (sbi_hsm_hart_get_state(i) == SBI_HART_STARTED)
-			*out_hmask |= 1UL << (i - hbase);
+	dmask = sbi_domain_get_assigned_hartmask(dom, hbase);
+	for (i = hbase; i < hend; i++) {
+		hmask = 1UL << (i - hbase);
+		if ((dmask & hmask) &&
+		    (__sbi_hsm_hart_get_state(i) == SBI_HART_STARTED))
+			*out_hmask |= hmask;
 	}
 
 	return 0;
@@ -202,15 +215,24 @@ fail_exit:
 	sbi_hart_hang();
 }
 
-int sbi_hsm_hart_start(struct sbi_scratch *scratch, u32 hartid,
-		       ulong saddr, ulong priv)
+int sbi_hsm_hart_start(struct sbi_scratch *scratch,
+		       const struct sbi_domain *dom,
+		       u32 hartid, ulong saddr, ulong smode, ulong priv)
 {
-	int rc;
 	unsigned long init_count;
 	unsigned int hstate;
 	struct sbi_scratch *rscratch;
 	struct sbi_hsm_data *hdata;
 	const struct sbi_platform *plat = sbi_platform_ptr(scratch);
+
+	/* For now, we only allow start mode to be S-mode or U-mode. */
+	if (smode != PRV_S && smode != PRV_U)
+		return SBI_EINVAL;
+	if (dom && !sbi_domain_is_assigned_hart(dom, hartid))
+		return SBI_EINVAL;
+	if (dom && !sbi_domain_check_addr(dom, saddr, smode,
+					  SBI_DOMAIN_EXECUTE))
+		return SBI_EINVAL;
 
 	rscratch = sbi_hartid_to_scratch(hartid);
 	if (!rscratch)
@@ -228,14 +250,10 @@ int sbi_hsm_hart_start(struct sbi_scratch *scratch, u32 hartid,
 	if (hstate != SBI_HART_STOPPED)
 		return SBI_EINVAL;
 
-	rc = sbi_hart_pmp_check_addr(scratch, saddr, PMP_X);
-	if (rc)
-		return rc;
-	//TODO: We also need to check saddr for valid physical address as well.
-
 	init_count = sbi_init_count(hartid);
 	rscratch->next_arg1 = priv;
 	rscratch->next_addr = saddr;
+	rscratch->next_mode = smode;
 
 	if (sbi_platform_has_hart_hotplug(plat) ||
 	   (sbi_platform_has_hart_secondary_boot(plat) && !init_count)) {
@@ -255,7 +273,7 @@ int sbi_hsm_hart_stop(struct sbi_scratch *scratch, bool exitnow)
 	struct sbi_hsm_data *hdata = sbi_scratch_offset_ptr(scratch,
 							    hart_data_offset);
 
-	if (!sbi_hsm_hart_started(hartid))
+	if (!sbi_hsm_hart_started(sbi_domain_thishart_ptr(), hartid))
 		return SBI_EINVAL;
 
 	oldstate = atomic_cmpxchg(&hdata->state, SBI_HART_STARTED,

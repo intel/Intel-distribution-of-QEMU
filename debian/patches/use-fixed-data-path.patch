@@ -7,11 +7,10 @@ instead of deriving it at runtime from executable path.
 This way it is possible to move qemu binary to another directory
 and it will still work.
 
-diff --git a/softmmu/vl.c b/softmmu/vl.c
-index e6e0ad5a925..de716a8635b 100644
---- a/softmmu/vl.c
-+++ b/softmmu/vl.c
-@@ -2853,12 +2853,14 @@ static void create_default_memdev(MachineState *ms, const char *path)
+diff --git a/softmmu/datadir.c b/softmmu/datadir.c
+--- a/softmmu/datadir.c
++++ b/softmmu/datadir.c
+@@ -94,12 +94,14 @@ void qemu_add_default_firmwarepath(void)
   */
  static char *find_datadir(void)
  {

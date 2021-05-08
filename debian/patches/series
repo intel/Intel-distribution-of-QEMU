@@ -9,33 +9,5 @@ openbios-use-source_date_epoch-in-makefile.patch
 seabios-hppa-use-consistent-date-and-remove-hostname.patch
 slof-remove-user-and-host-from-release-version.patch
 slof-ensure-ld-is-called-with-C-locale.patch
-spelling.diff
-pc-bios-descriptors-fix-paths-in-json-files.patch
-memory-clamp-cached-translation-if-points-to-MMIO-region-CVE-2020-27821.patch
-configure-replace-enable-disable-git-update-with-wit.patch
-arm_gic-fix-interrupt-ID-in-GICD_SGIR-CVE-2021-20221.patch
-9pfs-Fully-restart-unreclaim-loop-CVE-2021-20181.patch
-virtiofsd-extract-lo_do_open-from-lo_open.patch
-virtiofsd-optionally-return-inode-pointer-from-lo_do_lookup.patch
-virtiofsd-prevent-opening-of-special-files-CVE-2020-35517.patch
-virtiofsd-save-error-code-early-at-the-failure-callsite.patch
-virtiofsd-drop-remapped-security.capability-xattr-as-needed-CVE-2021-20263.patch
-# CVE-2021-3416
-net-qemu_receive_packet-for-loopback-introduce.patch
-net-qemu_receive_packet-for-loopback-cadence_gem.patch
-net-qemu_receive_packet-for-loopback-dp8393x.patch
-net-qemu_receive_packet-for-loopback-e1000.patch
-net-qemu_receive_packet-for-loopback-lan9118.patch
-net-qemu_receive_packet-for-loopback-msf2.patch
-net-qemu_receive_packet-for-loopback-pcnet.patch
-net-qemu_receive_packet-for-loopback-rtl8139.patch
-net-qemu_receive_packet-for-loopback-sungem.patch
-net-qemu_receive_packet-for-loopback-tx_pkt-iov.patch
-net-e1000-fail-early-for-evil-descriptor-CVE-2021-20257.patch
-# sd/sdhci fixes: CVE-2020-17380 CVE-2020-25085 CVE-2021-3409
-sdhci/dont-transfer-any-data-when-command-time-out.patch
-sdhci/dont-write-to-SDHC_SYSAD-register-when-transfer-is-in-progress.patch
-sdhci/correctly-set-the-controller-status-for-ADMA.patch
-sdhci/limit-block-size-only-when-SDHC_BLKSIZE-register-is-writable.patch
-sdhci/reset-the-data-pointer-of-s-fifo_buffer-when-a-different-block-size-is-programmed.patch
-mptsas-remove-unused-MPTSASState.pending-CVE-2021-3392.patch
+vnc-spelling.patch
+spelling-addtional.patch

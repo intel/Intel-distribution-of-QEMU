@@ -94,6 +94,8 @@ DTC		=	dtc
 
 # Guess the compillers xlen
 OPENSBI_CC_XLEN := $(shell TMP=`$(CC) -dumpmachine | sed 's/riscv\([0-9][0-9]\).*/\1/'`; echo $${TMP})
+OPENSBI_CC_ABI := $(shell TMP=`$(CC) -v 2>&1 | sed -n 's/.*\(with\-abi=\([a-zA-Z0-9]*\)\).*/\2/p'`; echo $${TMP})
+OPENSBI_CC_ISA := $(shell TMP=`$(CC) -v 2>&1 | sed -n 's/.*\(with\-arch=\([a-zA-Z0-9]*\)\).*/\2/p'`; echo $${TMP})
 
 # Setup platform XLEN
 ifndef PLATFORM_RISCV_XLEN
@@ -143,14 +145,22 @@ deps-y+=$(firmware-objs-path-y:.o=.dep)
 
 # Setup platform ABI, ISA and Code Model
 ifndef PLATFORM_RISCV_ABI
-  ifeq ($(PLATFORM_RISCV_XLEN), 32)
-    PLATFORM_RISCV_ABI = ilp$(PLATFORM_RISCV_XLEN)
+  ifneq ($(PLATFORM_RISCV_TOOLCHAIN_DEFAULT), 1)
+    ifeq ($(PLATFORM_RISCV_XLEN), 32)
+      PLATFORM_RISCV_ABI = ilp$(PLATFORM_RISCV_XLEN)
+    else
+      PLATFORM_RISCV_ABI = lp$(PLATFORM_RISCV_XLEN)
+    endif
   else
-    PLATFORM_RISCV_ABI = lp$(PLATFORM_RISCV_XLEN)
+    PLATFORM_RISCV_ABI = $(OPENSBI_CC_ABI)
   endif
 endif
 ifndef PLATFORM_RISCV_ISA
-  PLATFORM_RISCV_ISA = rv$(PLATFORM_RISCV_XLEN)imafdc
+  ifneq ($(PLATFORM_RISCV_TOOLCHAIN_DEFAULT), 1)
+    PLATFORM_RISCV_ISA = rv$(PLATFORM_RISCV_XLEN)imafdc
+  else
+    PLATFORM_RISCV_ISA = $(OPENSBI_CC_ISA)
+  endif
 endif
 ifndef PLATFORM_RISCV_CODE_MODEL
   PLATFORM_RISCV_CODE_MODEL = medany
@@ -291,7 +301,10 @@ compile_dts = $(CMD_PREFIX)mkdir -p `dirname $(1)`; \
 	     $(CPP) $(DTSCPPFLAGS) $(2) | $(DTC) -O dtb -i `dirname $(2)` -o $(1)
 compile_d2c = $(CMD_PREFIX)mkdir -p `dirname $(1)`; \
 	     echo " D2C       $(subst $(build_dir)/,,$(1))"; \
-	     $(src_dir)/scripts/d2c.sh -i $(4) -a $(3) -p $(2) > $(1)
+	     $(if $($(2)-varalign-$(3)),$(eval D2C_ALIGN_BYTES := $($(2)-varalign-$(3))),$(eval D2C_ALIGN_BYTES := $(4))) \
+	     $(if $($(2)-varprefix-$(3)),$(eval D2C_NAME_PREFIX := $($(2)-varprefix-$(3))),$(eval D2C_NAME_PREFIX := $(5))) \
+	     $(if $($(2)-padding-$(3)),$(eval D2C_PADDING_BYTES := $($(2)-padding-$(3))),$(eval D2C_PADDING_BYTES := 0)) \
+	     $(src_dir)/scripts/d2c.sh -i $(6) -a $(D2C_ALIGN_BYTES) -p $(D2C_NAME_PREFIX) -t $(D2C_PADDING_BYTES) > $(1)
 compile_gen_dep = $(CMD_PREFIX)mkdir -p `dirname $(1)`; \
 	     echo " GEN-DEP   $(subst $(build_dir)/,,$(1))"; \
 	     echo "$(1:.dep=$(2)): $(3)" >> $(1)
@@ -309,15 +322,6 @@ all: $(targets-y)
 
 # Preserve all intermediate files
 .SECONDARY:
-
-$(build_dir)/%.bin: $(build_dir)/%.elf
-	$(call compile_objcopy,$@,$<)
-
-$(build_dir)/%.elf: $(build_dir)/%.o $(build_dir)/%.elf.ld $(platform_build_dir)/lib/libplatsbi.a
-	$(call compile_elf,$@,$@.ld,$< $(platform_build_dir)/lib/libplatsbi.a)
-
-$(platform_build_dir)/%.ld: $(src_dir)/%.ldS
-	$(call compile_cpp,$@,$<)
 
 $(build_dir)/lib/libsbi.a: $(libsbi-objs-path-y)
 	$(call compile_ar,$@,$^)
@@ -340,6 +344,15 @@ $(build_dir)/%.dep: $(src_dir)/%.S
 $(build_dir)/%.o: $(src_dir)/%.S
 	$(call compile_as,$@,$<)
 
+$(platform_build_dir)/%.bin: $(platform_build_dir)/%.elf
+	$(call compile_objcopy,$@,$<)
+
+$(platform_build_dir)/%.elf: $(platform_build_dir)/%.o $(platform_build_dir)/%.elf.ld $(platform_build_dir)/lib/libplatsbi.a
+	$(call compile_elf,$@,$@.ld,$< $(platform_build_dir)/lib/libplatsbi.a)
+
+$(platform_build_dir)/%.ld: $(src_dir)/%.ldS
+	$(call compile_cpp,$@,$<)
+
 $(platform_build_dir)/%.dep: $(platform_src_dir)/%.c
 	$(call compile_cc_dep,$@,$<)
 
@@ -361,7 +374,7 @@ $(platform_build_dir)/%.dep: $(platform_src_dir)/%.dts
 	$(call compile_gen_dep,$@,.o,$(@:.dep=.c))
 
 $(platform_build_dir)/%.c: $(platform_build_dir)/%.dtb
-	$(call compile_d2c,$@,$(platform-varprefix-$(subst .dtb,.o,$(subst /,-,$(subst $(platform_build_dir)/,,$<)))),16,$<)
+	$(call compile_d2c,$@,platform,$(subst .dtb,.o,$(subst /,-,$(subst $(platform_build_dir)/,,$<))),16,dt,$<)
 
 $(platform_build_dir)/%.dtb: $(platform_src_dir)/%.dts
 	$(call compile_dts,$@,$<)
@@ -461,6 +474,8 @@ clean:
 	$(CMD_PREFIX)find $(build_dir) -type f -name "*.elf" -exec rm -rf {} +
 	$(if $(V), @echo " RM        $(build_dir)/*.bin")
 	$(CMD_PREFIX)find $(build_dir) -type f -name "*.bin" -exec rm -rf {} +
+	$(if $(V), @echo " RM        $(build_dir)/*.dtb")
+	$(CMD_PREFIX)find $(build_dir) -type f -name "*.dtb" -exec rm -rf {} +
 
 # Rule for "make distclean"
 .PHONY: distclean

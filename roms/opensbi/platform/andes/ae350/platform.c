@@ -13,6 +13,7 @@
 #include <sbi/sbi_console.h>
 #include <sbi/sbi_const.h>
 #include <sbi/sbi_platform.h>
+#include <sbi/sbi_trap.h>
 #include <sbi_utils/fdt/fdt_fixup.h>
 #include <sbi_utils/irqchip/plic.h>
 #include <sbi_utils/serial/uart8250.h>
@@ -114,17 +115,9 @@ static int ae350_timer_init(bool cold_boot)
 	return plmt_warm_timer_init();
 }
 
-/* Reset the platform. */
-static int ae350_system_reset(u32 type)
-{
-	/* For now nothing to do. */
-	sbi_printf("System reset\n");
-	return 0;
-}
-
 /* Vendor-Specific SBI handler */
 static int ae350_vendor_ext_provider(long extid, long funcid,
-	unsigned long *args, unsigned long *out_value,
+	const struct sbi_trap_regs *regs, unsigned long *out_value,
 	struct sbi_trap_info *out_trap)
 {
 	int ret = 0;
@@ -136,28 +129,28 @@ static int ae350_vendor_ext_provider(long extid, long funcid,
 		*out_value = csr_read(CSR_MMISCCTL);
 		break;
 	case SBI_EXT_ANDES_SET_MCACHE_CTL:
-		ret = mcall_set_mcache_ctl(args[0]);
+		ret = mcall_set_mcache_ctl(regs->a0);
 		break;
 	case SBI_EXT_ANDES_SET_MMISC_CTL:
-		ret = mcall_set_mmisc_ctl(args[0]);
+		ret = mcall_set_mmisc_ctl(regs->a0);
 		break;
 	case SBI_EXT_ANDES_ICACHE_OP:
-		ret = mcall_icache_op(args[0]);
+		ret = mcall_icache_op(regs->a0);
 		break;
 	case SBI_EXT_ANDES_DCACHE_OP:
-		ret = mcall_dcache_op(args[0]);
+		ret = mcall_dcache_op(regs->a0);
 		break;
 	case SBI_EXT_ANDES_L1CACHE_I_PREFETCH:
-		ret = mcall_l1_cache_i_prefetch_op(args[0]);
+		ret = mcall_l1_cache_i_prefetch_op(regs->a0);
 		break;
 	case SBI_EXT_ANDES_L1CACHE_D_PREFETCH:
-		ret = mcall_l1_cache_d_prefetch_op(args[0]);
+		ret = mcall_l1_cache_d_prefetch_op(regs->a0);
 		break;
 	case SBI_EXT_ANDES_NON_BLOCKING_LOAD_STORE:
-		ret = mcall_non_blocking_load_store(args[0]);
+		ret = mcall_non_blocking_load_store(regs->a0);
 		break;
 	case SBI_EXT_ANDES_WRITE_AROUND:
-		ret = mcall_write_around(args[0]);
+		ret = mcall_write_around(regs->a0);
 		break;
 	default:
 		sbi_printf("Unsupported vendor sbi call : %ld\n", funcid);
@@ -184,8 +177,6 @@ const struct sbi_platform_operations platform_ops = {
 	.timer_value	   = plmt_timer_value,
 	.timer_event_start = plmt_timer_event_start,
 	.timer_event_stop  = plmt_timer_event_stop,
-
-	.system_reset	 = ae350_system_reset,
 
 	.vendor_ext_provider = ae350_vendor_ext_provider
 };

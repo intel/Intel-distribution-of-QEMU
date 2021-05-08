@@ -13,12 +13,14 @@
 #include <sbi/riscv_fp.h>
 #include <sbi/sbi_bitops.h>
 #include <sbi/sbi_console.h>
+#include <sbi/sbi_domain.h>
 #include <sbi/sbi_csr_detect.h>
 #include <sbi/sbi_error.h>
 #include <sbi/sbi_hart.h>
 #include <sbi/sbi_math.h>
 #include <sbi/sbi_platform.h>
 #include <sbi/sbi_string.h>
+#include <sbi/sbi_trap.h>
 
 extern void __sbi_expected_trap(void);
 extern void __sbi_expected_trap_hext(void);
@@ -28,10 +30,13 @@ void (*sbi_hart_expected_trap)(void) = &__sbi_expected_trap;
 struct hart_features {
 	unsigned long features;
 	unsigned int pmp_count;
+	unsigned int pmp_addr_bits;
+	unsigned long pmp_gran;
+	unsigned int mhpm_count;
 };
 static unsigned long hart_features_offset;
 
-static void mstatus_init(struct sbi_scratch *scratch, u32 hartid)
+static void mstatus_init(struct sbi_scratch *scratch)
 {
 	unsigned long mstatus_val = 0;
 
@@ -60,7 +65,7 @@ static void mstatus_init(struct sbi_scratch *scratch, u32 hartid)
 		csr_write(CSR_SATP, 0);
 }
 
-static int fp_init(u32 hartid)
+static int fp_init(struct sbi_scratch *scratch)
 {
 #ifdef __riscv_flen
 	int i;
@@ -81,7 +86,7 @@ static int fp_init(u32 hartid)
 	return 0;
 }
 
-static int delegate_traps(struct sbi_scratch *scratch, u32 hartid)
+static int delegate_traps(struct sbi_scratch *scratch)
 {
 	const struct sbi_platform *plat = sbi_platform_ptr(scratch);
 	unsigned long interrupts, exceptions;
@@ -107,7 +112,7 @@ static int delegate_traps(struct sbi_scratch *scratch, u32 hartid)
 	 * from VS-mode), Guest page faults and Virtual interrupts.
 	 */
 	if (misa_extension('H')) {
-		exceptions |= (1U << CAUSE_SUPERVISOR_ECALL);
+		exceptions |= (1U << CAUSE_VIRTUAL_SUPERVISOR_ECALL);
 		exceptions |= (1U << CAUSE_FETCH_GUEST_PAGE_FAULT);
 		exceptions |= (1U << CAUSE_LOAD_GUEST_PAGE_FAULT);
 		exceptions |= (1U << CAUSE_VIRTUAL_INST_FAULT);
@@ -120,19 +125,32 @@ static int delegate_traps(struct sbi_scratch *scratch, u32 hartid)
 	return 0;
 }
 
-void sbi_hart_delegation_dump(struct sbi_scratch *scratch)
+void sbi_hart_delegation_dump(struct sbi_scratch *scratch,
+			      const char *prefix, const char *suffix)
 {
 	if (!misa_extension('S'))
 		/* No delegation possible as mideleg does not exist*/
 		return;
 
 #if __riscv_xlen == 32
-	sbi_printf("MIDELEG : 0x%08lx\n", csr_read(CSR_MIDELEG));
-	sbi_printf("MEDELEG : 0x%08lx\n", csr_read(CSR_MEDELEG));
+	sbi_printf("%sMIDELEG%s: 0x%08lx\n",
+		   prefix, suffix, csr_read(CSR_MIDELEG));
+	sbi_printf("%sMEDELEG%s: 0x%08lx\n",
+		   prefix, suffix, csr_read(CSR_MEDELEG));
 #else
-	sbi_printf("MIDELEG : 0x%016lx\n", csr_read(CSR_MIDELEG));
-	sbi_printf("MEDELEG : 0x%016lx\n", csr_read(CSR_MEDELEG));
+	sbi_printf("%sMIDELEG%s: 0x%016lx\n",
+		   prefix, suffix, csr_read(CSR_MIDELEG));
+	sbi_printf("%sMEDELEG%s: 0x%016lx\n",
+		   prefix, suffix, csr_read(CSR_MEDELEG));
 #endif
+}
+
+unsigned int sbi_hart_mhpm_count(struct sbi_scratch *scratch)
+{
+	struct hart_features *hfeatures =
+			sbi_scratch_offset_ptr(scratch, hart_features_offset);
+
+	return hfeatures->mhpm_count;
 }
 
 unsigned int sbi_hart_pmp_count(struct sbi_scratch *scratch)
@@ -143,101 +161,60 @@ unsigned int sbi_hart_pmp_count(struct sbi_scratch *scratch)
 	return hfeatures->pmp_count;
 }
 
-int sbi_hart_pmp_get(struct sbi_scratch *scratch, unsigned int n,
-		     unsigned long *prot_out, unsigned long *addr_out,
-		     unsigned long *size)
+unsigned long sbi_hart_pmp_granularity(struct sbi_scratch *scratch)
 {
-	if (sbi_hart_pmp_count(scratch) <= n)
-		return SBI_EINVAL;
+	struct hart_features *hfeatures =
+			sbi_scratch_offset_ptr(scratch, hart_features_offset);
 
-	return pmp_get(n, prot_out, addr_out, size);
+	return hfeatures->pmp_gran;
 }
 
-void sbi_hart_pmp_dump(struct sbi_scratch *scratch)
+unsigned int sbi_hart_pmp_addrbits(struct sbi_scratch *scratch)
 {
-	unsigned long prot, addr, size;
-	unsigned int i, pmp_count;
+	struct hart_features *hfeatures =
+			sbi_scratch_offset_ptr(scratch, hart_features_offset);
 
-	if (!sbi_hart_has_feature(scratch, SBI_HART_HAS_PMP))
-		return;
-
-	pmp_count = sbi_hart_pmp_count(scratch);
-	for (i = 0; i < pmp_count; i++) {
-		pmp_get(i, &prot, &addr, &size);
-		if (!(prot & PMP_A))
-			continue;
-#if __riscv_xlen == 32
-		sbi_printf("PMP%d    : 0x%08lx-0x%08lx (A",
-#else
-		sbi_printf("PMP%d    : 0x%016lx-0x%016lx (A",
-#endif
-			   i, addr, addr + size - 1);
-		if (prot & PMP_L)
-			sbi_printf(",L");
-		if (prot & PMP_R)
-			sbi_printf(",R");
-		if (prot & PMP_W)
-			sbi_printf(",W");
-		if (prot & PMP_X)
-			sbi_printf(",X");
-		sbi_printf(")\n");
-	}
+	return hfeatures->pmp_addr_bits;
 }
 
-int sbi_hart_pmp_check_addr(struct sbi_scratch *scratch, unsigned long addr,
-			    unsigned long attr)
+int sbi_hart_pmp_configure(struct sbi_scratch *scratch)
 {
-	unsigned long prot, size, tempaddr;
-	unsigned int i, pmp_count;
+	struct sbi_domain_memregion *reg;
+	struct sbi_domain *dom = sbi_domain_thishart_ptr();
+	unsigned int pmp_idx = 0, pmp_flags, pmp_bits, pmp_gran_log2;
+	unsigned int pmp_count = sbi_hart_pmp_count(scratch);
+	unsigned long pmp_addr = 0, pmp_addr_max = 0;
 
-	if (!sbi_hart_has_feature(scratch, SBI_HART_HAS_PMP))
-		return SBI_OK;
-
-	pmp_count = sbi_hart_pmp_count(scratch);
-	for (i = 0; i < pmp_count; i++) {
-		pmp_get(i, &prot, &tempaddr, &size);
-		if (!(prot & PMP_A))
-			continue;
-		if (tempaddr <= addr && addr <= tempaddr + size)
-			if (!(prot & attr))
-				return SBI_EINVALID_ADDR;
-	}
-
-	return SBI_OK;
-}
-
-static int pmp_init(struct sbi_scratch *scratch, u32 hartid)
-{
-	u32 i, pmp_idx = 0, pmp_count, count;
-	unsigned long fw_start, fw_size_log2;
-	ulong prot, addr, log2size;
-	const struct sbi_platform *plat = sbi_platform_ptr(scratch);
-
-	if (!sbi_hart_has_feature(scratch, SBI_HART_HAS_PMP))
+	if (!pmp_count)
 		return 0;
 
-	/* Firmware PMP region to protect OpenSBI firmware */
-	fw_size_log2 = log2roundup(scratch->fw_size);
-	fw_start = scratch->fw_start & ~((1UL << fw_size_log2) - 1UL);
-	pmp_set(pmp_idx++, 0, fw_start, fw_size_log2);
+	pmp_gran_log2 = log2roundup(sbi_hart_pmp_granularity(scratch));
+	pmp_bits = sbi_hart_pmp_addrbits(scratch) - 1;
+	pmp_addr_max = (1UL << pmp_bits) | ((1UL << pmp_bits) - 1);
 
-	/* Platform specific PMP regions */
-	count = sbi_platform_pmp_region_count(plat, hartid);
-	pmp_count = sbi_hart_pmp_count(scratch);
-	for (i = 0; i < count && pmp_idx < (pmp_count - 1); i++) {
-		if (sbi_platform_pmp_region_info(plat, hartid, i, &prot, &addr,
-						 &log2size))
-			continue;
-		pmp_set(pmp_idx++, prot, addr, log2size);
+	sbi_domain_for_each_memregion(dom, reg) {
+		if (pmp_count <= pmp_idx)
+			break;
+
+		pmp_flags = 0;
+		if (reg->flags & SBI_DOMAIN_MEMREGION_READABLE)
+			pmp_flags |= PMP_R;
+		if (reg->flags & SBI_DOMAIN_MEMREGION_WRITEABLE)
+			pmp_flags |= PMP_W;
+		if (reg->flags & SBI_DOMAIN_MEMREGION_EXECUTABLE)
+			pmp_flags |= PMP_X;
+		if (reg->flags & SBI_DOMAIN_MEMREGION_MMODE)
+			pmp_flags |= PMP_L;
+
+		pmp_addr =  reg->base >> PMP_SHIFT;
+		if (pmp_gran_log2 <= reg->order && pmp_addr < pmp_addr_max)
+			pmp_set(pmp_idx++, pmp_flags, reg->base, reg->order);
+		else {
+			sbi_printf("Can not configure pmp for domain %s", dom->name);
+			sbi_printf("because memory region address %lx or size %lx is not in range\n",
+				    reg->base, reg->order);
+		}
 	}
-
-	/*
-	 * Default PMP region for allowing S-mode and U-mode access to
-	 * memory not covered by:
-	 * 1) Firmware PMP region
-	 * 2) Platform specific PMP regions
-	 */
-	pmp_set(pmp_idx++, PMP_R | PMP_W | PMP_X, 0, __riscv_xlen);
 
 	return 0;
 }
@@ -276,9 +253,6 @@ static inline char *sbi_hart_feature_id2string(unsigned long feature)
 		return NULL;
 
 	switch (feature) {
-	case SBI_HART_HAS_PMP:
-		fstr = "pmp";
-		break;
 	case SBI_HART_HAS_SCOUNTEREN:
 		fstr = "scounteren";
 		break;
@@ -338,6 +312,21 @@ done:
 		sbi_strncpy(features_str, "none", nfstr);
 }
 
+static unsigned long hart_pmp_get_allowed_addr(void)
+{
+	unsigned long val = 0;
+	struct sbi_trap_info trap = {0};
+
+	csr_write_allowed(CSR_PMPADDR0, (ulong)&trap, PMP_ADDR_MASK);			\
+	if (!trap.cause) {
+		val = csr_read_allowed(CSR_PMPADDR0, (ulong)&trap);
+		if (trap.cause)
+			val = 0;
+	}
+
+	return val;
+}
+
 static void hart_detect_features(struct sbi_scratch *scratch)
 {
 	struct sbi_trap_info trap = {0};
@@ -348,36 +337,73 @@ static void hart_detect_features(struct sbi_scratch *scratch)
 	hfeatures = sbi_scratch_offset_ptr(scratch, hart_features_offset);
 	hfeatures->features = 0;
 	hfeatures->pmp_count = 0;
+	hfeatures->mhpm_count = 0;
 
-	/* Detect if hart supports PMP feature */
-#define __detect_pmp(__pmp_csr)					\
-	val = csr_read_allowed(__pmp_csr, (ulong)&trap);	\
-	if (!trap.cause) {					\
-		csr_write_allowed(__pmp_csr, (ulong)&trap, val);\
-		if (!trap.cause)				\
-			hfeatures->pmp_count++;			\
+#define __check_csr(__csr, __rdonly, __wrval, __field, __skip)	\
+	val = csr_read_allowed(__csr, (ulong)&trap);			\
+	if (!trap.cause) {						\
+		if (__rdonly) {						\
+			(hfeatures->__field)++;				\
+		} else {						\
+			csr_write_allowed(__csr, (ulong)&trap, __wrval);\
+			if (!trap.cause) {				\
+				if (csr_swap(__csr, val) == __wrval)	\
+					(hfeatures->__field)++;		\
+				else					\
+					goto __skip;			\
+			} else {					\
+				goto __skip;				\
+			}						\
+		}							\
+	} else {							\
+		goto __skip;						\
 	}
-	__detect_pmp(CSR_PMPADDR0);
-	__detect_pmp(CSR_PMPADDR1);
-	__detect_pmp(CSR_PMPADDR2);
-	__detect_pmp(CSR_PMPADDR3);
-	__detect_pmp(CSR_PMPADDR4);
-	__detect_pmp(CSR_PMPADDR5);
-	__detect_pmp(CSR_PMPADDR6);
-	__detect_pmp(CSR_PMPADDR7);
-	__detect_pmp(CSR_PMPADDR8);
-	__detect_pmp(CSR_PMPADDR9);
-	__detect_pmp(CSR_PMPADDR10);
-	__detect_pmp(CSR_PMPADDR11);
-	__detect_pmp(CSR_PMPADDR12);
-	__detect_pmp(CSR_PMPADDR13);
-	__detect_pmp(CSR_PMPADDR14);
-	__detect_pmp(CSR_PMPADDR15);
-#undef __detect_pmp
+#define __check_csr_2(__csr, __rdonly, __wrval, __field, __skip)	\
+	__check_csr(__csr + 0, __rdonly, __wrval, __field, __skip)	\
+	__check_csr(__csr + 1, __rdonly, __wrval, __field, __skip)
+#define __check_csr_4(__csr, __rdonly, __wrval, __field, __skip)	\
+	__check_csr_2(__csr + 0, __rdonly, __wrval, __field, __skip)	\
+	__check_csr_2(__csr + 2, __rdonly, __wrval, __field, __skip)
+#define __check_csr_8(__csr, __rdonly, __wrval, __field, __skip)	\
+	__check_csr_4(__csr + 0, __rdonly, __wrval, __field, __skip)	\
+	__check_csr_4(__csr + 4, __rdonly, __wrval, __field, __skip)
+#define __check_csr_16(__csr, __rdonly, __wrval, __field, __skip)	\
+	__check_csr_8(__csr + 0, __rdonly, __wrval, __field, __skip)	\
+	__check_csr_8(__csr + 8, __rdonly, __wrval, __field, __skip)
+#define __check_csr_32(__csr, __rdonly, __wrval, __field, __skip)	\
+	__check_csr_16(__csr + 0, __rdonly, __wrval, __field, __skip)	\
+	__check_csr_16(__csr + 16, __rdonly, __wrval, __field, __skip)
+#define __check_csr_64(__csr, __rdonly, __wrval, __field, __skip)	\
+	__check_csr_32(__csr + 0, __rdonly, __wrval, __field, __skip)	\
+	__check_csr_32(__csr + 32, __rdonly, __wrval, __field, __skip)
 
-	/* Set hart PMP feature if we have at least one PMP region */
-	if (hfeatures->pmp_count)
-		hfeatures->features |= SBI_HART_HAS_PMP;
+	/**
+	 * Detect the allowed address bits & granularity. At least PMPADDR0
+	 * should be implemented.
+	 */
+	val = hart_pmp_get_allowed_addr();
+	if (val) {
+		hfeatures->pmp_gran =  1 << (__ffs(val) + 2);
+		hfeatures->pmp_addr_bits = __fls(val) + 1;
+		/* Detect number of PMP regions. At least PMPADDR0 should be implemented*/
+		__check_csr_64(CSR_PMPADDR0, 0, val, pmp_count, __pmp_skip);
+	}
+__pmp_skip:
+
+	/* Detect number of MHPM counters */
+	__check_csr(CSR_MHPMCOUNTER3, 0, 1UL, mhpm_count, __mhpm_skip);
+	__check_csr_4(CSR_MHPMCOUNTER4, 0, 1UL, mhpm_count, __mhpm_skip);
+	__check_csr_8(CSR_MHPMCOUNTER8, 0, 1UL, mhpm_count, __mhpm_skip);
+	__check_csr_16(CSR_MHPMCOUNTER16, 0, 1UL, mhpm_count, __mhpm_skip);
+__mhpm_skip:
+
+#undef __check_csr_64
+#undef __check_csr_32
+#undef __check_csr_16
+#undef __check_csr_8
+#undef __check_csr_4
+#undef __check_csr_2
+#undef __check_csr
 
 	/* Detect if hart supports SCOUNTEREN feature */
 	trap.cause = 0;
@@ -404,7 +430,7 @@ static void hart_detect_features(struct sbi_scratch *scratch)
 		hfeatures->features |= SBI_HART_HAS_TIME;
 }
 
-int sbi_hart_init(struct sbi_scratch *scratch, u32 hartid, bool cold_boot)
+int sbi_hart_init(struct sbi_scratch *scratch, bool cold_boot)
 {
 	int rc;
 
@@ -421,17 +447,17 @@ int sbi_hart_init(struct sbi_scratch *scratch, u32 hartid, bool cold_boot)
 
 	hart_detect_features(scratch);
 
-	mstatus_init(scratch, hartid);
+	mstatus_init(scratch);
 
-	rc = fp_init(hartid);
+	rc = fp_init(scratch);
 	if (rc)
 		return rc;
 
-	rc = delegate_traps(scratch, hartid);
+	rc = delegate_traps(scratch);
 	if (rc)
 		return rc;
 
-	return pmp_init(scratch, hartid);
+	return 0;
 }
 
 void __attribute__((noreturn)) sbi_hart_hang(void)
@@ -496,9 +522,11 @@ sbi_hart_switch_mode(unsigned long arg0, unsigned long arg1,
 		csr_write(CSR_SIE, 0);
 		csr_write(CSR_SATP, 0);
 	} else if (next_mode == PRV_U) {
-		csr_write(CSR_UTVEC, next_addr);
-		csr_write(CSR_USCRATCH, 0);
-		csr_write(CSR_UIE, 0);
+		if (misa_extension('N')) {
+			csr_write(CSR_UTVEC, next_addr);
+			csr_write(CSR_USCRATCH, 0);
+			csr_write(CSR_UIE, 0);
+		}
 	}
 
 	register unsigned long a0 asm("a0") = arg0;

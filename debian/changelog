@@ -1,3 +1,17 @@
+qemu (1:6.0+dfsg-1~exp0) experimental; urgency=medium
+
+  * new upstream release
+  * remove obsolete patches, refresh use-fixed-data-path.patch
+  * use libncurses-dev, not old libncursesw5-dev
+  * enable fuse export (and build-depend on libfuse3-dev)
+  * install (new) manpages for qemu-storage-daemon
+  * enable new hexagon qemu-user target
+  * two patches to fix 3 new spelling mistakes
+  * remove now-unused shared-library-lacks-prerequisites lintian-overrides
+    for qemu-user-static
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 08 May 2021 10:16:05 +0300
+
 qemu (1:5.2+dfsg-10) unstable; urgency=medium
 
   * 5 sdhci fixes from upstream:

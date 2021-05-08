@@ -26,7 +26,8 @@ struct sbi_ecall_extension {
 	unsigned long extid_end;
 	int (* probe)(unsigned long extid, unsigned long *out_val);
 	int (* handle)(unsigned long extid, unsigned long funcid,
-		       unsigned long *args, unsigned long *out_val,
+		       const struct sbi_trap_regs *regs,
+		       unsigned long *out_val,
 		       struct sbi_trap_info *out_trap);
 };
 
@@ -37,6 +38,7 @@ extern struct sbi_ecall_extension ecall_rfence;
 extern struct sbi_ecall_extension ecall_ipi;
 extern struct sbi_ecall_extension ecall_vendor;
 extern struct sbi_ecall_extension ecall_hsm;
+extern struct sbi_ecall_extension ecall_srst;
 
 u16 sbi_ecall_version_major(void);
 
