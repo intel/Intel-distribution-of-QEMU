@@ -1,0 +1,45 @@
+Commit-Id: 861f10fd528263a507476b8c4dda93a9588dfa5c
+From: Giuseppe Musacchio <thatlemon@gmail.com>
+Date: Tue, 18 May 2021 15:30:20 +0200
+Subject: target/ppc: Fix load endianness for lxvwsx/lxvdsx
+
+TARGET_WORDS_BIGENDIAN may not match the machine endianness if that's a
+runtime-configurable parameter.
+
+Fixes: bcb0b7b1a1c05707304f80ca6f523d557816f85c
+Fixes: afae37d98ae991c0792c867dbd9f32f988044318
+Resolves: https://gitlab.com/qemu-project/qemu/-/issues/212
+
+Signed-off-by: Giuseppe Musacchio <thatlemon@gmail.com>
+Message-Id: <20210518133020.58927-1-thatlemon@gmail.com>
+Tested-by: Paul A. Clarke <pc@us.ibm.com>
+Signed-off-by: David Gibson <david@gibson.dropbear.id.au>
+---
+ target/ppc/translate/vsx-impl.c.inc | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/target/ppc/translate/vsx-impl.c.inc b/target/ppc/translate/vsx-impl.c.inc
+index b817d31260..57a7f73bba 100644
+--- a/target/ppc/translate/vsx-impl.c.inc
++++ b/target/ppc/translate/vsx-impl.c.inc
+@@ -139,7 +139,7 @@ static void gen_lxvwsx(DisasContext *ctx)
+     gen_addr_reg_index(ctx, EA);
+ 
+     data = tcg_temp_new_i32();
+-    tcg_gen_qemu_ld_i32(data, EA, ctx->mem_idx, MO_TEUL);
++    tcg_gen_qemu_ld_i32(data, EA, ctx->mem_idx, DEF_MEMOP(MO_UL));
+     tcg_gen_gvec_dup_i32(MO_UL, vsr_full_offset(xT(ctx->opcode)), 16, 16, data);
+ 
+     tcg_temp_free(EA);
+@@ -162,7 +162,7 @@ static void gen_lxvdsx(DisasContext *ctx)
+     gen_addr_reg_index(ctx, EA);
+ 
+     data = tcg_temp_new_i64();
+-    tcg_gen_qemu_ld_i64(data, EA, ctx->mem_idx, MO_TEQ);
++    tcg_gen_qemu_ld_i64(data, EA, ctx->mem_idx, DEF_MEMOP(MO_Q));
+     tcg_gen_gvec_dup_i64(MO_Q, vsr_full_offset(xT(ctx->opcode)), 16, 16, data);
+ 
+     tcg_temp_free(EA);
+-- 
+2.30.2
+

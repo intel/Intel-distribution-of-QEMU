@@ -1,6 +1,46 @@
+qemu (1:6.0+dfsg-2exp) experimental; urgency=medium
+
+  [ Christian Ehrhardt ]
+  * qemu 6.0 broke libvirt <7.2, add a Breaks
+    to avoid partial upgrade issues (LP: #1932264)
+  * enable SDL as secondary UI backend (LP: #1256185)
+  * clear all (current and former) modules on purge
+  * only save modules if /run/qemu isn't noexec
+  * provide run-qemu.mount in qemu-block-extra
+    (disabled in debian for now)
+  * Disable capstone disassembler library support in ubuntu (universe)
+
+  [ Michael Tokarev ]
+  * qemu does not ship Changelog file anymore
+  * drop version from libfuse-dev build-depends (noticed by Ville Skyttä)
+  * a few patches from upstream stable:
+   - target-ppc-fix-load-endianness-for-lxvwsx-lxvdsx.patch
+     fix various crashes in ppc system emulation.
+     Thanks to Christian Ehrhardt for pointing this out
+   - pvrdma-fix-possible-mremap-overflow-in-pvrdma-device-CVE-2021-3582.patch
+     (Closes: #990565, CVE-2021-3582)
+   - pvrdma-ensure-correct-input-on-ring-init-CVE-2021-3607.patch
+     (Closes: #990564, CVE-2021-3607)
+   - pvrdma-fix-the-ring-init-error-flow-CVE-2021-3608.patch
+     (Closes: #990563, CVE-2021-3608)
+   - usb-limit-combined-packets-to-1-MiB-CVE-2021-3527.patch
+     usb-redir-avoid-dynamic-stack-allocation-CVE-2021-3527.patch
+     (Closes: #988157, CVE-2021-3527)
+  * mention closing of 3 bugs in am53c974 (ESP) device emulation by 6.0
+    (Closes: #979679, CVE-2020-35504)
+    (Closes: #984455, CVE-2020-35505)
+    (Closes: #984454, CVE-2020-35506)
+  * make fuse debian-only, since libfuse3 in ubuntu is in universe
+  * fix microvm default machine type for a new build system (LP: #1936894)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 21 Jul 2021 19:43:37 +0300
+
 qemu (1:6.0+dfsg-1~exp0) experimental; urgency=medium
 
   * new upstream release
+    Closes: #979679, CVE-2020-35504
+    Closes: #984455, CVE-2020-35505
+    Closes: #984454, CVE-2020-35506
   * remove obsolete patches, refresh use-fixed-data-path.patch
   * use libncurses-dev, not old libncursesw5-dev
   * enable fuse export (and build-depend on libfuse3-dev)

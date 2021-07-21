@@ -29,7 +29,7 @@ index e3386196ba..a28f7d10f1 100644
        else
 -        softmmu_mods += sl
 +        # we only build 2 non-block modules as modules: it is the gui part
-+        if d + '-' + m in [ 'ui-gtk', 'ui-sdl', 'audio-pa' ]
++        if d + '-' + m in [ 'ui-gtk', 'ui-sdl', 'audio-pa', 'audio-sdl' ]
 +          softmmu_mods += sl
 +        else
 +          warning('Compiling module statically: ' + d + '-' + m)
