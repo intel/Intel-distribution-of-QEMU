@@ -1,3 +1,21 @@
+qemu (1:6.0+dfsg-3) unstable; urgency=medium
+
+  [ Michael Tokarev ]
+  * enable /run/qemu mount on ubuntu only
+  * usbredir-fix-free-call-CVE-2021-3682.patchi
+    Closes: #991911, CVE-2021-3682
+
+  [ Christian Ehrhardt ]
+  * ubuntu-only changes:
+   - d/control-in: Make Ubuntu qemu-utils depend on qemu-block-extra
+   - d/control-in: Make Ubuntu qemu-system-common depend on qemu-block-extra
+   - d/control*, d/rules: disable xen by default, but provide universe package
+     qemu-system-x86-xen as alternative
+  * d/p/target-s390x-Fix-translation-exception-on-illegal-in.patch:
+    avoid segfaults by uretprobes (LP 1929926)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 17 Aug 2021 17:49:10 +0300
+
 qemu (1:6.0+dfsg-2exp) experimental; urgency=medium
 
   [ Christian Ehrhardt ]
@@ -51,6 +69,26 @@ qemu (1:6.0+dfsg-1~exp0) experimental; urgency=medium
     for qemu-user-static
 
  -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 08 May 2021 10:16:05 +0300
+
+qemu (1:5.2+dfsg-11) unstable; urgency=medium
+
+  * i386-acpi-restore-device-paths-for-pre-5.1-vms.patch
+    This fixes a serious issue in some VMs (in particuar, Windows & MacOS)
+    when migrating from buster qemu to bullseye qemu.
+    (Closes: #990675)
+  * pvrdma-fix-possible-mremap-overflow-in-pvrdma-device-CVE-2021-3582.patch
+    (Closes: #990565, CVE-2021-3582)
+  * pvrdma-ensure-correct-input-on-ring-init-CVE-2021-3607.patch
+    (Closes: #990564, CVE-2021-3607)
+  * pvrdma-fix-the-ring-init-error-flow-CVE-2021-3608.patch
+    (Closes: #990563, CVE-2021-3608)
+  * ide-atapi-check-logical-block-address-and-read-size-CVE-2020-29443.patch
+    (Closes: #983575, CVE-2020-29443)
+  * usb-limit-combined-packets-to-1-MiB-CVE-2021-3527.patch
+    usb-redir-avoid-dynamic-stack-allocation-CVE-2021-3527.patch
+    (Closes: #988157, CVE-2021-3527)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 18 Jul 2021 16:14:41 +0300
 
 qemu (1:5.2+dfsg-10) unstable; urgency=medium
 

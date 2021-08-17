@@ -17,8 +17,11 @@ libdir = /usr/lib/${DEB_HOST_MULTIARCH}
 ifeq ($(shell dpkg-vendor --derives-from Ubuntu && echo yes),yes)
 VENDOR := UBUNTU
 DEB_BUILD_PARALLEL = yes
+XENENABLED := --disable-xen
+XENBINPATH := $(shell pkg-config --variable libexec_bin xenlight)
 else
 VENDOR := DEBIAN
+XENENABLED := --enable-xen
 endif
 
 # support parallel build using DEB_BUILD_OPTIONS=parallel=N
@@ -115,6 +118,7 @@ b/configure-stamp: configure
 	    ../../configure ${common_configure_opts} --disable-user \
 		--${enable_system}-system \
 		--${enable_linux_user}-linux-user \
+		${XENENABLED} \
 		--enable-modules \
 		--enable-module-upgrades \
 		$(shell sh debian/extract-config-opts \
@@ -156,6 +160,31 @@ ifneq ($(filter $(DEB_HOST_ARCH),amd64),)
 	 { echo ===== CONFIGURE FAILED ===; tail -n 50 config.log; exit 1; }
 endif
 
+ifeq ($(VENDOR),UBUNTU)
+ifneq ($(filter $(DEB_HOST_ARCH),amd64 i386),)
+	# system build for qemu-system-x86-xen
+	# like the normal system build, but with:
+	#  --enable-xen
+	#  --disable-linux-user (not needed for this binary)
+	#  reduced --target-list as needed for xen
+	#    xen usually only used on x86, skip other architectures
+	#    (could in theory also enable arm/aarch64)
+	rm -rf b/qemu-xen; mkdir -p b/qemu-xen
+	cd b/qemu-xen && \
+	    ../../configure ${common_configure_opts} --disable-user \
+		--${enable_system}-system \
+		--disable-linux-user \
+		--enable-xen \
+		--target-list="i386-softmmu x86_64-softmmu"
+		--enable-modules \
+		--enable-module-upgrades \
+		$(shell sh debian/extract-config-opts \
+		    $(DEB_HOST_ARCH_OS)-$(DEB_HOST_ARCH) debian/control) \
+		$(QEMU_CONFIGURE_OPTIONS) || \
+	 { echo ===== CONFIGURE FAILED ===; tail -n 50 config.log; exit 1; }
+endif
+endif
+
 ifeq ($(enable_linux_user),enable)
 # do not use debian/configure-opts here, all optional stuff will be enabled
 # automatically, dependencies are already verified in the main build
@@ -165,7 +194,7 @@ ifeq ($(enable_linux_user),enable)
 	rm -rf b/user-static; mkdir b/user-static
 	cd b/user-static && \
 	    ../../configure ${common_configure_opts} \
-		--static --disable-pie --disable-system \
+		--static --disable-pie --disable-system --disable-xen \
 		--target-list="$(addsuffix -linux-user,${user_targets})"
 endif
 	touch $@
@@ -185,6 +214,12 @@ endif
 ifneq ($(filter $(DEB_HOST_ARCH),amd64),)
 	# microvm system
 	$(MAKE) -C b/qemu-microvm V=${V}
+endif
+
+ifeq ($(VENDOR),UBUNTU)
+ifneq ($(filter $(DEB_HOST_ARCH),amd64 i386),)
+	$(MAKE) -C b/qemu-xen V=${V}
+endif
 endif
 
 ifeq ($(enable_linux_user),enable)
@@ -245,6 +280,22 @@ ifeq (${enable_system},enable)
 	# qemu-system subpackages
 	mv debian/tmp/usr/share/man/man1/qemu.1 debian/tmp/usr/share/man/man1/qemu-system.1
 	$(foreach s,${systems},$(call inst-system,$s))
+
+ifeq ($(VENDOR),UBUNTU)
+ifneq ($(filter $(DEB_HOST_ARCH),amd64 i386),)
+	# xen enabled build as (mutually exclusive and universe-only) alternative
+	mkdir -p debian/qemu-system-x86-xen/usr/bin/
+	mkdir -p debian/qemu-system-x86-xen/usr/share/man/man1/
+	cp b/qemu-xen/x86_64-softmmu/qemu-system-x86_64 debian/qemu-system-x86-xen/usr/bin/
+	cp b/qemu-xen/i386-softmmu/qemu-system-i386     debian/qemu-system-x86-xen/usr/bin/
+	echo ".so man1/qemu-system.1" > debian/qemu-system-x86-xen/usr/share/man/man1/qemu-system-x86_64.1
+	echo ".so man1/qemu-system.1" > debian/qemu-system-x86-xen/usr/share/man/man1/qemu-system-i386.1
+	dh_link -pqemu-system-x86-xen usr/share/doc/qemu-system-common usr/share/doc/qemu-system-x86-xen/common
+	# compat links to what libxen-dev reports where to find the binaries
+	dh_link -pqemu-system-x86-xen /usr/bin/qemu-system-i386 ${XENBINPATH}/qemu-system-i386
+	dh_link -pqemu-system-x86-xen /usr/bin/qemu-system-x86_64 ${XENBINPATH}/qemu-system-x86_64
+endif
+endif
 
 ifneq ($(filter $(DEB_HOST_ARCH),amd64),)
 	# microvm system
@@ -365,7 +416,10 @@ ifeq (${enable_system},enable)
 endif
 	dh_installinit -a -pqemu-guest-agent
 	dh_installsystemd -a -pqemu-guest-agent --no-start --no-enable
-	dh_installsystemd -a -pqemu-block-extra --no-start --no-enable --no-restart-on-upgrade --name=run-qemu.mount
+# default-enable /run/qemu mount only on ubuntu,
+# on debian let it be manually controlled and off by default
+	dh_installsystemd -a -pqemu-block-extra --no-restart-on-upgrade --name=run-qemu.mount \
+		$(if $(filter ${VENDOR},DEBIAN),--no-start --no-enable,)
 	dh_link -a
 	dh_lintian -a
 	dh_strip -a
