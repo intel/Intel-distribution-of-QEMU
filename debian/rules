@@ -21,7 +21,7 @@ XENENABLED := --disable-xen
 XENBINPATH := $(shell pkg-config --variable libexec_bin xenlight)
 else
 VENDOR := DEBIAN
-XENENABLED := --enable-xen
+XENENABLED := $(if $(filter $(DEB_HOST_ARCH),amd64 i386),--enable-xen,--disable-xen)
 endif
 
 # support parallel build using DEB_BUILD_OPTIONS=parallel=N

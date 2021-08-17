@@ -1,3 +1,9 @@
+qemu (1:6.0+dfsg-4) unstable; urgency=medium
+
+  * d/rules: fix last ubuntu merge, xen is x86-only, not all-debian
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 17 Aug 2021 19:04:30 +0300
+
 qemu (1:6.0+dfsg-3) unstable; urgency=medium
 
   [ Michael Tokarev ]
