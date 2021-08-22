@@ -1759,7 +1759,11 @@ static AudioBackend *audio_init(Audiodev *dev, Error **errp)
         if (driver) {
             done = audio_driver_init(s, driver, dev, errp);
         } else {
-            error_setg(errp, "Unknown audio driver `%s'", drvname);
+            error_setg(errp, "Unknown audio driver `%s'. Perhaps you want to install %s package?",
+                       drvname,
+                       !strcmp(drvname, "spice") ? "qemu-system-modules-spice" :
+                       !strcmp(drvname, "dbus") ? "qemu-system-modules-opengl" :
+                       "qemu-system-gui");
         }
         if (!done) {
             goto out;

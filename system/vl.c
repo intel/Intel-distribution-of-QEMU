@@ -1062,7 +1062,9 @@ static void select_vgahw(const MachineClass *machine_class, const char *p)
         const VGAInterfaceInfo *ti = &vga_interfaces[t];
         if (ti->opt_name && strstart(p, ti->opt_name, &opts)) {
             if (!vga_interface_available(t)) {
-                error_report("%s not available", ti->name);
+                error_report("%s not available. Perhaps you want to install %s package?", ti->name,
+                        /* qxl is in spice, some are in opengl, the some are in common */
+                        !strcmp(ti->opt_name, "qxl") ? "qemu-system-modules-spice" : "qemu-system-modules-opengl");
                 exit(1);
             }
             vga_interface_type = t;
@@ -3588,7 +3590,12 @@ void qemu_init(int argc, char **argv)
                 break;
 #ifdef CONFIG_SPICE
             case QEMU_OPTION_spice:
-                opts = qemu_opts_parse_noisily(qemu_find_opts("spice"), optarg, false);
+                olist = qemu_find_opts("spice");
+                if (!olist) {
+                    error_report("Perhaps you want to install qemu-system-modules-spice package?");
+                    exit(1);
+                }
+                opts = qemu_opts_parse_noisily(olist, optarg, false);
                 if (!opts) {
                     exit(1);
                 }

@@ -1556,8 +1556,10 @@ void qemu_display_early_init(DisplayOptions *opts)
         }
     }
     if (dpys[opts->type] == NULL) {
-        error_report("Display '%s' is not available.",
-                     DisplayType_str(opts->type));
+        error_report("Display '%s' is not available. Perhaps you want to install %s package?",
+                     DisplayType_str(opts->type),
+                     (!strcmp(DisplayType_str(opts->type), "dbus") || !strcmp(DisplayType_str(opts->type), "egl-headless"))
+                      ? "qemu-system-modules-opengl" : "qemu-system-gui");
         exit(1);
     }
     if (dpys[opts->type]->early_init) {

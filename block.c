@@ -453,6 +453,12 @@ static BlockDriver *bdrv_do_find_format(const char *format_name)
     return NULL;
 }
 
+static void note_block_package_name(const char *b)
+{
+    error_report("Unable to load module %s. Perhaps you want to install qemu-block-extra or qemu-block-supplemental package?",
+                 b);
+}
+
 BlockDriver *bdrv_find_format(const char *format_name)
 {
     BlockDriver *drv1;
@@ -476,6 +482,7 @@ BlockDriver *bdrv_find_format(const char *format_name)
             } else if (rv < 0) {
                 error_report_err(local_err);
             }
+            else note_block_package_name(block_driver_modules[i].library_name);
             break;
         }
     }
@@ -967,7 +974,10 @@ BlockDriver *bdrv_find_protocol(const char *filename,
             } else if (rv < 0) {
                 return NULL;
             }
-            break;
+            else {
+                note_block_package_name(block_driver_modules[i].library_name);
+                return NULL;
+            }
         }
     }
 
