@@ -29,7 +29,7 @@
 #include "tcgbios.h"
 #include "tcgbios_int.h"
 #include "stdio.h"
-#include "sha256.h"
+#include "sha.h"
 #include "helpers.h"
 #include "version.h"
 #include "OF.h"
@@ -127,28 +127,32 @@ static const struct hash_parameters {
 	uint8_t  hashalg_flag;
 	uint8_t  hash_buffersize;
 	const char *name;
+	void (*hashfunc)(const uint8_t *data, uint32_t length, uint8_t *hash);
 } hash_parameters[] = {
 	{
 		.hashalg = TPM2_ALG_SHA1,
 		.hashalg_flag = TPM2_ALG_SHA1_FLAG,
 		.hash_buffersize = SHA1_BUFSIZE,
 		.name = "SHA1",
+		.hashfunc = sha1,
 	}, {
 		.hashalg = TPM2_ALG_SHA256,
 		.hashalg_flag = TPM2_ALG_SHA256_FLAG,
 		.hash_buffersize = SHA256_BUFSIZE,
 		.name = "SHA256",
+		.hashfunc = sha256,
 	}, {
 		.hashalg = TPM2_ALG_SHA384,
 		.hashalg_flag = TPM2_ALG_SHA384_FLAG,
 		.hash_buffersize = SHA384_BUFSIZE,
 		.name = "SHA384",
-
+		.hashfunc = sha384,
 	}, {
 		.hashalg = TPM2_ALG_SHA512,
 		.hashalg_flag = TPM2_ALG_SHA512_FLAG,
 		.hash_buffersize = SHA512_BUFSIZE,
 		.name = "SHA512",
+		.hashfunc = sha512,
 	}, {
 		.hashalg = TPM2_ALG_SM3_256,
 		.hashalg_flag = TPM2_ALG_SM3_256_FLAG,
@@ -233,6 +237,25 @@ static const char * tpm20_hashalg_flag_to_name(uint8_t hashalg_flag)
 	return NULL;
 }
 
+static void tpm2_hash_data(uint16_t hashAlg,
+                           const uint8_t *data, uint32_t data_len,
+                           uint8_t *hash)
+{
+	unsigned i;
+
+	for (i = 0; i < ARRAY_SIZE(hash_parameters); i++) {
+		if (hash_parameters[i].hashalg == hashAlg) {
+			if (hash_parameters[i].hashfunc) {
+				hash_parameters[i].hashfunc(data, data_len,
+							    hash);
+			} else {
+				memset(hash, 0xff,
+				       hash_parameters[i].hash_buffersize);
+			}
+		}
+	}
+}
+
 /*
  * Build the TPM2 TPML_DIGEST_VALUES data structure from the given hash.
  * Follow the PCR bank configuration of the TPM and write the same hash
@@ -242,13 +265,15 @@ static const char * tpm20_hashalg_flag_to_name(uint8_t hashalg_flag)
  * hash when writing it in the area of the sha1 hash.
  *
  * le: the log entry to build the digest in
- * sha1: the sha1 hash value to use
+ * hashdata: the data to hash
+ * hashdata_len: the length of the hashdata
  * bigEndian: whether to build in big endian format for the TPM or log
  *            little endian for the log (TPM 2.0)
  *
  * Returns the digest size; -1 on fatal error
  */
-static int tpm20_build_digest(struct tpm_log_entry *le, const uint8_t *sha256,
+static int tpm20_build_digest(struct tpm_log_entry *le,
+                              const uint8_t *hashdata, uint32_t hashdata_len,
 			      bool bigEndian)
 {
 	struct tpms_pcr_selection *sel;
@@ -297,9 +322,8 @@ static int tpm20_build_digest(struct tpm_log_entry *le, const uint8_t *sha256,
 		else
 			v->hashAlg = cpu_to_le16(be16_to_cpu(sel->hashAlg));
 
-		memset(v->hash, 0, hsize);
-		memcpy(v->hash, sha256,
-		       hsize < SHA256_BUFSIZE ? hsize : SHA256_BUFSIZE);
+		tpm2_hash_data(be16_to_cpu(sel->hashAlg), hashdata, hashdata_len,
+			       v->hash);
 
 		dest += sizeof(*v) + hsize;
 		sel = nsel;
@@ -659,7 +683,7 @@ static int tpm20_write_EfiSpecIdEventStruct(void)
 		.hdr.platformClass = TPM_TCPA_ACPI_CLASS_CLIENT,
 		.hdr.specVersionMinor = 0,
 		.hdr.specVersionMajor = 2,
-		.hdr.specErrata = 0,
+		.hdr.specErrata = 2,
 		.hdr.uintnSize = 2,
 	};
 	struct tpms_pcr_selection *sel;
@@ -865,7 +889,6 @@ static uint32_t tpm_add_measurement_to_log(uint32_t pcrindex,
 					   const uint8_t *hashdata,
 					   uint32_t hashdatalen)
 {
-	uint8_t hash[SHA256_BUFSIZE];
 	struct tpm_log_entry le = {
 		.hdr.pcrindex = cpu_to_log32(pcrindex),
 		.hdr.eventtype = cpu_to_log32(eventtype),
@@ -873,8 +896,7 @@ static uint32_t tpm_add_measurement_to_log(uint32_t pcrindex,
 	int digest_len;
 	int ret;
 
-	sha256(hashdata, hashdatalen, hash);
-	digest_len = tpm20_build_digest(&le, hash, true);
+	digest_len = tpm20_build_digest(&le, hashdata, hashdatalen, true);
 	if (digest_len < 0)
 		return TCGBIOS_GENERAL_ERROR;
 	ret = tpm20_extend(&le, digest_len);
@@ -882,7 +904,7 @@ static uint32_t tpm_add_measurement_to_log(uint32_t pcrindex,
 		tpm_set_failure();
 		return TCGBIOS_COMMAND_ERROR;
 	}
-	tpm20_build_digest(&le, hash, false);
+	tpm20_build_digest(&le, hashdata, hashdatalen, false);
 	return tpm_log_event_long(&le.hdr, digest_len, info, infolen);
 }
 
@@ -929,6 +951,21 @@ uint32_t tpm_hash_log_extend_event_buffer(uint32_t pcrindex, uint32_t eventtype,
 					  data, datalen);
 }
 
+uint32_t tpm_2hash_ext_log(uint32_t pcrindex,
+			   uint32_t eventtype,
+			   const char *info, uint32_t infolen,
+			   const void *data, uint64_t datalen)
+{
+	uint32_t ret;
+
+	ret = tpm_add_measurement_to_log(pcrindex, eventtype,
+					 info, infolen,
+					 data, datalen);
+	if (!ret)
+		return (uint32_t)-1; // TRUE
+	return 0; // FALSE
+}
+
 /*
  * Add an EV_ACTION measurement to the list of measurements
  */
@@ -958,7 +995,8 @@ uint32_t tpm_add_event_separators(uint32_t start_pcr, uint32_t end_pcr)
 	/* event separators need to be extended and logged for PCRs 0-7 */
 	for (pcrIndex = start_pcr; pcrIndex <= end_pcr; pcrIndex++) {
 		rc = tpm_add_measurement_to_log(pcrIndex, EV_SEPARATOR,
-						NULL, 0,
+						(const char *)evt_separator,
+						sizeof(evt_separator),
 						evt_separator,
 						sizeof(evt_separator));
 		if (rc)
@@ -1092,24 +1130,25 @@ uint32_t tpm_measure_gpt(void)
 
 uint32_t tpm_measure_scrtm(void)
 {
-	uint32_t rc;
-	char *version_start = strstr((char *)&print_version, "FW Version");
-	char *version_end;
-	uint32_t version_length;
+	uint32_t rc, i;
 	char *slof_text_start = (char *)&_slof_text;
 	uint32_t slof_text_length = (long)&_slof_text_end - (long)&_slof_text;
 	const char *scrtm = "S-CRTM Contents";
-
-	version_end = strchr(version_start, '\r');
-	version_length = version_end - version_start;
+#define _TT(a, x) a##x
+#define _T(a, x) _TT(a, x)
+	unsigned short ucs2_version[] = _T(L, RELEASE);
 
 	dprintf("Measure S-CRTM Version: addr = %p, length = %d\n",
-		version_start, version_length);
+		ucs2_version, ucs2_length);
+
+	for (i = 0; i < ARRAY_SIZE(ucs2_version); ++i)
+	    ucs2_version[i] = cpu_to_le16(ucs2_version[i]);
 
 	rc = tpm_add_measurement_to_log(0, EV_S_CRTM_VERSION,
-					version_start, version_length,
-					(uint8_t *)version_start,
-					version_length);
+					(char *)ucs2_version,
+					sizeof(ucs2_version),
+					(uint8_t *)ucs2_version,
+					sizeof(ucs2_version));
 	if (rc)
 		return rc;
 

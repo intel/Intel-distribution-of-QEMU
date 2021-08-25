@@ -15,6 +15,7 @@ TOPCMNDIR ?= ../..
 CPPFLAGS = -I../libc/include $(CPUARCHDEF) -I$(INCLBRDDIR) \
 	   -I$(INCLCMNDIR) -I$(INCLCMNDIR)/$(CPUARCH) -I$(SLOFCMNDIR)
 CPPFLAGS += -I../libhvcall
+CPPFLAGS += $(RELEASE)
 
 LDFLAGS = -nostdlib
 
@@ -23,7 +24,7 @@ TARGET = ../libtpm.a
 
 all: $(TARGET)
 
-SRCS = tpm_drivers.c sha256.c tcgbios.c
+SRCS = tpm_drivers.c sha.c sha256.c sha512.c tcgbios.c
 
 OBJS = $(SRCS:%.c=%.o)
 

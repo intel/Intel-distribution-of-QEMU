@@ -29,12 +29,9 @@
 #include "protos.h"
 #include "pci.h"
 #include "pci_regs.h"
+#include SYSTEM_H
 
 
-#define PCI_DEVFN(slot, func)	((((slot) & 0x1f) << 3) | ((func) & 0x07))
-#define PCI_BUS(devfn)		((devfn) >> 8)
-#define PCI_SLOT(devfn)		(((devfn) >> 3) & 0x1f)
-#define PCI_FUNC(devfn)		((devfn) & 0x07)
 #define PCI_SLOT_MAX		32
 #define PCI_FUNC_MAX		8
 #define PCI_REGION_ROM		6
@@ -124,8 +121,8 @@ pci_setup_device(int bdf, uint32_t *p_io_base, uint32_t *p_mem_base)
 
 	  printf("PCI:   region %d: %08x\r\n", region, addr);
 
-	  if ((val & PCI_BASE_ADDRESS_MEM_TYPE_MASK)
-	      == PCI_BASE_ADDRESS_MEM_TYPE_64)
+	  if ((old & (PCI_BASE_ADDRESS_SPACE | PCI_BASE_ADDRESS_MEM_TYPE_MASK))
+              == (PCI_BASE_ADDRESS_SPACE_MEMORY | PCI_BASE_ADDRESS_MEM_TYPE_64))
 	    {
 	      pci_config_writel(bdf, ofs + 4, 0);
 	      region++;
@@ -135,7 +132,16 @@ pci_setup_device(int bdf, uint32_t *p_io_base, uint32_t *p_mem_base)
 
   pci_config_maskw(bdf, PCI_COMMAND, 0, PCI_COMMAND_IO | PCI_COMMAND_MEMORY);
 
-  /* Map the interrupt.  */
+  /* Map the interrupt and program the IRQ into the line register.
+     Some operating systems rely on the Console providing this information
+     in order to avoid having mapping tables for every possible system
+     variation.  */
+
+  const uint8_t pin = pci_config_readb(bdf, PCI_INTERRUPT_PIN);
+  const uint8_t slot = PCI_SLOT(bdf);
+  const uint8_t irq = MAP_PCI_INTERRUPT(slot, pin, class_id);
+
+  pci_config_writeb(bdf, PCI_INTERRUPT_LINE, irq);
 }
 
 void

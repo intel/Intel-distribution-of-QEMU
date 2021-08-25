@@ -1,3 +1,45 @@
+qemu (1:6.1+dfsg-1) unstable; urgency=medium
+
+  * new upstream release (6.1.0)
+  * refresh patches, remove patches which were applied upstream
+  * remove newly appeared pc-bios/vof.bin in dfsg-clean
+  * add python3-sphinx-rtd-theme to build-depends
+  * removed qemu-system-moxie arch
+  * actually build many qemu modules as modules, and install
+    them in qemu-system-common.
+  * make strong versioned dependency between various qemu-system-*
+    packages, so that modules works correctly.
+  * drop very old versions from Build-Depends, Depends and Recommends
+    for packages which long has much more recent versions in debian
+  * up qemu-block-extra dependecy level from Suggests to Recommends
+  * d/control: stop suggesting sgabios by qemu-system-x86
+  * (experimental for now, needs more work) print name of the package
+    name for a module which can't be loaded, to give a clue what other
+    package one may need to install for the requested functionality
+  * fix some spelling mistakes in visible messages (spelling.diff)
+  * enable jack audio backend (in qemu-system-gui) (Closes: #984726)
+  * other small/internal changes in packaging:
+    - removed --disable-sheepdog which were dropped upstream
+    - install gui modules in d/rules not in d/q-s-gui.install
+      to be able to use wildcard in d/q-s-common.install
+    - recommend qemu-block-extra, not suggest it and not depend on it (ubuntu)
+      for qemu-system-* and qemu-utils
+    - reformat qemu "deps" for qemu-system-gui, stop listing -xen there
+      (it can not satisfy -gui),  qemu-system-s390x is :ubuntu:-only
+    - d/control: stop recommending -gui for xen package
+      (it is of no use for xen)
+    - d/control: reformat Depends for qemu-block-extra, do not include -xen
+      version there, mark -x390x as ubuntu-only,
+      and allow qemu-utils to satisfy the dependency
+    - do not install docs which does not exist anymore
+    - stop omiting Changelog from dh_installchangelog: the file is long gone
+    - d/rules: explicitly state version of skiboot as it is stored
+      in a git tag only, or else skiboot does not build (hack)
+    - put (new in 6.1, new in debian) hw-display-virtio-gpu-gl.so
+      to qemu-system-gui as it pulls in X11
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 25 Aug 2021 15:59:26 +0300
+
 qemu (1:6.0+dfsg-4) unstable; urgency=medium
 
   * d/rules: fix last ubuntu merge, xen is x86-only, not all-debian

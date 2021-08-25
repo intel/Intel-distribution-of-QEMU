@@ -1,10 +1,7 @@
-docs/bootindex.txt
 docs/ccid.txt
 docs/multiseat.txt
 docs/qdev-device-use.txt
 docs/qemupciserial.inf
 docs/config/
 docs/specs/
-docs/usb2.txt
-docs/usb-storage.txt
 docs/virtio-balloon-stats.txt

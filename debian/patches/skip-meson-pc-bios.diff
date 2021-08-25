@@ -9,6 +9,6 @@ necessary firmware in d/rules anyway.
 diff --git a/meson.build b/meson.build
 --- a/meson.build
 +++ b/meson.build
-@@ -1946 +1946 @@ subdir('tools')
+@@ -2787 +2787 @@ subdir('tools')
 -subdir('pc-bios')
 +#subdir('pc-bios')

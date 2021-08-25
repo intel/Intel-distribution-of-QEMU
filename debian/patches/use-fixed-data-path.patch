@@ -26,11 +26,10 @@ diff --git a/softmmu/datadir.c b/softmmu/datadir.c
      return get_relocated_path(CONFIG_QEMU_DATADIR);
  }
 diff --git a/util/cutils.c b/util/cutils.c
-index 0b5073b3301..8808a1bc85d 100644
+index c9b91e7535..ba1d291e07 100644
 --- a/util/cutils.c
 +++ b/util/cutils.c
-@@ -929,6 +929,9 @@ static inline const char *next_component(const char *dir, int *p_len)
- 
+@@ -1022,4 +1022,7 @@ static inline const char *next_component(const char *dir, int *p_len)
  char *get_relocated_path(const char *dir)
  {
 +#if 1	/* for Debian we dont need paths to be relocable */
@@ -38,10 +37,8 @@ index 0b5073b3301..8808a1bc85d 100644
 +#else
      size_t prefix_len = strlen(CONFIG_PREFIX);
      const char *bindir = CONFIG_BINDIR;
-     const char *exec_dir = qemu_get_exec_dir();
-@@ -964,4 +967,5 @@ char *get_relocated_path(const char *dir)
-         g_string_append(result, dir - 1);
+@@ -1057,3 +1060,4 @@ char *get_relocated_path(const char *dir)
      }
-     return result->str;
+     return g_string_free(result, false);
 +#endif
  }

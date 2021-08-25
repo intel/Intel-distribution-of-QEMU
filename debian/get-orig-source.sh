@@ -56,6 +56,7 @@ file pc-bios/u-boot.e500	# roms/u-boot/
 file pc-bios/u-boot-sam460-20100605.bin	# roms/u-boot-sam460ex/
 file pc-bios/QEMU,*.bin	# roms/openbios/
 file pc-bios/qemu_vga.ndrv	# roms/QemuMacDrivers/
+file pc-bios/vof.bin		# pc-bios/vof/
 
 # remove other software (git submodules)
 dir roms/ipxe		# separate package

@@ -15,17 +15,23 @@
  */
 
 #include "byteorder.h"
-#include "sha256.h"
+#include "sha.h"
 #include "string.h"
 
 typedef struct _sha256_ctx {
 	uint32_t h[8];
 } sha256_ctx;
 
-static inline uint32_t rotr(uint32_t x, uint8_t n)
-{
-	return (x >> n) | (x << (32 - n));
-}
+#define rotr(VAL, N)				\
+({						\
+	uint32_t res;				\
+	__asm__ (				\
+		"rotrwi %0, %1, %2\n\t"		\
+		: "=r" (res)			\
+		: "r" (VAL), "i" (N)		\
+	);					\
+	res; 					\
+})
 
 static inline uint32_t Ch(uint32_t x, uint32_t y, uint32_t z)
 {
@@ -90,7 +96,7 @@ static void sha256_block(uint32_t *w, sha256_ctx *ctx)
 	 *
 	 *  0 <= i <= 15:
 	 *    W(t) = M(t)
-	 * 16 <= i <= 79:
+	 * 16 <= i <= 63:
 	 *    W(t) = sigma1(W(t-2)) + W(t-7) + sigma0(W(t-15)) + W(t-16)
 	 */
 
@@ -212,3 +218,29 @@ void sha256(const uint8_t *data, uint32_t length, uint8_t *hash)
 	sha256_do(&ctx, data, length);
 	memcpy(hash, ctx.h, sizeof(ctx.h));
 }
+
+#ifdef MAIN
+
+#include "sha_test.h"
+
+int main(void)
+{
+	TESTVECTORS(data);
+	uint8_t hash[32];
+	char input[64];
+	int err = 0;
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(data); i++)
+		err |= test_hash(sha256, hash, sizeof(hash),
+				 data[i], strlen(data[i]),
+				 SHA256);
+
+	memset(input, 'a', sizeof(input));
+	/* cover critical input size around 56 bytes */
+	for (i = 50; i < sizeof(input); i++)
+		err |= test_hash(sha256, hash, sizeof(hash), input, i, SHA256);
+
+	return err;
+}
+#endif

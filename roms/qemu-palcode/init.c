@@ -18,8 +18,6 @@
    along with this program; see the file COPYING.  If not see
    <http://www.gnu.org/licenses/>.  */
 
-#include <string.h>
-#include <stddef.h>
 #include "hwrpb.h"
 #include "osf.h"
 #include "ioport.h"
@@ -38,11 +36,20 @@
 
 #define HZ	1024
 
+/* Upon entry, register a2 contains configuration information from the VM:
+
+   bits 0-5 -- ncpus
+   bit  6   -- "nographics" option (used to initialize CTB)  */
+
+#define CONFIG_NCPUS(x)      ((x) & 63)
+#define CONFIG_NOGRAPHICS(x) ((x) & (1ull << 6))
+
 struct hwrpb_combine {
   struct hwrpb_struct hwrpb;
   struct percpu_struct processor[4];
   struct memdesc_struct md;
   struct memclust_struct mc[2];
+  struct ctb_struct ctb;
   struct crb_struct crb;
   struct procdesc_struct proc_dispatch;
   struct procdesc_struct proc_fixup;
@@ -61,6 +68,8 @@ struct hwrpb_combine hwrpb __attribute__((aligned(PAGE_SIZE)));
 
 void *last_alloc;
 bool have_vga;
+unsigned int pci_vga_bus;
+unsigned int pci_vga_dev;
 
 static void *
 alloc (unsigned long size, unsigned long align)
@@ -138,11 +147,13 @@ init_page_table(void)
 }
 
 static void
-init_hwrpb (unsigned long memsize, unsigned long cpus)
+init_hwrpb (unsigned long memsize, unsigned long config)
 {
   unsigned long pal_pages;
   unsigned long amask;
   unsigned long i;
+  unsigned long proc_type = EV4_CPU;
+  unsigned long cpus = CONFIG_NCPUS(config);
   
   hwrpb.hwrpb.phys_addr = PA(&hwrpb);
 
@@ -164,12 +175,12 @@ init_hwrpb (unsigned long memsize, unsigned long cpus)
   switch (__builtin_alpha_implver())
     {
     case 0: /* EV4 */
-      hwrpb.hwrpb.cpuid = EV4_CPU;
+      proc_type = EV4_CPU;
       hwrpb.hwrpb.max_asn = 63;
       break;
 
     case 1: /* EV5 */
-      hwrpb.hwrpb.cpuid
+      proc_type
 	= ((amask & 0x101) == 0x101 ? PCA56_CPU		/* MAX+BWX */
 	   : amask & 1 ? EV56_CPU			/* BWX */
 	   : EV5_CPU);
@@ -177,10 +188,15 @@ init_hwrpb (unsigned long memsize, unsigned long cpus)
       break;
 
     case 2: /* EV6 */
-      hwrpb.hwrpb.cpuid = (amask & 4 ? EV67_CPU : EV6_CPU);  /* CIX */
+      proc_type = (amask & 4 ? EV67_CPU : EV6_CPU);     /* CIX */
       hwrpb.hwrpb.max_asn = 255;
       break;
     }
+
+  /* This field is the WHAMI of the primary CPU.  Just initialize
+     this to 0; CPU #0 is always the primary on real Alpha systems
+     (except for the TurboLaser).  */
+  hwrpb.hwrpb.cpuid = 0;
 
   hwrpb.hwrpb.pagesize = PAGE_SIZE;
   hwrpb.hwrpb.pa_bits = 40;
@@ -189,9 +205,18 @@ init_hwrpb (unsigned long memsize, unsigned long cpus)
   hwrpb.hwrpb.sys_revision = SYS_REVISION;
   for (i = 0; i < cpus; ++i)
     {
-      /* ??? Look up these bits.  Snagging the value examined by the kernel. */
+      /* Set the following PCS flags:
+	 (bit 2) Processor Available
+	 (bit 3) Processor Present
+	 (bit 6) PALcode Valid
+	 (bit 7) PALcode Memory Valid
+	 (bit 8) PALcode Loaded
+
+	 ??? We really should be intializing the PALcode memory and
+	 scratch space fields if we're setting PMV, or not set PMV,
+	 but Linux checks for it, so...  */
       hwrpb.processor[i].flags = 0x1cc;
-      hwrpb.processor[i].type = hwrpb.hwrpb.cpuid;
+      hwrpb.processor[i].type = proc_type;
     }
 
   hwrpb.hwrpb.intr_freq = HZ * 4096;
@@ -212,6 +237,22 @@ init_hwrpb (unsigned long memsize, unsigned long cpus)
   hwrpb.mc[0].usage = 1;
   hwrpb.mc[1].start_pfn = pal_pages;
   hwrpb.mc[1].numpages = (memsize >> PAGE_SHIFT) - pal_pages;
+
+  hwrpb.hwrpb.ctbt_offset = offsetof(struct hwrpb_combine, ctb);
+  hwrpb.hwrpb.ctb_size = sizeof(hwrpb.ctb);
+  hwrpb.ctb.len = sizeof(hwrpb.ctb) - offsetof(struct ctb_struct, ipl);
+  if (have_vga && !CONFIG_NOGRAPHICS(config))
+    {
+      hwrpb.ctb.type = CTB_MULTIPURPOSE;
+      hwrpb.ctb.term_type = CTB_GRAPHICS;
+      hwrpb.ctb.turboslot = (CTB_TURBOSLOT_TYPE_PCI << 16) |
+			    (pci_vga_bus << 8) | pci_vga_dev;
+    }
+  else
+    {
+      hwrpb.ctb.type = CTB_PRINTERPORT;
+      hwrpb.ctb.term_type = CTB_PRINTERPORT;
+    }
 
   hwrpb.hwrpb.crb_offset = offsetof(struct hwrpb_combine, crb);
   hwrpb.crb.dispatch_va = &hwrpb.proc_dispatch;
@@ -259,7 +300,7 @@ init_i8259 (void)
   outb(0x04, PORT_PIC1_DATA);	/* ICW3: slave control INTC2 */
   outb(0x01, PORT_PIC1_DATA);	/* ICW4 */
 
-  /* Initialize level triggers.  The CY82C693UB that's on real alpha
+  /* Initialize level triggers.  The CY82C693UB that's on some real alpha
      hardware doesn't have this; this is a PIIX extension.  However,
      QEMU doesn't implement regular level triggers.  */
   outb(0xff, PORT_PIC2_ELCR);
@@ -275,32 +316,37 @@ init_i8259 (void)
 }
 
 static void __attribute__((noreturn))
-swppal(void *entry, void *pcb)
+swppal(void *entry, void *pcb, unsigned long vptptr, unsigned long pv)
 {
   register int variant __asm__("$16") = 2;	/* OSF/1 PALcode */
   register void *pc __asm__("$17") = entry;
   register unsigned long pa_pcb __asm__("$18") = PA(pcb);
-  register unsigned long vptptr __asm__("$19") = VPTPTR;
+  register unsigned long newvptptr __asm__("$19") = vptptr;
+  register unsigned long newpv __asm__("$20") = pv;
 
-  asm("call_pal 0x0a" : : "r"(variant), "r"(pc), "r"(pa_pcb), "r"(vptptr));
+  asm("call_pal 0x0a" : :
+      "r"(variant), "r"(pc), "r"(pa_pcb), "r"(newvptptr), "r"(newpv));
   __builtin_unreachable ();
 }
 
 void
-do_start(unsigned long memsize, void (*kernel_entry)(void), unsigned long cpus)
+do_start(unsigned long memsize, void (*kernel_entry)(void),
+         unsigned long config)
 {
   last_alloc = _end;
 
   init_page_table();
-  init_hwrpb(memsize, cpus);
   init_pcb();
   init_i8259();
   uart_init();
   ps2port_setup();
   pci_setup();
   vgahw_init();
+  init_hwrpb(memsize, config);
 
-  swppal(kernel_entry ? kernel_entry : do_console, &pcb);
+  void *new_pc = kernel_entry ? kernel_entry : do_console;
+
+  swppal(new_pc, &pcb, VPTPTR, (unsigned long)new_pc);
 }
 
 void
@@ -315,14 +361,16 @@ do_start_wait(unsigned long cpuid)
 	{
 	  /* ??? The only message I know of is "START\r\n".
 	     I can't be bothered to verify more than 4 characters.  */
-	  /* ??? The Linux kernel fills in, but does not require,
-	     CPU_restart_data.  It just sets that to the same address
-	     as CPU_restart itself.  Our swppal *does* put the PC into
-	     $26 and $27, the latter of which the kernel does rely upon.  */
+
+	  /* Use use a private extension to SWPPAL to get the
+	     CPU_restart_data into $27.  Linux fills it in, but does
+	     not require it. Other operating systems, however, do use
+	     CPU_restart_data as part of secondary CPU start-up.  */
 
 	  unsigned int len = hwrpb.processor[cpuid].ipc_buffer[0];
 	  unsigned int msg = hwrpb.processor[cpuid].ipc_buffer[1];
 	  void *CPU_restart = hwrpb.hwrpb.CPU_restart;
+	  unsigned long CPU_restart_data = hwrpb.hwrpb.CPU_restart_data;
 	  __sync_synchronize();
 	  hwrpb.hwrpb.rxrdy = 0;
 
@@ -330,7 +378,8 @@ do_start_wait(unsigned long cpuid)
 	    {
 	      /* Set bootstrap in progress */
 	      hwrpb.processor[cpuid].flags |= 1;
-	      swppal(CPU_restart, hwrpb.processor[cpuid].hwpcb);
+	      swppal(CPU_restart, hwrpb.processor[cpuid].hwpcb,
+		     hwrpb.hwrpb.vptb, CPU_restart_data);
 	    }
 	}
     }
