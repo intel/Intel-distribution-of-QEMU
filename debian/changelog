@@ -1,6 +1,44 @@
+qemu (1:6.1+dfsg-3) unstable; urgency=medium
+
+  * fix brown-paper bag in last upload (--enable-libudev)
+  * ubuntu only: restore relations (depends/recommends)
+    between qemu-system-gui and qemu-system-xen since -xen
+    replaces full qemu-system-x86 and acts the same way
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 31 Aug 2021 02:50:52 +0300
+
+qemu (1:6.1+dfsg-2) unstable; urgency=medium
+
+  * rearrange d/rules to be able to configure/build/install
+    various different kinds of qemu builds (main/microvm/xen/static)
+    separately, by splitting targets of d/rules into subtargets
+  * enable many virtio devices for microvm build (Closes: #992029)
+  * disable libudev and fuse for microvm build
+  * rearrange options for microvm build in d/rules
+  * tidy newly added assert in unix-domain socket handling code
+    to account for extra \0 terminator for socket pathname,
+    socket-unix-maxlen.patch (Closes: #993145)
+  * upstream qemu added ignoring of *.patch to .gitignore,
+    unignore them in d/.gitignore
+  * re-add 4 patches which were lost from git
+    during preparation for 6.1
+    (not affecting the source package)
+  * uas-add-stream-number-sanity-checks-CVE-2021-3713.diff
+    Closes: #992727, CVE-2021-3713
+  * Mention (some) bugs closed by 6.1 upstream
+  * Mention closing of #947349
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 31 Aug 2021 02:01:51 +0300
+
 qemu (1:6.1+dfsg-1) unstable; urgency=medium
 
   * new upstream release (6.1.0)
+    Closes: CVE-2021-3607 (pvrdma: ensure correct input on ring init)
+    Closes: CVE-2021-3608 (pvrdma: unmap initialized dma address)
+    Closes: #989042, CVE-2021-3544 (vhost-user-gpu resource leaks)
+    Closes: #989042, CVE-2021-3545 (vhost-user-gpu memory disclosure)
+    Closes: #989042, CVE-2021-3546 (vhost-user-gpu OOBwr virgl_cmd_get_capset)
+    Closes: #991911, CVE-2021-3682 (pvrdma: possible mremap overflow)
   * refresh patches, remove patches which were applied upstream
   * remove newly appeared pc-bios/vof.bin in dfsg-clean
   * add python3-sphinx-rtd-theme to build-depends
@@ -69,7 +107,7 @@ qemu (1:6.0+dfsg-2exp) experimental; urgency=medium
   [ Christian Ehrhardt ]
   * qemu 6.0 broke libvirt <7.2, add a Breaks
     to avoid partial upgrade issues (LP: #1932264)
-  * enable SDL as secondary UI backend (LP: #1256185)
+  * enable SDL as secondary UI backend (LP: #1256185) (Closes: #947349)
   * clear all (current and former) modules on purge
   * only save modules if /run/qemu isn't noexec
   * provide run-qemu.mount in qemu-block-extra

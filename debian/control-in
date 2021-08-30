@@ -102,7 +102,8 @@ Build-Depends: debhelper-compat (= 12),
 # always needed
  zlib1g-dev,
 # other optional features we enable
-# no configure flag, needed for qga
+# --enable-libudev
+# needed for qga?
  libudev-dev [linux-any],
 # --enable-vnc
 # --enable-vnc-jpeg
@@ -244,6 +245,7 @@ Architecture: amd64 arm arm64 armel armhf i386 ia64 kfreebsd-amd64 kfreebsd-i386
 Multi-Arch: same
 Depends: ${misc:Depends}, ${shlibs:Depends},
          qemu-system-x86 (= ${binary:Version})
+:ubuntu: |qemu-system-xen (= ${binary:Version})
 	|qemu-system-arm (= ${binary:Version})
 	|qemu-system-mips (= ${binary:Version})
 	|qemu-system-ppc (= ${binary:Version})
@@ -550,6 +552,7 @@ Description: Guest-side qemu-system agent
 :ubuntu:Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Version}~),
 :ubuntu: ipxe-qemu,
 :ubuntu:Recommends:
+:ubuntu: qemu-system-gui (= ${binary:Version}),
 :ubuntu: qemu-utils,
 :ubuntu: seabios,
 :ubuntu:Suggests:
