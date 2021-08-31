@@ -9,8 +9,6 @@ Build-Depends: debhelper-compat (= 12),
 # In comments below we also specify (system-specific) arguments
 # to qemu's configure script, -- optional features which depend
 # on build-dependencies.
-# pc-bios/*.dts => *.dtb (PPC firmware)
- device-tree-compiler,
  python3:any,
  ninja-build, meson (>> 0.55.3-1~),
 # --enable-docs
@@ -120,6 +118,8 @@ Build-Depends: debhelper-compat (= 12),
 ## auth-pam - for auth for vnc&Co using PAM
 ## gio-2.0 - for -display=spice-app
 Build-Depends-Indep:
+# pc-bios/*.dts => *.dtb (PPC firmware)
+ device-tree-compiler,
  gcc-s390x-linux-gnu,
 # libc6.1-dev-alpha-cross isn't really needed but the code,
 # for whatever reason, #include's string.h which needs libc6.1-dev
@@ -206,7 +206,7 @@ Architecture: all
 Multi-Arch: foreign
 Conflicts: sgabios, qemu-skiboot, openbios-sparc, openbios-ppc, qemu-slof,
 Replaces: qemu-system-common (<< 1:2.12+dfsg-2~), sgabios,
-  openbios-sparc, openbios-ppc, qemu-slof, qemu-system-sparc (<< 1:4.2-4~), qemu-system-ppc (<< 1:4.2-4~),
+  openbios-sparc, openbios-ppc, qemu-slof, qemu-system-sparc (<< 1:4.2-4~), qemu-system-ppc (<< 1:6.1-4~),
 Provides: qemu-keymaps, sgabios, qemu-skiboot, openbios-sparc, openbios-ppc, qemu-slof,
 Depends: ${misc:Depends}
 Description: QEMU full system emulation (data files)
@@ -242,6 +242,8 @@ Depends: ${misc:Depends}, ${shlibs:Depends},
 	|qemu-system-misc (= ${binary:Version}),
 # libgl1 is dynamically loaded by sdl display code
         libgl1,
+# we moved vhost-user-gpu files here from qemu-system-common at 6.1-4
+Replaces: qemu-system-common (< 1:6.1+dfsg-4~)
 Description: QEMU full system emulation binaries (user interface and audio support)
  This package provides local graphical user interface (currently GTK)
  and audio backends for full system emulation (qemu-system-*) packages.

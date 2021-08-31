@@ -1,8 +1,6 @@
 debian/qemu-ifdown etc/
 debian/tmp/usr/share/man/man1/qemu-system.1
 debian/tmp/usr/share/qemu/trace-events-all
-debian/tmp/usr/share/qemu/vhost-user/50-qemu-gpu.json
-debian/tmp/usr/lib/qemu/vhost-user-gpu
 debian/tmp/usr/bin/qemu-pr-helper
 debian/tmp/usr/share/man/man8/qemu-pr-helper.8
 debian/tmp/usr/share/man/man7/qemu-qmp-ref.7

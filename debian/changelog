@@ -1,3 +1,29 @@
+qemu (1:6.1+dfsg-4) unstable; urgency=medium
+
+  * qemu-sockets-fix-unix-socket-path-copy-again.patch
+    replacing socket-unix-maxlen.patch
+    Closes: #993145
+  * enable more devices for the microvm build:
+     virtio-gpu & vhost-user-gpu
+     virtio-input-host & vhost_user_input
+  * move vhost-user-gpu files from qemu-system-common to qemu-system-gui
+    this elminates X11 dependencies from non-gui qemu-system install
+  * build and install vof.bin firmware
+  * rearrange d/rules a bit to make different qemu builds
+    to be consistent with sysdata-components
+  * move ppc dtb firmware files from qemu-system-ppc to qemu-system-data
+  * device-tree-compiler is now needed in build-indep-depends,
+    not in build-depends
+  * d/rules: use CROSSPFX variables
+  * ubuntu only:
+   - Revert commit from the previous release which restores
+     relation between qemu-system-xen and qemu-system-gui
+     since -xen is not compatible with -gui modules
+   - qemu-system-xen does not suggest qemu-block-extra (incompatible too)
+   - qemu-system-s390x recommends qemu-block-extra not suggests it
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 31 Aug 2021 22:27:25 +0300
+
 qemu (1:6.1+dfsg-3) unstable; urgency=medium
 
   * fix brown-paper bag in last upload (--enable-libudev)

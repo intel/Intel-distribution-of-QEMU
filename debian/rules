@@ -46,6 +46,7 @@ sysdatadir = debian/qemu-system-data/usr/share/qemu
 
 ALPHAEV67_CROSSPFX = alpha-linux-gnu-
 PPC64_CROSSPFX = powerpc64-linux-gnu-
+RISCV64_CROSSPFX = riscv64-linux-gnu-
 
 # we add another set of configure options from debian/control
 common_configure_opts = \
@@ -109,11 +110,15 @@ user_targets = \
 
 endif	# enable_linux_user
 
+sysdata-components :=
+qemu-builds :=
+
 # several builds of qemu binary:
 
 ##############################################
 # regular, main system/user and tools build
-b/qemu/config-stamp: configure
+configure-qemu: b/qemu/configured
+b/qemu/configured: configure
 	rm -rf b/qemu; mkdir -p b/qemu
 	cd b/qemu && \
 	    ../../configure ${common_configure_opts} --disable-user \
@@ -127,13 +132,9 @@ b/qemu/config-stamp: configure
 		$(QEMU_CONFIGURE_OPTIONS) 
 	touch $@
 
-b/qemu/build-stamp: b/qemu/config-stamp
+build-qemu: b/qemu/built
+b/qemu/built: b/qemu/configured
 	$(MAKE) -C b/qemu V=${V}
-ifeq (${enable_system},enable)
-	rm -f b/qemu/pc-bios/bamboo.dtb b/qemu/pc-bios/canyonlands.dtb
-	dtc -o b/qemu/pc-bios/bamboo.dtb pc-bios/bamboo.dts
-	dtc -o b/qemu/pc-bios/canyonlands.dtb pc-bios/canyonlands.dts
-endif
 	touch $@
 
 define inst-system
@@ -160,7 +161,7 @@ define inst-kvm-link
 	touch -r debian/kvm.1 debian/$1/usr/share/man/man1/kvm.1
 endef
 
-b/qemu/install: b/qemu/build-stamp | before-binary-arch
+install-qemu: b/qemu/built
 	$(MAKE) -C b/qemu DESTDIR=$(CURDIR)/debian/tmp install \
 	  KEYMAPS= ICON_SIZES=
 
@@ -275,11 +276,12 @@ ifeq (${enable_system},enable)
 		debian/qemu-system-common/etc/qemu-ifup
 endif
 
-qemu-builds := qemu
+qemu-builds += qemu
 
 ##############################################
 # microvm build:
-b/microvm/config-stamp: configure
+configure-microvm: b/microvm/configured
+b/microvm/configured: configure debian/microvm-devices.mak
 	rm -rf b/microvm; mkdir -p b/microvm
 	cp -up debian/microvm-devices.mak configs/devices/x86_64-softmmu/microvm.mak
 	cd b/microvm && \
@@ -324,23 +326,21 @@ b/microvm/config-stamp: configure
 		--with-devices-x86_64=microvm \
 		$(QEMU_CONFIGURE_OPTIONS)
 	touch $@
-
-b/microvm/build-stamp: b/microvm/config-stamp
+build-microvm: b/microvm/qemu-system-x86_64
+b/microvm/qemu-system-x86_64: b/microvm/configured
 	$(MAKE) -C b/microvm V=${V} qemu-system-x86_64
-	touch $@
-
-b/microvm/install: b/microvm/build-stamp | before-binary-arch
+install-microvm: b/microvm/qemu-system-x86_64
 	cp b/microvm/x86_64-softmmu/qemu-system-x86_64 debian/qemu-system-x86/usr/bin/qemu-system-x86_64-microvm
 	echo ".so man1/qemu-system.1" > debian/qemu-system-x86/usr/share/man/man1/qemu-system-x86_64-microvm.1
-
 # build microvm on amd64 only if system build is enabled
 ifeq ($(filter-out $(DEB_HOST_ARCH),amd64)${enable_system},enable)
-qemu-builds := ${qemu-builds} microvm
+qemu-builds += microvm
 endif
 
 ##############################################
 # xen build
-b/xen/config-stamp: configure
+configure-xen: b/xen/configured
+b/xen/configured: configure
 	# system build for qemu-system-x86-xen
 	# like the normal system build, but with:
 	#  --enable-xen
@@ -361,12 +361,11 @@ b/xen/config-stamp: configure
 		    $(DEB_HOST_ARCH_OS)-$(DEB_HOST_ARCH) debian/control) \
 		$(QEMU_CONFIGURE_OPTIONS)
 	touch $@
-
-b/xen/build-stamp: b/xen/config-stamp
+build-xen: b/xen/built
+b/xen/built: b/xen/configured
 	$(MAKE) -C b/xen V=${V} qemu-system-i386 qemu-system-x86_64
 	touch $@
-
-b/xen/install: b/xen/build-stamp | before-binary-arch
+install-xen: b/xen/built
 	mkdir -p debian/qemu-system-x86-xen/usr/bin/
 	mkdir -p debian/qemu-system-x86-xen/usr/share/man/man1/
 	cp b/xen/x86_64-softmmu/qemu-system-x86_64 debian/qemu-system-x86-xen/usr/bin/
@@ -377,15 +376,15 @@ b/xen/install: b/xen/build-stamp | before-binary-arch
 	# compat links to what libxen-dev reports where to find the binaries
 	dh_link -pqemu-system-x86-xen /usr/bin/qemu-system-i386 ${XENBINPATH}/qemu-system-i386
 	dh_link -pqemu-system-x86-xen /usr/bin/qemu-system-x86_64 ${XENBINPATH}/qemu-system-x86_64
-
 # build xen version only on ubuntu on amd64 or i386 only if system build is enabled
 ifeq (${VENDOR}-$(filter-out $(DEB_HOST_ARCH),amd64 i386)-${enable_system},UBUNTU--enable)
-qemu-builds := ${qemu-builds} xen
+qemu-builds += xen
 endif
 
 ##############################################
 # linux-user-static build
-b/user-static/config-stamp: configure
+configure-user-static: b/user-static/configured
+b/user-static/configured: configure
 # do not use debian/configure-opts here, all optional stuff will be enabled
 # automatically, dependencies are already verified in the main build
 # by default this would detect linker option --static-pie, but that
@@ -397,16 +396,15 @@ b/user-static/config-stamp: configure
 		--static --disable-pie --disable-system --disable-xen \
 		--target-list="$(addsuffix -linux-user,${user_targets})"
 	touch $@
-
-b/user-static/build-stamp: b/user-static/config-stamp
+build-user-static: b/user-static/built
+b/user-static/built: b/user-static/configured
 	# we use this invocation to build just the binaries
 	$(MAKE) -C b/user-static V=${V} $(addprefix qemu-,${user_targets})
 	sed -e 's/qemu\\-user\\-static/qemu\\-user/g' \
 	    -e 's/ (static version)//' \
 	    debian/qemu-user-static.1 > debian/qemu-user.1
 	touch $@
-
-b/user-static/install: b/user-static/build-stamp | before-binary-arch
+install-user-static: b/user-static/built
 	mkdir -p debian/qemu-user-static/usr/bin debian/qemu-user-static/usr/share/man/man1
 	for t in ${user_targets}; do \
 	   cp -p b/user-static/$$t-linux-user/qemu-$$t \
@@ -415,20 +413,20 @@ b/user-static/install: b/user-static/build-stamp | before-binary-arch
 	       debian/qemu-user-static/usr/share/man/man1/qemu-$$t-static.1 ; \
 	done
 	./debian/binfmt-install qemu-user-static
-
 ifeq ($(enable_linux_user),enable)
-qemu-builds := ${qemu-builds} user-static
+qemu-builds += user-static
 endif
 
 ##############################################
 # common rules
 
-b/config-stamp: $(patsubst %, b/%/config-stamp, ${qemu-builds})
-	touch $@
-
-build-arch: b/build-stamp
-b/build-stamp: $(patsubst %, b/%/build-stamp, ${qemu-builds})
-	touch $@
+.PHONY: configure configure-arch build-arch before-binary-arch
+.PHONY: $(addprefix configure-, ${qemu-builds}) \
+	$(addprefix build-, ${qemu-builds}) \
+	$(addprefix install-, ${qemu-builds})
+binary-arch $(addprefix install-, ${qemu-builds}): | before-binary-arch
+configure-arch: $(addprefix configure-, ${qemu-builds})
+build-arch: $(addprefix build-, ${qemu-builds})
 
 before-binary-arch:
 	dh_testdir
@@ -436,7 +434,7 @@ before-binary-arch:
 	dh_prep -a
 	dh_installdirs -a
 
-binary-arch: $(patsubst %, b/%/install, ${qemu-builds}) | before-binary-arch
+binary-arch: $(addprefix install-, ${qemu-builds})
 
 	dh_installinit -a -pqemu-guest-agent
 	dh_installsystemd -a -pqemu-guest-agent --no-start --no-enable
@@ -514,6 +512,14 @@ install-skiboot: b/skiboot/skiboot.lid
 	install -m 0644 -t "${sysdatadir}" $<
 sysdata-components += skiboot
 
+build-vof: b/vof/vof.bin
+b/vof/vof.bin: | b
+	cp -al pc-bios/vof b/
+	${MAKE} -C b/vof CROSS=${PPC64_CROSSPFX}
+install-vof: b/vof/vof.bin
+	install -m 0644 -t "${sysdatadir}" $<
+sysdata-components += vof
+
 ### x86 optionrom
 build-x86-optionrom: b/optionrom/built
 b/optionrom/built:
@@ -565,9 +571,9 @@ sysdata-components += palcode-clipper
 
 ### SLOF
 build-slof: b/SLOF/boot_rom.bin
-b/SLOF/boot_rom.bin:
+b/SLOF/boot_rom.bin: | b
 	cp -al roms/SLOF b/
-	env -u LDFLAGS -u CFLAGS $(MAKE) -C b/SLOF qemu CROSS="powerpc64-linux-gnu-" V=${V}
+	env -u LDFLAGS -u CFLAGS $(MAKE) -C b/SLOF qemu CROSS=${PPC64_CROSSPFX} V=${V}
 install-slof: b/SLOF/boot_rom.bin
 	install -m 0644 $< ${sysdatadir}/slof.bin
 sysdata-components += slof
@@ -584,7 +590,7 @@ sysdata-components += s390x-fw
 
 ### hppa-firmware (roms/seabios-hppa)
 build-hppa-fw: b/hppafw/hppa-firmware.img
-b/hppafw/hppa-firmware.img: | b
+b/hppafw/hppa-firmware.img:
 	mkdir -p b/hppafw
 	${MAKE} -C roms/seabios-hppa OUT=../../b/hppafw/ PYTHON=python3 parisc
 	hppa-linux-gnu-strip -R.note -R.comment $@
@@ -595,15 +601,27 @@ sysdata-components += hppa-fw
 ### opensbi (riscv firmware)
 # we only build v64 variants, not v32
 build-opensbi: b/opensbi/.built
-b/opensbi/.built: | b
+b/opensbi/.built:
 	mkdir -p b/opensbi
-	${MAKE} -C roms/opensbi O=../../b/opensbi CROSS_COMPILE=riscv64-linux-gnu- V=${V} PLATFORM=generic
-	riscv64-linux-gnu-strip --strip-unneeded -R.comment -R.note b/opensbi/platform/generic/firmware/fw_dynamic.elf
+	${MAKE} -C roms/opensbi O=../../b/opensbi CROSS_COMPILE=${RISCV64_CROSSPFX} V=${V} PLATFORM=generic
+	${RISCV64_CROSSPFX}strip --strip-unneeded -R.comment -R.note b/opensbi/platform/generic/firmware/fw_dynamic.elf
 	touch $@
 install-opensbi: build-opensbi
 	install -m 0644 b/opensbi/platform/generic/firmware/fw_dynamic.bin ${sysdatadir}/opensbi-riscv64-generic-fw_dynamic.bin
 	install -m 0644 b/opensbi/platform/generic/firmware/fw_dynamic.elf ${sysdatadir}/opensbi-riscv64-generic-fw_dynamic.elf
 sysdata-components += opensbi
+
+### misc firmware
+build-misc: b/misc/.built
+b/misc/.built:
+	mkdir -p b/misc
+	dtc -o b/misc/bamboo.dtb pc-bios/bamboo.dts
+	dtc -o b/misc/canyonlands.dtb pc-bios/canyonlands.dts
+	touch $@
+install-misc: build-misc
+	install -m 0644 b/misc/bamboo.dtb b/misc/canyonlands.dtb \
+		${sysdatadir}
+sysdata-components += misc
 
 build-indep: $(addprefix build-, ${sysdata-components})
 
