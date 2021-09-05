@@ -420,7 +420,7 @@ endif
 ##############################################
 # common rules
 
-.PHONY: configure configure-arch build-arch before-binary-arch
+.PHONY: configure-arch build-arch before-binary-arch
 .PHONY: $(addprefix configure-, ${qemu-builds}) \
 	$(addprefix build-, ${qemu-builds}) \
 	$(addprefix install-, ${qemu-builds})
