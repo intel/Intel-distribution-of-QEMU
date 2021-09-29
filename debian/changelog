@@ -1,3 +1,17 @@
+qemu (1:6.1+dfsg-6) unstable; urgency=medium
+
+  * virtio-net-fix-use-after-unmap-free-for-sg-CVE-2021-3748.patch
+    Closes: #993401, CVE-2021-3748: use-after-free in virtio_net_receive_rcu
+  * ati_2d-fix-buffer-overflow-in-ati_2d_blt-CVE-2021-3638.patch
+    Closes: #992726, CVE-2021-3638:
+     inconsistent check in ati_2d_blt() may lead to out-of-bounds write
+  * refresh uas-add-stream-number-sanity-checks-CVE-2021-3713{.diff=>.patch}
+    from upstream
+  * hmp-unbreak-change-vnc.patch from upstream
+    to fix 'change vnc passwd' command
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 29 Sep 2021 13:41:47 +0300
+
 qemu (1:6.1+dfsg-5) unstable; urgency=medium
 
   * updated debian/patches/linux-user-binfmt-P.diff
