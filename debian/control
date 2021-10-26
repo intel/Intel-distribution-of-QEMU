@@ -12,7 +12,8 @@ Build-Depends: debhelper-compat (= 12),
  python3:any,
  ninja-build, meson (>> 0.55.3-1~),
 # --enable-docs
- texinfo, python3-sphinx, python3-sphinx-rtd-theme,
+# for python3-sphinx:native see #995622
+ texinfo, python3-sphinx:native, python3-sphinx-rtd-theme,
 # iasl (from acpica-tools) is used only in a single test these days, not for building
 # acpica-tools,
 # libcapstone is in universe in ubuntu
@@ -86,6 +87,8 @@ Build-Depends: debhelper-compat (= 12),
  libusbredirparser-dev [linux-any],
 # --enable-libssh
  libssh-dev,
+# --enable-zstd
+ libzstd-dev,
 # vde is debian-only since ubuntu/vde2 is in universe
 # --enable-vde
  libvdeplug-dev,
@@ -190,7 +193,7 @@ Depends: ${misc:Depends}, ${shlibs:Depends},
 	|qemu-system-misc (= ${binary:Version})
 	|qemu-utils (= ${binary:Version}),
 Enhances: qemu-utils, qemu-system-misc,
- qemu-system-arm, qemu-system-mips, qemu-system-sparc, qemu-system-x86
+ qemu-system-arm, qemu-system-mips, qemu-system-sparc, qemu-system-x86,
 Description: extra block backend modules for qemu-system and qemu-utils
  QEMU is a fast processor emulator: currently the package supports
  ARM, CRIS, i386, M68k (ColdFire), MicroBlaze, MIPS, PowerPC, SH4,
@@ -232,7 +235,10 @@ Description: QEMU full system emulation binaries (common files)
 
 Package: qemu-system-gui
 Architecture: amd64 arm arm64 armel armhf i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel mips64 mips64el powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64 x32
-Multi-Arch: same
+#XXX M-A: same does not really work for now due to /usr/lib/qemu/vhost-user-gpu
+#XXX we'll deal with this if some actual need arises,
+#XXX by moving that binary back to q-s-common or packaging it separately
+#Multi-Arch: same
 Depends: ${misc:Depends}, ${shlibs:Depends},
          qemu-system-x86 (= ${binary:Version})
 	|qemu-system-arm (= ${binary:Version})
@@ -243,7 +249,7 @@ Depends: ${misc:Depends}, ${shlibs:Depends},
 # libgl1 is dynamically loaded by sdl display code
         libgl1,
 # we moved vhost-user-gpu files here from qemu-system-common at 6.1-4
-Replaces: qemu-system-common (< 1:6.1+dfsg-4~)
+Replaces: qemu-system-common (<< 1:6.1+dfsg-4~)
 Description: QEMU full system emulation binaries (user interface and audio support)
  This package provides local graphical user interface (currently GTK)
  and audio backends for full system emulation (qemu-system-*) packages.

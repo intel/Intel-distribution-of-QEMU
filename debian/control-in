@@ -13,7 +13,8 @@ Build-Depends: debhelper-compat (= 12),
  python3:any,
  ninja-build, meson (>> 0.55.3-1~),
 # --enable-docs
- texinfo, python3-sphinx, python3-sphinx-rtd-theme,
+# for python3-sphinx:native see #995622
+ texinfo, python3-sphinx:native, python3-sphinx-rtd-theme,
 # iasl (from acpica-tools) is used only in a single test these days, not for building
 # acpica-tools,
 # libcapstone is in universe in ubuntu
@@ -87,6 +88,8 @@ Build-Depends: debhelper-compat (= 12),
  libusbredirparser-dev [linux-any],
 # --enable-libssh
  libssh-dev,
+# --enable-zstd
+ libzstd-dev,
 # vde is debian-only since ubuntu/vde2 is in universe
 :debian:# --enable-vde
 :debian: libvdeplug-dev,
@@ -189,6 +192,7 @@ Architecture: amd64 arm arm64 armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd
 Multi-Arch: no
 Depends: ${misc:Depends}, ${shlibs:Depends},
          qemu-system-x86 (= ${binary:Version})
+:ubuntu: |qemu-system-x86-xen (= ${binary:Version})
 	|qemu-system-arm (= ${binary:Version})
 	|qemu-system-mips (= ${binary:Version})
 	|qemu-system-ppc (= ${binary:Version})
@@ -197,7 +201,8 @@ Depends: ${misc:Depends}, ${shlibs:Depends},
 	|qemu-system-misc (= ${binary:Version})
 	|qemu-utils (= ${binary:Version}),
 Enhances: qemu-utils, qemu-system-misc,
- qemu-system-arm, qemu-system-mips, qemu-system-sparc, qemu-system-x86
+ qemu-system-arm, qemu-system-mips, qemu-system-sparc, qemu-system-x86,
+:ubuntu: qemu-system-x86-xen
 Description: extra block backend modules for qemu-system and qemu-utils
  QEMU is a fast processor emulator: currently the package supports
  ARM, CRIS, i386, M68k (ColdFire), MicroBlaze, MIPS, PowerPC, SH4,
@@ -242,9 +247,13 @@ Description: QEMU full system emulation binaries (common files)
 
 Package: qemu-system-gui
 Architecture: amd64 arm arm64 armel armhf i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel mips64 mips64el powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64 x32
-Multi-Arch: same
+#XXX M-A: same does not really work for now due to /usr/lib/qemu/vhost-user-gpu
+#XXX we'll deal with this if some actual need arises,
+#XXX by moving that binary back to q-s-common or packaging it separately
+#Multi-Arch: same
 Depends: ${misc:Depends}, ${shlibs:Depends},
          qemu-system-x86 (= ${binary:Version})
+:ubuntu: |qemu-system-x86-xen (= ${binary:Version})
 	|qemu-system-arm (= ${binary:Version})
 	|qemu-system-mips (= ${binary:Version})
 	|qemu-system-ppc (= ${binary:Version})
@@ -254,7 +263,7 @@ Depends: ${misc:Depends}, ${shlibs:Depends},
 # libgl1 is dynamically loaded by sdl display code
         libgl1,
 # we moved vhost-user-gpu files here from qemu-system-common at 6.1-4
-Replaces: qemu-system-common (< 1:6.1+dfsg-4~)
+Replaces: qemu-system-common (<< 1:6.1+dfsg-4~)
 Description: QEMU full system emulation binaries (user interface and audio support)
  This package provides local graphical user interface (currently GTK)
  and audio backends for full system emulation (qemu-system-*) packages.
@@ -543,7 +552,7 @@ Description: Guest-side qemu-system agent
 :ubuntu: code.  It can also be used to provide virtual hosting of several virtual
 :ubuntu: machines on a single server.
 
-:ubuntu:# xen support generally is disabled, this is an extra build with xen enabled
+:ubuntu:# xen support generally is disabled on ubuntu, this is an extra build with xen enabled
 :ubuntu:# as needed by xen-utils-4.11 [amd64 arm64 armhf i386]
 :ubuntu:# Xen will depend on this; this package and the main qemu-system-x86 are
 :ubuntu:# mutually exclusive
@@ -552,9 +561,9 @@ Description: Guest-side qemu-system agent
 :ubuntu:Multi-Arch: foreign
 :ubuntu:Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Version}~),
 :ubuntu: ipxe-qemu,
-:ubuntu:Recommends:
-:ubuntu: qemu-utils,
+:ubuntu:Recommends: qemu-system-gui (= ${binary:Version}), qemu-utils,
 :ubuntu: seabios,
+:ubuntu: qemu-block-extra (= ${binary:Version}),
 :ubuntu:Suggests:
 :ubuntu: ovmf,
 :ubuntu:Conflicts: qemu-system-x86

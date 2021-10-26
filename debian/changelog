@@ -1,3 +1,22 @@
+qemu (1:6.1+dfsg-7) unstable; urgency=medium
+
+  * qemu-system-data: do not install qemu.desktop (Closes: #995628)
+  * remove qemu-user-static.README.Debian (#995633)
+  * d/rules: update configure rules for different qemu builds
+  * qemu-system-x86-xen: install only -i386 link to xen path, not -x86_64
+  * promote qemu-system-x86-xen package on ubuntu to be like qemu-system-x86
+    since it uses the same modules actually
+  * enable zstd compression support (Build-Depends)
+  * qemu-system-data: install usr/share/icons/hicolor/32x32/apps/qemu.bmp
+    for the sdl ui
+  * d/control: fix wrong relation (< vs <<)
+  * d/control: use :native version of python3-sphynx (Closes: #995622)
+  * do not make qemu-system-gui Multi-Arch:same due to vhost-user-gpu
+  * quieten gcc11 warnings/errors so roms will compile (Closes: #997082)
+  * move d/qemu-system-data.install to d/rules
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 26 Oct 2021 10:35:02 +0300
+
 qemu (1:6.1+dfsg-6) unstable; urgency=medium
 
   * virtio-net-fix-use-after-unmap-free-for-sg-CVE-2021-3748.patch

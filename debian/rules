@@ -129,7 +129,7 @@ b/qemu/configured: configure
 		--enable-module-upgrades \
 		$(shell sh debian/extract-config-opts \
 		    $(DEB_HOST_ARCH_OS)-$(DEB_HOST_ARCH) debian/control) \
-		$(QEMU_CONFIGURE_OPTIONS) 
+		${QEMU_CONFIGURE_OPTIONS}
 	touch $@
 
 build-qemu: b/qemu/built
@@ -286,45 +286,23 @@ b/microvm/configured: configure debian/microvm-devices.mak
 	cp -up debian/microvm-devices.mak configs/devices/x86_64-softmmu/microvm.mak
 	cd b/microvm && \
 		../../configure ${common_configure_opts} \
-		--disable-docs \
-		--disable-guest-agent --disable-tools \
 		--extra-cflags="$(CFLAGS) $(CPPFLAGS) -DCONFIG_MICROVM_DEFAULT=1" \
-		--disable-user --disable-linux-user \
-		--enable-system --target-list=x86_64-softmmu --enable-kvm \
-		--disable-modules --disable-plugins \
-		--disable-tcg --disable-xen \
-		\
-		--disable-seccomp --disable-bzip2 \
-		--disable-slirp --disable-vde --disable-netmap \
-		--disable-capstone \
-		--disable-gnutls --disable-gcrypt --disable-nettle \
-		--disable-auth-pam \
-		\
-		--disable-curl --disable-libssh --disable-glusterfs \
-		--disable-libiscsi --disable-libnfs --disable-rbd \
-		--disable-replication --disable-bochs --disable-cloop \
-		--disable-dmg --disable-parallels --disable-qed --disable-vdi \
-		--disable-vvfat \
-		\
-		--enable-vnc --disable-vnc-jpeg --disable-vnc-png --disable-vnc-sasl \
-		--disable-curses --disable-sdl --disable-gtk \
-		--disable-spice \
-		--disable-opengl \
-		\
-		--disable-libpmem \
-		--disable-snappy --disable-lzo --disable-usb-redir \
-		--disable-libusb --disable-smartcard \
-		--disable-cap-ng --disable-linux-aio --disable-brlapi \
-		--disable-virglrenderer \
-		--disable-rdma \
-		--disable-fdt \
-		--disable-tpm \
-		--audio-drv-list="" --disable-xfsctl \
-		--disable-iconv \
-		--disable-libudev --disable-fuse \
+		--disable-docs \
+		--without-default-features \
+		--disable-user \
+		--target-list=x86_64-softmmu --enable-kvm --disable-tcg \
+		--disable-slirp --disable-capstone --disable-fdt \
+		--enable-vnc \
+		--enable-attr --enable-avx2 \
+		--enable-coroutine-pool \
+		--audio-drv-list="" \
 		--without-default-devices \
 		--with-devices-x86_64=microvm \
-		$(QEMU_CONFIGURE_OPTIONS)
+		--enable-vhost-kernel --enable-vhost-net \
+		--enable-vhost-scsi --enable-vhost-vsock --enable-vhost-vdpa \
+		--enable-vhost-user --enable-vhost-user-blk-server \
+		--enable-vhost-crypto \
+		${QEMU_MICROVM_CONFIGURE_OPTIONS}
 	touch $@
 build-microvm: b/microvm/qemu-system-x86_64
 b/microvm/qemu-system-x86_64: b/microvm/configured
@@ -350,16 +328,16 @@ b/xen/configured: configure
 	#    (could in theory also enable arm/aarch64)
 	rm -rf b/xen; mkdir -p b/xen
 	cd b/xen && \
-	    ../../configure ${common_configure_opts} --disable-user \
-		--${enable_system}-system \
-		--disable-linux-user \
+	    ../../configure ${common_configure_opts} \
+		--disable-user \
+		--disable-docs \
 		--enable-xen \
-		--target-list="i386-softmmu x86_64-softmmu"
+		--target-list="i386-softmmu x86_64-softmmu" \
 		--enable-modules \
 		--enable-module-upgrades \
 		$(shell sh debian/extract-config-opts \
 		    $(DEB_HOST_ARCH_OS)-$(DEB_HOST_ARCH) debian/control) \
-		$(QEMU_CONFIGURE_OPTIONS)
+		${QEMU_CONFIGURE_OPTIONS}
 	touch $@
 build-xen: b/xen/built
 b/xen/built: b/xen/configured
@@ -373,9 +351,8 @@ install-xen: b/xen/built
 	echo ".so man1/qemu-system.1" > debian/qemu-system-x86-xen/usr/share/man/man1/qemu-system-x86_64.1
 	echo ".so man1/qemu-system.1" > debian/qemu-system-x86-xen/usr/share/man/man1/qemu-system-i386.1
 	dh_link -pqemu-system-x86-xen usr/share/doc/qemu-system-common usr/share/doc/qemu-system-x86-xen/common
-	# compat links to what libxen-dev reports where to find the binaries
+	# compat link to what libxen-dev reports where to find the binaries
 	dh_link -pqemu-system-x86-xen /usr/bin/qemu-system-i386 ${XENBINPATH}/qemu-system-i386
-	dh_link -pqemu-system-x86-xen /usr/bin/qemu-system-x86_64 ${XENBINPATH}/qemu-system-x86_64
 # build xen version only on ubuntu on amd64 or i386 only if system build is enabled
 ifeq (${VENDOR}-$(filter-out $(DEB_HOST_ARCH),amd64 i386)-${enable_system},UBUNTU--enable)
 qemu-builds += xen
@@ -644,8 +621,16 @@ $(addprefix install-, ${sysdata-components}): b/install-indep-prep.stamp | ${sys
 binary-indep: b/install-indep-prep.stamp \
 	        $(addprefix install-, ${sysdata-components}) \
 		| ${sysdatadir}
-	dh_install -i
-	rm -f debian/qemu-system-data/usr/share/qemu/keymaps/Makefile
+# dh_install can't rename files so we do things here
+#	dh_install -i
+# qemu-system-data
+	install -Dp ui/icons/qemu.svg \
+	 debian/qemu-system-data/usr/share/icons/hicolor/scalable/apps/qemu.svg
+# icon for sdl2 ui (non-sdl-image version)
+	install -Dp ui/icons/qemu_32x32.png \
+	 debian/qemu-system-data/usr/share/icons/hicolor/32x32/apps/qemu.png
+	install -Dp -t debian/qemu-system-data/usr/share/qemu \
+	 $$(ls -1 pc-bios/keymaps/* | fgrep -v /meson.build)
 	dh_installdocs -i
 	dh_installchangelogs -i
 	dh_lintian -i
