@@ -629,7 +629,7 @@ binary-indep: b/install-indep-prep.stamp \
 # icon for sdl2 ui (non-sdl-image version)
 	install -Dp ui/icons/qemu_32x32.png \
 	 debian/qemu-system-data/usr/share/icons/hicolor/32x32/apps/qemu.png
-	install -Dp -t debian/qemu-system-data/usr/share/qemu \
+	install -Dp -t debian/qemu-system-data/usr/share/qemu/keymaps \
 	 $$(ls -1 pc-bios/keymaps/* | fgrep -v /meson.build)
 	dh_installdocs -i
 	dh_installchangelogs -i

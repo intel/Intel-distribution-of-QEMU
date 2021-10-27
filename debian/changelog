@@ -1,3 +1,10 @@
+qemu (1:6.1+dfsg-8) unstable; urgency=medium
+
+  * fix keymaps definitions placement in last upload
+    (Closes: #997925, #997926)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 27 Oct 2021 13:27:09 +0300
+
 qemu (1:6.1+dfsg-7) unstable; urgency=medium
 
   * qemu-system-data: do not install qemu.desktop (Closes: #995628)
