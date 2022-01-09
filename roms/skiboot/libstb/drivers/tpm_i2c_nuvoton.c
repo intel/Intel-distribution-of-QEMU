@@ -1,18 +1,5 @@
-/* Copyright 2013-2016 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2018 IBM Corp. */
 
 #include <timebase.h>
 #include <skiboot.h>
@@ -29,20 +16,12 @@
 
 #define DRIVER_NAME "i2c_tpm_nuvoton"
 
-/*
- * Timings between various states or transitions within the interface protocol
- * as defined in the TCG PC Client Platform TPM Profile specification, Revision
- * 00.43.
- */
-#define TPM_TIMEOUT_A	750
-#define TPM_TIMEOUT_B	2000
-#define TPM_TIMEOUT_D	30
-
 /* I2C interface offsets */
 #define TPM_STS			0x00
 #define TPM_BURST_COUNT		0x01
 #define TPM_DATA_FIFO_W		0x20
 #define TPM_DATA_FIFO_R		0x40
+#define TPM_VID_DID		0x60
 
 /* Bit masks for the TPM STATUS register */
 #define TPM_STS_VALID		0x80
@@ -55,6 +34,8 @@
 /* TPM Driver values */
 #define MAX_STSVALID_POLLS 	5
 #define TPM_TIMEOUT_INTERVAL	10
+#define TPM_NUVOTON_VID		0x5010FE00
+#define TPM_VENDOR_ID_MASK	0xFFFFFF00
 
 static struct tpm_dev *tpm_device = NULL;
 
@@ -396,6 +377,7 @@ static int tpm_read_fifo(uint8_t* buf, size_t* buflen)
 			prlog(PR_ERR, "NUVOTON: overflow on fifo read, c=%zd, "
 			      "bc=%d, bl=%zd\n", count, burst_count, *buflen);
 			rc = STB_TPM_OVERFLOW;
+			goto error;
 		}
 		rc = tpm_i2c_request_send(tpm_device,
 					  SMBUS_READ,
@@ -506,12 +488,46 @@ static struct tpm_driver tpm_i2c_nuvoton_driver = {
 static int nuvoton_tpm_quirk(void *data, struct i2c_request *req, int *rc)
 {
 	struct tpm_dev *tpm_device = data;
+	struct dt_node *dev;
+	uint16_t addr;
+	bool found;
 
-	/* If we're doing i2cdetect on the TPM, pretent we just NACKed
-	 * it due to errata in nuvoton firmware where if we let this
-	 * request go through, it would steal the bus and you'd end up
-	 * in a nice world of pain.
+	/*
+	 * The nuvoton TPM firmware has a problem where a single byte read or
+	 * zero byte write to one of its I2C addresses causes the TPM to lock
+	 * up the bus. Once locked up the bus can only be recovered by power
+	 * cycling the TPM. Unfortunately, we don't have the ability to
+	 * power cycle the TPM because allowing it to be reset at runtime
+	 * would undermine the TPM's security model (we can reset it and
+	 * send it whatever measurements we like to unlock it's secrets).
+	 * So the best we can do here is try avoid triggering the problem
+	 * in the first place.
+	 *
+	 * For a bit of added fun the TPM also appears to check for traffic
+	 * on a few different I2C bus addresses. It does this even when not
+	 * configured to respond on those addresses so you can trigger the
+	 * bug by sending traffic... somwhere. To work around this we block
+	 * sending I2C requests on the TPM's bus unless the DT explicitly
+	 * tells us there is a device there.
 	 */
+
+	/* first, check if this a known address */
+	addr = req->dev_addr;
+	found = false;
+
+	dt_for_each_child(req->bus->dt_node, dev) {
+		if (dt_prop_get_u32(dev, "reg") == addr) {
+			found = true;
+			break;
+		}
+	}
+
+	if (!found) {
+		*rc = OPAL_I2C_TIMEOUT;
+		return 1;
+	}
+
+	/* second, check if it's a bad transaction to the TPM */
 	if (tpm_device->bus_id == req->bus->opal_id &&
 	    tpm_device->i2c_addr == req->dev_addr &&
 	    ((req->op == I2C_READ && req->rw_len == 1) ||
@@ -530,6 +546,8 @@ void tpm_i2c_nuvoton_probe(void)
 	struct tpm_dev *tpm_device = NULL;
 	struct dt_node *node = NULL;
 	struct i2c_bus *bus;
+	const char *name;
+	uint32_t vendor = 0;
 
 	dt_for_each_compatible(dt_root, node, "nuvoton,npct650") {
 		if (!dt_node_is_enabled(node))
@@ -566,15 +584,30 @@ void tpm_i2c_nuvoton_probe(void)
 			      "found, tpm node parent %p\n", node->parent);
 			goto disable;
 		}
+		/* ensure there's really the TPM we expect at that address */
+		if (tpm_i2c_request_send(tpm_device, SMBUS_READ, TPM_VID_DID,
+					 1, &vendor, sizeof(vendor))) {
+			prlog(PR_ERR, "NUVOTON: i2c device inaccessible\n");
+			goto disable;
+		}
+		if ((vendor & TPM_VENDOR_ID_MASK) != TPM_NUVOTON_VID) {
+			prlog(PR_ERR, "NUVOTON: expected vendor id mismatch\n");
+			goto disable;
+		}
 		if (tpm_register_chip(node, tpm_device,
 				      &tpm_i2c_nuvoton_driver)) {
 			free(tpm_device);
 			continue;
 		}
+		tss_tpm_register(tpm_device, &tpm_i2c_nuvoton_driver);
 		bus = i2c_find_bus_by_id(tpm_device->bus_id);
 		assert(bus->check_quirk == NULL);
 		bus->check_quirk = nuvoton_tpm_quirk;
 		bus->check_quirk_data = tpm_device;
+		name = dt_prop_get(node->parent, "ibm,port-name");
+
+		prlog(PR_NOTICE, "NUVOTON: TPM I2C workaround applied to %s\n",
+				  name);
 
 		/*
 		 * Tweak for linux. It doesn't have a driver compatible

@@ -1,17 +1,8 @@
-/* Copyright 2013-2014 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Read/Write NVRAM from/to FSP
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2017 IBM Corp.
  */
 
 #include <skiboot.h>
@@ -54,9 +45,9 @@
 #define NVRAM_BLKSIZE	0x1000
 
 struct nvram_triplet {
-	uint64_t	dma_addr;
-	uint32_t	blk_offset;
-	uint32_t	blk_count;
+	__be64		dma_addr;
+	__be32		blk_offset;
+	__be32		blk_count;
 } __packed;
 
 #define NVRAM_FLAG_CLEAR_WPEND	0x80000000
@@ -156,9 +147,9 @@ static void fsp_nvram_send_write(void)
 	if (start > end || fsp_nvram_state != NVRAM_STATE_OPEN)
 		return;
 	count = (end - start) / NVRAM_BLKSIZE + 1;
-	fsp_nvram_triplet.dma_addr = PSI_DMA_NVRAM_BODY + start;
-	fsp_nvram_triplet.blk_offset = start / NVRAM_BLKSIZE;
-	fsp_nvram_triplet.blk_count = count;
+	fsp_nvram_triplet.dma_addr = cpu_to_be64(PSI_DMA_NVRAM_BODY + start);
+	fsp_nvram_triplet.blk_offset = cpu_to_be32(start / NVRAM_BLKSIZE);
+	fsp_nvram_triplet.blk_count = cpu_to_be32(count);
 	fsp_nvram_msg = fsp_mkmsg(FSP_CMD_WRITE_VNVRAM, 6,
 				  0, PSI_DMA_NVRAM_TRIPL, 1,
 				  NVRAM_FLAG_CLEAR_WPEND, 0, 0);
@@ -278,7 +269,7 @@ static bool fsp_nvram_get_size(uint32_t *out_size)
 	assert(msg);
 
 	rc = fsp_sync_msg(msg, false);
-	size = msg->resp ? msg->resp->data.words[0] : 0;
+	size = msg->resp ? fsp_msg_get_data_word(msg->resp, 0) : 0;
 	fsp_freemsg(msg);
 	if (rc || size == 0) {
 		log_simple_error(&e_info(OPAL_RC_NVRAM_SIZE),
@@ -314,12 +305,11 @@ static struct fsp_client fsp_nvram_client_rr = {
 	.message = fsp_nvram_msg_rr,
 };
 
-static bool fsp_vnvram_msg(u32 cmd_sub_mod, struct fsp_msg *msg)
+static bool fsp_vnvram_msg(u32 cmd_sub_mod, struct fsp_msg *msg __unused)
 {
 	u32 cmd;
 	struct fsp_msg *resp;
 
-	assert(msg == NULL);
 	switch (cmd_sub_mod) {
 	case FSP_CMD_GET_VNV_STATS:
 		prlog(PR_DEBUG,

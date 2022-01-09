@@ -1,18 +1,5 @@
-/* Copyright 2013-2016 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
 
 #ifndef __NPU2_REGS_H
 #define __NPU2_REGS_H
@@ -786,19 +773,6 @@ void npu2_scom_write(uint64_t gcid, uint64_t scom_base,
 #define   OB_ODL_TRAINING_STATUS_STS_RX_PATTERN_B PPC_BITMASK(8, 15)
 #define OB_ODL_ENDPOINT_INFO(brick_index)		\
 	(0x9010832 + OB_ODL_OFFSET(brick_index))
-
-/* Registers and bits used to clear the L2 and L3 cache */
-#define L2_PRD_PURGE_CMD_REG 			0x1080E
-#define L2_PRD_PURGE_CMD_REG_BUSY 		0x0040000000000000UL
-#define L2_PRD_PURGE_CMD_TYPE_MASK		PPC_BIT(1) | PPC_BIT(2) | PPC_BIT(3) | PPC_BIT(4)
-#define L2_PRD_PURGE_CMD_TRIGGER		PPC_BIT(0)
-#define L2CAC_FLUSH				0x0
-#define L3_PRD_PURGE_REG			0x1180E
-#define L3_PRD_PURGE_REQ			PPC_BIT(0)
-#define L3_PRD_PURGE_TTYPE_MASK 		PPC_BIT(1) | PPC_BIT(2) | PPC_BIT(3) | PPC_BIT(4)
-#define L3_FULL_PURGE				0x0
-
-#define L2_L3_PRD_PURGE_TIMEOUT_MS		20
 
 /* Config registers for NPU2 */
 #define NPU_STCK0_CS_SM0_MISC_CONFIG0		0x5011000

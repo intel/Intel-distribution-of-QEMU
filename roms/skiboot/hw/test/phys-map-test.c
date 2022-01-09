@@ -1,17 +1,8 @@
-/* Copyright 2013-2014 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Physical memory map test
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2017 IBM Corp.
  */
 
 #include "../../core/test/stubs.c"
@@ -88,6 +79,11 @@ static inline bool map_call_entry_null(const struct map_call_entry *t)
 /* Pick a chip ID, any ID. */
 #define FAKE_CHIP_ID 8
 
+struct proc_chip *get_chip(uint32_t chip_id __unused)
+{
+	return NULL;
+}
+
 static void check_map_call(void)
 {
 	uint64_t start, size, end;
@@ -107,7 +103,7 @@ static void check_map_call(void)
 
 	/* Loop over table entries ...  */
 	for (e = phys_map->table; !phys_map_entry_null(e); e++) {
-		phys_map_get(FAKE_CHIP_ID, e->type, e->index, &start, &size);
+		__phys_map_get(FAKE_CHIP_ID, FAKE_CHIP_ID, e->type, e->index, &start, &size);
 
 		/* Check for alignment */
 		if ((e->type != SYSTEM_MEM) && (e->type != RESV)) {
@@ -172,15 +168,36 @@ static void check_map_call(void)
 	free(tbl);
 }
 
+/* Fake PVR definitions. See include/processor.h */
+unsigned long fake_pvr[] = {
+	0x004e0200,	/* PVR_P9 */
+	0x004f0100,	/* PVR_P9P */
+	0x00800100,	/* PVR_P10 */
+};
+
 int main(void)
 {
-	/* Fake we are POWER9 */
-	proc_gen = proc_gen_p9;
-	phys_map_init();
+	for (int i = 0; i < ARRAY_SIZE(fake_pvr); i++) {
+		switch(PVR_TYPE(fake_pvr[i])) {
+		case PVR_TYPE_P9:
+		case PVR_TYPE_P9P:
+			proc_gen = proc_gen_p9;
+			break;
+		case PVR_TYPE_P10:
+			proc_gen = proc_gen_p10;
+			break;
+		default:
+			printf("Unknown PVR 0x%lx\n", fake_pvr[i]);
+			return 1;
+			break;
+		}
 
-	/* Run tests */
-	check_table_directly();
-	check_map_call();
+		phys_map_init(fake_pvr[i]);
+
+		/* Run tests */
+		check_table_directly();
+		check_map_call();
+	}
 
 	return(0);
 }

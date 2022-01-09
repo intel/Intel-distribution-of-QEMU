@@ -1,18 +1,5 @@
-/* Copyright 2017 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2017 IBM Corp. */
 
 #include <config.h>
 
@@ -483,7 +470,7 @@ static bool getPayloadHash(int fdin, unsigned char *md)
 
 	payload = mmap(NULL, payload_st.st_size - SECURE_BOOT_HEADERS_SIZE,
 			PROT_READ, MAP_PRIVATE, fdin, SECURE_BOOT_HEADERS_SIZE);
-	if (!payload)
+	if (payload == MAP_FAILED)
 		die(EX_OSERR, "Cannot mmap file at descriptor: %d (%s)", fdin,
 				strerror(errno));
 
@@ -668,7 +655,7 @@ int main(int argc, char* argv[])
 				strerror(errno));
 
 	container = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fdin, 0);
-	if (!container)
+	if (container == MAP_FAILED)
 		die(EX_OSERR, "Cannot mmap file: %s (%s)", params.imagefn,
 				strerror(errno));
 

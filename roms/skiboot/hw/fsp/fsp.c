@@ -1,17 +1,10 @@
-/* Copyright 2013-2014 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Base FSP (Flexible Service Processor) Support
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * FSP is the BMC-like thing in some IBM POWER servers
  *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
 
 #include <stdarg.h>
@@ -98,7 +91,7 @@ static enum ipl_state ipl_state = ipl_initial;
 static struct fsp *first_fsp;
 static struct fsp *active_fsp;
 static u16 fsp_curseq = 0x8000;
-static u64 *fsp_tce_table;
+static __be64 *fsp_tce_table;
 
 #define FSP_INBOUND_SIZE	0x00100000UL
 static void *fsp_inbound_buf = NULL;
@@ -188,8 +181,8 @@ static void fsp_trace_msg(struct fsp_msg *msg, u8 dir __unused)
 	size_t len = offsetof(struct trace_fsp_msg, data[msg->dlen]);
 
 	fsp.fsp_msg.dlen = msg->dlen;
-	fsp.fsp_msg.word0 = msg->word0;
-	fsp.fsp_msg.word1 = msg->word1;
+	fsp.fsp_msg.word0 = cpu_to_be32(msg->word0);
+	fsp.fsp_msg.word1 = cpu_to_be32(msg->word1);
 	fsp.fsp_msg.dir = dir;
 	memcpy(fsp.fsp_msg.data, msg->data.bytes, msg->dlen);
 	trace_add(&fsp, TRACE_FSP_MSG, len);
@@ -641,12 +634,12 @@ static void fsp_trace_event(struct fsp *fsp, u32 evt,
 #ifdef FSP_TRACE_EVENT
 	size_t len = sizeof(struct trace_fsp_event);
 
-	tfsp.fsp_evt.event = evt;
-	tfsp.fsp_evt.fsp_state = fsp->state;
-	tfsp.fsp_evt.data[0] = data0;
-	tfsp.fsp_evt.data[1] = data1;
-	tfsp.fsp_evt.data[2] = data2;
-	tfsp.fsp_evt.data[3] = data3;
+	tfsp.fsp_evt.event = cpu_to_be16(evt);
+	tfsp.fsp_evt.fsp_state = cpu_to_be16(fsp->state);
+	tfsp.fsp_evt.data[0] = cpu_to_be32(data0);
+	tfsp.fsp_evt.data[1] = cpu_to_be32(data1);
+	tfsp.fsp_evt.data[2] = cpu_to_be32(data2);
+	tfsp.fsp_evt.data[3] = cpu_to_be32(data3);
 	trace_add(&tfsp, TRACE_FSP_EVENT, len);
 #endif /* FSP_TRACE_EVENT */
 }
@@ -733,14 +726,23 @@ static void fsp_handle_errors(struct fsp *fsp)
 		if (fsp->state == fsp_mbx_rr)
 			return;
 
-		/*
-		 * Its possible that the host has gone down, and OPAL is on
-		 * its way down and hence will not see the subsequent PSI
-		 * interrupt. So, just give up the link here.
-		 */
-		psi_disable_link(psi);
-		prlog(PR_NOTICE, "FSP #%d: FSP in reset."
-		      " Giving up PSI link\n", fsp->index);
+		if (fsp_dpo_pending) {
+			/*
+			 * If we are about to process a reset when DPO
+			 * is pending, its possible that the host has
+			 * gone down, and OPAL is on its way down and
+			 * hence will not see the subsequent PSI interrupt.
+			 * So, just give up the link here.
+			 */
+			prlog(PR_NOTICE, "FSP #%d: FSP reset with DPO pending."
+					" Giving up PSI link\n",
+					fsp->index);
+			psi_disable_link(psi);
+		} else {
+			prlog(PR_NOTICE, "FSP #%d: FSP in Reset."
+				" Waiting for PSI interrupt\n",
+				fsp->index);
+		}
 		fsp_start_rr(fsp);
 	}
 
@@ -938,7 +940,7 @@ static bool fsp_post_msg(struct fsp *fsp, struct fsp_msg *msg)
 	fsp_wreg(fsp, reg, msg->word1); reg += 4;
 	wlen = (msg->dlen + 3) >> 2;
 	for (i = 0; i < wlen; i++) {
-		fsp_wreg(fsp, reg, msg->data.words[i]);
+		fsp_wreg(fsp, reg, fsp_msg_get_data_word(msg, i));
 		reg += 4;
 	}
 
@@ -1001,8 +1003,7 @@ static void __fsp_fillmsg(struct fsp_msg *msg, u32 cmd_sub_mod,
 	msg->dlen = add_words << 2;
 
 	for (i = 0; i < add_words; i++)
-		msg->data.words[i] = va_arg(list, unsigned int);
-	va_end(list);
+		fsp_msg_set_data_word(msg, i, va_arg(list, unsigned int));
 }
 
 void fsp_fillmsg(struct fsp_msg *msg, u32 cmd_sub_mod, u32 add_words, ...)
@@ -1148,8 +1149,8 @@ static void fsp_complete_send(struct fsp *fsp)
 
 static void  fsp_alloc_inbound(struct fsp_msg *msg)
 {
-	u16 func_id = msg->data.words[0] & 0xffff;
-	u32 len = msg->data.words[1];
+	u16 func_id = fsp_msg_get_data_word(msg, 0) & 0xffff;
+	u32 len = fsp_msg_get_data_word(msg, 1);
 	u32 tce_token = 0, act_len = 0;
 	u8 rc = 0;
 	void *buf;
@@ -1301,12 +1302,12 @@ static bool fsp_local_command(u32 cmd_sub_mod, struct fsp_msg *msg)
 		return true;
 	case FSP_CMD_SP_RELOAD_COMP:
 		if (msg->data.bytes[3] & PPC_BIT8(0)) {
-			fsp_fips_dump_notify(msg->data.words[1],
-					     msg->data.words[2]);
+			fsp_fips_dump_notify(fsp_msg_get_data_word(msg, 1),
+					     fsp_msg_get_data_word(msg, 2));
 
 			if (msg->data.bytes[3] & PPC_BIT8(1))
 				prlog(PR_DEBUG, "      PLID is %x\n",
-				      msg->data.words[3]);
+				      fsp_msg_get_data_word(msg, 3));
 		}
 		if (msg->data.bytes[3] & PPC_BIT8(2)) {
 			prlog(PR_INFO, "FSP: SP Reset/Reload was NOT done\n");
@@ -1414,7 +1415,7 @@ static void __fsp_fill_incoming(struct fsp *fsp, struct fsp_msg *msg,
 	wlen = (dlen + 3) >> 2;
 	reg = FSP_MBX1_FDATA_AREA + 8;
 	for (i = 0; i < wlen; i++) {
-		msg->data.words[i] = fsp_rreg(fsp, reg);
+		fsp_msg_set_data_word(msg, i, fsp_rreg(fsp, reg));
 		reg += 4;
 	}
 
@@ -1849,12 +1850,9 @@ static int fsp_init_mbox(struct fsp *fsp)
 /* We use a single fixed TCE table for all PSI interfaces */
 static void fsp_init_tce_table(void)
 {
-	fsp_tce_table = (u64 *)PSI_TCE_TABLE_BASE;
+	fsp_tce_table = (__be64 *)PSI_TCE_TABLE_BASE;
 
-	/* Memset the larger table even if we only use the smaller
-	 * one on P7
-	 */
-	memset(fsp_tce_table, 0, PSI_TCE_TABLE_SIZE_P8);
+	memset(fsp_tce_table, 0, PSI_TCE_TABLE_SIZE);
 }
 
 void fsp_tce_map(u32 offset, void *addr, u32 size)
@@ -1869,7 +1867,7 @@ void fsp_tce_map(u32 offset, void *addr, u32 size)
 	offset >>= TCE_SHIFT;
 
 	while(size--) {
-		fsp_tce_table[offset++] = raddr | 0x3;
+		fsp_tce_table[offset++] = cpu_to_be64(raddr | 0x3);
 		raddr += TCE_PSIZE;
 	}
 }
@@ -1922,7 +1920,7 @@ static void fsp_init_links(struct dt_node *fsp_node)
 		u64 reg;
 		u32 link;
 
-		link = ((const u32 *)linksprop->prop)[i];
+		link = dt_property_get_cell(linksprop, i);
 		fiop = &fsp->iopath[i];
 		fiop->psi = psi_find_link(link);
 		if (fiop->psi == NULL) {
@@ -2372,8 +2370,12 @@ int fsp_fetch_data_queue(uint8_t flags, uint16_t id, uint32_t sub_id,
 #define CAPP_IDX_NIMBUS_DD20 0x200d1
 #define CAPP_IDX_NIMBUS_DD21 0x201d1
 #define CAPP_IDX_NIMBUS_DD22 0x202d1
+#define CAPP_IDX_NIMBUS_DD23 0x203d1
 
 #define IMA_CATALOG_NIMBUS	0x4e0200
+#define IMA_CATALOG_P10_DD1	0x800100
+#define IMA_CATALOG_P10_DD2	0x800200
+
 
 static struct {
 	enum resource_id	id;
@@ -2392,6 +2394,9 @@ static struct {
 	{ RESOURCE_ID_CAPP,	CAPP_IDX_NIMBUS_DD20,	0x80a02007 },
 	{ RESOURCE_ID_CAPP,	CAPP_IDX_NIMBUS_DD21,	0x80a02007 },
 	{ RESOURCE_ID_CAPP,	CAPP_IDX_NIMBUS_DD22,	0x80a02007 },
+	{ RESOURCE_ID_CAPP,	CAPP_IDX_NIMBUS_DD23,	0x80a02007 },
+	{ RESOURCE_ID_IMA_CATALOG,IMA_CATALOG_P10_DD1,	0x80f00103 },
+	{ RESOURCE_ID_IMA_CATALOG,IMA_CATALOG_P10_DD2,	0x80f00103 },
 };
 
 static void fsp_start_fetching_next_lid(void);
@@ -2407,8 +2412,8 @@ static void fsp_fetch_lid_complete(struct fsp_msg *msg)
 	last = list_top(&fsp_fetch_lid_queue, struct fsp_fetch_lid_item, link);
 	fsp_tce_unmap(PSI_DMA_FETCH, last->bsize);
 
-	woffset = msg->resp->data.words[1];
-	wlen = msg->resp->data.words[2];
+	woffset = fsp_msg_get_data_word(msg->resp, 1);
+	wlen = fsp_msg_get_data_word(msg->resp, 2);
 	rc = (msg->resp->word1 >> 8) & 0xff;
 
 	/* Fall back to a PHYP LID for kernel loads */

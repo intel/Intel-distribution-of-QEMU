@@ -1,17 +1,8 @@
-/* Copyright 2013-2014 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Manipulate the device tree
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
 
 #include <stdarg.h>
@@ -485,6 +476,7 @@ void dt_resize_property(struct dt_property **prop, size_t len)
 	size_t new_len = sizeof(**prop) + len;
 
 	*prop = realloc(*prop, new_len);
+	(*prop)->len = len;
 
 	/* Fix up linked lists in case we moved. (note: not an empty list). */
 	(*prop)->list.next->prev = &(*prop)->list;
@@ -523,12 +515,12 @@ struct dt_property *__dt_add_property_cells(struct dt_node *node,
 					    int count, ...)
 {
 	struct dt_property *p;
-	u32 *val;
+	fdt32_t *val;
 	unsigned int i;
 	va_list args;
 
 	p = new_property(node, name, count * sizeof(u32));
-	val = (u32 *)p->prop;
+	val = (fdt32_t *)p->prop;
 	va_start(args, count);
 	for (i = 0; i < count; i++)
 		val[i] = cpu_to_fdt32(va_arg(args, u32));
@@ -541,12 +533,12 @@ struct dt_property *__dt_add_property_u64s(struct dt_node *node,
 					   int count, ...)
 {
 	struct dt_property *p;
-	u64 *val;
+	fdt64_t *val;
 	unsigned int i;
 	va_list args;
 
 	p = new_property(node, name, count * sizeof(u64));
-	val = (u64 *)p->prop;
+	val = (fdt64_t *)p->prop;
 	va_start(args, count);
 	for (i = 0; i < count; i++)
 		val[i] = cpu_to_fdt64(va_arg(args, u64));
@@ -599,14 +591,21 @@ u32 dt_property_get_cell(const struct dt_property *prop, u32 index)
 {
 	assert(prop->len >= (index+1)*sizeof(u32));
 	/* Always aligned, so this works. */
-	return fdt32_to_cpu(((const u32 *)prop->prop)[index]);
+	return fdt32_to_cpu(((const fdt32_t *)prop->prop)[index]);
+}
+
+u64 dt_property_get_u64(const struct dt_property *prop, u32 index)
+{
+	assert(prop->len >= (index+1)*sizeof(u64));
+	/* Always aligned, so this works. */
+	return fdt64_to_cpu(((const fdt64_t *)prop->prop)[index]);
 }
 
 void dt_property_set_cell(struct dt_property *prop, u32 index, u32 val)
 {
 	assert(prop->len >= (index+1)*sizeof(u32));
 	/* Always aligned, so this works. */
-	((u32 *)prop->prop)[index] = cpu_to_fdt32(val);
+	((fdt32_t *)prop->prop)[index] = cpu_to_fdt32(val);
 }
 
 /* First child of this node. */
@@ -920,7 +919,7 @@ void dt_expand(const void *fdt)
 
 u64 dt_get_number(const void *pdata, unsigned int cells)
 {
-	const u32 *p = pdata;
+	const __be32 *p = pdata;
 	u64 ret = 0;
 
 	while(cells--)
@@ -1097,6 +1096,7 @@ void dt_adjust_subtree_phandle(struct dt_node *dev,
 	struct dt_node *node;
 	struct dt_property *prop;
 	u32 phandle, max_phandle = 0, import_phandle = new_phandle();
+	__be32 p;
 	const char **name;
 
 	dt_for_each_node(dev, node) {
@@ -1119,7 +1119,8 @@ void dt_adjust_subtree_phandle(struct dt_node *dev,
 				continue;
 			phandle = dt_prop_get_u32(node, *name);
 			phandle += import_phandle;
-			memcpy((char *)&prop->prop, &phandle, prop->len);
+			p = cpu_to_be32(phandle);
+			memcpy((char *)&prop->prop, &p, prop->len);
 		}
        }
 

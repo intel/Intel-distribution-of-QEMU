@@ -1,18 +1,6 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
+
 #define pr_fmt(fmt) "LXVPD: " fmt
 
 #include <skiboot.h>
@@ -78,7 +66,7 @@ void *lxvpd_get_slot(struct pci_slot *slot)
 	struct pci_device *pd = slot->pd;
 	struct lxvpd_pci_slot_data *sdata = phb->platform_data;
 	struct lxvpd_pci_slot *s = NULL;
-	uint8_t slot_num = pd ? ((pd->bdfn >> 3) & 0x1f) : 0xff;
+	uint8_t slot_num = pd ? PCI_DEV(pd->bdfn) : 0xff;
 	bool is_phb = (pd && pd->parent) ? false : true;
 	uint8_t index;
 
@@ -123,8 +111,9 @@ void *lxvpd_get_slot(struct pci_slot *slot)
 			return s;
 		}
 
-		/* Match switch port with switch_id != 0 */
-		if (!is_phb && s->switch_id != 0 && s->dev_id == slot_num) {
+		/* Match downstream switch port with switch_id != 0 */
+		if (!is_phb && s->switch_id != 0 && !s->upstream_port &&
+		    s->dev_id == slot_num) {
 			slot->data = s;
 			s->pci_slot = slot;
 			prlog(PR_DEBUG, "Found [%s] for slot %016llx\n",
@@ -263,6 +252,7 @@ static void lxvpd_parse_1005_map(struct phb *phb,
 		s->dev_id         = entry->switch_device_id;
 		s->pluggable      = (entry->p0.pluggable == 0);
 		s->power_ctl      = entry->p0.power_ctl;
+		s->upstream_port  = entry->p0.upstream_port;
 		s->bus_clock      = entry->p2.bus_clock;
 		s->connector_type = entry->p2.connector_type;
 		s->card_desc      = entry->p3.byte >> 6;
@@ -273,8 +263,10 @@ static void lxvpd_parse_1005_map(struct phb *phb,
 		if (s->wired_lanes > PCI_SLOT_WIRED_LANES_PCIE_X32)
 			s->wired_lanes = PCI_SLOT_WIRED_LANES_UNKNOWN;
 
-		prlog(PR_DEBUG, "1005 Platform data [%s] %02x %02x on PHB%04x\n",
-			  s->label, s->switch_id, s->dev_id, phb->opal_id);
+		prlog(PR_DEBUG, "1005 Platform data [%s] %02x %02x %s on PHB%04x\n",
+			  s->label, s->switch_id, s->dev_id,
+			  s->upstream_port ? "upstream" : "downstream",
+			  phb->opal_id);
 	}
 }
 
@@ -287,7 +279,7 @@ void lxvpd_process_slot_entries(struct phb *phb,
 	const void *lxvpd;
 	const uint8_t *pr_rec, *pr_end, *sm;
 	size_t lxvpd_size, pr_size;
-	const uint16_t *mf = NULL;
+	const beint16_t *mf = NULL;
 	char record[5] = "PR00";
 	uint8_t mf_sz, sm_sz;
 	bool found = false;
@@ -329,8 +321,8 @@ void lxvpd_process_slot_entries(struct phb *phb,
 			return;
 		}
 
-		prlog(PR_DEBUG, "Found 0x%04x map...\n", *mf);
-		switch (*mf) {
+		prlog(PR_DEBUG, "Found 0x%04x map...\n", be16_to_cpu(*mf));
+		switch (be16_to_cpu(*mf)) {
 		case 0x1004:
 			lxvpd_parse_1004_map(phb, sm + 1, sm_sz - 1, slot_size);
 			found = true;

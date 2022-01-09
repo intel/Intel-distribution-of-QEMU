@@ -1,18 +1,5 @@
-/* Copyright 2013-2018 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
 
 #include <cpu.h>
 #include <device.h>
@@ -66,11 +53,20 @@ struct HDIF_ms_area_address_range {
 #define   PHYS_ATTR_STATUS_SAVE_FAILED	0x02
 #define   PHYS_ATTR_STATUS_SAVED	0x04
 #define   PHYS_ATTR_STATUS_NOT_SAVED	0x08
+#define   PHYS_ATTR_STATUS_ENCRYPTED	0x10
+#define   PHYS_ATTR_STATUS_ERR_DETECTED	0x40
 #define   PHYS_ATTR_STATUS_MEM_INVALID	0xff
 
+/* Memory Controller ID for Nimbus P9 systems */
 #define MS_CONTROLLER_MCBIST_ID(id)	GETFIELD(PPC_BITMASK32(0, 1), id)
 #define MS_CONTROLLER_MCS_ID(id)	GETFIELD(PPC_BITMASK32(4, 7), id)
 #define MS_CONTROLLER_MCA_ID(id)	GETFIELD(PPC_BITMASK32(8, 15), id)
+
+/* Memory Controller ID for P9 AXONE systems */
+#define MS_CONTROLLER_MC_ID(id)		GETFIELD(PPC_BITMASK32(0, 1), id)
+#define MS_CONTROLLER_MI_ID(id)		GETFIELD(PPC_BITMASK32(4, 7), id)
+#define MS_CONTROLLER_MCC_ID(id)	GETFIELD(PPC_BITMASK32(8, 15), id)
+#define MS_CONTROLLER_OMI_ID(id)	GETFIELD(PPC_BITMASK32(16, 31), id)
 
 struct HDIF_ms_area_id {
 	__be16 id;
@@ -86,28 +82,39 @@ struct HDIF_ms_area_id {
 	__be16 share_id;
 } __packed;
 
+
+// FIXME: it should be 9, current HDATs are broken
+#define MSAREA_IDATA_MMIO_IDX 8
+struct HDIF_ms_area_ocmb_mmio {
+	__be64 range_start;
+	__be64 range_end;
+	__be32 controller_id;
+	__be32 proc_chip_id;
+	__be64 hbrt_id;
+#define OCMB_SCOM_8BYTE_ACCESS	PPC_BIT(0)
+#define OCMB_SCOM_4BYTE_ACCESS	PPC_BIT(1)
+	__be64 flags;
+} __packed;
+
 static void append_chip_id(struct dt_node *mem, u32 id)
 {
 	struct dt_property *prop;
 	size_t len, i;
-	be32 *p;
 
 	prop = __dt_find_property(mem, "ibm,chip-id");
 	if (!prop)
 		return;
 	len = prop->len >> 2;
-	p = (be32*)prop->prop;
 
 	/* Check if it exists already */
 	for (i = 0; i < len; i++) {
-		if (be32_to_cpu(p[i]) == id)
+		if (dt_property_get_cell(prop, i) == id)
 			return;
 	}
 
 	/* Add it to the list */
 	dt_resize_property(&prop, (len + 1) << 2);
-	p = (be32 *)prop->prop;
-	p[len] = cpu_to_be32(id);
+	dt_property_set_cell(prop, len, id);
 }
 
 static void update_status(struct dt_node *mem, uint32_t status)
@@ -148,7 +155,8 @@ static bool add_address_range(struct dt_node *root,
 	      "on Chip 0x%x mattr: 0x%x pattr: 0x%x status:0x%x\n",
 	      (long long)be64_to_cpu(arange->start),
 	      (long long)be64_to_cpu(arange->end),
-	      chip_id, arange->mirror_attr, mem_type, mem_status);
+	      chip_id, be32_to_cpu(arange->mirror_attr),
+	      mem_type, mem_status);
 
 	/* reg contains start and length */
 	reg[0] = cleanup_addr(be64_to_cpu(arange->start));
@@ -344,8 +352,8 @@ static void vpd_add_ram_area(const struct HDIF_common_hdr *msarea)
 
 static void vpd_parse_spd(struct dt_node *dimm, const char *spd, u32 size)
 {
-	u16 *vendor;
-	u32 *sn;
+	__be16 *vendor;
+	__be32 *sn;
 
 	/* SPD is too small */
 	if (size < 512) {
@@ -370,18 +378,18 @@ static void vpd_parse_spd(struct dt_node *dimm, const char *spd, u32 size)
 	dt_add_property_cells(dimm, "product-version", spd[0x15d]);
 
 	/* Serial number */
-	sn = (u32 *)&spd[0x145];
+	sn = (__be32 *)&spd[0x145];
 	dt_add_property_cells(dimm, "serial-number", be32_to_cpu(*sn));
 
 	/* Part number */
 	dt_add_property_nstr(dimm, "part-number", &spd[0x149], 20);
 
 	/* Module manufacturer ID */
-	vendor = (u16 *)&spd[0x140];
+	vendor = (__be16 *)&spd[0x140];
 	dt_add_property_cells(dimm, "manufacturer-id", be16_to_cpu(*vendor));
 }
 
-static void add_mca_dimm_info(struct dt_node *mca,
+static void add_dimm_info(struct dt_node *parent,
 			      const struct HDIF_common_hdr *msarea)
 {
 	unsigned int i, size;
@@ -409,11 +417,11 @@ static void add_mca_dimm_info(struct dt_node *mca,
 			continue;
 
 		/* Use Resource ID to add dimm node */
-		dimm = dt_find_by_name_addr(mca, "dimm",
+		dimm = dt_find_by_name_addr(parent, "dimm",
 					    be16_to_cpu(fru_id->rsrc_id));
 		if (dimm)
 			continue;
-		dimm= dt_new_addr(mca, "dimm", be16_to_cpu(fru_id->rsrc_id));
+		dimm= dt_new_addr(parent, "dimm", be16_to_cpu(fru_id->rsrc_id));
 		assert(dimm);
 		dt_add_property_cells(dimm, "reg", be16_to_cpu(fru_id->rsrc_id));
 
@@ -454,20 +462,12 @@ static inline void dt_add_mem_reg_property(struct dt_node *node, u64 addr)
 	dt_add_property_cells(node, "reg", addr);
 }
 
-static void add_memory_controller(const struct HDIF_common_hdr *msarea,
+static void add_memory_controller_p9n(const struct HDIF_common_hdr *msarea,
 				  const struct HDIF_ms_area_address_range *arange)
 {
-	uint32_t chip_id, version;
+	uint32_t chip_id;
 	uint32_t controller_id, mcbist_id, mcs_id, mca_id;
 	struct dt_node *xscom, *mcbist, *mcs, *mca;
-
-	/*
-	 * Memory hierarchy may change between processor version. Presently
-	 * it's only creating memory hierarchy for P9 (Nimbus) and P9P (Axone).
-	 */
-	version = PVR_TYPE(mfspr(SPR_PVR));
-	if (version != PVR_TYPE_P9 && version != PVR_TYPE_P9P)
-		return;
 
 	chip_id = pcid_to_chip_id(be32_to_cpu(arange->chip));
 	controller_id = be32_to_cpu(arange->controller_id);
@@ -504,7 +504,106 @@ static void add_memory_controller(const struct HDIF_common_hdr *msarea,
 		dt_add_mem_reg_property(mca, mca_id);
 	}
 
-	add_mca_dimm_info(mca, msarea);
+	add_dimm_info(mca, msarea);
+}
+
+static void add_memory_buffer_mmio(const struct HDIF_common_hdr *msarea)
+{
+	const struct HDIF_ms_area_ocmb_mmio *mmio;
+	uint64_t min_addr = ~0ull, hbrt_id = 0;
+	const struct HDIF_array_hdr *array;
+	unsigned int i, count, ranges = 0;
+	struct dt_node *membuf;
+	beint64_t *reg, *flags;
+
+	if (proc_gen <= proc_gen_p9 && PVR_TYPE(mfspr(SPR_PVR)) != PVR_TYPE_P9P)
+		return;
+
+	if (be16_to_cpu(msarea->version) < 0x50) {
+		prlog(PR_WARNING, "MS AREA: Inconsistent MSAREA version %x for P9P system",
+			be16_to_cpu(msarea->version));
+		return;
+	}
+
+	array = HDIF_get_iarray(msarea, MSAREA_IDATA_MMIO_IDX, &count);
+	if (!array || count <= 0) {
+		prerror("MS AREA: No OCMB MMIO array at MS Area %p\n", msarea);
+		return;
+	}
+
+	reg = zalloc(count * 2 * sizeof(*reg));
+	flags = zalloc(count * sizeof(*flags));
+
+	/* grab the hbrt id from the first range. */
+	HDIF_iarray_for_each(array, i, mmio) {
+		hbrt_id = be64_to_cpu(mmio->hbrt_id);
+		break;
+	}
+
+	prlog(PR_DEBUG, "Adding memory buffer MMIO ranges for %"PRIx64"\n",
+	      hbrt_id);
+
+	HDIF_iarray_for_each(array, i, mmio) {
+		uint64_t start, end;
+
+		if (hbrt_id != be64_to_cpu(mmio->hbrt_id)) {
+			prerror("HBRT ID mismatch!\n");
+			continue;
+		}
+
+		start = cleanup_addr(be64_to_cpu(mmio->range_start));
+		end   = cleanup_addr(be64_to_cpu(mmio->range_end));
+		if (start < min_addr)
+			min_addr = start;
+
+		prlog(PR_DEBUG, "  %"PRIx64" - [%016"PRIx64"-%016"PRIx64")\n",
+			hbrt_id, start, end);
+
+		reg[2 * ranges    ] = cpu_to_be64(start);
+		reg[2 * ranges + 1] = cpu_to_be64(end - start + 1);
+		flags[ranges] = mmio->flags; /* both are BE */
+		ranges++;
+	}
+
+	membuf = dt_find_by_name_addr(dt_root, "memory-buffer", min_addr);
+	if (membuf) {
+		prerror("attempted to duplicate %s\n", membuf->name);
+		goto out;
+	}
+
+	membuf = dt_new_addr(dt_root, "memory-buffer", min_addr);
+	assert(membuf);
+
+	dt_add_property_string(membuf, "compatible", "ibm,explorer");
+	dt_add_property_cells(membuf, "ibm,chip-id", hbrt_id);
+
+	/*
+	 * FIXME: We should probably be sorting the address ranges based
+	 * on the starting address.
+	 */
+	dt_add_property(membuf, "reg",   reg,   sizeof(*reg) * 2 * ranges);
+	dt_add_property(membuf, "flags", flags, sizeof(*flags)   * ranges);
+
+out:
+	free(flags);
+	free(reg);
+}
+
+static void add_memory_controller(const struct HDIF_common_hdr *msarea,
+				  const struct HDIF_ms_area_address_range *arange)
+{
+	const uint32_t version = PVR_TYPE(mfspr(SPR_PVR));
+	/*
+	 * Memory hierarchy may change between processor version. Presently
+	 * it's only creating memory hierarchy for P9 (Nimbus) and P9P (Axone).
+	 */
+
+	if (version == PVR_TYPE_P9)
+		return add_memory_controller_p9n(msarea, arange);
+	else if (version == PVR_TYPE_P9P)
+		return; //return add_memory_controller_p9p(msarea, arange);
+	else
+		return;
 }
 
 static void get_msareas(struct dt_node *root,
@@ -583,6 +682,8 @@ static void get_msareas(struct dt_node *root,
 
 		/* Add RAM Area VPD */
 		vpd_add_ram_area(msarea);
+
+		add_memory_buffer_mmio(msarea);
 
 		/* This offset is from the arr, not the header! */
 		arange = (void *)arr + be32_to_cpu(arr->offset);
@@ -723,6 +824,15 @@ static void get_hb_reserved_mem(struct HDIF_common_hdr *ms_vpd)
 		dt_add_property_cells(node, "ibm,prd-instance",
 			(be32_to_cpu(hb_resv_mem->type_instance) & 0xffffff));
 
+		/*
+		 * Most reservations are used by HBRT itself so we should leave
+		 * the label as-is. The exception is hbrt-code-image which is
+		 * used by opal-prd to locate the HBRT image. Older versions
+		 * of opal-prd expect this to be "ibm,hbrt-code-image" so make
+		 * sure the prefix is there.
+		 */
+		if (!strcmp(label, "hbrt-code-image"))
+			strcpy(label, "ibm,hbrt-code-image");
 		dt_add_property_string(node, "ibm,prd-label", label);
 	}
 }
@@ -803,7 +913,8 @@ static bool __memory_parse(struct dt_node *root)
 	prlog(PR_DEBUG, "MS VPD: is at %p\n", ms_vpd);
 
 	msac = HDIF_get_idata(ms_vpd, MSVPD_IDATA_MS_ADDR_CONFIG, &size);
-	if (!CHECK_SPPTR(msac) || size < sizeof(*msac)) {
+	if (!CHECK_SPPTR(msac) ||
+	    size < offsetof(struct msvpd_ms_addr_config, max_possible_ms_address)) {
 		prerror("MS VPD: bad msac size %u @ %p\n", size, msac);
 		op_display(OP_FATAL, OP_MOD_MEM, 0x0002);
 		return false;
@@ -845,4 +956,3 @@ void memory_parse(void)
 		abort();
 	}
 }
-

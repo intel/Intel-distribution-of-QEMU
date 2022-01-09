@@ -1,6 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 #
 # These allow for the build to be less verbose
 #
+# Copyright 2012-2019 IBM Corp
 
 ifdef V
   VERBOSE:= $(V)
@@ -62,6 +64,10 @@ endif
 	$(call Q,CC, $(CC) $(call cook_cflags,$@) -x c -c $< -o $@, $@)
 
 %.s : %.c
+	$(call Q,CC, $(CC) $(call cook_cflags,$@) -fverbose-asm -S -c $< -o $@, $@)
+
+# no -fverbose-asm for asm-offsets.s
+asm/asm-offsets.s: asm/asm-offsets.c
 	$(call Q,CC, $(CC) $(call cook_cflags,$@) -S -c $< -o $@, $@)
 
 %.i : %.c

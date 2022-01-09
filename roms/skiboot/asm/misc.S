@@ -1,25 +1,26 @@
-/* Copyright 2013-2014 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Misc asm functions
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2014 IBM Corp.
  */
 
 #include <asm-utils.h>
 #include <asm-offsets.h>
 #include <processor.h>
 #include <stack.h>
+#include <opal-api.h>
 
 #define OLD_BINUTILS 1
+
+	.section ".rodata"
+	/* This is the OPAL branch table. It's populated at boot time
+	 * with function pointers to the various OPAL functions from
+	 * the content of the .opal_table section, indexed by Token.
+	 */
+.global opal_branch_table
+opal_branch_table:
+	.space	8 * (OPAL_LAST + 1)
 
 	.section ".text","ax"
 	.balign	0x10
@@ -98,12 +99,14 @@ cleanup_local_tlb:
 	.global cleanup_global_tlb
 cleanup_global_tlb:
 
-	/* Only supported on P9 for now */
+	/* Only supported on P9, P10 for now */
 	mfspr	%r3,SPR_PVR
 	srdi	%r3,%r3,16
 	cmpwi	cr0,%r3,PVR_TYPE_P9
 	beq	cr0,1f
 	cmpwi	cr0,%r3,PVR_TYPE_P9P
+	beq	cr0,1f
+	cmpwi	cr0,%r3,PVR_TYPE_P10
 	beq	cr0,1f
 	blr
 
@@ -163,6 +166,7 @@ cleanup_global_tlb:
 #define PPC_INST_RVWINKLE	.long 0x4c0003e4
 
 #define PPC_INST_STOP		.long 0x4c0002e4
+#define PPC_INST_URFID		.long 0x4c000264
 
 #define SAVE_GPR(reg,sp)	std %r##reg,STACK_GPR##reg(sp)
 #define REST_GPR(reg,sp)	ld %r##reg,STACK_GPR##reg(sp)
@@ -222,7 +226,7 @@ enter_p8_pm_state:
 	bl	pm_save_regs
 
 	/* Save stack pointer in struct cpu_thread */
-	std	%r1,CPUTHREAD_SAVE_R1(%r13)
+	std	%r1,CPUTHREAD_SAVE_R1(%r16)
 
 	/* Winkle or nap ? */
 	cmpli	%cr0,0,%r3,0
@@ -230,7 +234,7 @@ enter_p8_pm_state:
 
 	/* nap sequence */
 	ptesync
-0:	ld	%r0,CPUTHREAD_SAVE_R1(%r13)
+0:	ld	%r0,CPUTHREAD_SAVE_R1(%r16)
 	cmpd	cr0,%r0,%r0
 	bne	0b
 	PPC_INST_NAP
@@ -238,7 +242,7 @@ enter_p8_pm_state:
 
 	/* rvwinkle sequence */
 1:	ptesync
-0:	ld	%r0,CPUTHREAD_SAVE_R1(%r13)
+0:	ld	%r0,CPUTHREAD_SAVE_R1(%r16)
 	cmpd	cr0,%r0,%r0
 	bne	0b
 	PPC_INST_RVWINKLE
@@ -259,8 +263,48 @@ enter_p9_pm_state:
 	bl	pm_save_regs
 
 	/* Save stack pointer in struct cpu_thread */
-	std	%r1,CPUTHREAD_SAVE_R1(%r13)
+	std	%r1,CPUTHREAD_SAVE_R1(%r16)
 
 	mtspr	SPR_PSSCR,%r3
 	PPC_INST_STOP
 	b	.
+
+/*
+ * Exit UV mode and disable Protected Execution Facility.
+ *
+ * For each core, this should be run on all secondary threads first to bring
+ * them out of UV mode.  Then, it is called by the primary thread to disable
+ * PEF and bring it out of UV mode. All threads will then be running in HV
+ * mode and the only way to re-enable UV mode is with a reboot.
+ *
+ * r3 = 1 if primary thread
+ *      0 if secondary thread
+ */
+.global exit_uv_mode
+exit_uv_mode:
+	mfmsr	%r4
+	LOAD_IMM64(%r5, ~MSR_S)
+	and	%r4,%r4,%r5
+	mtspr	SPR_USRR1,%r4
+
+	mfspr   %r4,SPR_HSRR1
+	and     %r4,%r4,%r5
+	mtspr   SPR_HSRR1,%r3
+
+	mfspr   %r4,SPR_SRR1
+	and     %r4,%r4,%r5
+	mtspr   SPR_SRR1,%r4
+
+	cmpdi	%r3,1
+	bne	1f
+	mfspr   %r4, SPR_SMFCTRL
+	LOAD_IMM64(%r5, ~PPC_BIT(0))
+	and     %r4,%r4,%r5
+	mtspr   SPR_SMFCTRL,%r4
+1:
+	isync
+
+	mflr	%r4
+	mtspr	SPR_USRR0,%r4
+
+	PPC_INST_URFID

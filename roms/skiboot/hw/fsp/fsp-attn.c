@@ -1,17 +1,11 @@
-/* Copyright 2013-2014 IBM Corp.
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-* http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-* implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * FSP ATTentioN support
+ *
+ * FSP can grab a bunch of things on host firmware dying,
+ * let's set that up.
+ *
+ * Copyright 2013-2019 IBM Corp.
 */
 #include <fsp.h>
 #include <skiboot.h>
@@ -20,6 +14,7 @@
 #include <hdata/spira.h>
 #include <stack.h>
 #include <processor.h>
+#include <opal-dump.h>
 
 #define TI_CMD_VALID	0x1	/* Command valid */
 #define TI_CMD		0xA1	/* Terminate Immediate command */
@@ -112,8 +107,8 @@ static void update_sp_attn_area(const char *msg)
 	backtrace_print(bt_buf, &metadata, ti_attn->msg.bt_buf, &len, false);
 	snprintf(ti_attn->msg.file_info, FILE_INFO_LEN, "%s", msg);
 
-	ti_attn->msg_len = VERSION_LEN + BT_FRAME_LEN +
-                                   strlen(ti_attn->msg.file_info);
+	ti_attn->msg_len = cpu_to_be32(VERSION_LEN + BT_FRAME_LEN +
+                                   strlen(ti_attn->msg.file_info));
 }
 
 void __attribute__((noreturn)) ibm_fsp_terminate(const char *msg)
@@ -123,6 +118,9 @@ void __attribute__((noreturn)) ibm_fsp_terminate(const char *msg)
 
 	/* Update op panel op_display */
 	op_display(OP_FATAL, OP_MOD_CORE, 0x6666);
+
+	/* Save crashing CPU details */
+	opal_mpipl_save_crashing_pir();
 
 	/* XXX FIXME: We should fsp_poll for a while to ensure any pending
 	 * console writes have made it out, but until we have decent PSI

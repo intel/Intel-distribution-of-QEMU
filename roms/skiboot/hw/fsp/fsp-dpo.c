@@ -1,20 +1,9 @@
-/* Copyright 2013-2014 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * FSP DPO (Delayed Power Off) event support
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2017 IBM Corp.
  */
-
-/* FSP DPO (Delayed Power Off) event support */
 
 #define pr_fmt(fmt) "FSP-DPO: " fmt
 
@@ -39,14 +28,14 @@ static unsigned long fsp_dpo_init_tb;
  * of seconds remaining for a forced system shutdown. This will enable
  * the host to schedule for shutdown voluntarily before timeout occurs.
  */
-static int64_t fsp_opal_get_dpo_status(int64_t *dpo_timeout)
+static int64_t fsp_opal_get_dpo_status(__be64 *dpo_timeout)
 {
 	if (!fsp_dpo_pending) {
 		*dpo_timeout = 0;
 		return OPAL_WRONG_STATE;
 	}
 
-	*dpo_timeout = DPO_TIMEOUT - tb_to_secs(mftb() - fsp_dpo_init_tb);
+	*dpo_timeout = cpu_to_be64(DPO_TIMEOUT - tb_to_secs(mftb() - fsp_dpo_init_tb));
 	return OPAL_SUCCESS;
 }
 

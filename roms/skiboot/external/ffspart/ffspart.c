@@ -1,17 +1,8 @@
-/* Copyright 2013-2017 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Assemble a FFS Image (no, not that FFS, this FFS)
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
 
 #include <ctype.h>
@@ -250,6 +241,8 @@ static int parse_entry(struct blocklevel_device *bl,
 	ffs_entry_put(new_entry);
 
 	if (*line != '\0' && *(line + 1) != '\0') {
+		size_t data_len;
+
 		filename = line + 1;
 
 		/*
@@ -272,8 +265,29 @@ static int parse_entry(struct blocklevel_device *bl,
 			close(data_fd);
 			return -1;
 		}
+
+		data_ptr = calloc(1, psize);
+		if (!data_ptr) {
+			return -1;
+		}
+
 		pactual = data_stat.st_size;
 
+		/*
+		 * There's two char device inputs we care about: /dev/zero and
+		 * /dev/urandom. Both have a stat.st_size of zero so read in
+		 * a full partition worth, accounting for ECC overhead.
+		 */
+		if (!pactual && S_ISCHR(data_stat.st_mode)) {
+			pactual = psize;
+
+			if (has_ecc(new_entry)) {
+				pactual = ecc_buffer_size_minus_ecc(pactual);
+
+				/* ECC input size needs to be a multiple of 8 */
+				pactual = pactual & ~0x7;
+			}
+		}
 		/*
 		 * Sanity check that the file isn't too large for
 		 * partition
@@ -288,19 +302,22 @@ static int parse_entry(struct blocklevel_device *bl,
 			return -1;
 		}
 
-		data_ptr = mmap(NULL, pactual, PROT_READ, MAP_SHARED, data_fd, 0);
-		if (!data_ptr) {
-			fprintf(stderr, "Couldn't mmap file '%s' for '%s' partition "
-				"(%m)\n", filename, name);
-			close(data_fd);
-			return -1;
+		for (data_len = 0; data_len < pactual; data_len += rc) {
+			rc = read(data_fd, &data_ptr[data_len], pactual - data_len);
+			if (rc == -1) {
+				fprintf(stderr, "error reading from '%s'", filename);
+				exit(1);
+			}
 		}
 
 		rc = blocklevel_write(bl, pbase, data_ptr, pactual);
-		if (rc)
+		if (rc) {
 			fprintf(stderr, "Couldn't write file '%s' for '%s' partition to PNOR "
 					"(%m)\n", filename, name);
-		munmap(data_ptr, pactual);
+			exit(1);
+		}
+
+		free(data_ptr);
 		close(data_fd);
 	} else {
 		if (!allow_empty) {

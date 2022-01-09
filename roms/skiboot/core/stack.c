@@ -1,19 +1,9 @@
-/* Copyright 2013-2014 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Create/Print backtraces, check stack usage etc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
-
 
 #include <skiboot.h>
 #include <processor.h>
@@ -27,13 +17,13 @@
 static struct bt_entry bt_buf[STACK_BUF_ENTRIES];
 
 /* Dumps backtrace to buffer */
-void __nomcount backtrace_create(struct bt_entry *entries,
+static void __nomcount __backtrace_create(struct bt_entry *entries,
 				 unsigned int max_ents,
-				 struct bt_metadata *metadata)
+				 struct bt_metadata *metadata,
+				 struct stack_frame *eframe)
 {
-	unsigned long *fp = __builtin_frame_address(0);
+	unsigned long *fp = (unsigned long *)eframe;
 	unsigned long top_adj = top_of_ram;
-	struct stack_frame *eframe = (struct stack_frame *)fp;
 
 	/* Assume one stack for early backtraces */
 	if (top_of_ram == SKIBOOT_BASE + SKIBOOT_SIZE)
@@ -45,6 +35,12 @@ void __nomcount backtrace_create(struct bt_entry *entries,
 		if (!fp || (unsigned long)fp > top_adj)
 			break;
 		eframe = (struct stack_frame *)fp;
+		if (eframe->magic == STACK_INT_MAGIC) {
+			entries->exception_type = eframe->type;
+			entries->exception_pc = eframe->pc;
+		} else {
+			entries->exception_type = 0;
+		}
 		entries->sp = (unsigned long)fp;
 		entries->pc = fp[2];
 		entries++;
@@ -60,6 +56,16 @@ void __nomcount backtrace_create(struct bt_entry *entries,
 		metadata->token = -1UL;
 
 	metadata->pir = mfspr(SPR_PIR);
+}
+
+void __nomcount backtrace_create(struct bt_entry *entries,
+				 unsigned int max_ents,
+				 struct bt_metadata *metadata)
+{
+	unsigned long *fp = __builtin_frame_address(0);
+	struct stack_frame *eframe = (struct stack_frame *)fp;
+
+	__backtrace_create(entries, max_ents, metadata, eframe);
 }
 
 void backtrace_print(struct bt_entry *entries, struct bt_metadata *metadata,
@@ -99,6 +105,11 @@ void backtrace_print(struct bt_entry *entries, struct bt_metadata *metadata,
 		if (symbols)
 			l += snprintf_symbol(buf + l, max - l, entries->pc);
 		l += snprintf(buf + l, max - l, "\n");
+		if (entries->exception_type) {
+			l += snprintf(buf + l, max - l,
+				      " --- Interrupt 0x%lx at %016lx ---\n",
+				      entries->exception_type, entries->exception_pc);
+		}
 		entries++;
 	}
 	if (metadata->token <= OPAL_LAST)
@@ -129,6 +140,18 @@ void backtrace(void)
 	lock(&bt_lock);
 
 	backtrace_create(bt_buf, STACK_BUF_ENTRIES, &metadata);
+	backtrace_print(bt_buf, &metadata, NULL, NULL, true);
+
+	unlock(&bt_lock);
+}
+
+void backtrace_r1(uint64_t r1)
+{
+	struct bt_metadata metadata;
+
+	lock(&bt_lock);
+
+	__backtrace_create(bt_buf, STACK_BUF_ENTRIES, &metadata, (struct stack_frame *)r1);
 	backtrace_print(bt_buf, &metadata, NULL, NULL, true);
 
 	unlock(&bt_lock);
@@ -183,16 +206,16 @@ void __nomcount __mcount_stack_check(uint64_t sp, uint64_t lr)
 		backtrace_create(c->stack_bot_bt, CPU_BACKTRACE_SIZE,
 				 &c->stack_bot_bt_metadata);
 		unlock(&stack_check_lock);
-	}
 
-	/* Stack is within bounds ? check for warning and bail */
-	if (sp >= (bot + STACK_SAFETY_GAP) && sp < top) {
 		if (mark < STACK_WARNING_GAP) {
 			prlog(PR_EMERG, "CPU %04x Stack usage danger !"
 			      " pc=%08llx sp=%08llx (gap=%lld) token=%lld\n",
 			      c->pir, lr, sp, mark, c->current_token);
-			backtrace();
 		}
+	}
+
+	/* Stack is within bounds? */
+	if (sp >= (bot + STACK_SAFETY_GAP) && sp < top) {
 		c->in_mcount = false;
 		return;
 	}
@@ -227,7 +250,7 @@ void check_stacks(void)
 		unlock(&stack_check_lock);
 	}
 	if (lowest) {
-		lock(&stack_check_lock);
+		lock(&bt_lock);
 		prlog(PR_NOTICE, "CPU %04x lowest stack mark %lld bytes left"
 		      " pc=%08llx token=%lld\n",
 		      lowest->pir, lowest->stack_bot_mark, lowest->stack_bot_pc,
@@ -235,7 +258,7 @@ void check_stacks(void)
 		backtrace_print(lowest->stack_bot_bt,
 				&lowest->stack_bot_bt_metadata,
 				NULL, NULL, true);
-		unlock(&stack_check_lock);
+		unlock(&bt_lock);
 	}
 
 	this_cpu()->in_mcount = false;

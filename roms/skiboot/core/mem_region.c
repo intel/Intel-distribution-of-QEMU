@@ -1,17 +1,8 @@
-/* Copyright 2013-2018 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Simple memory allocator
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2018 IBM Corp.
  */
 
 #include <inttypes.h>
@@ -743,7 +734,7 @@ static bool maybe_split(struct mem_region *r, uint64_t split_at)
 		return false;
 
 	/* Tail add is important: we may need to split again! */
-	list_add_tail(&regions, &tail->list);
+	list_add_after(&regions, &tail->list, &r->list);
 	return true;
 }
 
@@ -770,6 +761,20 @@ static struct mem_region *get_overlap(const struct mem_region *region)
 			return i;
 	}
 	return NULL;
+}
+
+static void add_region_to_regions(struct mem_region *region)
+{
+	struct mem_region *r;
+
+	list_for_each(&regions, r, list) {
+		if (r->start < region->start)
+			continue;
+
+		list_add_before(&regions, &region->list, &r->list);
+		return;
+	}
+	list_add_tail(&regions, &region->list);
 }
 
 static bool add_region(struct mem_region *region)
@@ -816,7 +821,7 @@ static bool add_region(struct mem_region *region)
 	}
 
 	/* Finally, add in our own region. */
-	list_add(&regions, &region->list);
+	add_region_to_regions(region);
 	return true;
 }
 
@@ -1067,17 +1072,14 @@ void mem_region_init(void)
 	struct dt_node *i;
 	bool rc;
 
-	/* Ensure we have no collision between skiboot core and our heap */
-	extern char _end[];
-	BUILD_ASSERT(HEAP_BASE >= (uint64_t)_end);
-
 	/*
 	 * Add associativity properties outside of the lock
 	 * to avoid recursive locking caused by allocations
 	 * done by add_chip_dev_associativity()
 	 */
 	dt_for_each_node(dt_root, i) {
-		if (!dt_has_node_property(i, "device_type", "memory"))
+		if (!dt_has_node_property(i, "device_type", "memory") &&
+		    !dt_has_node_property(i, "compatible", "pmem-region"))
 			continue;
 
 		/* Add associativity properties */
@@ -1103,7 +1105,7 @@ void mem_region_init(void)
 			prerror("MEM: Could not add mem region %s!\n", i->name);
 			abort();
 		}
-		list_add(&regions, &region->list);
+		add_region_to_regions(region);
 		if ((start + len) > top_of_ram)
 			top_of_ram = start + len;
 		unlock(&mem_region_lock);
@@ -1377,8 +1379,14 @@ void start_mem_region_clear_unused(void)
 		free(path);
 		jobs[i] = cpu_queue_job_on_node(chip_id,
 						job_args[i].job_name,
-					mem_region_clear_job,
-					&job_args[i]);
+						mem_region_clear_job,
+						&job_args[i]);
+		if (!jobs[i])
+			jobs[i] = cpu_queue_job(NULL,
+						job_args[i].job_name,
+						mem_region_clear_job,
+						&job_args[i]);
+		assert(jobs[i]);
 		i++;
 	}
 	unlock(&mem_region_lock);
@@ -1456,7 +1464,7 @@ void mem_region_add_dt_reserved(void)
 	struct mem_region *region;
 	void *names, *ranges;
 	struct dt_node *node;
-	uint64_t *range;
+	fdt64_t *range;
 	char *name;
 
 	names_len = 0;

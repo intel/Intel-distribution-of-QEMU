@@ -108,12 +108,11 @@ cdb_mode_sense_geom(struct disk_op_s *op, struct cdbres_mode_sense_geom *data)
 int
 scsi_fill_cmd(struct disk_op_s *op, void *cdbcmd, int maxcdb)
 {
-    // Important for PA-RISC: Take care of alignment, e.g. do not write u64 to not-aligned address.
-    struct cdb_rwdata_10 cmd;
-
     switch (op->command) {
     case CMD_READ:
     case CMD_WRITE: ;
+        // PA-RISC: Beware alignment: do not write u64 to unaligned address.
+        struct cdb_rwdata_10 cmd;
         memset(cdbcmd, 0, maxcdb);
         memset(&cmd, 0, sizeof(cmd));
         cmd.command = (op->command == CMD_READ ? CDB_CMD_READ_10
@@ -148,8 +147,9 @@ scsi_is_ready(struct disk_op_s *op)
     dprintf(6, "scsi_is_ready (drive=%p)\n", op->drive_fl);
 
     /* Retry TEST UNIT READY for 5 seconds unless MEDIUM NOT PRESENT is
-     * reported by the device.  If the device reports "IN PROGRESS",
+     * reported by the device 3 times.  If the device reports "IN PROGRESS",
      * 30 seconds is added. */
+    int tries = 3;
     int in_progress = 0;
     u32 end = timer_calc(5000);
     for (;;) {
@@ -171,8 +171,11 @@ scsi_is_ready(struct disk_op_s *op)
 
         // Sense succeeded.
         if (sense.asc == 0x3a) { /* MEDIUM NOT PRESENT */
-            dprintf(1, "Device reports MEDIUM NOT PRESENT\n");
-            return -1;
+            tries--;
+            dprintf(1, "Device reports MEDIUM NOT PRESENT - %d tries left\n",
+                tries);
+            if (!tries)
+                return -1;
         }
 
         if (sense.asc == 0x04 && sense.ascq == 0x01 && !in_progress) {

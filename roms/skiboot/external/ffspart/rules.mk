@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 .DEFAULT_GOAL := all
 
 override CFLAGS  += -O2 -Wall -g -I.
@@ -8,6 +9,9 @@ LIBFLASH_OBJS := $(addprefix libflash-, $(LIBFLASH_FILES:.c=.o))
 LIBFLASH_SRC := $(addprefix libflash/,$(LIBFLASH_FILES))
 OBJS	+= $(LIBFLASH_OBJS)
 OBJS	+= common-arch_flash.o
+
+prefix = /usr/local/
+sbindir = $(prefix)/sbin
 
 CC	= $(CROSS_COMPILE)gcc
 

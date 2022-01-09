@@ -42,6 +42,19 @@ strlen(const char *s)
     return p-s;
 }
 
+int
+memcmp_far(u16 s1seg, const void *s1, u16 s2seg, const void *s2, size_t n)
+{
+    while (n--) {
+        int d = GET_FARVAR(s1seg, *(u8*)s1) - GET_FARVAR(s2seg, *(u8*)s2);
+        if (d)
+            return d < 0 ? -1 : 1;
+        s1++;
+        s2++;
+    }
+    return 0;
+}
+
 // Compare two areas of memory.
 int
 memcmp(const void *s1, const void *s2, size_t n)
@@ -73,16 +86,33 @@ strcmp(const char *s1, const char *s2)
 inline void
 memset_far(u16 d_seg, void *d_far, u8 c, size_t len)
 {
-	d_far = MAKE_FLATPTR(d_seg, (u32)d_far);
-	memset(d_far, c, len);
+#if CONFIG_X86
+    SET_SEG(ES, d_seg);
+    asm volatile(
+        "rep stosb %%es:(%%di)"
+        : "+c"(len), "+D"(d_far)
+        : "a"(c), "m" (__segment_ES)
+        : "cc", "memory");
+#else
+    memset(d_far, c, len);
+#endif
 }
 
 inline void
-memset16_far(u16 d_seg, void *s, u16 c, size_t n)
+memset16_far(u16 d_seg, void *d_far, u16 c, size_t len)
 {
-    s = MAKE_FLATPTR(d_seg, (u32)s);
-    while (n)
-        ((u16 *)s)[--n] = c;
+    len /= 2;
+#if CONFIG_X86
+    SET_SEG(ES, d_seg);
+    asm volatile(
+        "rep stosw %%es:(%%di)"
+        : "+c"(len), "+D"(d_far)
+        : "a"(c), "m" (__segment_ES)
+        : "cc", "memory");
+#else
+    while (len)
+        ((u16 *)d_far)[--len] = c;
+#endif
 }
 
 void *
@@ -95,38 +125,103 @@ memset(void *s, int c, size_t n)
 
 void memset_fl(void *ptr, u8 val, size_t size)
 {
+    if (MODESEGMENT)
+        memset_far(FLATPTR_TO_SEG(ptr), (void*)(FLATPTR_TO_OFFSET(ptr)),
+                   val, size);
+    else
         memset(ptr, val, size);
 }
 
 inline void
-memcpy_far(u16 d_seg, void *d, u16 s_seg, const void *s, size_t n)
+memcpy_far(u16 d_seg, void *d_far, u16 s_seg, const void *s_far, size_t len)
 {
-    d = MAKE_FLATPTR(d_seg, (u32)d);
-    s = MAKE_FLATPTR(s_seg, (u32)s);
-    while (n) {
-	--n;
-	((char *)d)[n] = ((char *)s)[n];
-    }
+#if CONFIG_X86
+    SET_SEG(ES, d_seg);
+    u16 bkup_ds;
+    asm volatile(
+        "movw %%ds, %w0\n"
+        "movw %w4, %%ds\n"
+        "rep movsb (%%si),%%es:(%%di)\n"
+        "movw %w0, %%ds"
+        : "=&r"(bkup_ds), "+c"(len), "+S"(s_far), "+D"(d_far)
+        : "r"(s_seg), "m" (__segment_ES)
+        : "cc", "memory");
+#else
+    memcpy(d_far, s_far, len);
+#endif
 }
 
 inline void
 memcpy_fl(void *d_fl, const void *s_fl, size_t len)
 {
+    if (MODESEGMENT)
+        memcpy_far(FLATPTR_TO_SEG(d_fl), (void*)FLATPTR_TO_OFFSET(d_fl)
+                   , FLATPTR_TO_SEG(s_fl), (void*)FLATPTR_TO_OFFSET(s_fl)
+                   , len);
+    else
         memcpy(d_fl, s_fl, len);
 }
 
-void *
+void * __VISIBLE
 #undef memcpy
 memcpy(void *d1, const void *s1, size_t len)
+#if MODESEGMENT == 0
+#define memcpy __builtin_memcpy
+#endif
 {
-  memcpy_far(0, d1, 0, s1, len);
-  return d1;
+#if CONFIG_X86
+    SET_SEG(ES, GET_SEG(SS));
+    void *d = d1;
+    if (((u32)d1 | (u32)s1 | len) & 3) {
+        // non-aligned memcpy
+        asm volatile(
+            "rep movsb (%%esi),%%es:(%%edi)"
+            : "+c"(len), "+S"(s1), "+D"(d)
+            : "m" (__segment_ES) : "cc", "memory");
+        return d1;
+    }
+    // Common case - use 4-byte copy
+    len /= 4;
+    asm volatile(
+        "rep movsl (%%esi),%%es:(%%edi)"
+        : "+c"(len), "+S"(s1), "+D"(d)
+        : "m" (__segment_ES) : "cc", "memory");
+    return d1;
+#else
+    char *d = (char *)d1;
+    char *s = (char *)s1;
+    while (len--)
+        *d++ = *s++;
+    return d1;
+#endif
 }
 
+// Copy to/from memory mapped IO.  IO mem is very slow, so yield
+// periodically.
 void
 iomemcpy(void *d, const void *s, u32 len)
 {
-   memcpy(d, s, len);
+#if CONFIG_X86
+    ASSERT32FLAT();
+    yield();
+    while (len > 3) {
+        u32 copylen = len;
+        if (copylen > 2048)
+            copylen = 2048;
+        copylen /= 4;
+        len -= copylen * 4;
+        asm volatile(
+            "rep movsl (%%esi),%%es:(%%edi)"
+            : "+c"(copylen), "+S"(s), "+D"(d)
+            : : "cc", "memory");
+        yield();
+    }
+    if (len)
+        // Copy any remaining bytes.
+        memcpy(d, s, len);
+#else
+    memcpy(d, s, len);
+#endif
 }
 
 void *

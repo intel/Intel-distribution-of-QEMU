@@ -1,26 +1,16 @@
-/* Copyright 2013-2016 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Everything to do with deep power saving (stop) states
+ * SLeep/Winkle, Handle ChipTOD chip & configure core timebases
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
 
-/*
- * Handle ChipTOD chip & configure core timebases
- */
 #include <skiboot.h>
 #include <xscom.h>
 #include <xscom-p8-regs.h>
 #include <xscom-p9-regs.h>
+#include <xscom-p10-regs.h>
 #include <io.h>
 #include <cpu.h>
 #include <chip.h>
@@ -33,14 +23,13 @@
 #include <opal-api.h>
 #include <nvram.h>
 #include <sbe-p8.h>
+#include <xive.h>
 
-#include <p9_stop_api.H>
+#include <p10_stop_api.H>
 #include <p8_pore_table_gen_api.H>
 #include <sbe_xip_image.h>
 
-#define MAX_RESET_PATCH_SIZE	64
-
-static uint32_t slw_saved_reset[MAX_RESET_PATCH_SIZE];
+static uint32_t slw_saved_reset[0x100];
 
 static bool slw_current_le = false;
 
@@ -156,9 +145,6 @@ static void slw_patch_reset(void)
 {
 	uint32_t *src, *dst, *sav;
 
-	BUILD_ASSERT((&reset_patch_end - &reset_patch_start) <=
-		     MAX_RESET_PATCH_SIZE);
-
 	src = &reset_patch_start;
 	dst = (uint32_t *)0x100;
 	sav = slw_saved_reset;
@@ -235,25 +221,45 @@ static bool slw_set_overrides(struct proc_chip *chip, struct cpu_thread *c)
 	return true;
 }
 
+static bool slw_set_overrides_p10(struct proc_chip *chip, struct cpu_thread *c)
+{
+	uint64_t tmp;
+	int rc;
+	uint32_t core = pir_to_core_id(c->pir);
+
+	/* Special wakeup bits that could hold power mgt */
+	rc = xscom_read(chip->id,
+			XSCOM_ADDR_P10_QME_CORE(core, P10_QME_SPWU_HYP),
+			&tmp);
+        if (rc) {
+          log_simple_error(&e_info(OPAL_RC_SLW_SET),
+                           "SLW: Failed to read P10_QME_SPWU_HYP\n");
+          return false;
+        }
+        if (tmp & P10_SPWU_REQ)
+		prlog(PR_WARNING,
+		        "SLW: core %d P10_QME_SPWU_HYP requested 0x%016llx\n",
+		      core, tmp);
+
+	return true;
+}
+
+
 static bool slw_set_overrides_p9(struct proc_chip *chip, struct cpu_thread *c)
 {
 	uint64_t tmp;
 	int rc;
 	uint32_t core = pir_to_core_id(c->pir);
 
-	/* Clear special wakeup bits that could hold power mgt */
-	rc = xscom_write(chip->id,
-			 XSCOM_ADDR_P9_EC_SLAVE(core, EC_PPM_SPECIAL_WKUP_HYP),
-			 0);
-	if (rc) {
-		log_simple_error(&e_info(OPAL_RC_SLW_SET),
-			"SLW: Failed to write EC_PPM_SPECIAL_WKUP_HYP\n");
-		return false;
-	}
-	/* Read back for debug */
+	/* Special wakeup bits that could hold power mgt */
 	rc = xscom_read(chip->id,
 			XSCOM_ADDR_P9_EC_SLAVE(core, EC_PPM_SPECIAL_WKUP_HYP),
 			&tmp);
+	if (rc) {
+		log_simple_error(&e_info(OPAL_RC_SLW_SET),
+				 "SLW: Failed to read EC_PPM_SPECIAL_WKUP_HYP\n");
+		return false;
+	}
 	if (tmp)
 		prlog(PR_WARNING,
 			"SLW: core %d EC_PPM_SPECIAL_WKUP_HYP read  0x%016llx\n",
@@ -703,6 +709,169 @@ static struct cpu_idle_states power9_mambo_cpu_idle_states[] = {
 
 };
 
+/*
+ * cpu_idle_states for fused core configuration
+ * These will be a subset of power9 idle states.
+ */
+static struct cpu_idle_states power9_fusedcore_cpu_idle_states[] = {
+	{
+		.name = "stop0_lite", /* Enter stop0 with no state loss */
+		.latency_ns = 1000,
+		.residency_ns = 10000,
+		.flags = 0*OPAL_PM_DEC_STOP \
+		       | 0*OPAL_PM_TIMEBASE_STOP  \
+		       | 0*OPAL_PM_LOSE_USER_CONTEXT \
+		       | 0*OPAL_PM_LOSE_HYP_CONTEXT \
+		       | 0*OPAL_PM_LOSE_FULL_CONTEXT \
+		       | 1*OPAL_PM_STOP_INST_FAST,
+		.pm_ctrl_reg_val = OPAL_PM_PSSCR_RL(0) \
+				 | OPAL_PM_PSSCR_MTL(3) \
+				 | OPAL_PM_PSSCR_TR(3),
+		.pm_ctrl_reg_mask = OPAL_PM_PSSCR_MASK },
+	{
+		.name = "stop0",
+		.latency_ns = 2000,
+		.residency_ns = 20000,
+		.flags = 0*OPAL_PM_DEC_STOP \
+		       | 0*OPAL_PM_TIMEBASE_STOP  \
+		       | 1*OPAL_PM_LOSE_USER_CONTEXT \
+		       | 0*OPAL_PM_LOSE_HYP_CONTEXT \
+		       | 0*OPAL_PM_LOSE_FULL_CONTEXT \
+		       | 1*OPAL_PM_STOP_INST_FAST,
+		.pm_ctrl_reg_val = OPAL_PM_PSSCR_RL(0) \
+				 | OPAL_PM_PSSCR_MTL(3) \
+				 | OPAL_PM_PSSCR_TR(3) \
+				 | OPAL_PM_PSSCR_ESL \
+				 | OPAL_PM_PSSCR_EC,
+		.pm_ctrl_reg_mask = OPAL_PM_PSSCR_MASK },
+
+	/* stop1_lite has been removed since it adds no additional benefit over stop0_lite */
+
+	{
+		.name = "stop1",
+		.latency_ns = 5000,
+		.residency_ns = 50000,
+		.flags = 0*OPAL_PM_DEC_STOP \
+		       | 0*OPAL_PM_TIMEBASE_STOP  \
+		       | 1*OPAL_PM_LOSE_USER_CONTEXT \
+		       | 0*OPAL_PM_LOSE_HYP_CONTEXT \
+		       | 0*OPAL_PM_LOSE_FULL_CONTEXT \
+		       | 1*OPAL_PM_STOP_INST_FAST,
+		.pm_ctrl_reg_val = OPAL_PM_PSSCR_RL(1) \
+				 | OPAL_PM_PSSCR_MTL(3) \
+				 | OPAL_PM_PSSCR_TR(3) \
+				 | OPAL_PM_PSSCR_ESL \
+				 | OPAL_PM_PSSCR_EC,
+		.pm_ctrl_reg_mask = OPAL_PM_PSSCR_MASK },
+	/*
+	 * stop2_lite has been removed since currently it adds minimal benefit over stop2.
+	 * However, the benefit is eclipsed by the time required to ungate the clocks
+	 */
+
+	{
+		.name = "stop2",
+		.latency_ns = 10000,
+		.residency_ns = 100000,
+		.flags = 0*OPAL_PM_DEC_STOP \
+		       | 0*OPAL_PM_TIMEBASE_STOP  \
+		       | 1*OPAL_PM_LOSE_USER_CONTEXT \
+		       | 0*OPAL_PM_LOSE_HYP_CONTEXT \
+		       | 0*OPAL_PM_LOSE_FULL_CONTEXT \
+		       | 1*OPAL_PM_STOP_INST_FAST,
+		.pm_ctrl_reg_val = OPAL_PM_PSSCR_RL(2) \
+				 | OPAL_PM_PSSCR_MTL(3) \
+				 | OPAL_PM_PSSCR_TR(3) \
+				 | OPAL_PM_PSSCR_ESL \
+				 | OPAL_PM_PSSCR_EC,
+		.pm_ctrl_reg_mask = OPAL_PM_PSSCR_MASK },
+};
+
+/*
+ * Note latency_ns and residency_ns are estimated values for now.
+ */
+static struct cpu_idle_states power10_cpu_idle_states[] = {
+	{
+		.name = "stop0_lite", /* Enter stop0 with no state loss */
+		.latency_ns = 1000,
+		.residency_ns = 10000,
+		.flags = 0*OPAL_PM_DEC_STOP \
+		       | 0*OPAL_PM_TIMEBASE_STOP  \
+		       | 0*OPAL_PM_LOSE_USER_CONTEXT \
+		       | 0*OPAL_PM_LOSE_HYP_CONTEXT \
+		       | 0*OPAL_PM_LOSE_FULL_CONTEXT \
+		       | 1*OPAL_PM_STOP_INST_FAST,
+		.pm_ctrl_reg_val = OPAL_PM_PSSCR_RL(0) \
+				 | OPAL_PM_PSSCR_MTL(0) \
+				 | OPAL_PM_PSSCR_TR(3),
+		.pm_ctrl_reg_mask = OPAL_PM_PSSCR_MASK },
+	{
+		.name = "stop0",
+		.latency_ns = 10000,
+		.residency_ns = 100000,
+		.flags = 0*OPAL_PM_DEC_STOP \
+		       | 0*OPAL_PM_TIMEBASE_STOP  \
+		       | 1*OPAL_PM_LOSE_USER_CONTEXT \
+		       | 0*OPAL_PM_LOSE_HYP_CONTEXT \
+		       | 0*OPAL_PM_LOSE_FULL_CONTEXT \
+		       | 1*OPAL_PM_STOP_INST_FAST,
+		.pm_ctrl_reg_val = OPAL_PM_PSSCR_RL(0) \
+				 | OPAL_PM_PSSCR_MTL(0) \
+				 | OPAL_PM_PSSCR_TR(3) \
+				 | OPAL_PM_PSSCR_ESL \
+				 | OPAL_PM_PSSCR_EC,
+		.pm_ctrl_reg_mask = OPAL_PM_PSSCR_MASK },
+	{
+		.name = "stop2",
+		.latency_ns = 20000,
+		.residency_ns = 200000,
+		.flags = 0*OPAL_PM_DEC_STOP \
+		       | 0*OPAL_PM_TIMEBASE_STOP  \
+		       | 1*OPAL_PM_LOSE_USER_CONTEXT \
+		       | 0*OPAL_PM_LOSE_HYP_CONTEXT \
+		       | 0*OPAL_PM_LOSE_FULL_CONTEXT \
+		       | 1*OPAL_PM_STOP_INST_FAST,
+		.pm_ctrl_reg_val = OPAL_PM_PSSCR_RL(2) \
+				 | OPAL_PM_PSSCR_MTL(2) \
+				 | OPAL_PM_PSSCR_TR(3) \
+				 | OPAL_PM_PSSCR_ESL \
+				 | OPAL_PM_PSSCR_EC,
+		.pm_ctrl_reg_mask = OPAL_PM_PSSCR_MASK },
+	{
+		.name = "stop3",
+		.latency_ns = 45000,
+		.residency_ns = 450000,
+		.flags = 0*OPAL_PM_DEC_STOP \
+		       | 0*OPAL_PM_TIMEBASE_STOP  \
+		       | 1*OPAL_PM_LOSE_USER_CONTEXT \
+		       | 0*OPAL_PM_LOSE_HYP_CONTEXT \
+		       | 0*OPAL_PM_LOSE_FULL_CONTEXT \
+		       | 1*OPAL_PM_STOP_INST_FAST,
+		.pm_ctrl_reg_val = OPAL_PM_PSSCR_RL(3) \
+				 | OPAL_PM_PSSCR_MTL(3) \
+				 | OPAL_PM_PSSCR_TR(3) \
+				 | OPAL_PM_PSSCR_ESL \
+				 | OPAL_PM_PSSCR_EC,
+		.pm_ctrl_reg_mask = OPAL_PM_PSSCR_MASK },
+#if 0
+	{
+		.name = "stop11",
+		.latency_ns = 10000000,
+		.residency_ns = 100000000,
+		.flags = 1*OPAL_PM_DEC_STOP \
+		       | 1*OPAL_PM_TIMEBASE_STOP  \
+		       | 1*OPAL_PM_LOSE_USER_CONTEXT \
+		       | 1*OPAL_PM_LOSE_HYP_CONTEXT \
+		       | 1*OPAL_PM_LOSE_FULL_CONTEXT \
+		       | 1*OPAL_PM_STOP_INST_DEEP,
+		.pm_ctrl_reg_val = OPAL_PM_PSSCR_RL(11) \
+				 | OPAL_PM_PSSCR_MTL(11) \
+				 | OPAL_PM_PSSCR_TR(3) \
+				 | OPAL_PM_PSSCR_ESL \
+				 | OPAL_PM_PSSCR_EC,
+		.pm_ctrl_reg_mask = OPAL_PM_PSSCR_MASK },
+#endif
+};
+
 static void slw_late_init_p9(struct proc_chip *chip)
 {
 	struct cpu_thread *c;
@@ -728,6 +897,31 @@ static void slw_late_init_p9(struct proc_chip *chip)
 	}
 }
 
+static void slw_late_init_p10(struct proc_chip *chip)
+{
+	struct cpu_thread *c;
+	int rc;
+
+	prlog(PR_INFO, "SLW: Configuring self-restore for HRMOR\n");
+	for_each_available_cpu(c) {
+		if (c->chip_id != chip->id)
+			continue;
+		/*
+		 * Clear HRMOR. Need to update only for thread
+		 * 0 of each core. Doing it anyway for all threads
+		 */
+		rc =  proc_stop_save_cpureg((void *)chip->homer_base,
+						PROC_STOP_SPR_HRMOR, 0,
+						c->pir);
+		if (rc) {
+			log_simple_error(&e_info(OPAL_RC_SLW_REG),
+			"SLW: Failed to set HRMOR for CPU %x,RC=0x%x\n",
+			c->pir, rc);
+			prlog(PR_ERR, "Disabling deep stop states\n");
+		}
+	}
+}
+
 /* Add device tree properties to describe idle states */
 void add_cpu_idle_state_properties(void)
 {
@@ -740,10 +934,10 @@ void add_cpu_idle_state_properties(void)
 	bool has_stop_inst = false;
 	u8 i;
 
-	u64 *pm_ctrl_reg_val_buf;
-	u64 *pm_ctrl_reg_mask_buf;
+	fdt64_t *pm_ctrl_reg_val_buf;
+	fdt64_t *pm_ctrl_reg_mask_buf;
 	u32 supported_states_mask;
-	u32 opal_disabled_states_mask = ~0xEC000000; /* all but stop11 */
+	u32 opal_disabled_states_mask = ~0xFC000000; /* all but stop11 */
 	const char* nvram_disable_str;
 	u32 nvram_disabled_states_mask = 0x00;
 	u32 stop_levels;
@@ -754,9 +948,9 @@ void add_cpu_idle_state_properties(void)
 
 	/* Buffers to hold idle state properties */
 	char *name_buf, *alloced_name_buf;
-	u32 *latency_ns_buf;
-	u32 *residency_ns_buf;
-	u32 *flags_buf;
+	fdt32_t *latency_ns_buf;
+	fdt32_t *residency_ns_buf;
+	fdt32_t *flags_buf;
 
 	prlog(PR_DEBUG, "CPU idle state device tree init\n");
 
@@ -781,14 +975,26 @@ void add_cpu_idle_state_properties(void)
 	 */
 	chip = next_chip(NULL);
 	assert(chip);
-	if (chip->type == PROC_CHIP_P9_NIMBUS ||
-	    chip->type == PROC_CHIP_P9_CUMULUS) {
-		if (proc_chip_quirks & QUIRK_MAMBO_CALLOUTS) {
-			states = power9_mambo_cpu_idle_states;
-			nr_states = ARRAY_SIZE(power9_mambo_cpu_idle_states);
+	if (proc_gen >= proc_gen_p9) {
+		if (chip->type == PROC_CHIP_P9_NIMBUS ||
+		    chip->type == PROC_CHIP_P9_CUMULUS ||
+		    chip->type == PROC_CHIP_P9P) {
+			if (proc_chip_quirks & QUIRK_MAMBO_CALLOUTS) {
+				states = power9_mambo_cpu_idle_states;
+				nr_states = ARRAY_SIZE(power9_mambo_cpu_idle_states);
+			} else if (this_cpu()->is_fused_core) {
+			  states = power9_fusedcore_cpu_idle_states;
+			  nr_states = ARRAY_SIZE(power9_fusedcore_cpu_idle_states);
+			} else {
+				states = power9_cpu_idle_states;
+				nr_states = ARRAY_SIZE(power9_cpu_idle_states);
+			}
+		} else if (chip->type == PROC_CHIP_P10) {
+			states = power10_cpu_idle_states;
+			nr_states = ARRAY_SIZE(power10_cpu_idle_states);
 		} else {
-			states = power9_cpu_idle_states;
-			nr_states = ARRAY_SIZE(power9_cpu_idle_states);
+			prlog(PR_ERR, "determining chip type\n");
+			return;
 		}
 
 		has_stop_inst = true;
@@ -809,9 +1015,15 @@ void add_cpu_idle_state_properties(void)
 				}
 			}
 			if ((wakeup_engine_state == WAKEUP_ENGINE_PRESENT) && has_deep_states) {
-				slw_late_init_p9(chip);
-				xive_late_init();
-				nx_p9_rng_late_init();
+				if (chip->type == PROC_CHIP_P9_NIMBUS ||
+				    chip->type == PROC_CHIP_P9_CUMULUS) {
+					slw_late_init_p9(chip);
+					xive_late_init();
+					nx_p9_rng_late_init();
+				} else if (chip->type == PROC_CHIP_P10) {
+					slw_late_init_p10(chip);
+					xive2_late_init();
+				}
 			}
 			if (wakeup_engine_state != WAKEUP_ENGINE_PRESENT)
 				has_deep_states = false;
@@ -872,7 +1084,7 @@ void add_cpu_idle_state_properties(void)
 	 * device-tree
 	 */
 	if (has_stop_inst) {
-		/* Power 9 / POWER ISA 3.0 */
+		/* Power 9/10 / POWER ISA 3.0 and above */
 		supported_states_mask = OPAL_PM_STOP_INST_FAST;
 		if (wakeup_engine_state == WAKEUP_ENGINE_PRESENT)
 			supported_states_mask |= OPAL_PM_STOP_INST_DEEP;
@@ -1075,9 +1287,6 @@ int64_t slw_reinit(uint64_t flags)
 	bool has_waker = false;
 	bool target_le = slw_current_le;
 
-	if (proc_gen < proc_gen_p8)
-		return OPAL_UNSUPPORTED;
-
 	if (flags & OPAL_REINIT_CPUS_HILE_BE)
 		target_le = false;
 	if (flags & OPAL_REINIT_CPUS_HILE_LE)
@@ -1220,6 +1429,20 @@ static void slw_init_chip_p9(struct proc_chip *chip)
 
 
 }
+
+static void slw_init_chip_p10(struct proc_chip *chip)
+{
+	struct cpu_thread *c;
+
+	prlog(PR_DEBUG, "SLW: Init chip 0x%x\n", chip->id);
+
+	/* At power ON setup inits for power-mgt */
+	for_each_available_core_in_chip(c, chip->id)
+		slw_set_overrides_p10(chip, c);
+
+
+}
+
 
 static bool  slw_image_check_p9(struct proc_chip *chip)
 {
@@ -1404,7 +1627,7 @@ int64_t opal_slw_set_reg(uint64_t cpu_pir, uint64_t sprn, uint64_t val)
 		return OPAL_PARAMETER;
 	}
 
-	if (proc_gen == proc_gen_p9) {
+	if (proc_gen >= proc_gen_p9) {
 		if (!has_deep_states) {
 			prlog(PR_INFO, "SLW: Deep states not enabled\n");
 			return OPAL_SUCCESS;
@@ -1416,8 +1639,13 @@ int64_t opal_slw_set_reg(uint64_t cpu_pir, uint64_t sprn, uint64_t val)
 					 wakeup_engine_state,chip->id);
 			return OPAL_INTERNAL_ERROR;
 		}
-		rc = p9_stop_save_cpureg((void *)chip->homer_base,
+		if (proc_gen == proc_gen_p9) {
+			rc = p9_stop_save_cpureg((void *)chip->homer_base,
 					 sprn, val, cpu_pir);
+		} else {
+			rc = proc_stop_save_cpureg((void *)chip->homer_base,
+					 sprn, val, cpu_pir);
+		}
 
 	} else if (proc_gen == proc_gen_p8) {
 		int spr_is_supported = 0;
@@ -1488,6 +1716,15 @@ void slw_init(void)
 				wakeup_engine_state = WAKEUP_ENGINE_PRESENT;
 			if (wakeup_engine_state == WAKEUP_ENGINE_PRESENT)
 				slw_late_init_p9(chip);
+		}
+	} else if (proc_gen == proc_gen_p10) {
+		for_each_chip(chip) {
+			slw_init_chip_p10(chip);
+			if(slw_image_check_p9(chip))
+				wakeup_engine_state = WAKEUP_ENGINE_PRESENT;
+			if (wakeup_engine_state == WAKEUP_ENGINE_PRESENT) {
+				slw_late_init_p10(chip);
+			}
 		}
 	}
 	add_cpu_idle_state_properties();

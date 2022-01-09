@@ -1,5 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 #
-# behave like gdb
+# Make Mambo behave a bit more like gdb
 #
 set target_t 0
 set target_c 0

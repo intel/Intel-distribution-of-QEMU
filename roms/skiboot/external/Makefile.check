@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 # -*-Makefile-*-
 
 TOOL=gard ffspart pflash
@@ -5,9 +6,11 @@ CHECK_TOOL=$(patsubst %,check-%,$(TOOL))
 TOOL_COVERAGE=$(patsubst %,%-coverage,$(TOOL))
 TOOL_TEST_CLEAN=$(patsubst %,%-test-clean,$(TOOL))
 
+.PHONY: external-check
+external-check: $(CHECK_TOOL)
 
 .PHONY: check
-check: $(CHECK_TOOL)
+check: external-check
 
 #Makefile knows to build and clean it before checking, should also
 #make clean before checking. If not, .o files for different

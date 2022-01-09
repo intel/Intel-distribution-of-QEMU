@@ -1,6 +1,12 @@
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Copyright 2018 IBM Corp
+ */
+
 #include <assert.h>
 #include <stdint.h>
 #include <compiler.h>
+#include <stdbool.h>
 
 /* Stubs for quirk_astbmc_vga() */
 
@@ -27,6 +33,24 @@ static struct dt_property *__dt_add_property_cells(
 	return (void *)0;
 }
 
+struct pci_device;
+struct pci_cfg_reg_filter;
+typedef int64_t (*pci_cfg_reg_func)(void *dev,
+				    struct pci_cfg_reg_filter *pcrf,
+				    uint32_t offset, uint32_t len,
+				    uint32_t *data, bool write);
+
+
+static struct pci_cfg_reg_filter *pci_add_cfg_reg_filter(
+	struct pci_device *pd __unused,
+	uint32_t start __unused,
+	uint32_t len __unused,
+	uint32_t flags __unused,
+	pci_cfg_reg_func func __unused)
+{
+	return NULL;
+}
+
 #include "../pci-quirk.c"
 
 struct pci_device test_pd;
@@ -42,8 +66,8 @@ static void test_fixup(struct phb *phb __unused, struct pci_device *pd __unused)
 /* Quirks are: {fixup function, vendor ID, (device ID or PCI_ANY_ID)} */
 static const struct pci_quirk test_quirk_table[] = {
 	/* ASPEED 2400 VGA device */
-	{ &test_fixup, 0x1a03, 0x2000 },
-	{ NULL, 0, 0 }
+	{ 0x1a03, 0x2000, &test_fixup },
+	{ 0, 0, NULL }
 };
 
 #define PCI_COMPOSE_VDID(vendor, device) (((device) << 16) | (vendor))

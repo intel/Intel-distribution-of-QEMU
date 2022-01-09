@@ -1,18 +1,5 @@
-/* Copyright 2013-2019 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
 
 #ifndef __OPAL_API_H
 #define __OPAL_API_H
@@ -232,7 +219,15 @@
 #define OPAL_XIVE_GET_VP_STATE			170 /* Get NVT state */
 #define OPAL_NPU_MEM_ALLOC			171
 #define OPAL_NPU_MEM_RELEASE			172
-#define OPAL_LAST				172
+#define OPAL_MPIPL_UPDATE			173
+#define OPAL_MPIPL_REGISTER_TAG			174
+#define OPAL_MPIPL_QUERY_TAG			175
+#define OPAL_SECVAR_GET				176
+#define OPAL_SECVAR_GET_NEXT			177
+#define OPAL_SECVAR_ENQUEUE_UPDATE		178
+#define OPAL_PHB_SET_OPTION			179
+#define OPAL_PHB_GET_OPTION			180
+#define OPAL_LAST				180
 
 #define QUIESCE_HOLD			1 /* Spin all calls at entry */
 #define QUIESCE_REJECT			2 /* Fail all calls with OPAL_BUSY */
@@ -531,6 +526,11 @@ enum OpalCheckTokenStatus {
 	OPAL_TOKEN_PRESENT = 1
 };
 
+enum OpalPhbOption {
+	OPAL_PHB_OPTION_TVE1_4GB = 0x1,
+	OPAL_PHB_OPTION_MMIO_EEH_DISABLE = 0x2,
+};
+
 /*
  * Address cycle types for LPC accesses. These also correspond
  * to the content of the first cell of the "reg" property for
@@ -731,6 +731,7 @@ enum OpalHMI_CoreXstopReason {
 	CORE_CHECKSTOP_PC_AMBI_HANG_DETECTED	= 0x00004000,
 	CORE_CHECKSTOP_PC_DEBUG_TRIG_ERR_INJ	= 0x00008000,
 	CORE_CHECKSTOP_PC_SPRD_HYP_ERR_INJ	= 0x00010000,
+	CORE_CHECKSTOP_MMU_SYSTEM		= 0x00020000,
 };
 
 enum OpalHMI_NestAccelXstopReason {
@@ -798,7 +799,8 @@ enum {
 
 enum {
 	OPAL_PHB_ERROR_DATA_TYPE_PHB3 = 2,
-	OPAL_PHB_ERROR_DATA_TYPE_PHB4 = 3
+	OPAL_PHB_ERROR_DATA_TYPE_PHB4 = 3,
+	OPAL_PHB_ERROR_DATA_TYPE_PHB5 = 3 /* TODO change this */
 };
 
 enum {
@@ -1134,6 +1136,8 @@ enum {
 	OPAL_REBOOT_NORMAL = 0,
 	OPAL_REBOOT_PLATFORM_ERROR,
 	OPAL_REBOOT_FULL_IPL,
+	OPAL_REBOOT_MPIPL,
+	OPAL_REBOOT_FAST,
 };
 
 /* Argument to OPAL_PCI_TCE_KILL */
@@ -1157,9 +1161,10 @@ enum {
 	OPAL_XIVE_IRQ_TRIGGER_PAGE	= 0x00000001,
 	OPAL_XIVE_IRQ_STORE_EOI		= 0x00000002,
 	OPAL_XIVE_IRQ_LSI		= 0x00000004,
-	OPAL_XIVE_IRQ_SHIFT_BUG		= 0x00000008,
-	OPAL_XIVE_IRQ_MASK_VIA_FW	= 0x00000010,
-	OPAL_XIVE_IRQ_EOI_VIA_FW	= 0x00000020,
+	OPAL_XIVE_IRQ_SHIFT_BUG		= 0x00000008, /* DD1.0 workaround */
+	OPAL_XIVE_IRQ_MASK_VIA_FW	= 0x00000010, /* DD1.0 workaround */
+	OPAL_XIVE_IRQ_EOI_VIA_FW	= 0x00000020, /* DD1.0 workaround */
+	OPAL_XIVE_IRQ_STORE_EOI2	= 0x00000040,
 };
 
 /* Flags for OPAL_XIVE_GET/SET_QUEUE_INFO */
@@ -1173,6 +1178,7 @@ enum {
 enum {
 	OPAL_XIVE_VP_ENABLED		= 0x00000001,
 	OPAL_XIVE_VP_SINGLE_ESCALATION	= 0x00000002,
+	OPAL_XIVE_VP_SAVE_RESTORE	= 0x00000004,
 };
 
 /* "Any chip" replacement for chip ID for allocation functions */
@@ -1213,6 +1219,44 @@ enum {
 enum {
 	OPAL_PCI_P2P_INITIATOR	= 0,
 	OPAL_PCI_P2P_TARGET	= 1,
+};
+
+/* MPIPL update operations */
+enum opal_mpipl_ops {
+	OPAL_MPIPL_ADD_RANGE		= 0,
+	OPAL_MPIPL_REMOVE_RANGE		= 1,
+	OPAL_MPIPL_REMOVE_ALL		= 2,
+	OPAL_MPIPL_FREE_PRESERVED_MEMORY= 3,
+};
+
+/* Tag will point to various metadata area. Kernel will
+ * use tag to get metadata value.
+ */
+enum opal_mpipl_tags {
+	OPAL_MPIPL_TAG_CPU	= 0,
+	OPAL_MPIPL_TAG_OPAL	= 1,
+	OPAL_MPIPL_TAG_KERNEL	= 2,
+	OPAL_MPIPL_TAG_BOOT_MEM	= 3,
+};
+
+/* Preserved memory details */
+struct opal_mpipl_region {
+	__be64	src;
+	__be64	dest;
+	__be64	size;
+};
+
+/* Structure version */
+#define OPAL_MPIPL_VERSION		0x01
+
+struct opal_mpipl_fadump {
+	u8	version;
+	u8	reserved[7];
+	__be32	crashing_pir;	/* OPAL crashing CPU PIR */
+	__be32	cpu_data_version;
+	__be32	cpu_data_size;
+	__be32	region_cnt;
+	struct	opal_mpipl_region region[];
 };
 
 #endif /* __ASSEMBLY__ */

@@ -1,22 +1,10 @@
-/* Copyright 2013-2014 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Flexible Service Processor (FSP) serial console handling code
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2018 IBM Corp.
  */
 
-/*
- * Service Processor serial console handling code
- */
 #include <skiboot.h>
 #include <processor.h>
 #include <io.h>
@@ -34,16 +22,16 @@ DEFINE_LOG_ENTRY(OPAL_RC_CONSOLE_HANG, OPAL_PLATFORM_ERR_EVT, OPAL_CONSOLE,
 		 OPAL_PREDICTIVE_ERR_GENERAL, OPAL_NA);
 
 struct fsp_serbuf_hdr {
-	u16	partition_id;
+	__be16	partition_id;
 	u8	session_id;
 	u8	hmc_id;
-	u16	data_offset;
-	u16	last_valid;
-	u16	ovf_count;
-	u16	next_in;
+	__be16	data_offset;
+	__be16	last_valid;
+	__be16	ovf_count;
+	__be16	next_in;
 	u8	flags;
 	u8	reserved;
-	u16	next_out;
+	__be16	next_out;
 	u8	data[];
 };
 #define SER_BUF_DATA_SIZE	(0x10000 - sizeof(struct fsp_serbuf_hdr))
@@ -170,13 +158,13 @@ static size_t fsp_write_vserial(struct fsp_serial *fs, const char *buf,
 				size_t len)
 {
 	struct fsp_serbuf_hdr *sb = fs->out_buf;
-	u16 old_nin = sb->next_in;
+	u16 old_nin = be16_to_cpu(sb->next_in);
 	u16 space, chunk;
 
 	if (!fs->open)
 		return 0;
 
-	space = (sb->next_out + SER_BUF_DATA_SIZE - old_nin - 1)
+	space = (be16_to_cpu(sb->next_out) + SER_BUF_DATA_SIZE - old_nin - 1)
 		% SER_BUF_DATA_SIZE;
 	if (space < len)
 		len = space;
@@ -190,10 +178,10 @@ static size_t fsp_write_vserial(struct fsp_serial *fs, const char *buf,
 	if (chunk < len)
 		memcpy(&sb->data[0], buf + chunk, len - chunk);
 	lwsync();
-	sb->next_in = (old_nin + len) % SER_BUF_DATA_SIZE;
+	sb->next_in = cpu_to_be16((old_nin + len) % SER_BUF_DATA_SIZE);
 	sync();
 
-	if (sb->next_out == old_nin && fs->poke_msg) {
+	if (be16_to_cpu(sb->next_out) == old_nin && fs->poke_msg) {
 		if (fs->poke_msg->state == fsp_msg_unused) {
 			if (fsp_queue_msg(fs->poke_msg, fsp_pokemsg_reclaim))
 				prerror("FSPCON: poke msg queuing failed\n");
@@ -241,8 +229,8 @@ static void fsp_open_vserial(struct fsp_msg *msg)
 {
 	struct fsp_msg *resp;
 
-	u16 part_id = msg->data.words[0] & 0xffff;
-	u16 sess_id = msg->data.words[1] & 0xffff;
+	u16 part_id = fsp_msg_get_data_word(msg, 0) & 0xffff;
+	u16 sess_id = fsp_msg_get_data_word(msg, 1) & 0xffff;
 	u8 hmc_sess = msg->data.bytes[0];	
 	u8 hmc_indx = msg->data.bytes[1];
 	u8 authority = msg->data.bytes[4];
@@ -297,8 +285,8 @@ static void fsp_open_vserial(struct fsp_msg *msg)
 	}
 
 	fs->poke_msg = fsp_mkmsg(FSP_CMD_VSERIAL_OUT, 2,
-				 msg->data.words[0],
-				 msg->data.words[1] & 0xffff);
+				 fsp_msg_get_data_word(msg, 0),
+				 fsp_msg_get_data_word(msg, 1) & 0xffff);
 	if (fs->poke_msg == NULL) {
 		prerror("FSPCON: Failed to allocate poke_msg\n");
 		unlock(&fsp_con_lock);
@@ -308,13 +296,13 @@ static void fsp_open_vserial(struct fsp_msg *msg)
 	fs->open = true;
 	fs->poke_msg->user_data = fs;
 
-	fs->in_buf->partition_id = fs->out_buf->partition_id = part_id;
+	fs->in_buf->partition_id = fs->out_buf->partition_id = cpu_to_be16(part_id);
 	fs->in_buf->session_id	 = fs->out_buf->session_id   = sess_id;
 	fs->in_buf->hmc_id       = fs->out_buf->hmc_id       = hmc_indx;
 	fs->in_buf->data_offset  = fs->out_buf->data_offset  =
-		sizeof(struct fsp_serbuf_hdr);
+		cpu_to_be16(sizeof(struct fsp_serbuf_hdr));
 	fs->in_buf->last_valid   = fs->out_buf->last_valid   =
-		SER_BUF_DATA_SIZE - 1;
+		cpu_to_be16(SER_BUF_DATA_SIZE - 1);
 	fs->in_buf->ovf_count    = fs->out_buf->ovf_count    = 0;
 	fs->in_buf->next_in      = fs->out_buf->next_in      = 0;
 	fs->in_buf->flags        = fs->out_buf->flags        = 0;
@@ -325,8 +313,8 @@ static void fsp_open_vserial(struct fsp_msg *msg)
 	unlock(&fsp_con_lock);
 
  already_open:
-	resp = fsp_mkmsg(FSP_RSP_OPEN_VSERIAL, 6, msg->data.words[0],
-			msg->data.words[1] & 0xffff, 0, tce_in, 0, tce_out);
+	resp = fsp_mkmsg(FSP_RSP_OPEN_VSERIAL, 6, fsp_msg_get_data_word(msg, 0),
+			fsp_msg_get_data_word(msg, 1) & 0xffff, 0, tce_in, 0, tce_out);
 	if (!resp) {
 		prerror("FSPCON: Failed to allocate open msg response\n");
 		return;
@@ -359,8 +347,8 @@ static void fsp_open_vserial(struct fsp_msg *msg)
 
 static void fsp_close_vserial(struct fsp_msg *msg)
 {
-	u16 part_id = msg->data.words[0] & 0xffff;
-	u16 sess_id = msg->data.words[1] & 0xffff;
+	u16 part_id = fsp_msg_get_data_word(msg, 0) & 0xffff;
+	u16 sess_id = fsp_msg_get_data_word(msg, 1) & 0xffff;
 	u8 hmc_sess = msg->data.bytes[0];	
 	u8 hmc_indx = msg->data.bytes[1];
 	u8 authority = msg->data.bytes[4];
@@ -411,8 +399,8 @@ static void fsp_close_vserial(struct fsp_msg *msg)
 	}
 	unlock(&fsp_con_lock);
  skip_close:
-	resp = fsp_mkmsg(FSP_RSP_CLOSE_VSERIAL, 2, msg->data.words[0],
-			msg->data.words[1] & 0xffff);
+	resp = fsp_mkmsg(FSP_RSP_CLOSE_VSERIAL, 2, fsp_msg_get_data_word(msg, 0),
+			fsp_msg_get_data_word(msg, 1) & 0xffff);
 	if (!resp) {
 		prerror("FSPCON: Failed to allocate close msg response\n");
 		return;
@@ -449,7 +437,7 @@ static bool fsp_con_msg_hmc(u32 cmd_sub_mod, struct fsp_msg *msg)
 		prlog(PR_DEBUG, "FSPCON: Got HMC interface query\n");
 		got_intf_query = true;
 		resp = fsp_mkmsg(FSP_RSP_HMC_INTF_QUERY, 1,
-				msg->data.words[0] & 0x00ffffff);
+				fsp_msg_get_data_word(msg, 0) & 0x00ffffff);
 		if (!resp) {
 			prerror("FSPCON: Failed to allocate hmc intf response\n");
 			return true;
@@ -465,7 +453,7 @@ static bool fsp_con_msg_hmc(u32 cmd_sub_mod, struct fsp_msg *msg)
 
 static bool fsp_con_msg_vt(u32 cmd_sub_mod, struct fsp_msg *msg)
 {
-	u16 sess_id = msg->data.words[1] & 0xffff;
+	u16 sess_id = fsp_msg_get_data_word(msg, 1) & 0xffff;
 
 	if (cmd_sub_mod == FSP_CMD_VSERIAL_IN && sess_id < MAX_SERIAL) {
 		struct fsp_serial *fs = &fsp_serials[sess_id];
@@ -591,7 +579,7 @@ void fsp_console_preinit(void)
 
 }
 
-static int64_t fsp_console_write(int64_t term_number, int64_t *length,
+static int64_t fsp_console_write(int64_t term_number, __be64 *__length,
 				 const uint8_t *buffer)
 {
 	struct fsp_serial *fs;
@@ -608,7 +596,7 @@ static int64_t fsp_console_write(int64_t term_number, int64_t *length,
 		return OPAL_CLOSED;
 	}
 	/* Clamp to a reasonable size */
-	requested = *length;
+	requested = be64_to_cpu(*__length);
 	if (requested > 0x1000)
 		requested = 0x1000;
 	written = fsp_write_vserial(fs, buffer, requested);
@@ -622,7 +610,8 @@ static int64_t fsp_console_write(int64_t term_number, int64_t *length,
 #ifdef OPAL_DEBUG_CONSOLE_IO
 	prlog(PR_TRACE, "OPAL: console write req=%ld written=%ld"
 	      " ni=%d no=%d\n",
-	      requested, written, fs->out_buf->next_in, fs->out_buf->next_out);
+	      requested, written, be16_to_cpu(fs->out_buf->next_in),
+	      be16_to_cpu(fs->out_buf->next_out));
 	prlog(PR_TRACE, "      %02x %02x %02x %02x "
 	      "%02x \'%c\' %02x \'%c\' %02x \'%c\'.%02x \'%c\'..\n",
 	      buffer[0], buffer[1], buffer[2], buffer[3],
@@ -630,7 +619,7 @@ static int64_t fsp_console_write(int64_t term_number, int64_t *length,
 	      buffer[6], buffer[6], buffer[7], buffer[7]);
 #endif /* OPAL_DEBUG_CONSOLE_IO */
 
-	*length = written;
+	*__length = cpu_to_be64(written);
 	unlock(&fsp_con_lock);
 
 	if (written)
@@ -640,11 +629,12 @@ static int64_t fsp_console_write(int64_t term_number, int64_t *length,
 }
 
 static int64_t fsp_console_write_buffer_space(int64_t term_number,
-					      int64_t *length)
+					      __be64 *__length)
 {
 	static bool elog_generated = false;
 	struct fsp_serial *fs;
 	struct fsp_serbuf_hdr *sb;
+	int64_t length;
 
 	if (term_number < 0 || term_number >= MAX_SERIAL)
 		return OPAL_PARAMETER;
@@ -657,15 +647,17 @@ static int64_t fsp_console_write_buffer_space(int64_t term_number,
 		return OPAL_CLOSED;
 	}
 	sb = fs->out_buf;
-	*length = (sb->next_out + SER_BUF_DATA_SIZE - sb->next_in - 1)
+	length = (be16_to_cpu(sb->next_out) + SER_BUF_DATA_SIZE
+			- be16_to_cpu(sb->next_in) - 1)
 		% SER_BUF_DATA_SIZE;
 	unlock(&fsp_con_lock);
 
 	/* Console buffer has enough space to write incoming data */
-	if (*length != fs->out_buf_prev_len) {
-		fs->out_buf_prev_len = *length;
+	if (length != fs->out_buf_prev_len) {
+		fs->out_buf_prev_len = length;
 		fs->out_buf_timeout = 0;
 
+		*__length = cpu_to_be64(length);
 		return OPAL_SUCCESS;
 	}
 
@@ -679,8 +671,10 @@ static int64_t fsp_console_write_buffer_space(int64_t term_number,
 			secs_to_tb(SER_BUFFER_OUT_TIMEOUT);
 	}
 
-	if (tb_compare(mftb(), fs->out_buf_timeout) != TB_AAFTERB)
+	if (tb_compare(mftb(), fs->out_buf_timeout) != TB_AAFTERB) {
+		*__length = cpu_to_be64(length);
 		return OPAL_SUCCESS;
+	}
 
 	/*
 	 * FSP is still active but not reading console data. Hence
@@ -698,13 +692,13 @@ static int64_t fsp_console_write_buffer_space(int64_t term_number,
 	return OPAL_RESOURCE;
 }
 
-static int64_t fsp_console_read(int64_t term_number, int64_t *length,
+static int64_t fsp_console_read(int64_t term_number, __be64 *__length,
 				uint8_t *buffer)
 {
 	struct fsp_serial *fs;
 	struct fsp_serbuf_hdr *sb;
 	bool pending = false;
-	uint32_t old_nin, n, i, chunk, req = *length;
+	uint32_t old_nin, n, i, chunk, req = be64_to_cpu(*__length);
 	int rc = OPAL_SUCCESS;
 
 	if (term_number < 0 || term_number >= MAX_SERIAL)
@@ -720,27 +714,27 @@ static int64_t fsp_console_read(int64_t term_number, int64_t *length,
 	if (fs->waiting)
 		fs->waiting = 0;
 	sb = fs->in_buf;
-	old_nin = sb->next_in;
+	old_nin = be16_to_cpu(sb->next_in);
 	lwsync();
-	n = (old_nin + SER_BUF_DATA_SIZE - sb->next_out)
+	n = (old_nin + SER_BUF_DATA_SIZE - be16_to_cpu(sb->next_out))
 		% SER_BUF_DATA_SIZE;
 	if (n > req) {
 		pending = true;
 		n = req;
 	}
-	*length = n;
+	*__length = cpu_to_be64(n);
 
-	chunk = SER_BUF_DATA_SIZE - sb->next_out;
+	chunk = SER_BUF_DATA_SIZE - be16_to_cpu(sb->next_out);
 	if (chunk > n)
 		chunk = n;
-	memcpy(buffer, &sb->data[sb->next_out], chunk);
+	memcpy(buffer, &sb->data[be16_to_cpu(sb->next_out)], chunk);
 	if (chunk < n)
 		memcpy(buffer + chunk, &sb->data[0], n - chunk);
-	sb->next_out = (sb->next_out + n) % SER_BUF_DATA_SIZE;
+	sb->next_out = cpu_to_be16(((be16_to_cpu(sb->next_out)) + n) % SER_BUF_DATA_SIZE);
 
 #ifdef OPAL_DEBUG_CONSOLE_IO
 	prlog(PR_TRACE, "OPAL: console read req=%d read=%d ni=%d no=%d\n",
-	      req, n, sb->next_in, sb->next_out);
+	      req, n, be16_to_cpu(sb->next_in), be16_to_cpu(sb->next_out));
 	prlog(PR_TRACE, "      %02x %02x %02x %02x %02x %02x %02x %02x ...\n",
 	       buffer[0], buffer[1], buffer[2], buffer[3],
 	       buffer[4], buffer[5], buffer[6], buffer[7]);
@@ -817,7 +811,8 @@ void fsp_console_poll(void *data __unused)
 				if (debug < 5) {
 					prlog(PR_DEBUG,"OPAL: %d still pending"
 					      " ni=%d no=%d\n",
-					      i, sb->next_in, sb->next_out);
+					      i, be16_to_cpu(sb->next_in),
+					      be16_to_cpu(sb->next_out));
 					debug++;
 				}
 #endif /* OPAL_DEBUG_CONSOLE_POLL */
@@ -926,8 +921,8 @@ static bool send_all_hvsi_close(void)
 
 		/* Do we have room ? Wait a bit if not */
 		while(timeout--) {
-			space = (sb->next_out + SER_BUF_DATA_SIZE -
-				 sb->next_in - 1) % SER_BUF_DATA_SIZE;
+			space = (be16_to_cpu(sb->next_out) + SER_BUF_DATA_SIZE -
+				 be16_to_cpu(sb->next_in) - 1) % SER_BUF_DATA_SIZE;
 			if (space >= 6)
 				break;
 			time_wait_ms(500);
@@ -1027,53 +1022,31 @@ void fsp_console_add_nodes(void)
 void fsp_console_select_stdout(void)
 {
 	bool use_serial = false;
+	int rc;
+	u8 param;
 
 	if (!fsp_present())
 		return;
 
-	/* On P8, we have a sysparam ! yay ! */
-	if (proc_gen >= proc_gen_p8) {
-		int rc;
-		u8 param;
-
-		rc = fsp_get_sys_param(SYS_PARAM_CONSOLE_SELECT,
-				       &param, 1, NULL, NULL);
-		if (rc != 1)
-			prerror("FSPCON: Failed to get console"
-				" sysparam rc %d\n", rc);
-		else {
-			switch(param) {
-			case 0:
-				use_serial = false;
-				break;
-			case 1:
-				use_serial = true;
-				break;
-			default:
-				prerror("FSPCON: Unknown console"
-					" sysparam %d\n", param);
-			}
-		}
+	rc = fsp_get_sys_param(SYS_PARAM_CONSOLE_SELECT,
+			       &param, 1, NULL, NULL);
+	if (rc != 1) {
+		prerror("FSPCON: Failed to get console"
+			" sysparam rc %d\n", rc);
 	} else {
-		struct dt_node *iplp;
-		u32 ipl_mode = 0;
-
-		/*
-		 * We hijack the "os-ipl-mode" setting in iplparams to select
-		 * out output console. This is the "i5/OS partition mode boot"
-		 * setting in ASMI converted to an integer: 0=A, 1=B.
-		 */
-		iplp = dt_find_by_path(dt_root, "ipl-params/ipl-params");
-		if (iplp) {
-			ipl_mode = dt_prop_get_u32_def(iplp, "os-ipl-mode", 0);
-			use_serial = ipl_mode > 0;
-
-			/*
-			 * Now, if ipl_mode is > 0, we use serial port A else
-			 * we use IPMI/SOL/DVS
-			 */
+		switch(param) {
+		case 0:
+			use_serial = false;
+			break;
+		case 1:
+			use_serial = true;
+			break;
+		default:
+			prerror("FSPCON: Unknown console"
+				" sysparam %d\n", param);
 		}
 	}
+
 	dt_check_del_prop(dt_chosen, "linux,stdout-path");
 
 	if (fsp_serials[1].open && use_serial) {

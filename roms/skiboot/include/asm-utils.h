@@ -1,18 +1,5 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
 
 #ifndef __ASM_UTILS_H
 #define __ASM_UTILS_H
@@ -41,17 +28,30 @@
 /* Load an address via the TOC */
 #define LOAD_ADDR_FROM_TOC(r, e)	ld r,e@got(%r2)
 
+/* This must preserve LR, may only clobber r11-r12, so can't use Linux kernel's
+ * FIXUP_ENDIAN */
+#define SWITCH_ENDIAN						   \
+	.long 0xa600607d; /* mfmsr r11				*/ \
+	.long 0x01006b69; /* xori r11,r11,1			*/ \
+	.long 0xa64b7b7d; /* mthsrr1 r11			*/ \
+	.long 0xa602687d; /* mflr r11				*/ \
+	.long 0x05009f42; /* bcl 20,31,$+4			*/ \
+	.long 0xa602887d; /* mflr r12				*/ \
+	.long 0x14008c39; /* addi r12,r12,20			*/ \
+	.long 0xa64b9a7d; /* mthsrr0 r12			*/ \
+	.long 0xa603687d; /* mtlr r11				*/ \
+	.long 0x2402004c  /* hrfid				*/
+
 #define FIXUP_ENDIAN						   \
 	tdi   0,0,0x48;	  /* Reverse endian of b . + 8		*/ \
 	b     191f;	  /* Skip trampoline if endian is good	*/ \
-	.long 0xa600607d; /* mfmsr r11				*/ \
-	.long 0x01006b69; /* xori r11,r11,1			*/ \
-	.long 0x05009f42; /* bcl 20,31,$+4			*/ \
-	.long 0xa602487d; /* mflr r10				*/ \
-	.long 0x14004a39; /* addi r10,r10,20			*/ \
-	.long 0xa64b5a7d; /* mthsrr0 r10			*/ \
-	.long 0xa64b7b7d; /* mthsrr1 r11			*/ \
-	.long 0x2402004c; /* hrfid				*/ \
+	SWITCH_ENDIAN;	  /* Do the switch			*/ \
 191:
+
+#if HAVE_BIG_ENDIAN
+#define OPAL_ENTRY_TO_SKIBOOT_ENDIAN
+#else
+#define OPAL_ENTRY_TO_SKIBOOT_ENDIAN SWITCH_ENDIAN
+#endif
 
 #endif /* __ASM_UTILS_H */

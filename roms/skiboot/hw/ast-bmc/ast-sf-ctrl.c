@@ -1,18 +1,6 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2018 IBM Corp. */
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -181,12 +169,13 @@ static void ast_sf_end_cmd(struct ast_sf_ctrl *ct)
 static int ast_sf_send_addr(struct ast_sf_ctrl *ct, uint32_t addr)
 {
 	const void *ap;
+	beint32_t tmp;
 
 	/* Layout address MSB first in memory */
-	addr = cpu_to_be32(addr);
+	tmp = cpu_to_be32(addr);
 
 	/* Send the right amount of bytes */
-	ap = (char *)&addr;
+	ap = (char *)&tmp;
 
 	if (ct->mode_4b)
 		return ast_copy_to_ahb(ct->flash, ap, 4);

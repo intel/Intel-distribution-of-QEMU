@@ -1,18 +1,5 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
 
 #ifndef __INTERRUPTS_H
 #define __INTERRUPTS_H
@@ -197,7 +184,6 @@ extern uint32_t get_ics_phandle(void);
 struct cpu_thread;
 
 extern void reset_cpu_icp(void);
-extern void reset_cpu_xive(void);
 extern void icp_send_eoi(uint32_t interrupt);
 extern void icp_prep_for_pm(void);
 extern void icp_kick_cpu(struct cpu_thread *cpu);

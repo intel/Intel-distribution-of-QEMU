@@ -1,21 +1,9 @@
-/* Copyright 2017-2019 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 /*
+ *
  * P9 OPAL - SBE communication driver
+ *
+ * SBE firmware at https://github.com/open-power/sbe
  *
  * P9 chip has Self Boot Engine (SBE). OPAL uses SBE for various purpose like
  * timer, scom, MPIPL, etc,. Every chip has SBE. OPAL can communicate to SBE
@@ -42,6 +30,8 @@
  * Constraints:
  *  - Only one command is accepted in the command buffer until the response for
  *    the command is enqueued in the response buffer by SBE.
+ *
+ * Copyright 2017-2019 IBM Corp.
  */
 
 #define pr_fmt(fmt) "SBE: " fmt
@@ -50,6 +40,7 @@
 #include <errorlog.h>
 #include <lock.h>
 #include <opal.h>
+#include <opal-dump.h>
 #include <sbe-p9.h>
 #include <skiboot.h>
 #include <timebase.h>
@@ -100,6 +91,14 @@ static struct lock sbe_timer_lock;
 #define SBE_TIMER_DEFAULT_US	500
 static uint64_t sbe_timer_def_tb;
 
+/*
+ * Rate limit continuous timer update.
+ * We can update inflight timer if new timer request is lesser than inflight
+ * one. Limit such updates so that SBE gets time to handle FIFO side requests.
+ */
+#define SBE_TIMER_UPDATE_MAX	2
+static uint32_t timer_update_cnt = 0;
+
 /* Timer control message */
 static struct p9_sbe_msg *timer_ctrl_msg;
 
@@ -132,7 +131,7 @@ static u64 p9_sbe_rreg(u32 chip_id, u64 reg)
 		return 0xffffffff;
 	}
 
-	return be64_to_cpu(data);
+	return data;
 }
 
 static void p9_sbe_reg_dump(u32 chip_id)
@@ -283,9 +282,9 @@ static int p9_sbe_msg_send(struct p9_sbe *sbe, struct p9_sbe_msg *msg)
 	if (rc != OPAL_SUCCESS)
 		return rc;
 
-	prlog(PR_TRACE, "Message queued [chip id = 0x%x]:\n\t Reg0 : %016llx"
-	      "\n\t Reg1 : %016llx\n\t Reg2 : %016llx\n\t Reg3 : %016llx\n",
-	      sbe->chip_id, msg->reg[0], msg->reg[1], msg->reg[2], msg->reg[3]);
+	prlog(PR_TRACE, "Message queued [chip id = 0x%x]:\n", sbe->chip_id);
+	for (i = 0; i < 4; i++)
+		prlog(PR_TRACE, "    Reg%d : %016llx\n", i, msg->reg[i]);
 
 	msg->timeout = mftb() + msecs_to_tb(SBE_CMD_TIMEOUT_MAX);
 	sbe->state = sbe_mbox_send;
@@ -539,6 +538,15 @@ static void p9_sbe_timer_response(struct p9_sbe *sbe)
 	sbe_timer_in_progress = false;
 	/* Drop lock and call timers */
 	unlock(&sbe->lock);
+
+	lock(&sbe_timer_lock);
+	/*
+	 * Once we get timer expiry interrupt (even if its suprious interrupt)
+	 * we can schedule next timer request.
+	 */
+	timer_update_cnt = 0;
+	unlock(&sbe_timer_lock);
+
 	check_timers(true);
 	lock(&sbe->lock);
 }
@@ -777,8 +785,10 @@ static void p9_sbe_timer_resp(struct p9_sbe_msg *msg)
 
 	lock(&sbe_timer_lock);
 	if (has_new_target) {
-		has_new_target = false;
-		p9_sbe_timer_schedule();
+		if (!p9_sbe_msg_busy(timer_ctrl_msg)) {
+			has_new_target = false;
+			p9_sbe_timer_schedule();
+		}
 	}
 	unlock(&sbe_timer_lock);
 }
@@ -790,6 +800,9 @@ static void p9_sbe_timer_schedule(void)
 	u64 tb_cnt, now = mftb();
 
 	if (sbe_timer_in_progress) {
+		if (sbe_timer_target >= sbe_last_gen_stamp)
+			return;
+
 		if (now >= sbe_last_gen_stamp)
 			return;
 
@@ -797,6 +810,11 @@ static void p9_sbe_timer_schedule(void)
 		if ((sbe_last_gen_stamp - now) <= sbe_timer_def_tb)
 			return;
 	}
+
+	/* Stop sending timer update chipop until inflight timer expires */
+	if (timer_update_cnt > SBE_TIMER_UPDATE_MAX)
+		return;
+	timer_update_cnt++;
 
 	if (now < sbe_timer_target) {
 		/* Calculate how many microseconds from now, rounded up */
@@ -861,6 +879,54 @@ bool p9_sbe_timer_ok(void)
 	return sbe_has_timer;
 }
 
+static void p9_sbe_stash_chipop_resp(struct p9_sbe_msg *msg)
+{
+	int rc = p9_sbe_get_primary_rc(msg->resp);
+	struct p9_sbe *sbe = (void *)msg->user_data;
+
+	if (rc == SBE_STATUS_PRI_SUCCESS) {
+		prlog(PR_DEBUG, "Sent stash MPIPL config [chip id =0x%x]\n",
+		      sbe->chip_id);
+	} else {
+		prlog(PR_ERR, "Failed to send stash MPIPL config "
+		      "[chip id = 0x%x, rc = %d]\n", sbe->chip_id, rc);
+	}
+
+	p9_sbe_freemsg(msg);
+}
+
+static void p9_sbe_send_relocated_base_single(struct p9_sbe *sbe, u64 reloc_base)
+{
+	u8 key = SBE_STASH_KEY_SKIBOOT_BASE;
+	u16 cmd = SBE_CMD_STASH_MPIPL_CONFIG;
+	u16 flag = SBE_CMD_CTRL_RESP_REQ;
+	struct p9_sbe_msg *msg;
+
+	msg = p9_sbe_mkmsg(cmd, flag, key, reloc_base, 0);
+	if (!msg) {
+		prlog(PR_ERR, "Message allocation failed\n");
+		return;
+	}
+
+	msg->user_data = (void *)sbe;
+	if (p9_sbe_queue_msg(sbe->chip_id, msg, p9_sbe_stash_chipop_resp)) {
+		prlog(PR_ERR, "Failed to queue stash MPIPL config message\n");
+	}
+}
+
+/* Send relocated skiboot base address to all SBE */
+void p9_sbe_send_relocated_base(uint64_t reloc_base)
+{
+	struct proc_chip *chip;
+
+	for_each_chip(chip) {
+		if (chip->sbe == NULL)
+			continue;
+
+		p9_sbe_send_relocated_base_single(chip->sbe, reloc_base);
+	}
+}
+
 void p9_sbe_init(void)
 {
 	struct dt_node *xn;
@@ -899,4 +965,76 @@ void p9_sbe_init(void)
 
 	/* Initiate SBE timeout poller */
 	opal_add_poller(p9_sbe_timeout_poll, NULL);
+}
+
+/* Terminate and initiate MPIPL */
+void p9_sbe_terminate(void)
+{
+	uint32_t primary_chip = -1;
+	int rc;
+	u64 wait_tb;
+	struct proc_chip *chip;
+
+	/* Return if MPIPL is not supported */
+	if (!is_mpipl_enabled())
+		return;
+
+	/* Save crashing CPU details */
+	opal_mpipl_save_crashing_pir();
+
+	/* Unregister flash. It will request BMC MBOX reset */
+	if (!flash_unregister()) {
+		prlog(PR_DEBUG, "Failed to reset BMC MBOX\n");
+		return;
+	}
+
+	/*
+	 * Send S0 interrupt to all SBE. Sequence:
+	 *   - S0 interrupt on secondary chip SBE
+	 *   - S0 interrupt on Primary chip SBE
+	 */
+	for_each_chip(chip) {
+		if (dt_has_node_property(chip->devnode, "primary", NULL)) {
+			primary_chip = chip->id;
+			continue;
+		}
+
+		rc = xscom_write(chip->id,
+				 SBE_CONTROL_REG_RW, SBE_CONTROL_REG_S0);
+		/* Initiate normal reboot */
+		if (rc) {
+			prlog(PR_ERR, "Failed to write S0 interrupt [chip id = %x]\n",
+			      chip->id);
+			return;
+		}
+	}
+
+	/* Initiate normal reboot */
+	if (primary_chip == -1) {
+		prlog(PR_ERR, "Primary chip ID not found.\n");
+		return;
+	}
+
+	rc = xscom_write(primary_chip,
+			 SBE_CONTROL_REG_RW, SBE_CONTROL_REG_S0);
+	if (rc) {
+		prlog(PR_ERR, "Failed to write S0 interrupt [chip id = %x]\n",
+		      primary_chip);
+		return;
+	}
+
+	/* XXX We expect SBE to act on interrupt, quiesce the system and start
+	 *     MPIPL flow. Currently we do not have a way to detect SBE state.
+	 *     Hence wait for max time SBE takes to respond and then trigger
+	 *     normal reboot.
+	 */
+	prlog(PR_NOTICE, "Initiated MPIPL, waiting for SBE to respond...\n");
+	wait_tb = mftb() + msecs_to_tb(SBE_CMD_TIMEOUT_MAX);
+	while (mftb() < wait_tb) {
+		cpu_relax();
+	}
+
+	prlog(PR_ERR, "SBE did not respond within timeout period (%d secs).\n",
+	      SBE_CMD_TIMEOUT_MAX / 1000);
+	prlog(PR_ERR, "Falling back to normal reboot\n");
 }

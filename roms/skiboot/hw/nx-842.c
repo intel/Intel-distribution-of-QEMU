@@ -1,17 +1,8 @@
-/* Copyright 2015 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * NX unit 842 compression accellerator
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2015-2019 IBM Corp.
  */
 
 #include <skiboot.h>
@@ -127,13 +118,10 @@ static int nx_cfg_842_dma(u32 gcid, u64 xcfg)
                 return rc;
 	}
 
-	if (proc_gen >= proc_gen_p8) {
-		cfg = SETFIELD(NX_DMA_CFG_842_COMPRESS_PREFETCH, cfg,
-			       DMA_COMPRESS_PREFETCH);
-		cfg = SETFIELD(NX_DMA_CFG_842_DECOMPRESS_PREFETCH, cfg,
-			       DMA_DECOMPRESS_PREFETCH);
-	}
-
+	cfg = SETFIELD(NX_DMA_CFG_842_COMPRESS_PREFETCH, cfg,
+		       DMA_COMPRESS_PREFETCH);
+	cfg = SETFIELD(NX_DMA_CFG_842_DECOMPRESS_PREFETCH, cfg,
+		       DMA_DECOMPRESS_PREFETCH);
 	cfg = SETFIELD(NX_DMA_CFG_842_COMPRESS_MAX_RR, cfg,
 		       DMA_COMPRESS_MAX_RR);
 	cfg = SETFIELD(NX_DMA_CFG_842_DECOMPRESS_MAX_RR, cfg,

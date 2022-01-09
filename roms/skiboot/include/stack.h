@@ -1,18 +1,5 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
 
 #ifndef __STACKFRAME_H
 #define __STACKFRAME_H
@@ -23,6 +10,12 @@
 #define STACK_ENTRY_HMI		0x0e60	/* Hypervisor maintenance */
 #define STACK_ENTRY_RESET	0x0100	/* System reset */
 #define STACK_ENTRY_SOFTPATCH	0x1500	/* Soft patch (denorm emulation) */
+
+#if HAVE_BIG_ENDIAN
+#define STACK_TOC_OFFSET	40
+#else
+#define STACK_TOC_OFFSET	24
+#endif
 
 /* Safety/ABI gap at top of stack */
 #define STACK_TOP_GAP		0x100
@@ -52,6 +45,7 @@
 #define STACK_WARNING_GAP	2048
 
 #define STACK_CHECK_GUARD_BASE	0xdeadf00dbaad300
+#define STACK_INT_MAGIC		0xb1ab1af00ba1234ULL
 
 #ifndef __ASSEMBLY__
 
@@ -78,6 +72,9 @@ struct stack_frame {
 	/* Space for stack-local vars used by asm. At present we only use
 	 * one doubleword. */
 	uint64_t	locals[1];
+
+	/* Interrupt entry magic value */
+	uint64_t	magic;
 
 	/* Entry type */
 	uint64_t	type;
@@ -111,6 +108,8 @@ struct stack_frame {
 struct bt_entry {
 	unsigned long	sp;
 	unsigned long	pc;
+	unsigned long	exception_type;
+	unsigned long	exception_pc;
 };
 
 /* Backtrace metadata */
@@ -135,6 +134,9 @@ extern void backtrace_print(struct bt_entry *entries,
 
 /* For use by debug code, create and print backtrace, uses a static buffer */
 extern void backtrace(void);
+
+/* For use by exception debug code, supply an r1 */
+extern void backtrace_r1(uint64_t r1);
 
 #ifdef STACK_CHECK_ENABLED
 extern void check_stacks(void);

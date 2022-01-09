@@ -184,6 +184,25 @@ static inline void list_add_before(struct list_head *h, struct list_node *n,
 }
 
 /**
+ * list_add_after - add an entry after another entry.
+ * @h: the list_head to add the node to (we use it for debug purposes, can be NULL)
+ * @n: the list_node to add to the list.
+ * @p: the list_node of the other entry
+ *
+ * The list_node does not need to be initialized; it will be overwritten.
+ */
+static inline void list_add_after(struct list_head *h, struct list_node *n,
+				  struct list_node *p)
+{
+	n->next = p->next;
+	n->prev = p;
+	p->next = n;
+	n->next->prev = n;
+	if (h)
+		(void)list_debug(h);
+}
+
+/**
  * list_add_tail - add an entry at the end of a linked list.
  * @h: the list_head to add the node to
  * @n: the list_node to add to the list.
@@ -522,5 +541,43 @@ static inline struct list_node *list_node_from_off_(void *ptr, size_t off)
 #define list_off_var_(var, member)			\
 	(container_off_var(var, member) +		\
 	 check_type(var->member, struct list_node))
+
+
+#if HAVE_TYPEOF
+#define list_typeof(var) typeof(var)
+#else
+#define list_typeof(var) void *
+#endif
+
+
+/* Returns member, or NULL if at end of list. */
+static inline void *list_entry_or_null(const struct list_head *h,
+                                      const struct list_node *n,
+                                      size_t off)
+{
+       if (n == &h->n)
+               return NULL;
+       return (char *)n - off;
+}
+
+/**
+ * list_next - get the next entry in a list
+ * @h: the list_head
+ * @i: a pointer to an entry in the list.
+ * @member: the list_node member of the structure
+ *
+ * If @i was the last entry in the list, returns NULL.
+ *
+ * Example:
+ *     struct child *second;
+ *     second = list_next(&parent->children, first, list);
+ *     if (!second)
+ *             printf("No second child!\n");
+ */
+#define list_next(h, i, member)                                                \
+       ((list_typeof(i))list_entry_or_null(list_debug(h),              \
+                                           (i)->member.next,           \
+                                           list_off_var_((i), member)))
+
 
 #endif /* CCAN_LIST_H */

@@ -1,24 +1,5 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 /*
- */
-
-
-/*
- * Design note:
  * This code will enable the 'powernv' to retrieve sensor related data from FSP
  * using SPCN passthru mailbox commands.
  *
@@ -27,6 +8,8 @@
  * expected as an argument for OPAL read call which has already been exported
  * to the device tree during fsp init. The sapphire code decodes this Id to
  * determine requested attribute and sensor.
+ *
+ * Copyright 2013-2017 IBM Corp.
  */
 
 #include <skiboot.h>
@@ -87,7 +70,7 @@ enum spcn_attr {
 /* Parsed sensor attributes, passed through OPAL */
 struct opal_sensor_data {
 	uint64_t	async_token;	/* Asynchronous token */
-	uint64_t	*sensor_data;	/* Kernel pointer to copy data */
+	__be64		*sensor_data;	/* Kernel pointer to copy data */
 	enum spcn_attr	spcn_attr;	/* Modifier attribute */
 	uint16_t	rid;		/* Sensor RID */
 	uint8_t		frc;		/* Sensor resource class */
@@ -208,7 +191,7 @@ static uint32_t sensor_power_process_data(uint16_t rid,
 		prlog(PR_TRACE, "Power[%d]: %d mW\n", i,
 		      power->supplies[i].milliwatts);
 		if (rid == normalize_power_rid(power->supplies[i].rid))
-			return power->supplies[i].milliwatts / 1000;
+			return be32_to_cpu(power->supplies[i].milliwatts) / 1000;
 	}
 
 	return 0;
@@ -223,7 +206,7 @@ static void fsp_sensor_process_data(struct opal_sensor_data *attr)
 {
 	uint8_t *sensor_buf_ptr = (uint8_t *)sensor_buffer;
 	uint32_t sensor_data = INVALID_DATA;
-	uint16_t sensor_mod_data[8];
+	__be16 sensor_mod_data[8];
 	int count;
 
 	for (count = 0; count < spcn_mod_data[attr->mod_index].entry_count;
@@ -237,18 +220,18 @@ static void fsp_sensor_process_data(struct opal_sensor_data *attr)
 			sensor_data = sensor_power_process_data(attr->rid,
 					(struct sensor_power *) sensor_buf_ptr);
 			break;
-		} else if (sensor_mod_data[0] == attr->frc &&
-				sensor_mod_data[1] == attr->rid) {
+		} else if (be16_to_cpu(sensor_mod_data[0]) == attr->frc &&
+				be16_to_cpu(sensor_mod_data[1]) == attr->rid) {
 			switch (attr->spcn_attr) {
 			case SENSOR_STATUS:
 				sensor_data =
-					convert_status_to_fault(sensor_mod_data[3]);
+					convert_status_to_fault(be16_to_cpu(sensor_mod_data[3]));
 				break;
 			case SENSOR_THRS:
-				sensor_data = sensor_mod_data[6];
+				sensor_data = be16_to_cpu(sensor_mod_data[6]);
 				break;
 			case SENSOR_DATA:
-				sensor_data = sensor_mod_data[2];
+				sensor_data = be16_to_cpu(sensor_mod_data[2]);
 				break;
 			default:
 				break;
@@ -260,7 +243,7 @@ static void fsp_sensor_process_data(struct opal_sensor_data *attr)
 		sensor_buf_ptr += spcn_mod_data[attr->mod_index].entry_size;
 	}
 
-	*(attr->sensor_data) = sensor_data;
+	*attr->sensor_data = cpu_to_be64(sensor_data);
 	if (sensor_data == INVALID_DATA)
 		queue_msg_for_delivery(OPAL_PARTIAL, attr);
 	else
@@ -276,7 +259,7 @@ static int fsp_sensor_process_read(struct fsp_msg *resp_msg)
 	switch (mbx_rsp_status) {
 	case SP_RSP_STATUS_VALID_DATA:
 		sensor_state = SENSOR_VALID_DATA;
-		size = resp_msg->data.words[1] & 0xffff;
+		size = fsp_msg_get_data_word(resp_msg, 1) & 0xffff;
 		break;
 	case SP_RSP_STATUS_INVALID_DATA:
 		log_simple_error(&e_info(OPAL_RC_SENSOR_READ),
@@ -310,7 +293,8 @@ static void queue_msg_for_delivery(int rc, struct opal_sensor_data *attr)
 	      __func__, rc, *(attr->sensor_data));
 	check_sensor_read(attr->async_token);
 	opal_queue_msg(OPAL_MSG_ASYNC_COMP, NULL, NULL,
-			attr->async_token, rc);
+			cpu_to_be64(attr->async_token),
+			cpu_to_be64(rc));
 	spcn_mod_data[attr->mod_index].entry_count = 0;
 	free(attr);
 	prev_msg_consumed = true;
@@ -324,7 +308,7 @@ static void fsp_sensor_read_complete(struct fsp_msg *msg)
 
 	prlog(PR_INSANE, "%s()\n", __func__);
 
-	status = (msg->resp->data.words[1] >> 24) & 0xff;
+	status = (fsp_msg_get_data_word(msg->resp, 1) >> 24) & 0xff;
 	size = fsp_sensor_process_read(msg->resp);
 	fsp_freemsg(msg);
 
@@ -362,7 +346,7 @@ static void fsp_sensor_read_complete(struct fsp_msg *msg)
 	unlock(&sensor_lock);
 	return;
 err:
-	*(attr->sensor_data) = INVALID_DATA;
+	*attr->sensor_data = cpu_to_be64(INVALID_DATA);
 	queue_msg_for_delivery(rc, attr);
 	unlock(&sensor_lock);
 	log_simple_error(&e_info(OPAL_RC_SENSOR_ASYNC_COMPLETE),
@@ -513,7 +497,7 @@ static int64_t parse_sensor_id(uint32_t handler, struct opal_sensor_data *attr)
 
 
 int64_t fsp_opal_read_sensor(uint32_t sensor_hndl, int token,
-		uint64_t *sensor_data)
+				__be64 *sensor_data)
 {
 	struct opal_sensor_data *attr;
 	int64_t rc;
@@ -592,8 +576,7 @@ static struct dt_node *sensor_get_node(struct dt_node *sensors,
 	 * Just use the resource class name and resource id. This
 	 * should be obvious enough for a node name.
 	 */
-	snprintf(name, sizeof(name), "%s#%d-%s", frc_names[header->frc],
-		 header->rid, attrname);
+	snprintf(name, sizeof(name), "%s#%d-%s", frc_names[be16_to_cpu(header->frc)], be16_to_cpu(header->rid), attrname);
 
 	/*
 	 * The same resources are reported by the different PRS
@@ -608,7 +591,7 @@ static struct dt_node *sensor_get_node(struct dt_node *sensors,
 		node = dt_new(sensors, name);
 
 		snprintf(name, sizeof(name), "ibm,opal-sensor-%s",
-			 frc_names[header->frc]);
+			 frc_names[be16_to_cpu(header->frc)]);
 		dt_add_property_string(node, "compatible", name);
 	} else {
 		/**
@@ -624,7 +607,7 @@ static struct dt_node *sensor_get_node(struct dt_node *sensors,
 }
 
 #define sensor_handler(header, attr_num) \
-	sensor_make_handler(SENSOR_FSP, (header).frc, (header).rid, attr_num)
+	sensor_make_handler(SENSOR_FSP, be16_to_cpu((header).frc), be16_to_cpu((header).rid), attr_num)
 
 static int add_sensor_prs(struct dt_node *sensors, struct sensor_prs *prs)
 {
@@ -671,7 +654,7 @@ static int add_sensor_data(struct dt_node *sensors,
 	 * Some resource, like fans, get their status attribute from
 	 * three different commands ...
 	 */
-	if (data->header.frc == SENSOR_FRC_AMB_TEMP) {
+	if (be16_to_cpu(data->header.frc) == SENSOR_FRC_AMB_TEMP) {
 		node = sensor_get_node(sensors, &data->header, "faulted");
 		if (!node)
 			return -1;
@@ -693,15 +676,15 @@ static int add_sensor_power(struct dt_node *sensors, struct sensor_power *power)
 
 	for (i = 0; i < sensor_power_count(power); i++) {
 		struct sensor_header header = {
-			SENSOR_FRC_POWER_SUPPLY,
-			normalize_power_rid(power->supplies[i].rid)
+			cpu_to_be16(SENSOR_FRC_POWER_SUPPLY),
+			cpu_to_be16(normalize_power_rid(power->supplies[i].rid))
 		};
 
 		node = sensor_get_node(sensors, &header, "data");
 
 		prlog(PR_TRACE, "SENSOR: Power[%d] : %d mW\n",
 		      power->supplies[i].rid,
-		      power->supplies[i].milliwatts);
+		      be32_to_cpu(power->supplies[i].milliwatts));
 
 		dt_add_property_cells(node, "sensor-id",
 				      sensor_handler(header, SENSOR_DATA));
@@ -731,7 +714,7 @@ static void add_sensor_ids(struct dt_node *sensors)
 			struct sensor_header *header =
 				(struct sensor_header *) sensor_buf_ptr;
 
-			if (!sensor_frc_is_valid(header->frc))
+			if (!sensor_frc_is_valid(be16_to_cpu(header->frc)))
 				goto out_sensor;
 
 			switch (smod->mod) {
@@ -837,7 +820,7 @@ void fsp_init_sensor(void)
 
 		rc = fsp_sync_msg(&msg, false);
 		if (rc >= 0) {
-			status = (resp.data.words[1] >> 24) & 0xff;
+			status = (fsp_msg_get_data_word(&resp, 1) >> 24) & 0xff;
 			size = fsp_sensor_process_read(&resp);
 			psi_dma_offset += size;
 			spcn_mod_data[index].entry_count += (size /

@@ -152,7 +152,7 @@ static struct pdc_iodc iodc_data_hpa_ffd00000 = {
 	/* pad: 0x0000, 0x0000 */
 };
 #define HPA_ffd00000_num_addr 2
-#define HPA_ffd00000_add_addr 0xffd0c000, 0xffc00000, 
+#define HPA_ffd00000_add_addr 0xffd0c000, 0xffc00000,
 
 #define HPA_ffd05000_DESCRIPTION "Merlin 160 Core RS-232"
 static struct pdc_system_map_mod_info mod_info_hpa_ffd05000 = {
@@ -264,7 +264,7 @@ static struct pdc_iodc iodc_data_hpa_ffd02000 = {
 	/* pad: 0x0000, 0x0000 */
 };
 #define HPA_ffd02000_num_addr 2
-#define HPA_ffd02000_add_addr 0xffd01000, 0xffd03000, 
+#define HPA_ffd02000_add_addr 0xffd01000, 0xffd03000,
 
 #define HPA_ffd04000_DESCRIPTION "Merlin 160 Core Audio"
 static struct pdc_system_map_mod_info mod_info_hpa_ffd04000 = {

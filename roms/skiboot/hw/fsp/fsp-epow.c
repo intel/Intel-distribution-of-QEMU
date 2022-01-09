@@ -1,20 +1,9 @@
-/* Copyright 2013-2014 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * FSP Environmental and Power Warnings (EPOW) support
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2016 IBM Corp.
  */
-
-/* FSP Environmental and Power Warnings (EPOW) support */
 
 #define pr_fmt(fmt) "FSP-EPOW: " fmt
 
@@ -131,11 +120,11 @@ static void fsp_process_epow(struct fsp_msg *msg, int epow_type)
  * and then updates the length variable back to reflect the
  * number of EPOW sub classes it has updated the buffer with.
  */
-static int64_t fsp_opal_get_epow_status(int16_t *out_epow,
-						int16_t *length)
+static int64_t fsp_opal_get_epow_status(__be16 *out_epow, __be16 *length)
 {
 	int i;
 	int n_epow_class;
+	int l = be16_to_cpu(*length);
 
 	/*
 	 * There can be situations where the host and the Sapphire versions
@@ -155,16 +144,16 @@ static int64_t fsp_opal_get_epow_status(int16_t *out_epow,
 	 * Sapphire sends out EPOW status for sub classes host knows about
 	 * and can interpret correctly.
 	 */
-	if (*length >= OPAL_SYSEPOW_MAX) {
+	if (l >= OPAL_SYSEPOW_MAX) {
 		n_epow_class = OPAL_SYSEPOW_MAX;
-		*length = OPAL_SYSEPOW_MAX;
+		*length = cpu_to_be16(OPAL_SYSEPOW_MAX);
 	} else {
-		n_epow_class = *length;
+		n_epow_class = l;
 	}
 
 	/* Transfer EPOW Status */
 	for (i = 0; i < n_epow_class; i++)
-		out_epow[i] = epow_status[i];
+		out_epow[i] = cpu_to_be16(epow_status[i]);
 
 	return OPAL_SUCCESS;
 }

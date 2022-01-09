@@ -1,19 +1,12 @@
-/* Copyright 2013-2018 IBM Corp.
- * Copyright 2018 Raptor Engineering, LLC
+// SPDX-License-Identifier: Apache-2.0
+/*
+ * Init, manage, read, write, and load resources from flash
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
+ * Copyright 2018-2019 Raptor Engineering, LLC
  */
+
+#define pr_fmt(fmt)    "FLASH: " fmt
 
 #include <skiboot.h>
 #include <cpu.h>
@@ -24,6 +17,7 @@
 #include <device.h>
 #include <libflash/libflash.h>
 #include <libflash/libffs.h>
+#include <libflash/ipmi-hiomap.h>
 #include <libflash/blocklevel.h>
 #include <libflash/ecc.h>
 #include <libstb/secureboot.h>
@@ -65,6 +59,10 @@ static struct lock flash_lock;
 static struct flash *nvram_flash;
 static u32 nvram_offset, nvram_size;
 
+/* secboot-on-flash support */
+static struct flash *secboot_flash;
+static u32 secboot_offset, secboot_size;
+
 bool flash_reserve(void)
 {
 	bool rc = false;
@@ -86,6 +84,102 @@ void flash_release(void)
 	lock(&flash_lock);
 	system_flash->busy = false;
 	unlock(&flash_lock);
+}
+
+bool flash_unregister(void)
+{
+	struct blocklevel_device *bl = system_flash->bl;
+
+	if (bl->exit)
+		return bl->exit(bl);
+
+	prlog(PR_NOTICE, "Unregister flash device is not supported\n");
+	return true;
+}
+
+int flash_secboot_info(uint32_t *total_size)
+{
+	int rc;
+
+	lock(&flash_lock);
+	if (!secboot_flash) {
+		rc = OPAL_HARDWARE;
+	} else if (secboot_flash->busy) {
+		rc = OPAL_BUSY;
+	} else {
+		*total_size = secboot_size;
+		rc = OPAL_SUCCESS;
+	}
+	unlock(&flash_lock);
+
+	return rc;
+}
+
+int flash_secboot_read(void *dst, uint32_t src, uint32_t len)
+{
+	int rc;
+
+	if (!try_lock(&flash_lock))
+		return OPAL_BUSY;
+
+	if (!secboot_flash) {
+		rc = OPAL_HARDWARE;
+		goto out;
+	}
+
+	if (secboot_flash->busy) {
+		rc = OPAL_BUSY;
+		goto out;
+	}
+
+	if ((src + len) > secboot_size) {
+		prerror("FLASH_SECBOOT: read out of bound (0x%x,0x%x)\n",
+			src, len);
+		rc = OPAL_PARAMETER;
+		goto out;
+	}
+
+	secboot_flash->busy = true;
+	unlock(&flash_lock);
+
+	rc = blocklevel_read(secboot_flash->bl, secboot_offset + src, dst, len);
+
+	lock(&flash_lock);
+	secboot_flash->busy = false;
+out:
+	unlock(&flash_lock);
+	return rc;
+}
+
+int flash_secboot_write(uint32_t dst, void *src, uint32_t len)
+{
+	int rc;
+
+	if (!try_lock(&flash_lock))
+		return OPAL_BUSY;
+
+	if (secboot_flash->busy) {
+		rc = OPAL_BUSY;
+		goto out;
+	}
+
+	if ((dst + len) > secboot_size) {
+		prerror("FLASH_SECBOOT: write out of bound (0x%x,0x%x)\n",
+			dst, len);
+		rc = OPAL_PARAMETER;
+		goto out;
+	}
+
+	secboot_flash->busy = true;
+	unlock(&flash_lock);
+
+	rc = blocklevel_write(secboot_flash->bl, secboot_offset + dst, src, len);
+
+	lock(&flash_lock);
+	secboot_flash->busy = false;
+out:
+	unlock(&flash_lock);
+	return rc;
 }
 
 static int flash_nvram_info(uint32_t *total_size)
@@ -124,7 +218,7 @@ static int flash_nvram_start_read(void *dst, uint32_t src, uint32_t len)
 	}
 
 	if ((src + len) > nvram_size) {
-		prerror("FLASH_NVRAM: read out of bound (0x%x,0x%x)\n",
+		prerror("NVRAM: read out of bound (0x%x,0x%x)\n",
 			src, len);
 		rc = OPAL_PARAMETER;
 		goto out;
@@ -159,7 +253,7 @@ static int flash_nvram_write(uint32_t dst, void *src, uint32_t len)
 	/* TODO: When we have async jobs for PRD, turn this into one */
 
 	if ((dst + len) > nvram_size) {
-		prerror("FLASH_NVRAM: write out of bound (0x%x,0x%x)\n",
+		prerror("NVRAM: write out of bound (0x%x,0x%x)\n",
 			dst, len);
 		rc = OPAL_PARAMETER;
 		goto out;
@@ -177,17 +271,53 @@ out:
 	return rc;
 }
 
+
+static int flash_secboot_probe(struct flash *flash, struct ffs_handle *ffs)
+{
+	uint32_t start, size, part;
+	bool ecc;
+	int rc;
+
+	prlog(PR_DEBUG, "FLASH: probing for SECBOOT\n");
+
+	rc = ffs_lookup_part(ffs, "SECBOOT", &part);
+	if (rc) {
+		prlog(PR_WARNING, "FLASH: no SECBOOT partition found\n");
+		return OPAL_HARDWARE;
+	}
+
+	rc = ffs_part_info(ffs, part, NULL,
+			   &start, &size, NULL, &ecc);
+	if (rc) {
+		/**
+		 * @fwts-label SECBOOTNoPartition
+		 * @fwts-advice OPAL could not find an SECBOOT partition
+		 *     on the system flash. Check that the system flash
+		 *     has a valid partition table, and that the firmware
+		 *     build process has added a SECBOOT partition.
+		 */
+		prlog(PR_ERR, "FLASH: Can't parse ffs info for SECBOOT\n");
+		return OPAL_HARDWARE;
+	}
+
+	secboot_flash = flash;
+	secboot_offset = start;
+	secboot_size = ecc ? ecc_buffer_size_minus_ecc(size) : size;
+
+	return 0;
+}
+
 static int flash_nvram_probe(struct flash *flash, struct ffs_handle *ffs)
 {
 	uint32_t start, size, part;
 	bool ecc;
 	int rc;
 
-	prlog(PR_INFO, "FLASH: probing for NVRAM\n");
+	prlog(PR_INFO, "probing for NVRAM\n");
 
 	rc = ffs_lookup_part(ffs, "NVRAM", &part);
 	if (rc) {
-		prlog(PR_WARNING, "FLASH: no NVRAM partition found\n");
+		prlog(PR_WARNING, "no NVRAM partition found\n");
 		return OPAL_HARDWARE;
 	}
 
@@ -201,7 +331,7 @@ static int flash_nvram_probe(struct flash *flash, struct ffs_handle *ffs)
 		 *     has a valid partition table, and that the firmware
 		 *     build process has added a NVRAM partition.
 		 */
-		prlog(PR_ERR, "FLASH: Can't parse ffs info for NVRAM\n");
+		prlog(PR_ERR, "Can't parse ffs info for NVRAM\n");
 		return OPAL_HARDWARE;
 	}
 
@@ -257,7 +387,7 @@ static struct dt_node *flash_add_dt_node(struct flash *flash, int id)
 
 		rc = ffs_init(0, flash->size, flash->bl, &ffs, 1);
 		if (rc) {
-			prerror("FLASH: Can't open ffs handle\n");
+			prerror("Can't open ffs handle\n");
 			continue;
 		}
 
@@ -266,13 +396,13 @@ static struct dt_node *flash_add_dt_node(struct flash *flash, int id)
 			/* This is not an error per-se, some partitions
 			 * are purposefully absent, don't spam the logs
 			 */
-		        prlog(PR_DEBUG, "FLASH: No %s partition\n", name);
+		        prlog(PR_DEBUG, "No %s partition\n", name);
 			continue;
 		}
 		rc = ffs_part_info(ffs, ffs_part_num, NULL,
 				   &ffs_part_start, NULL, &ffs_part_size, &ecc);
 		if (rc) {
-			prerror("FLASH: Failed to get %s partition info\n", name);
+			prerror("Failed to get %s partition info\n", name);
 			continue;
 		}
 
@@ -311,12 +441,12 @@ static void setup_system_flash(struct flash *flash, struct dt_node *node,
 		 *    going to use that one but this ordering is not
 		 *    guaranteed so may change in future.
 		 */
-		prlog(PR_WARNING, "FLASH: Attempted to register multiple system "
+		prlog(PR_WARNING, "Attempted to register multiple system "
 		      "flash: %s\n", name);
 		return;
 	}
 
-	prlog(PR_NOTICE, "FLASH: Found system flash: %s id:%i\n",
+	prlog(PR_NOTICE, "Found system flash: %s id:%i\n",
 	      name, flash->id);
 
 	system_flash = flash;
@@ -324,9 +454,10 @@ static void setup_system_flash(struct flash *flash, struct dt_node *node,
 	dt_add_property_string(dt_chosen, "ibm,system-flash", path);
 	free(path);
 
-	prlog(PR_INFO, "FLASH: registered system flash device %s\n", name);
+	prlog(PR_INFO, "registered system flash device %s\n", name);
 
 	flash_nvram_probe(flash, ffs);
+	flash_secboot_probe(flash, ffs);
 }
 
 static int num_flashes(void)
@@ -357,13 +488,13 @@ int flash_register(struct blocklevel_device *bl)
 	if (!name)
 		name = "(unnamed)";
 
-	prlog(PR_INFO, "FLASH: registering flash device %s "
+	prlog(PR_INFO, "registering flash device %s "
 			"(size 0x%llx, blocksize 0x%x)\n",
 			name, size, block_size);
 
 	flash = malloc(sizeof(struct flash));
 	if (!flash) {
-		prlog(PR_ERR, "FLASH: Error allocating flash structure\n");
+		prlog(PR_ERR, "Error allocating flash structure\n");
 		return OPAL_RESOURCE;
 	}
 
@@ -382,7 +513,7 @@ int flash_register(struct blocklevel_device *bl)
 		 * This could mean several OPAL utilities do not function
 		 * as expected. e.g. gard, pflash.
 		 */
-		prlog(PR_WARNING, "FLASH: No ffs info; "
+		prlog(PR_WARNING, "No ffs info; "
 				"using raw device only\n");
 		ffs = NULL;
 	}
@@ -465,7 +596,10 @@ static int64_t opal_flash_op(enum flash_op op, uint64_t id, uint64_t offset,
 
 	unlock(&flash_lock);
 
-	opal_queue_msg(OPAL_MSG_ASYNC_COMP, NULL, NULL, token, rc);
+	opal_queue_msg(OPAL_MSG_ASYNC_COMP, NULL, NULL,
+			cpu_to_be64(token),
+			cpu_to_be64(rc));
+
 	return OPAL_ASYNC_COMPLETION;
 
 err:
@@ -515,24 +649,38 @@ const char *flash_map_resource_name(enum resource_id id)
 
 static size_t sizeof_elf_from_hdr(void *buf)
 {
-	struct elf_hdr *elf = (struct elf_hdr*) buf;
+	struct elf_hdr *elf = (struct elf_hdr *)buf;
 	size_t sz = 0;
 
 	BUILD_ASSERT(SECURE_BOOT_HEADERS_SIZE > sizeof(struct elf_hdr));
-	BUILD_ASSERT(SECURE_BOOT_HEADERS_SIZE > sizeof(struct elf64_hdr));
-	BUILD_ASSERT(SECURE_BOOT_HEADERS_SIZE > sizeof(struct elf32_hdr));
+	BUILD_ASSERT(SECURE_BOOT_HEADERS_SIZE > sizeof(struct elf64be_hdr));
+	BUILD_ASSERT(SECURE_BOOT_HEADERS_SIZE > sizeof(struct elf32be_hdr));
 
 	if (elf->ei_ident == ELF_IDENT) {
 		if (elf->ei_class == ELF_CLASS_64) {
-			struct elf64_hdr *elf64 = (struct elf64_hdr*) buf;
-			sz = le64_to_cpu(elf64->e_shoff) +
-				((uint32_t)le16_to_cpu(elf64->e_shentsize) *
-				 (uint32_t)le16_to_cpu(elf64->e_shnum));
+			if (elf->ei_data == ELF_DATA_LSB) {
+				struct elf64le_hdr *kh = (struct elf64le_hdr *)buf;
+				sz = le64_to_cpu(kh->e_shoff) +
+					((uint32_t)le16_to_cpu(kh->e_shentsize) *
+					 (uint32_t)le16_to_cpu(kh->e_shnum));
+			} else {
+				struct elf64be_hdr *kh = (struct elf64be_hdr *)buf;
+				sz = be64_to_cpu(kh->e_shoff) +
+					((uint32_t)be16_to_cpu(kh->e_shentsize) *
+					 (uint32_t)be16_to_cpu(kh->e_shnum));
+			}
 		} else if (elf->ei_class == ELF_CLASS_32) {
-			struct elf32_hdr *elf32 = (struct elf32_hdr*) buf;
-			sz = le32_to_cpu(elf32->e_shoff) +
-				(le16_to_cpu(elf32->e_shentsize) *
-				 le16_to_cpu(elf32->e_shnum));
+			if (elf->ei_data == ELF_DATA_LSB) {
+				struct elf32le_hdr *kh = (struct elf32le_hdr *)buf;
+				sz = le32_to_cpu(kh->e_shoff) +
+					(le16_to_cpu(kh->e_shentsize) *
+					 le16_to_cpu(kh->e_shnum));
+			} else {
+				struct elf32be_hdr *kh = (struct elf32be_hdr *)buf;
+				sz = be32_to_cpu(kh->e_shoff) +
+					(be16_to_cpu(kh->e_shentsize) *
+					 be16_to_cpu(kh->e_shnum));
+			}
 		}
 	}
 
@@ -575,7 +723,7 @@ static int flash_load_resource(enum resource_id id, uint32_t subid,
 		 * @fwts-advice No system flash was found. Check for missing
 		 * calls flash_register(...).
 		 */
-		prlog(PR_WARNING, "FLASH: Can't load resource id:%i. "
+		prlog(PR_WARNING, "Can't load resource id:%i. "
 		      "No system flash found\n", id);
 		goto out_unlock;
 	}
@@ -592,7 +740,7 @@ static int flash_load_resource(enum resource_id id, uint32_t subid,
 		}
 	}
 	if (!name) {
-		prerror("FLASH: Couldn't find partition for id %d\n", id);
+		prerror("Couldn't find partition for id %d\n", id);
 		goto out_unlock;
 	}
 	/*
@@ -607,7 +755,7 @@ static int flash_load_resource(enum resource_id id, uint32_t subid,
 
 	rc = ffs_init(0, flash->size, flash->bl, &ffs, 1);
 	if (rc) {
-		prerror("FLASH: Can't open ffs handle: %d\n", rc);
+		prerror("Can't open ffs handle: %d\n", rc);
 		goto out_unlock;
 	}
 
@@ -616,20 +764,24 @@ static int flash_load_resource(enum resource_id id, uint32_t subid,
 		/* This is not an error per-se, some partitions
 		 * are purposefully absent, don't spam the logs
 		 */
-	        prlog(PR_DEBUG, "FLASH: No %s partition\n", name);
+	        prlog(PR_DEBUG, "No %s partition\n", name);
 		goto out_free_ffs;
 	}
 	rc = ffs_part_info(ffs, ffs_part_num, NULL,
 			   &ffs_part_start, NULL, &ffs_part_size, &ecc);
 	if (rc) {
-		prerror("FLASH: Failed to get %s partition info\n", name);
+		prerror("Failed to get %s partition info\n", name);
 		goto out_free_ffs;
 	}
-	prlog(PR_DEBUG,"FLASH: %s partition %s ECC\n",
+	prlog(PR_DEBUG,"%s partition %s ECC\n",
 	      name, ecc  ? "has" : "doesn't have");
 
+	/*
+	 * FIXME: Make the fact we don't support partitions smaller than 4K
+	 *  	  more explicit.
+	 */
 	if (ffs_part_size < SECURE_BOOT_HEADERS_SIZE) {
-		prerror("FLASH: secboot headers bigger than "
+		prerror("secboot headers bigger than "
 			"partition size 0x%x\n", ffs_part_size);
 		goto out_free_ffs;
 	}
@@ -637,7 +789,7 @@ static int flash_load_resource(enum resource_id id, uint32_t subid,
 	rc = blocklevel_read(flash->bl, ffs_part_start, bufp,
 			SECURE_BOOT_HEADERS_SIZE);
 	if (rc) {
-		prerror("FLASH: failed to read the first 0x%x from "
+		prerror("failed to read the first 0x%x from "
 			"%s partition, rc %d\n", SECURE_BOOT_HEADERS_SIZE,
 			name, rc);
 		goto out_free_ffs;
@@ -645,7 +797,7 @@ static int flash_load_resource(enum resource_id id, uint32_t subid,
 
 	part_signed = stb_is_container(bufp, SECURE_BOOT_HEADERS_SIZE);
 
-	prlog(PR_DEBUG, "FLASH: %s partition %s signed\n", name,
+	prlog(PR_DEBUG, "%s partition %s signed\n", name,
 	      part_signed ? "is" : "isn't");
 
 	/*
@@ -660,7 +812,14 @@ static int flash_load_resource(enum resource_id id, uint32_t subid,
 		*len = content_size + SECURE_BOOT_HEADERS_SIZE;
 
 		if (content_size > bufsz) {
-			prerror("FLASH: content size > buffer size\n");
+			prerror("content size > buffer size\n");
+			rc = OPAL_PARAMETER;
+			goto out_free_ffs;
+		}
+
+		if (*len > ffs_part_size) {
+			prerror("FLASH: Cannot load %s. Content is larger than the partition\n",
+					name);
 			rc = OPAL_PARAMETER;
 			goto out_free_ffs;
 		}
@@ -670,7 +829,7 @@ static int flash_load_resource(enum resource_id id, uint32_t subid,
 		rc = blocklevel_read(flash->bl, ffs_part_start, bufp,
 					  content_size);
 		if (rc) {
-			prerror("FLASH: failed to read content size %d"
+			prerror("failed to read content size %d"
 				" %s partition, rc %d\n",
 				content_size, name, rc);
 			goto out_free_ffs;
@@ -682,7 +841,7 @@ static int flash_load_resource(enum resource_id id, uint32_t subid,
 		rc = flash_subpart_info(bufp, content_size, ffs_part_size,
 					NULL, subid, &offset, &content_size);
 		if (rc) {
-			prerror("FLASH: Failed to parse subpart info for %s\n",
+			prerror("Failed to parse subpart info for %s\n",
 				name);
 			goto out_free_ffs;
 		}
@@ -703,7 +862,7 @@ static int flash_load_resource(enum resource_id id, uint32_t subid,
 				 */
 				content_size = sizeof_elf_from_hdr(buf);
 				if (!content_size) {
-					prerror("FLASH: Invalid ELF header part"
+					prerror("Invalid ELF header part"
 						" %s\n", name);
 					rc = OPAL_RESOURCE;
 					goto out_free_ffs;
@@ -712,18 +871,18 @@ static int flash_load_resource(enum resource_id id, uint32_t subid,
 				content_size = ffs_part_size;
 			}
 			if (content_size > bufsz) {
-				prerror("FLASH: %s content size %d > "
+				prerror("%s content size %d > "
 					" buffer size %lu\n", name,
 					content_size, bufsz);
 				rc = OPAL_PARAMETER;
 				goto out_free_ffs;
 			}
-			prlog(PR_DEBUG, "FLASH: computed %s size %u\n",
+			prlog(PR_DEBUG, "computed %s size %u\n",
 			      name, content_size);
 			rc = blocklevel_read(flash->bl, ffs_part_start,
 						  buf, content_size);
 			if (rc) {
-				prerror("FLASH: failed to read content size %d"
+				prerror("failed to read content size %d"
 					" %s partition, rc %d\n",
 					content_size, name, rc);
 				goto out_free_ffs;
@@ -736,13 +895,13 @@ static int flash_load_resource(enum resource_id id, uint32_t subid,
 					ffs_part_size, &ffs_part_size, subid,
 					&offset, &content_size);
 		if (rc) {
-			prerror("FLASH: FAILED reading subpart info. rc=%d\n",
+			prerror("FAILED reading subpart info. rc=%d\n",
 				rc);
 			goto out_free_ffs;
 		}
 
 		*len = ffs_part_size;
-		prlog(PR_DEBUG, "FLASH: Computed %s partition size: %u "
+		prlog(PR_DEBUG, "Computed %s partition size: %u "
 		      "(subpart %u size %u offset %u)\n", name, ffs_part_size,
 		      subid, content_size, offset);
 		/*
@@ -868,7 +1027,7 @@ static void flash_load_resources(void *data __unused)
 			retries--;
 
 			prlog(PR_WARNING,
-			      "FLASH: Retrying load of %d:%d, %d attempts remain\n",
+			      "Retrying load of %d:%d, %d attempts remain\n",
 			      r->id, r->subid, retries);
 		}
 
@@ -908,7 +1067,7 @@ int flash_start_preload_resource(enum resource_id id, uint32_t subid,
 	r->len = len;
 	r->result = OPAL_EMPTY;
 
-	prlog(PR_DEBUG, "FLASH: Queueing preload of %x/%x\n",
+	prlog(PR_DEBUG, "Queueing preload of %x/%x\n",
 	      r->id, r->subid);
 
 	lock(&flash_load_resource_lock);

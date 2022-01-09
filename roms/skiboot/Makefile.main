@@ -1,6 +1,8 @@
-# -*-Makefile-*-
+# SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 #
 # This is the main Makefile
+#
+# Copyright 2013-2019 IBM Corp
 
 # Target tools
 CC=$(CROSS)gcc$(POSTFIX)
@@ -18,8 +20,8 @@ try = $(shell set -e; if ($(1)) >/dev/null 2>&1; \
 	then echo "$(2)"; \
 	else echo "$(3)"; fi )
 
-try-cflag = $(call try,$(1) $(2) -x c -c /dev/null -o /dev/null,$(2))
-test_cflag = $(call try,$(1) $(2) -x c -c /dev/null -o /dev/null,1,0)
+try-cflag = $(call try,$(1) -Werror $(2) -x c -c /dev/null -o /dev/null,$(2))
+test_cflag = $(call try,$(1) -Werror $(2) -x c -c /dev/null -o /dev/null,1,0)
 
 cc-name := $(shell $(CC) -v 2>&1 | grep -q "clang version" && echo clang || echo gcc)
 
@@ -29,25 +31,37 @@ CWARNS := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 	  -Wno-pointer-sign -Wextra -Wno-sign-compare \
 	  -Wmissing-prototypes -Wmissing-declarations \
 	  -Wwrite-strings -Wcast-align \
-	  -Winit-self \
-	  $(call try-cflag,$(CC),--Wno-stringop-truncation) \
-	  -Werror
+	  -Winit-self
+
+# Do not convert warnings to error on tagged/released version
+GIT_DIR ?= $(shell test -e $(SRC)/.git && echo 1 || echo 0)
+ifeq ($(GIT_DIR),1)	# Building from git tree
+GIT_SHA ?= $(shell cd $(SRC); git describe --tags 2>/dev/null)
+GIT_TAG ?= $(shell cd $(SRC); git tag -l 2>/dev/null | grep -x ${GIT_SHA} >/dev/null 2>&1 && echo 1 || echo 0)
+ifneq ($(GIT_TAG),1)	# Development branch
+CWARNS += -Werror
+endif
+endif
+
+# clang tends to emit more warnings so stop those breaking the build for now
+ifeq ($(cc-name),clang)
+CWARNS += -Wno-error
+endif
 
 # Host tools and options
 HOSTCC=gcc
 HOSTEND=$(shell uname -m | sed -e 's/^i.*86$$/LITTLE/' -e 's/^x86.*/LITTLE/' -e 's/^ppc64le/LITTLE/' -e 's/^ppc.*/BIG/')
-HOSTCFLAGS=-O1 $(CWARNS) -DHAVE_$(HOSTEND)_ENDIAN -MMD
+HOSTCFLAGS:=-O1 $(CWARNS) -DHAVE_$(HOSTEND)_ENDIAN -MMD
 HOSTCFLAGS += $(call try-cflag,$(HOSTCC),-std=gnu11)
 HOSTCFLAGS += $(call try-cflag,$(HOSTCC),-m64)
 HOSTCFLAGS += $(call try-cflag,$(HOSTCC),-Wjump-misses-init) \
 	  $(call try-cflag,$(HOSTCC),-Wsuggest-attribute=const) \
-	  $(call try-cflag,$(HOSTCC),-Wsuggest-attribute=noreturn)
+	  $(call try-cflag,$(HOSTCC),-Wsuggest-attribute=noreturn) \
+	  $(call try-cflag,$(HOSTCC),-Wno-error=suggest-attribute=const) \
+	  $(call try-cflag,$(HOSTCC),-Wno-error=suggest-attribute=noreturn)
 HOSTCFLAGS += -DDEBUG -DCCAN_LIST_DEBUG
 
 # We want small stack usage for skiboot
-# but host compilation of unit tests tend to inline heavily,
-# which creates larger stack frames and triggering useless warnings
-HOSTCFLAGS += -Wframe-larger-than=4096
 CWARNS += -Wframe-larger-than=1024
 
 HOSTGCOVCFLAGS = -fprofile-arcs -ftest-coverage -lgcov -O0 -g -pg
@@ -64,21 +78,42 @@ CPPFLAGS += -I$(SRC)/libfdt -I$(SRC)/libflash -I$(SRC)/libxz -I$(SRC)/libc/inclu
 CPPFLAGS += -I$(SRC)/libpore
 CPPFLAGS += -D__SKIBOOT__ -nostdinc
 CPPFLAGS += -isystem $(shell $(CC) -print-file-name=include)
-CPPFLAGS += -DBITS_PER_LONG=64 -DHAVE_BIG_ENDIAN
+CPPFLAGS += -DBITS_PER_LONG=64
+
 # We might want to remove our copy of stdint.h
 # but that means uint64_t becomes an ulong instead of an ullong
 # causing all our printf's to warn
 CPPFLAGS += -ffreestanding
 
+ifeq ($(LITTLE_ENDIAN),1)
+CPPFLAGS += -DHAVE_LITTLE_ENDIAN
+else
+CPPFLAGS += -DHAVE_BIG_ENDIAN
+endif
+
 ifeq ($(DEBUG),1)
 CPPFLAGS += -DDEBUG -DCCAN_LIST_DEBUG
 endif
 
-CFLAGS := -fno-strict-aliasing -pie -fpie -fno-pic -mbig-endian -m64 -fno-asynchronous-unwind-tables
-CFLAGS += -mcpu=power7
+CFLAGS := -fno-strict-aliasing -pie -fpie -fno-pic -m64 -fno-asynchronous-unwind-tables
+CFLAGS += -mcpu=power8
 CFLAGS += -Wl,--oformat,elf64-powerpc -ggdb
-CFLAGS += $(call try-cflag,$(CC),-ffixed-r13)
+# r13,r14,r15 are preserved for OS to use as fixed registers.
+# These could be saved and restored in and out of skiboot, but it's more
+# robust to avoid touching them.
+CFLAGS += -ffixed-r13
+CFLAGS += -ffixed-r14
+CFLAGS += -ffixed-r15
+# r16 is skiboot's per-CPU data pointer.
+CFLAGS += -ffixed-r16
 CFLAGS += $(call try-cflag,$(CC),-std=gnu11)
+
+ifeq ($(LITTLE_ENDIAN),1)
+CFLAGS += -mlittle-endian
+else
+CFLAGS += -mbig-endian
+endif
+
 ifeq ($(ELF_ABI_v2),1)
 CFLAGS += $(call try-cflag,$(CC),-mabi=elfv2)
 else
@@ -101,7 +136,7 @@ endif
 
 # Check if the new parametrized stack protector option is supported
 # by gcc, otherwise disable stack protector
-STACK_PROT_CFLAGS := -mstack-protector-guard=tls -mstack-protector-guard-reg=r13
+STACK_PROT_CFLAGS := -mstack-protector-guard=tls -mstack-protector-guard-reg=r16
 STACK_PROT_CFLAGS += -mstack-protector-guard-offset=0
 HAS_STACK_PROT := $(call test_cflag,$(CC),$(STACK_PROT_CFLAGS))
 
@@ -125,7 +160,11 @@ endif
 CFLAGS += $(call try-cflag,$(CC),-Wjump-misses-init) \
 	  $(call try-cflag,$(CC),-Wsuggest-attribute=const) \
 	  $(call try-cflag,$(CC),-Wsuggest-attribute=noreturn) \
+	  $(call try-cflag,$(CC),-Wno-error=suggest-attribute=const) \
+	  $(call try-cflag,$(CC),-Wno-error=suggest-attribute=noreturn) \
 	  $(call try-cflag,$(CC),-Wstack-usage=1024) \
+	  $(call try-cflag,$(CC),-Wno-error=array-bounds) \
+	  $(call try-cflag,$(CC),-Wno-error=stringop-overread) \
 	  $(call try-cflag,$(CC),-Wno-error=address-of-packed-member)
 
 CFLAGS += $(CWARNS) $(OPTS) $(DBG)
@@ -134,8 +173,8 @@ LDFLAGS := -m64 -static -nostdlib -pie
 LDFLAGS += -Wl,-pie
 LDFLAGS += -Wl,-Ttext-segment,$(LD_TEXT) -Wl,-N -Wl,--build-id=none
 LDFLAGS += -Wl,--no-multi-toc
-LDFLAGS += -mcpu=power7 -mbig-endian -Wl,--oformat,elf64-powerpc
-LDFLAGS_FINAL = -EB -m elf64ppc --no-multi-toc -N --build-id=none --whole-archive
+LDFLAGS += -mcpu=power8 -Wl,--oformat,elf64-powerpc
+LDFLAGS_FINAL = -m elf64lppc --no-multi-toc -N --build-id=none --whole-archive
 LDFLAGS_FINAL += -static -nostdlib -pie -Ttext-segment=$(LD_TEXT) --oformat=elf64-powerpc
 LDFLAGS_FINAL += --orphan-handling=warn
 
@@ -143,11 +182,26 @@ LDRFLAGS=-melf64ppc
 # Debug stuff
 #LDFLAGS += -Wl,-v -Wl,-Map,foomap 
 
-ifeq ($(DEAD_CODE_ELIMINATION),1)
-LDFLAGS += -Wl,--gc-sections
+ifeq ($(LITTLE_ENDIAN),1)
+LDFLAGS += -mlittle-endian
+LDFLAGS_FINAL += -EL
+else
+LDFLAGS += -mbig-endian
+LDFLAGS_FINAL += -EB
 endif
 
-AFLAGS := -D__ASSEMBLY__ -mbig-endian -m64
+ifeq ($(DEAD_CODE_ELIMINATION),1)
+LDFLAGS += -Wl,--gc-sections
+LDFLAGS_FINAL += --gc-sections
+endif
+
+AFLAGS := -D__ASSEMBLY__ -m64
+ifeq ($(LITTLE_ENDIAN),1)
+AFLAGS += -mlittle-endian
+else
+AFLAGS += -mbig-endian
+endif
+
 ifeq ($(ELF_ABI_v2),1)
 AFLAGS += $(call try-cflag,$(CC),-mabi=elfv2)
 else
@@ -258,10 +312,10 @@ ALL_OBJS = $(OBJS) version.o
 ALL_OBJS_1 = $(TARGET).tmp.a asm/dummy_map.o
 ALL_OBJS_2 = $(TARGET).tmp.a asm/real_map.o
 
-$(TARGET).lid.xz: $(TARGET).lid
+%.lid.xz: %.lid
 	$(call Q,XZ, cat $^ | xz -9 -C crc32 > $@, $@)
 
-$(TARGET).lid: $(TARGET).elf
+%.lid: %.elf
 	$(call Q,OBJCOPY, $(OBJCOPY) -O binary -S $^ $@, $@)
 
 $(TARGET).lid.stb: $(TARGET).lid libstb/create-container
@@ -303,6 +357,7 @@ version.c: $(SRC)/make_version.sh $(OBJS_NO_VER) .version
 	@(if [ "a$(VERSION)" = "a" ]; then \
 		echo "#error You need to set SKIBOOT_VERSION environment variable" > $@ ;\
         else \
+		echo "extern const char version[];"; \
                 echo "const char version[] = \"$(VERSION)\";" ;\
         fi) > $@
 

@@ -1,18 +1,5 @@
-/* Copyright 2017-2018 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2017-2019 IBM Corp. */
 
 #ifndef __SBE_P9_H
 #define __SBE_P9_H
@@ -103,6 +90,13 @@
 #define SBE_HOST_TIMER_EXPIRY		PPC_BIT(14)
 #define SBE_HOST_RESPONSE_MASK		(PPC_BITMASK(0, 4) | SBE_HOST_TIMER_EXPIRY)
 
+/* SBE Control Register */
+#define SBE_CONTROL_REG_RW		0x00050008
+
+/* SBE interrupt s0/s1 bits */
+#define SBE_CONTROL_REG_S0		PPC_BIT(14)
+#define SBE_CONTROL_REG_S1		PPC_BIT(15)
+
 /* SBE Target Type */
 #define SBE_TARGET_TYPE_PROC		0x00
 #define SBE_TARGET_TYPE_EX		0x01
@@ -158,6 +152,9 @@
 /* Control timer */
 #define CONTROL_TIMER_START		0x0001
 #define CONTROL_TIMER_STOP		0x0002
+
+/* Stash MPIPL config */
+#define SBE_STASH_KEY_SKIBOOT_BASE	0x03
 
 /* SBE message state */
 enum p9_sbe_msg_state {
@@ -236,5 +233,11 @@ extern bool p9_sbe_timer_ok(void);
 
 /* Update SBE timer expiry */
 extern void p9_sbe_update_timer_expiry(uint64_t new_target);
+
+/* Send skiboot relocated base address to SBE */
+extern void p9_sbe_send_relocated_base(uint64_t reloc_base);
+
+/* Terminate and trigger MPIPL */
+extern void p9_sbe_terminate(void);
 
 #endif	/* __SBE_P9_H */

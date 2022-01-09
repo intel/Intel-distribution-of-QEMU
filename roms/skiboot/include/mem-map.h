@@ -1,18 +1,5 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
 
 #ifndef __MEM_MAP_H
 #define __MEM_MAP_H
@@ -32,16 +19,30 @@
 /* End of the exception region we copy from 0x0. 0x0-0x100 will have
  * IPL data and is not actually for exception vectors.
  */
-#define EXCEPTION_VECTORS_END	0x2000
+#define EXCEPTION_VECTORS_END	0x3000
+
+#define NACA_OFF		0x4000
 
 /* The NACA and other stuff in head.S need to be at the start: we
  * give it 64k before placing the SPIRA and related data.
  */
 #define SPIRA_OFF		0x00010000
+#define SPIRA_SIZE		0x400
 #define SPIRAH_OFF		0x00010400
+#define SPIRAH_SIZE		0x300
+
+#define PROC_DUMP_AREA_OFF	(SPIRAH_OFF + SPIRAH_SIZE)
+#define PROC_DUMP_AREA_SIZE	0x100
 
 /* Actual SPIRA size is lesser than 1K (presently 0x340 bytes).
- * Use 1K for legacy SPIRA and 1K for SPIRA-H.
+ * Use 1K for legacy SPIRA.
+ *
+ * SPIRA-H is lesser than 768 bytes (presently we use 288 bytes)
+ * Use 768 bytes for SPIRAH.
+ *
+ * Use 256 bytes for processor dump area. (presently we use
+ * sizeof(proc_dump_area) = 0x30 bytes).
+ *
  * Then follow with for proc_init_data (aka PROCIN).
  * These need to be at fixed addresses in case we're ever little
  * endian: linker can't endian reverse a pointer for us.  Text, data
@@ -49,12 +50,16 @@
  */
 #define PROCIN_OFF		(SPIRA_OFF + 0x800)
 
-/* Initial MDST table like PROCIN, we need fixed addresses,
+/* Initial MDST and MDDT tables like PROCIN, we need fixed addresses,
  * we leave a 2k gap for PROCIN
  */
 #define MDST_TABLE_OFF		(SPIRA_OFF + 0x1000)
+#define MDST_TABLE_SIZE		0x400
 
-/* Like MDST, we need fixed address for CPU control header.
+#define MDDT_TABLE_OFF		(SPIRA_OFF + 0x1400)
+#define MDDT_TABLE_SIZE		0x400
+
+/* Like MDST and MDDT, we need fixed address for CPU control header.
  * We leave a 2k gap for MDST. CPU_CTL table is of size ~4k
  */
 #define CPU_CTL_OFF             (SPIRA_OFF + 0x1800)
@@ -79,8 +84,8 @@
  *
  * As of mid-2019, a 2 socket Romulus uses ~4MB heap.
  */
-#define HEAP_BASE		(SKIBOOT_BASE + 0x00500000)
-#define HEAP_SIZE		0x00b00000
+#define HEAP_BASE		(SKIBOOT_BASE + 0x00600000)
+#define HEAP_SIZE		0x00a00000
 
 /* This is the location of our console buffer at base + 16M */
 #define INMEM_CON_START		(SKIBOOT_BASE + 0x01000000)
@@ -96,13 +101,25 @@
 
 /* This is our PSI TCE table. It's 256K entries on P8 */
 #define PSI_TCE_TABLE_BASE	(SKIBOOT_BASE + 0x01a00000)
-#define PSI_TCE_TABLE_SIZE_P8	0x00200000UL
+#define PSI_TCE_TABLE_SIZE	0x00200000UL
+
+/* This is our dump result table after MPIPL. Hostboot will write to this
+ * memory after moving memory content from source to destination memory.
+ */
+#define MDRT_TABLE_BASE		(SKIBOOT_BASE + 0x01c00000)
+#define MDRT_TABLE_SIZE		0x00008000
+
+/* This is our dump metadata area. We will use this memory to save metadata
+ * (like crashing CPU details, payload tags) before triggering MPIPL.
+ */
+#define DUMP_METADATA_AREA_BASE	(SKIBOOT_BASE + 0x01c08000)
+#define DUMP_METADATA_AREA_SIZE	0x8000
 
 /* Total size of the above area
  *
  * (Ensure this has at least a 64k alignment)
  */
-#define SKIBOOT_SIZE		0x01c00000
+#define SKIBOOT_SIZE		0x01c10000
 
 /* We start laying out the CPU stacks from here, indexed by PIR
  * each stack is STACK_SIZE in size (naturally aligned power of

@@ -2,7 +2,6 @@
 #define _VIRTIO_PCI_H
 
 #include "x86.h" // inl
-#include "byteorder.h" // cpu_to_*
 #include "biosvar.h" // GET_LOWFLAT
 
 /* The bit of the ISR which indicates a device configuration change. */
@@ -112,6 +111,7 @@ struct vp_device {
     struct vp_cap common, notify, isr, device, legacy;
     u32 notify_off_multiplier;
     u8 use_modern;
+    u8 use_mmio;
 };
 
 u64 _vp_read(struct vp_cap *cap, u32 offset, u8 size);

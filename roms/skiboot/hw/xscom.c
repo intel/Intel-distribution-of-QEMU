@@ -1,17 +1,8 @@
-/* Copyright 2013-2017 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * XSCOM driver
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
 
 #include <skiboot.h>
@@ -70,7 +61,7 @@ static inline void *xscom_addr(uint32_t gcid, uint32_t pcb_addr)
 
 	assert(chip);
 	addr  = chip->xscom_base;
-	if (proc_gen <= proc_gen_p8) {
+	if (proc_gen == proc_gen_p8) {
 		addr |= ((uint64_t)pcb_addr << 4) & ~0xfful;
 		addr |= (pcb_addr << 3) & 0x78;
 	} else
@@ -103,7 +94,11 @@ static void xscom_reset(uint32_t gcid, bool need_delay)
 	mtspr(SPR_HMER, HMER_CLR_MASK);
 
 	/* Setup local and target scom addresses */
-	if (proc_gen == proc_gen_p9) {
+	if (proc_gen == proc_gen_p10) {
+		recv_status_reg = 0x00090018;
+		log_reg = 0x0090012;
+		err_reg = 0x0090013;
+	} else if (proc_gen == proc_gen_p9) {
 		recv_status_reg = 0x00090018;
 		log_reg = 0x0090012;
 		err_reg = 0x0090013;
@@ -281,10 +276,17 @@ static int64_t xscom_handle_error(uint64_t hmer, uint32_t gcid, uint32_t pcb_add
 		break;
 	}
 
-	/* XXX: Create error log entry ? */
-	log_simple_error(&e_info(OPAL_RC_XSCOM_RW),
-		"XSCOM: %s error gcid=0x%x pcb_addr=0x%x stat=0x%x\n",
-		is_write ? "write" : "read", gcid, pcb_addr, stat);
+	/*
+	 * If we're in an XSCOM opal call then squash the error
+	 * we assume that the caller (probably opal-prd) will
+	 * handle logging it
+	 */
+	if (this_cpu()->current_token != OPAL_XSCOM_READ &&
+	    this_cpu()->current_token != OPAL_XSCOM_WRITE) {
+		log_simple_error(&e_info(OPAL_RC_XSCOM_RW),
+			"XSCOM: %s error gcid=0x%x pcb_addr=0x%x stat=0x%x\n",
+			is_write ? "write" : "read", gcid, pcb_addr, stat);
+	}
 
 	/* We need to reset the XSCOM or we'll hang on the next access */
 	xscom_reset(gcid, false);
@@ -375,7 +377,16 @@ static int __xscom_read(uint32_t gcid, uint32_t pcb_addr, uint64_t *val)
 	if (proc_gen == proc_gen_p9 && ret == OPAL_XSCOM_CHIPLET_OFF)
 		return ret;
 
-	prerror("XSCOM: Read failed, ret =  %lld\n", ret);
+	/*
+	 * If an OPAL call XSCOM read fails, then the OPAL-PRD will
+	 * handle logging the error.  Hence just print an
+	 * informational message here.
+	 */
+	if (this_cpu()->current_token == OPAL_XSCOM_READ)
+		prlog(PR_INFO, "XSCOM: Read failed, ret =  %lld\n", ret);
+	else
+		prerror("XSCOM: Read failed, ret =  %lld\n", ret);
+
 	return ret;
 }
 
@@ -426,8 +437,16 @@ static int __xscom_write(uint32_t gcid, uint32_t pcb_addr, uint64_t val)
 	 */
 	if (proc_gen == proc_gen_p9 && ret == OPAL_XSCOM_CHIPLET_OFF)
 		return ret;
+	/*
+	 * If an OPAL call XSCOM write fails, then the OPAL-PRD will
+	 * handle logging the error.  Hence just print an
+	 * informational message here.
+	 */
+	if (this_cpu()->current_token == OPAL_XSCOM_WRITE)
+		prlog(PR_INFO, "XSCOM: Write failed, ret =  %lld\n", ret);
+	else
+		prerror("XSCOM: Write failed, ret =  %lld\n", ret);
 
-	prerror("XSCOM: Write failed, ret =  %lld\n", ret);
 	return ret;
 }
 
@@ -440,11 +459,6 @@ static int xscom_indirect_read_form0(uint32_t gcid, uint64_t pcb_addr,
 	uint32_t addr;
 	uint64_t data;
 	int rc, retries;
-
-	if (proc_gen < proc_gen_p8) {
-		*val = (uint64_t)-1;
-		return OPAL_UNSUPPORTED;
-	}
 
 	/* Write indirect address */
 	addr = pcb_addr & 0x7fffffff;
@@ -487,7 +501,7 @@ static int xscom_indirect_read(uint32_t gcid, uint64_t pcb_addr, uint64_t *val)
 {
 	uint64_t form = xscom_indirect_form(pcb_addr);
 
-	if ((proc_gen == proc_gen_p9) && (form == 1))
+	if ((proc_gen >= proc_gen_p9) && (form == 1))
 		return OPAL_UNSUPPORTED;
 
 	return xscom_indirect_read_form0(gcid, pcb_addr, val);
@@ -499,9 +513,6 @@ static int xscom_indirect_write_form0(uint32_t gcid, uint64_t pcb_addr,
 	uint32_t addr;
 	uint64_t data;
 	int rc, retries;
-
-	if (proc_gen < proc_gen_p8)
-		return OPAL_UNSUPPORTED;
 
 	/* Only 16 bit data with indirect */
 	if (val & ~(XSCOM_ADDR_IND_DATA))
@@ -558,7 +569,7 @@ static int xscom_indirect_write(uint32_t gcid, uint64_t pcb_addr, uint64_t val)
 {
 	uint64_t form = xscom_indirect_form(pcb_addr);
 
-	if ((proc_gen == proc_gen_p9) && (form == 1))
+	if ((proc_gen >= proc_gen_p9) && (form == 1))
 		return xscom_indirect_write_form1(gcid, pcb_addr, val);
 
 	return xscom_indirect_write_form0(gcid, pcb_addr, val);
@@ -569,7 +580,7 @@ static uint32_t xscom_decode_chiplet(uint32_t partid, uint64_t *pcb_addr)
 	uint32_t gcid = (partid & 0x0fffffff) >> 4;
 	uint32_t core = partid & 0xf;
 
-	if (proc_gen == proc_gen_p9) {
+	if (proc_gen >= proc_gen_p9) {
 		/* XXX Not supported */
 		*pcb_addr = 0;
 	} else {
@@ -590,11 +601,75 @@ void _xscom_unlock(void)
 	unlock(&xscom_lock);
 }
 
+/* sorted by the scom controller's partid */
+static LIST_HEAD(scom_list);
+
+int64_t scom_register(struct scom_controller *new)
+{
+	struct scom_controller *cur;
+
+	list_for_each(&scom_list, cur, link) {
+		if (cur->part_id == new->part_id) {
+			prerror("Attempted to add duplicate scom, partid %x\n",
+				new->part_id);
+			return OPAL_BUSY;
+		}
+
+		if (cur->part_id > new->part_id) {
+			list_add_before(&scom_list, &new->link, &cur->link);
+			return 0;
+		}
+	}
+
+	/* if we never find a larger partid then this is the largest */
+	list_add_tail(&scom_list, &new->link);
+
+	return 0;
+}
+
+static struct scom_controller *scom_find(uint32_t partid)
+{
+	struct scom_controller *cur;
+
+	list_for_each(&scom_list, cur, link)
+		if (partid == cur->part_id)
+			return cur;
+
+	return NULL;
+}
+
+static int64_t scom_read(struct scom_controller *scom, uint32_t partid,
+			 uint64_t pcbaddr, uint64_t *val)
+{
+	int64_t rc = scom->read(scom, partid, pcbaddr, val);
+
+	if (rc) {
+		prerror("%s: to %x off: %llx rc = %lld\n",
+			__func__, partid, pcbaddr, rc);
+	}
+
+	return rc;
+}
+
+static int64_t scom_write(struct scom_controller *scom, uint32_t partid,
+			  uint64_t pcbaddr, uint64_t val)
+{
+	int64_t rc = scom->write(scom, partid, pcbaddr, val);
+
+	if (rc) {
+		prerror("%s: to %x off: %llx rc = %lld\n",
+			__func__, partid, pcbaddr, rc);
+	}
+
+	return rc;
+}
+
 /*
  * External API
  */
 int _xscom_read(uint32_t partid, uint64_t pcb_addr, uint64_t *val, bool take_lock)
 {
+	struct scom_controller *scom;
 	uint32_t gcid;
 	int rc;
 
@@ -613,14 +688,17 @@ int _xscom_read(uint32_t partid, uint64_t pcb_addr, uint64_t *val, bool take_loc
 	case 0: /* Normal processor chip */
 		gcid = partid;
 		break;
-	case 8: /* Centaur */
-		return centaur_xscom_read(partid, pcb_addr, val);
 	case 4: /* EX chiplet */
 		gcid = xscom_decode_chiplet(partid, &pcb_addr);
 		if (pcb_addr == 0)
 			return OPAL_UNSUPPORTED;
 		break;
 	default:
+		/* is it one of our hacks? */
+		scom = scom_find(partid);
+		if (scom)
+			return scom_read(scom, partid, pcb_addr, val);
+
 		/**
 		 * @fwts-label XSCOMReadInvalidPartID
 		 * @fwts-advice xscom_read was called with an invalid partid.
@@ -648,10 +726,21 @@ int _xscom_read(uint32_t partid, uint64_t pcb_addr, uint64_t *val, bool take_loc
 	return rc;
 }
 
-opal_call(OPAL_XSCOM_READ, xscom_read, 3);
+static int64_t opal_xscom_read(uint32_t partid, uint64_t pcb_addr, __be64 *__val)
+{
+	uint64_t val;
+	int64_t rc;
+
+	rc = xscom_read(partid, pcb_addr, &val);
+	*__val = cpu_to_be64(val);
+
+	return rc;
+}
+opal_call(OPAL_XSCOM_READ, opal_xscom_read, 3);
 
 int _xscom_write(uint32_t partid, uint64_t pcb_addr, uint64_t val, bool take_lock)
 {
+	struct scom_controller *scom;
 	uint32_t gcid;
 	int rc;
 
@@ -660,12 +749,15 @@ int _xscom_write(uint32_t partid, uint64_t pcb_addr, uint64_t val, bool take_loc
 	case 0: /* Normal processor chip */
 		gcid = partid;
 		break;
-	case 8: /* Centaur */
-		return centaur_xscom_write(partid, pcb_addr, val);
 	case 4: /* EX chiplet */
 		gcid = xscom_decode_chiplet(partid, &pcb_addr);
 		break;
 	default:
+		/* is it one of our hacks? */
+		scom = scom_find(partid);
+		if (scom)
+			return scom_write(scom, partid, pcb_addr, val);
+
 		/**
 		 * @fwts-label XSCOMWriteInvalidPartID
 		 * @fwts-advice xscom_write was called with an invalid partid.
@@ -692,7 +784,12 @@ int _xscom_write(uint32_t partid, uint64_t pcb_addr, uint64_t val, bool take_loc
 		unlock(&xscom_lock);
 	return rc;
 }
-opal_call(OPAL_XSCOM_WRITE, xscom_write, 3);
+
+static int64_t opal_xscom_write(uint32_t partid, uint64_t pcb_addr, uint64_t val)
+{
+	return xscom_write(partid, pcb_addr, val);
+}
+opal_call(OPAL_XSCOM_WRITE, opal_xscom_write, 3);
 
 /*
  * Perform a xscom read-modify-write.
@@ -728,7 +825,9 @@ int64_t xscom_read_cfam_chipid(uint32_t partid, uint32_t *chip_id)
 	 * something up
 	 */
 	if (chip_quirk(QUIRK_NO_F000F)) {
-		if (proc_gen == proc_gen_p9)
+		if (proc_gen == proc_gen_p10)
+			val = 0x120DA04980000000UL; /* P10 DD1.0 */
+		else if (proc_gen == proc_gen_p9)
 			val = 0x203D104980000000UL; /* P9 Nimbus DD2.3 */
 		else
 			val = 0x221EF04980000000UL; /* P8 Murano DD2.1 */
@@ -780,6 +879,10 @@ static void xscom_init_chip_info(struct proc_chip *chip)
 		chip->type = PROC_CHIP_P9P;
 		assert(proc_gen == proc_gen_p9);
 		break;
+	case 0xda:
+		chip->type = PROC_CHIP_P10;
+		assert(proc_gen == proc_gen_p10);
+		break;
 	default:
 		printf("CHIP: Unknown chip type 0x%02x !!!\n",
 		       (unsigned char)(val & 0xff));
@@ -818,7 +921,7 @@ static void xscom_init_chip_info(struct proc_chip *chip)
 		prlog(PR_INFO,"P9 DD%i.%i%d detected\n", 0xf & (chip->ec_level >> 4),
 		       chip->ec_level & 0xf, rev);
 		chip->ec_rev = rev;
-	}
+	} /* XXX P10 */
 }
 
 /*
@@ -856,7 +959,8 @@ void xscom_init(void)
 		struct proc_chip *chip;
 		const char *chip_name;
 		static const char *chip_names[] = {
-			"UNKNOWN", "P8E", "P8", "P8NVL", "P9N", "P9C", "P9P"
+			"UNKNOWN", "P8E", "P8", "P8NVL", "P9N", "P9C", "P9P",
+			"P10",
 		};
 
 		chip = get_chip(gcid);

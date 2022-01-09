@@ -1,17 +1,8 @@
-/* Copyright 2018 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * op_display() but over the 1 byte LPC port 80h just like an original IBM PC
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2018-2019 IBM Corp.
  */
 
 #define pr_fmt(fmt)	"Port80h: " fmt
@@ -173,9 +164,10 @@ void op_display_lpc(enum op_severity s, enum op_module m, uint16_t c)
 		return;
 
 	port80_val = op_display_to_port80(port80_val, s, m, c);
-	lpc_outb(port80_val, 0x80);
 	port8x_val = op_display_to_port8x(port8x_val, s, m, c);
-	lpc_outb(port8x_val >> 8, 0x81);
-	lpc_outb(port8x_val & 0xFF, 0x82);
+
+	lpc_probe_write(OPAL_LPC_IO, 0x80, port80_val,        1);
+	lpc_probe_write(OPAL_LPC_IO, 0x81, port8x_val >> 8,   1);
+	lpc_probe_write(OPAL_LPC_IO, 0x82, port8x_val & 0xff, 1);
 }
 

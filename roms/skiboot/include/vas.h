@@ -1,18 +1,5 @@
-/* Copyright 2013-2016 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2018 IBM Corp. */
 
 #ifndef __VAS_H
 #define __VAS_H
@@ -40,6 +27,7 @@ extern void vas_init(void);
 extern __attrconst bool vas_nx_enabled(void);
 extern __attrconst uint64_t vas_get_hvwc_mmio_bar(const int chipid);
 extern __attrconst uint64_t vas_get_wcbs_bar(int chipid);
+extern __attrconst uint64_t vas_get_rma_bar(int chipid);
 
 /*
  * HVWC and UWC BAR.
@@ -80,9 +68,10 @@ extern __attrconst uint64_t vas_get_wcbs_bar(int chipid);
 #define VAS_WINDOWS_PER_CHIP		65536		/* 64K */
 
 /*
- * SCOM Base Address from P9 SCOM Assignment spreadsheet
+ * SCOM Base Address from P9/P10 SCOM Assignment spreadsheet
  */
-#define VAS_SCOM_BASE_ADDR		0x03011800
+#define	P9_VAS_SCOM_BASE_ADDR		0x03011800
+#define VAS_SCOM_BASE_ADDR		0x02011400
 
 /*
  * NOTE: VAS_SCOM_BASE_ADDR (0x3011800) includes the SCOM ring of 6. So,

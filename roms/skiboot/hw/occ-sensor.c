@@ -1,17 +1,8 @@
-/* Copyright 2017-2018 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * OCC (On Chip Controller) exports a bunch of sensors
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2017-2019 IBM Corp.
  */
 
 #include <skiboot.h>
@@ -125,7 +116,7 @@ struct occ_sensor_data_header *get_sensor_header_block(int occ_num)
 static inline
 struct occ_sensor_name *get_names_block(struct occ_sensor_data_header *hb)
 {
-	return ((struct occ_sensor_name *)((u64)hb + hb->names_offset));
+	return ((struct occ_sensor_name *)((u64)hb + be32_to_cpu(hb->names_offset)));
 }
 
 static inline u32 sensor_handler(int occ_num, int sensor_id, int attr)
@@ -140,11 +131,11 @@ static inline u32 sensor_handler(int occ_num, int sensor_id, int attr)
  */
 static void scale_sensor(struct occ_sensor_name *md, u64 *sensor)
 {
-	u32 factor = md->scale_factor;
+	u32 factor = be32_to_cpu(md->scale_factor);
 	int i;
 	s8 exp;
 
-	if (md->type == OCC_SENSOR_TYPE_CURRENT)
+	if (be16_to_cpu(md->type) == OCC_SENSOR_TYPE_CURRENT)
 		*sensor *= 1000; //convert to mA
 
 	*sensor *= factor >> 8;
@@ -161,7 +152,7 @@ static void scale_sensor(struct occ_sensor_name *md, u64 *sensor)
 
 static void scale_energy(struct occ_sensor_name *md, u64 *sensor)
 {
-	u32 factor = md->freq;
+	u32 factor = be32_to_cpu(md->freq);
 	int i;
 	s8 exp;
 
@@ -183,17 +174,17 @@ static u64 read_sensor(struct occ_sensor_record *sensor, int attr)
 {
 	switch (attr) {
 	case SENSOR_SAMPLE:
-		return sensor->sample;
+		return be16_to_cpu(sensor->sample);
 	case SENSOR_SAMPLE_MIN:
-		return sensor->sample_min;
+		return be16_to_cpu(sensor->sample_min);
 	case SENSOR_SAMPLE_MAX:
-		return sensor->sample_max;
+		return be16_to_cpu(sensor->sample_max);
 	case SENSOR_CSM_MIN:
-		return sensor->csm_min;
+		return be16_to_cpu(sensor->csm_min);
 	case SENSOR_CSM_MAX:
-		return sensor->csm_max;
+		return be16_to_cpu(sensor->csm_max);
 	case SENSOR_ACCUMULATOR:
-		return sensor->accumulator;
+		return be64_to_cpu(sensor->accumulator);
 	default:
 		break;
 	}
@@ -206,14 +197,16 @@ static void *select_sensor_buffer(struct occ_sensor_data_header *hb, int id)
 	struct occ_sensor_name *md;
 	u8 *ping, *pong;
 	void *buffer = NULL;
+	u32 reading_offset;
 
 	if (!hb)
 		return NULL;
 
 	md = get_names_block(hb);
 
-	ping = (u8 *)((u64)hb + hb->reading_ping_offset);
-	pong = (u8 *)((u64)hb + hb->reading_pong_offset);
+	ping = (u8 *)((u64)hb + be32_to_cpu(hb->reading_ping_offset));
+	pong = (u8 *)((u64)hb + be32_to_cpu(hb->reading_pong_offset));
+	reading_offset = be32_to_cpu(md[id].reading_offset);
 
 	/* Check which buffer is valid  and read the data from that.
 	 * Ping Pong	Action
@@ -225,11 +218,11 @@ static void *select_sensor_buffer(struct occ_sensor_data_header *hb, int id)
 
 	if (*ping && *pong) {
 		u64 tping, tpong;
-		u64 ping_buf = (u64)ping + md[id].reading_offset;
-		u64 pong_buf = (u64)pong + md[id].reading_offset;
+		u64 ping_buf = (u64)ping + reading_offset;
+		u64 pong_buf = (u64)pong + reading_offset;
 
-		tping = ((struct occ_sensor_record *)ping_buf)->timestamp;
-		tpong = ((struct occ_sensor_record *)pong_buf)->timestamp;
+		tping = be64_to_cpu(((struct occ_sensor_record *)ping_buf)->timestamp);
+		tpong = be64_to_cpu(((struct occ_sensor_record *)pong_buf)->timestamp);
 
 		if (tping > tpong)
 			buffer = ping;
@@ -245,18 +238,19 @@ static void *select_sensor_buffer(struct occ_sensor_data_header *hb, int id)
 	}
 
 	assert(buffer);
-	buffer = (void *)((u64)buffer + md[id].reading_offset);
+	buffer = (void *)((u64)buffer + reading_offset);
 
 	return buffer;
 }
 
-int occ_sensor_read(u32 handle, u64 *data)
+int occ_sensor_read(u32 handle, __be64 *data)
 {
 	struct occ_sensor_data_header *hb;
 	struct occ_sensor_name *md;
 	u16 id = sensor_get_rid(handle);
 	u8 occ_num = sensor_get_frc(handle);
 	u8 attr = sensor_get_attr(handle);
+	u64 d;
 	void *buff;
 
 	if (occ_num > MAX_OCCS)
@@ -273,22 +267,25 @@ int occ_sensor_read(u32 handle, u64 *data)
 	if (hb->valid != 1)
 		return OPAL_HARDWARE;
 
-	if (id > hb->nr_sensors)
+	if (id > be16_to_cpu(hb->nr_sensors))
 		return OPAL_PARAMETER;
 
 	buff = select_sensor_buffer(hb, id);
 	if (!buff)
 		return OPAL_HARDWARE;
 
-	*data = read_sensor(buff, attr);
-	if (!*data)
-		return OPAL_SUCCESS;
+	d = read_sensor(buff, attr);
+	if (!d)
+		goto out_success;
 
 	md = get_names_block(hb);
-	if (md[id].type == OCC_SENSOR_TYPE_POWER && attr == SENSOR_ACCUMULATOR)
-		scale_energy(&md[id], data);
+	if (be16_to_cpu(md[id].type) == OCC_SENSOR_TYPE_POWER && attr == SENSOR_ACCUMULATOR)
+		scale_energy(&md[id], &d);
 	else
-		scale_sensor(&md[id], data);
+		scale_sensor(&md[id], &d);
+
+out_success:
+	*data = cpu_to_be64(d);
 
 	return OPAL_SUCCESS;
 }
@@ -329,7 +326,8 @@ static bool occ_sensor_sanity(struct occ_sensor_data_header *hb, int chipid)
 		return false;
 	}
 
-	if (!hb->names_offset || !hb->reading_ping_offset ||
+	if (!hb->names_offset ||
+	    !hb->reading_ping_offset ||
 	    !hb->reading_pong_offset) {
 		prerror("OCC: Chip %d Invalid sensor buffer pointers\n",
 			chipid);
@@ -366,9 +364,10 @@ static void add_sensor_label(struct dt_node *node, struct occ_sensor_name *md,
 {
 	char sname[30] = "";
 	char prefix[30] = "";
+	uint16_t location = be16_to_cpu(md->location);
 	int i;
 
-	if (md->location != OCC_SENSOR_LOC_SYSTEM)
+	if (location != OCC_SENSOR_LOC_SYSTEM)
 		snprintf(prefix, sizeof(prefix), "%s %d ", "Chip", chipid);
 
 	for (i = 0; i < ARRAY_SIZE(str_maps); i++)
@@ -377,7 +376,7 @@ static void add_sensor_label(struct dt_node *node, struct occ_sensor_name *md,
 			char *end;
 			int num = -1;
 
-			if (md->location != OCC_SENSOR_LOC_CORE)
+			if (location != OCC_SENSOR_LOC_CORE)
 				num = parse_entity(md->name, &end);
 
 			if (num != -1) {
@@ -393,7 +392,7 @@ static void add_sensor_label(struct dt_node *node, struct occ_sensor_name *md,
 		}
 
 	/* Fallback to OCC literal if mapping is not found */
-	if (md->location == OCC_SENSOR_LOC_SYSTEM) {
+	if (location == OCC_SENSOR_LOC_SYSTEM) {
 		dt_add_property_string(node, "label", md->name);
 	} else {
 		snprintf(sname, sizeof(sname), "%s%s", prefix, md->name);
@@ -453,15 +452,15 @@ static bool check_sensor_sample(struct occ_sensor_data_header *hb, u32 offset)
 {
 	struct occ_sensor_record *ping, *pong;
 
-	ping = (struct occ_sensor_record *)((u64)hb + hb->reading_ping_offset
-					     + offset);
-	pong = (struct occ_sensor_record *)((u64)hb + hb->reading_pong_offset
-					     + offset);
+	ping = (struct occ_sensor_record *)((u64)hb
+			+ be32_to_cpu(hb->reading_ping_offset) + offset);
+	pong = (struct occ_sensor_record *)((u64)hb
+			+ be32_to_cpu(hb->reading_pong_offset) + offset);
 	return ping->sample || pong->sample;
 }
 
 static void add_sensor_node(const char *loc, const char *type, int i, int attr,
-			    struct occ_sensor_name *md, u32 *phandle, u32 *ptype,
+			    struct occ_sensor_name *md, __be32 *phandle, u32 *ptype,
 			    u32 pir, u32 occ_num, u32 chipid)
 {
 	char name[30];
@@ -477,10 +476,10 @@ static void add_sensor_node(const char *loc, const char *type, int i, int attr,
 	dt_add_property_string(node, "occ_label", md->name);
 	add_sensor_label(node, md, chipid);
 
-	if (md->location == OCC_SENSOR_LOC_CORE)
+	if (be16_to_cpu(md->location) == OCC_SENSOR_LOC_CORE)
 		dt_add_property_cells(node, "ibm,pir", pir);
 
-	*ptype = md->type;
+	*ptype = be16_to_cpu(md->type);
 
 	if (attr == SENSOR_SAMPLE) {
 		handler = sensor_handler(occ_num, i, SENSOR_CSM_MAX);
@@ -491,7 +490,7 @@ static void add_sensor_node(const char *loc, const char *type, int i, int attr,
 	}
 
 	dt_add_property_string(node, "compatible", "ibm,opal-sensor");
-	*phandle = node->phandle;
+	*phandle = cpu_to_be32(node->phandle);
 }
 
 bool occ_sensors_init(void)
@@ -501,8 +500,8 @@ bool occ_sensors_init(void)
 	int occ_num = 0, i;
 	bool has_gpu = false;
 
-	/* OCC inband sensors is only supported in P9 */
-	if (proc_gen != proc_gen_p9)
+	/* OCC inband sensors is only supported in P9/10 */
+	if (proc_gen < proc_gen_p9)
 		return false;
 
 	/* Sensors are copied to BAR2 OCC Common Area */
@@ -523,13 +522,33 @@ bool occ_sensors_init(void)
 	dt_add_property_cells(sg, "#address-cells", 1);
 	dt_add_property_cells(sg, "#size-cells", 0);
 
-	if (dt_find_compatible_node(dt_root, NULL, "ibm,power9-npu"))
-		has_gpu = true;
+	/*
+	 * On POWER9, ibm,ioda2-npu2-phb indicates the presence of a
+	 * GPU NVlink.
+	 */
+	if (dt_find_compatible_node(dt_root, NULL, "ibm,ioda2-npu2-phb")) {
+
+		for_each_chip(chip) {
+			int max_gpus_per_chip = 3, i;
+
+			for(i = 0; i < max_gpus_per_chip; i++) {
+				has_gpu = occ_get_gpu_presence(chip, i);
+
+				if (has_gpu)
+					break;
+			}
+
+			if (has_gpu)
+				break;
+		}
+	}
 
 	for_each_chip(chip) {
 		struct occ_sensor_data_header *hb;
 		struct occ_sensor_name *md;
-		u32 *phandles, *ptype, phcount = 0;
+		__be32 *phandles;
+		u32 *ptype, phcount = 0;
+		unsigned int nr_sensors;
 
 		hb = get_sensor_header_block(occ_num);
 		md = get_names_block(hb);
@@ -538,30 +557,34 @@ bool occ_sensors_init(void)
 		if (!occ_sensor_sanity(hb, chip->id))
 			continue;
 
-		phandles = malloc(hb->nr_sensors * sizeof(u32));
+		nr_sensors = be16_to_cpu(hb->nr_sensors);
+
+		phandles = malloc(nr_sensors * sizeof(__be32));
 		assert(phandles);
-		ptype = malloc(hb->nr_sensors * sizeof(u32));
+		ptype = malloc(nr_sensors * sizeof(u32));
 		assert(ptype);
 
-		for (i = 0; i < hb->nr_sensors; i++) {
-			const char *type, *loc;
+		for (i = 0; i < nr_sensors; i++) {
+			const char *type_name, *loc;
 			struct cpu_thread *c = NULL;
 			uint32_t pir = 0;
+			uint16_t type = be16_to_cpu(md[i].type);
+			uint16_t location = be16_to_cpu(md[i].location);
 
 			if (md[i].structure_type != OCC_SENSOR_READING_FULL)
 				continue;
 
-			if (!(md[i].type & HWMON_SENSORS_MASK))
+			if (!(type & HWMON_SENSORS_MASK))
 				continue;
 
-			if (md[i].location == OCC_SENSOR_LOC_GPU && !has_gpu)
+			if (location == OCC_SENSOR_LOC_GPU && !has_gpu)
 				continue;
 
-			if (md[i].type == OCC_SENSOR_TYPE_POWER &&
-			    !check_sensor_sample(hb, md[i].reading_offset))
+			if (type == OCC_SENSOR_TYPE_POWER &&
+			    !check_sensor_sample(hb, be32_to_cpu(md[i].reading_offset)))
 				continue;
 
-			if (md[i].location == OCC_SENSOR_LOC_CORE) {
+			if (location == OCC_SENSOR_LOC_CORE) {
 				int num = parse_entity(md[i].name, NULL);
 
 				for_each_available_core_in_chip(c, chip->id)
@@ -572,16 +595,16 @@ bool occ_sensors_init(void)
 				pir = c->pir;
 			}
 
-			type = get_sensor_type_string(md[i].type);
-			loc = get_sensor_loc_string(md[i].location);
+			type_name = get_sensor_type_string(type);
+			loc = get_sensor_loc_string(location);
 
-			add_sensor_node(loc, type, i, SENSOR_SAMPLE, &md[i],
+			add_sensor_node(loc, type_name, i, SENSOR_SAMPLE, &md[i],
 					&phandles[phcount], &ptype[phcount],
 					pir, occ_num, chip->id);
 			phcount++;
 
 			/* Add energy sensors */
-			if (md[i].type == OCC_SENSOR_TYPE_POWER &&
+			if (type == OCC_SENSOR_TYPE_POWER &&
 			    md[i].structure_type == OCC_SENSOR_READING_FULL) {
 				add_sensor_node(loc, "energy", i,
 						SENSOR_ACCUMULATOR, &md[i],
@@ -595,6 +618,10 @@ bool occ_sensors_init(void)
 		occ_add_sensor_groups(sg, phandles, ptype, phcount, chip->id);
 		free(phandles);
 		free(ptype);
+	}
+	/* clear the device tree property if no sensors */
+	if (list_empty(&sg->children)) {
+               dt_free(sg);
 	}
 
 	if (!occ_num)

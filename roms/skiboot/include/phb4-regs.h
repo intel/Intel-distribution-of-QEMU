@@ -1,18 +1,5 @@
-/* Copyright 2013-2016 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
 
 #ifndef __PHB4_REGS_H
 #define __PHB4_REGS_H
@@ -66,9 +53,11 @@
 #define PHB_M64_AOMASK			0x1d0
 #define PHB_M64_UPPER_BITS		0x1f0
 #define PHB_NXLATE_PREFIX		0x1f8
-#define PHB_DMARD_SYNC			0x200
-#define   PHB_DMARD_SYNC_START		PPC_BIT(0)
-#define   PHB_DMARD_SYNC_COMPLETE	PPC_BIT(1)
+#define PHB_DMA_READ_WRITE_SYNC		0x200
+#define   PHB_DMA_READ_SYNC_START	PPC_BIT(0)
+#define   PHB_DMA_READ_SYNC_COMPLETE	PPC_BIT(1)
+#define   PHB_DMA_WRITE_SYNC_START	PPC_BIT(2)	/* PHB5 */
+#define   PHB_DMA_WRITE_SYNC_COMPLETE	PPC_BIT(3)	/* PHB5 */
 #define PHB_RTC_INVALIDATE		0x208
 #define   PHB_RTC_INVALIDATE_ALL	PPC_BIT(0)
 #define   PHB_RTC_INVALIDATE_RID	PPC_BITMASK(16,31)
@@ -108,10 +97,13 @@
 #define   PHB_PAPR_ERR_INJ_MASK_MMIO		PPC_BITMASK(16,63)
 #define PHB_ETU_ERR_SUMMARY		0x2c8
 #define PHB_INT_NOTIFY_ADDR		0x300
+#define   PHB_INT_NOTIFY_ADDR_64K	PPC_BIT(1)	/* PHB5 */
 #define PHB_INT_NOTIFY_INDEX		0x308
 
 #define PHB_VERSION			0x800
 #define PHB_CTRLR			0x810
+#define   PHB_CTRLR_IRQ_PQ_DISABLE	PPC_BIT(9)	/* PHB5 */
+#define   PHB_CTRLR_IRQ_ABT_MODE	PPC_BIT(10)	/* PHB5 */
 #define   PHB_CTRLR_IRQ_PGSZ_64K	PPC_BIT(11)
 #define   PHB_CTRLR_IRQ_STORE_EOI	PPC_BIT(12)
 #define   PHB_CTRLR_MMIO_RD_STRICT	PPC_BIT(13)
@@ -123,6 +115,7 @@
 #define     TVT_4_PER_PE		1
 #define     TVT_8_PER_PE		2
 #define     TVT_16_PER_PE		3
+#define   PHB_CTRLR_TCE_CLB_DISABLE	PPC_BIT(21)
 #define   PHB_CTRLR_DMA_RD_SPACING	PPC_BITMASK(28,31)
 #define PHB_AIB_FENCE_CTRL		0x860
 #define PHB_TCE_TAG_ENABLE		0x868
@@ -282,10 +275,11 @@
 #define   PHB_PCIE_DLP_DL_PGRESET	PPC_BIT(22)
 #define   PHB_PCIE_DLP_TRAINING		PPC_BIT(20)
 #define   PHB_PCIE_DLP_INBAND_PRESENCE  PPC_BIT(19)
-
+#define   PHB_PCIE_DLP_SYS_DISABLEDETECT	PPC_BIT(12)
 #define PHB_PCIE_DLP_CTL		0x1A78
 #define   PHB_PCIE_DLP_CTL_BYPASS_PH2	PPC_BIT(4)
 #define   PHB_PCIE_DLP_CTL_BYPASS_PH3	PPC_BIT(5)
+#define   PHB_PCIE_DLP_CTL_SFC_DISABLE		PPC_BIT(60)
 
 #define PHB_PCIE_DLP_TRWCTL		0x1A80
 #define   PHB_PCIE_DLP_TRWCTL_EN	PPC_BIT(0)
@@ -301,10 +295,13 @@
 #define PHB_PCIE_LANE_EQ_CNTL1		0x1AD8
 #define PHB_PCIE_LANE_EQ_CNTL2		0x1AE0
 #define PHB_PCIE_LANE_EQ_CNTL3		0x1AE8
-#define PHB_PCIE_LANE_EQ_CNTL20		0x1AF0
-#define PHB_PCIE_LANE_EQ_CNTL21		0x1AF8
+#define PHB_PCIE_LANE_EQ_CNTL40		0x1AF0
+#define PHB_PCIE_LANE_EQ_CNTL41		0x1AF8
+#define PHB_PCIE_LANE_EQ_CNTL50		0x1B00
+#define PHB_PCIE_LANE_EQ_CNTL51		0x1B08
 #define PHB_PCIE_TRACE_CTRL		0x1B20
 #define PHB_PCIE_MISC_STRAP		0x1B30
+#define PHB_PCIE_PDL_PHY_EQ_CNTL	0x1B38
 
 /* Error */
 #define PHB_REGB_ERR_STATUS		0x1C00
@@ -388,9 +385,13 @@
 
 
 /* PCI Chiplet Config Register */
-#define XPEC_PCI2_CPLT_CONF1			0x000000000F000009ULL
-#define XPEC_PCI2_IOVALID_MASK			PPC_BITMASK(4, 6)
-#define XPEC_PCI2_IOVALID_X16			PPC_BIT(4)
+#define XPEC_PCI_CPLT_OFFSET			0x1000000ULL
+#define XPEC_P9_PCI_CPLT_CONF1			0x000000000D000009ULL
+#define   XPEC_P9_PCI_IOVALID_MASK		PPC_BITMASK(4, 6)
+#define   XPEC_P9_PCI_IOVALID_X16		PPC_BIT(4)
+#define   XPEC_P9_PCI_LANE_CFG			PPC_BITMASK(10, 11)
+#define XPEC_P10_PCI_CPLT_CONF1			0x0000000008000009ULL
+#define   XPEC_P10_PCI_LANE_CFG			PPC_BITMASK(0, 1)
 
 /*
  * IODA3 on-chip tables

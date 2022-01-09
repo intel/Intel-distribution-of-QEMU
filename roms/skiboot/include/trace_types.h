@@ -1,19 +1,10 @@
-/* Copyright 2013-2014 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * API for kernel to read trace buffer.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
-/* API for kernel to read trace buffer. */
+
 #ifndef __TRACE_TYPES_H
 #define __TRACE_TYPES_H
 
@@ -25,6 +16,7 @@
 #define TRACE_FSP_MSG	4	/* FSP message sent/received */
 #define TRACE_FSP_EVENT	5	/* FSP driver event */
 #define TRACE_UART	6	/* UART driver traces */
+#define TRACE_I2C	7	/* I2C driver traces */
 
 /* One per cpu, plus one for NMIs */
 struct tracebuf {
@@ -116,6 +108,16 @@ struct trace_uart {
 	__be16 in_count;
 };
 
+struct trace_i2c {
+	struct trace_hdr hdr;
+	u16 bus;
+	u16 type;
+	u16 i2c_addr;
+	u16 smbus_reg;
+	u16 size;
+	s16 rc;
+};
+
 union trace {
 	struct trace_hdr hdr;
 	/* Trace types go here... */
@@ -125,6 +127,7 @@ union trace {
 	struct trace_fsp_msg fsp_msg;
 	struct trace_fsp_event fsp_evt;
 	struct trace_uart uart;
+	struct trace_i2c i2c;
 };
 
 #endif /* __TRACE_TYPES_H */

@@ -1,23 +1,10 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 /*
  * IBM System P FSP (Flexible Service Processor)
+ *
+ * Copyright 2013-2019 IBM Corp.
  */
+
 #ifndef __FSP_H
 #define __FSP_H
 
@@ -59,7 +46,6 @@
 #define FSP_STATUS_FLASH_INPROGRESS	0x61
 #define FSP_STATUS_FLASH_NOPROGRESS	0x62
 #define FSP_STATUS_FLASH_INVALID_SIDE	0x63
-#define FSP_STATUS_GENERIC_ERROR	0xfe
 #define FSP_STATUS_EOF_ERROR		0x02
 #define FSP_STATUS_DMA_ERROR		0x24
 #define FSP_STATUS_BUSY			0x3e
@@ -74,7 +60,7 @@
 #define FSP_STATUS_TOD_PERMANENT_ERROR	0xAF	/* Permanent error in TOD */
 #define FSP_STATUS_I2C_TRANS_ERROR	0xE4	/* I2C device / transmission error */
 #define FSP_STATUS_IND_PARTIAL_SUCCESS	0xE5	/* Indicator partial success */
-#define FSP_STATUS_GENERIC_FAILURE	0xEF	/* Generic Failure in execution */
+#define FSP_STATUS_GENERIC_ERROR	0xFE    /* Generic Failure in execution */
 
 /*
  * FSP registers
@@ -617,7 +603,7 @@ struct fsp_msg {
 	u32			word0;	/* seq << 16 | cmd */
 	u32			word1;	/* mod << 8 | sub */
 	union {
-		u32		words[14];
+		__be32		words[14];
 		u8		bytes[56];
 	} data;
 
@@ -641,6 +627,16 @@ struct fsp_msg {
 	/* Internal queuing */
 	struct list_node	link;
 };
+
+static inline u32 fsp_msg_get_data_word(struct fsp_msg *msg, unsigned long i)
+{
+	return be32_to_cpu(msg->data.words[i]);
+}
+
+static inline void fsp_msg_set_data_word(struct fsp_msg *msg, unsigned long i, u32 w)
+{
+	msg->data.words[i] = cpu_to_be32(w);
+}
 
 /* This checks if a message is still "in progress" in the FSP driver */
 static inline bool fsp_msg_busy(struct fsp_msg *msg)
@@ -832,7 +828,7 @@ extern void fsp_memory_err_init(void);
 /* Sensor */
 extern void fsp_init_sensor(void);
 extern int64_t fsp_opal_read_sensor(uint32_t sensor_hndl, int token,
-			uint64_t *sensor_data);
+					__be64 *sensor_data);
 
 /* Diagnostic */
 extern void fsp_init_diag(void);
@@ -846,6 +842,7 @@ extern void fsp_epow_init(void);
 
 /* DPO */
 extern void fsp_dpo_init(void);
+extern bool fsp_dpo_pending;
 
 /* Chiptod */
 extern void fsp_chiptod_init(void);

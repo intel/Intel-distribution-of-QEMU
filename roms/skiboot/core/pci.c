@@ -1,17 +1,8 @@
-/* Copyright 2013-2014 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Base PCI support
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
 
 #include <skiboot.h>
@@ -100,6 +91,11 @@ int64_t pci_find_ecap(struct phb *phb, uint16_t bdfn, uint16_t want,
 		rc = pci_cfg_read32(phb, bdfn, off, &cap);
 		if (rc)
 			return rc;
+
+		/* no ecaps supported */
+		if (cap == 0 || (cap & 0xffff) == 0xffff)
+			return OPAL_UNSUPPORTED;
+
 		if ((cap & 0xffff) == want) {
 			if (version)
 				*version = (cap >> 16) & 0xf;
@@ -264,7 +260,7 @@ static struct pci_device *pci_scan_one(struct phb *phb, struct pci_device *paren
 	pd->is_bridge = (htype & 0x7f) != 0;
 	pd->is_vf = false;
 	pd->scan_map = 0xffffffff; /* Default */
-	pd->primary_bus = (bdfn >> 8);
+	pd->primary_bus = PCI_BUS_NUM(bdfn);
 
 	pci_init_capabilities(phb, pd);
 
@@ -316,10 +312,12 @@ static struct pci_device *pci_scan_one(struct phb *phb, struct pci_device *paren
  *                          everything (default state of our backend) so
  *                          we just check and clear the state of PE#0
  *
+ *                          returns true if a freeze was detected
+ *
  * NOTE: We currently only handle simple PE freeze, not PHB fencing
  *       (or rather our backend does)
  */
-static void pci_check_clear_freeze(struct phb *phb)
+bool pci_check_clear_freeze(struct phb *phb)
 {
 	uint8_t freeze_state;
 	uint16_t pci_error_type, sev;
@@ -330,23 +328,26 @@ static void pci_check_clear_freeze(struct phb *phb)
 	if (phb->ops->get_reserved_pe_number)
 		pe_number = phb->ops->get_reserved_pe_number(phb);
 	if (pe_number < 0)
-		return;
+		return false;
 
 	/* Retrieve the frozen state */
 	rc = phb->ops->eeh_freeze_status(phb, pe_number, &freeze_state,
 					 &pci_error_type, &sev);
 	if (rc)
-		return;
+		return true; /* phb fence? */
+
 	if (freeze_state == OPAL_EEH_STOPPED_NOT_FROZEN)
-		return;
+		return false;
 	/* We can't handle anything worse than an ER here */
 	if (sev > OPAL_EEH_SEV_NO_ERROR &&
 	    sev < OPAL_EEH_SEV_PE_ER) {
 		PCIERR(phb, 0, "Fatal probe in %s error !\n", __func__);
-		return;
+		return true;
 	}
+
 	phb->ops->eeh_freeze_clear(phb, pe_number,
 				   OPAL_EEH_ACTION_CLEAR_FREEZE_ALL);
+	return true;
 }
 
 /*
@@ -740,9 +741,8 @@ uint8_t pci_scan_bus(struct phb *phb, uint8_t bus, uint8_t max_bus,
 		     bool scan_downstream)
 {
 	struct pci_device *pd = NULL, *rc = NULL;
-	uint8_t dev, fn, next_bus, max_sub, save_max;
+	uint8_t dev, fn, next_bus, max_sub;
 	uint32_t scan_map;
-	bool use_max;
 
 	/* Decide what to scan  */
 	scan_map = parent ? parent->scan_map : phb->scan_map;
@@ -776,8 +776,7 @@ uint8_t pci_scan_bus(struct phb *phb, uint8_t bus, uint8_t max_bus,
 	 * if PCI hotplug is supported.
 	 */
 	if (rc && rc->slot && rc->slot->pluggable) {
-		next_bus = phb->ops->choose_bus(phb, rc, bus + 1,
-						&max_bus, &use_max);
+		next_bus = bus + 1;
 		rc->secondary_bus = next_bus;
 		rc->subordinate_bus = max_bus;
 		pci_cfg_write8(phb, rc->bdfn, PCI_CFG_SECONDARY_BUS,
@@ -807,7 +806,6 @@ uint8_t pci_scan_bus(struct phb *phb, uint8_t bus, uint8_t max_bus,
 
 	next_bus = bus + 1;
 	max_sub = bus;
-	save_max = max_bus;
 
 	/* Scan down bridges */
 	list_for_each(list, pd, link) {
@@ -815,33 +813,6 @@ uint8_t pci_scan_bus(struct phb *phb, uint8_t bus, uint8_t max_bus,
 
 		if (!pd->is_bridge)
 			continue;
-
-		/* We need to figure out a new bus number to start from.
-		 *
-		 * This can be tricky due to our HW constraints which differ
-		 * from bridge to bridge so we are going to let the phb
-		 * driver decide what to do. This can return us a maximum
-		 * bus number to assign as well
-		 *
-		 * This function will:
-		 *
-		 *  - Return the bus number to use as secondary for the
-		 *    bridge or 0 for a failure
-		 *
-		 *  - "max_bus" will be adjusted to represent the max
-		 *    subordinate that can be associated with the downstream
-		 *    device
-		 *
-		 *  - "use_max" will be set to true if the returned max_bus
-		 *    *must* be used as the subordinate bus number of that
-		 *    bridge (when we need to give aligned powers of two's
-		 *    on P7IOC). If is is set to false, we just adjust the
-		 *    subordinate bus number based on what we probed.
-		 *
-		 */
-		max_bus = save_max;
-		next_bus = phb->ops->choose_bus(phb, pd, next_bus,
-						&max_bus, &use_max);
 
 		/* Configure the bridge with the returned values */
 		if (next_bus <= bus) {
@@ -856,8 +827,8 @@ uint8_t pci_scan_bus(struct phb *phb, uint8_t bus, uint8_t max_bus,
 		if (!next_bus)
 			break;
 
-		PCIDBG(phb, pd->bdfn, "Bus %02x..%02x %s scanning...\n",
-		       next_bus, max_bus, use_max ? "[use max]" : "");
+		PCIDBG(phb, pd->bdfn, "Bus %02x..%02x scanning...\n",
+		       next_bus, max_bus);
 
 		/* Clear up bridge resources */
 		pci_cleanup_bridge(phb, pd);
@@ -873,7 +844,7 @@ uint8_t pci_scan_bus(struct phb *phb, uint8_t bus, uint8_t max_bus,
 		if (do_scan) {
 			max_sub = pci_scan_bus(phb, next_bus, max_bus,
 					       &pd->children, pd, true);
-		} else if (!use_max) {
+		} else {
 			/* Empty bridge. We leave room for hotplug
 			 * slots if the downstream port is pluggable.
 			 */
@@ -886,9 +857,6 @@ uint8_t pci_scan_bus(struct phb *phb, uint8_t bus, uint8_t max_bus,
 			}
 		}
 
-		/* Update the max subordinate as described previously */
-		if (use_max)
-			max_sub = max_bus;
 		pd->subordinate_bus = max_sub;
 		pci_cfg_write8(phb, pd->bdfn, PCI_CFG_SUBORDINATE_BUS, max_sub);
 		next_bus = max_sub + 1;
@@ -959,15 +927,21 @@ static int pci_configure_mps(struct phb *phb,
 
 static void pci_disable_completion_timeout(struct phb *phb, struct pci_device *pd)
 {
-	uint32_t ecap;
-	uint32_t val;
+	uint32_t ecap, val;
+	uint16_t pcie_cap;
 
 	/* PCIE capability required */
 	if (!pci_has_cap(pd, PCI_CFG_CAP_ID_EXP, false))
 		return;
 
-	/* Check if it has capability to disable completion timeout */
+	/* Check PCIe capability version */
 	ecap = pci_cap(pd, PCI_CFG_CAP_ID_EXP, false);
+	pci_cfg_read16(phb, pd->bdfn,
+		       ecap + PCICAP_EXP_CAPABILITY_REG, &pcie_cap);
+	if ((pcie_cap & PCICAP_EXP_CAP_VERSION) <= 1)
+		return;
+
+	/* Check if it has capability to disable completion timeout */
 	pci_cfg_read32(phb, pd->bdfn, ecap + PCIECAP_EXP_DCAP2, &val);
 	if (!(val & PCICAP_EXP_DCAP2_CMPTOUT_DIS))
 		return;
@@ -1336,18 +1310,15 @@ void pci_std_swizzle_irq_map(struct dt_node *np,
 			     struct pci_lsi_state *lstate,
 			     uint8_t swizzle)
 {
-	uint32_t *map, *p;
+	__be32 *p, *map;
 	int dev, irq, esize, edevcount;
-	size_t map_size, isize;
+	size_t map_size;
 
 	/* Some emulated setups don't use standard interrupts
 	 * representation
 	 */
 	if (lstate->int_size == 0)
 		return;
-
-	/* Size in bytes of a target interrupt */
-	isize = lstate->int_size * sizeof(uint32_t);
 
 	/* Calculate the size of a map entry:
 	 *
@@ -1378,7 +1349,7 @@ void pci_std_swizzle_irq_map(struct dt_node *np,
 		dt_add_property_cells(np, "interrupt-map-mask",
 				      0xf800, 0, 0, 7);
 	}
-	map_size = esize * edevcount * 4 * sizeof(uint32_t);
+	map_size = esize * edevcount * 4 * sizeof(u32);
 	map = p = zalloc(map_size);
 	if (!map) {
 		prerror("Failed to allocate interrupt-map-mask !\n");
@@ -1388,22 +1359,23 @@ void pci_std_swizzle_irq_map(struct dt_node *np,
 	for (dev = 0; dev < edevcount; dev++) {
 		for (irq = 0; irq < 4; irq++) {
 			/* Calculate pin */
+			size_t i;
 			uint32_t new_irq = (irq + dev + swizzle) % 4;
 
 			/* PCI address portion */
-			*(p++) = dev << (8 + 3);
+			*(p++) = cpu_to_be32(dev << (8 + 3));
 			*(p++) = 0;
 			*(p++) = 0;
 
 			/* PCI interrupt portion */
-			*(p++) = irq + 1;
+			*(p++) = cpu_to_be32(irq + 1);
 
 			/* Parent phandle */
-			*(p++) = lstate->int_parent[new_irq];
+			*(p++) = cpu_to_be32(lstate->int_parent[new_irq]);
 
 			/* Parent desc */
-			memcpy(p, lstate->int_val[new_irq], isize);
-			p += lstate->int_size;
+			for (i = 0; i < lstate->int_size; i++)
+				*(p++) = cpu_to_be32(lstate->int_val[new_irq][i]);
 		}
 	}
 
@@ -1411,75 +1383,39 @@ void pci_std_swizzle_irq_map(struct dt_node *np,
 	free(map);
 }
 
-static void pci_add_loc_code(struct dt_node *np, struct pci_device *pd)
+static void pci_add_loc_code(struct dt_node *np)
 {
-	struct dt_node *p = np->parent;
-	const char *blcode = NULL;
-	char *lcode;
-	uint32_t class_code;
-	uint8_t class, sub;
-	uint8_t pos, len;
+	struct dt_node *p;
+	const char *lcode = NULL;
 
-	while (p) {
-		/* if we have a slot label (i.e. openpower) use that */
-		blcode = dt_prop_get_def(p, "ibm,slot-label", NULL);
-		if (blcode)
+	for (p = np->parent; p; p = p->parent) {
+		/* prefer slot-label by default */
+		lcode = dt_prop_get_def(p, "ibm,slot-label", NULL);
+		if (lcode)
 			break;
 
 		/* otherwise use the fully qualified location code */
-		blcode = dt_prop_get_def(p, "ibm,slot-location-code", NULL);
-		if (blcode)
+		lcode = dt_prop_get_def(p, "ibm,slot-location-code", NULL);
+		if (lcode)
 			break;
-
-		p = p->parent;
 	}
 
-	if (!blcode)
-		blcode = dt_prop_get_def(np, "ibm,slot-location-code", NULL);
+	if (!lcode)
+		lcode = dt_prop_get_def(np, "ibm,slot-location-code", NULL);
 
-	if (!blcode) {
+	if (!lcode) {
 		/* Fall back to finding a ibm,loc-code */
-		p = np->parent;
-
-		while (p) {
-			blcode = dt_prop_get_def(p, "ibm,loc-code", NULL);
-			if (blcode)
+		for (p = np->parent; p; p = p->parent) {
+			lcode = dt_prop_get_def(p, "ibm,loc-code", NULL);
+			if (lcode)
 				break;
-			p = p->parent;
 		}
 	}
 
-	if (!blcode)
+	if (!lcode)
 		return;
 
-	/* ethernet devices get port codes */
-	class_code = dt_prop_get_u32(np, "class-code");
-	class = class_code >> 16;
-	sub = (class_code >> 8) & 0xff;
-
-	/* XXX Don't do that on openpower for now, we will need to sort things
-	 * out later, otherwise the mezzanine slot on Habanero gets weird results
-	 */
-	if (class == 0x02 && sub == 0x00 && !platform.bmc) {
-		/* There's usually several spaces at the end of the property.
-		   Test for, but don't rely on, that being the case */
-		len = strlen(blcode);
-		for (pos = 0; pos < len; pos++)
-			if (blcode[pos] == ' ') break;
-		if (pos + 3 < len)
-			lcode = strdup(blcode);
-		else {
-			lcode = malloc(pos + 3);
-			memcpy(lcode, blcode, len);
-		}
-		lcode[pos++] = '-';
-		lcode[pos++] = 'T';
-		lcode[pos++] = (char)(pd->bdfn & 0x7) + '1';
-		lcode[pos++] = '\0';
-		dt_add_property_string(np, "ibm,loc-code", lcode);
-		free(lcode);
-	} else
-		dt_add_property_string(np, "ibm,loc-code", blcode);
+	dt_add_property_string(np, "ibm,loc-code", lcode);
 }
 
 static void pci_print_summary_line(struct phb *phb, struct pci_device *pd,
@@ -1487,11 +1423,8 @@ static void pci_print_summary_line(struct phb *phb, struct pci_device *pd,
 				   const char *cname)
 {
 	const char *label, *dtype, *s;
-	u32 vdid;
 #define MAX_SLOTSTR 80
 	char slotstr[MAX_SLOTSTR  + 1] = { 0, };
-
-	pci_cfg_read32(phb, pd->bdfn, 0, &vdid);
 
 	/* If it's a slot, it has a slot-label */
 	label = dt_prop_get_def(np, "ibm,slot-label", NULL);
@@ -1531,13 +1464,15 @@ static void pci_print_summary_line(struct phb *phb, struct pci_device *pd,
 	if (pd->is_bridge)
 		PCINOTICE(phb, pd->bdfn,
 			  "[%s] %04x %04x R:%02x C:%06x B:%02x..%02x %s\n",
-			  dtype, vdid & 0xffff, vdid >> 16,
+			  dtype, PCI_VENDOR_ID(pd->vdid),
+			  PCI_DEVICE_ID(pd->vdid),
 			  rev_class & 0xff, rev_class >> 8, pd->secondary_bus,
 			  pd->subordinate_bus, slotstr);
 	else
 		PCINOTICE(phb, pd->bdfn,
 			  "[%s] %04x %04x R:%02x C:%06x (%14s) %s\n",
-			  dtype, vdid & 0xffff, vdid >> 16,
+			  dtype, PCI_VENDOR_ID(pd->vdid),
+			  PCI_DEVICE_ID(pd->vdid),
 			  rev_class & 0xff, rev_class >> 8, cname, slotstr);
 }
 
@@ -1552,19 +1487,10 @@ static void __noinline pci_add_one_device_node(struct phb *phb,
 #define MAX_NAME 256
 	char name[MAX_NAME];
 	char compat[MAX_NAME];
-	uint32_t rev_class, vdid;
-	uint32_t reg[5];
+	uint32_t rev_class;
 	uint8_t intpin;
 	bool is_pcie;
-	const uint32_t ranges_direct[] = {
-				/* 64-bit direct mapping. We know the bridges
-				 * don't cover the entire address space so
-				 * use 0xf00... as a good compromise. */
-				0x02000000, 0x0, 0x0,
-				0x02000000, 0x0, 0x0,
-				0xf0000000, 0x0};
 
-	pci_cfg_read32(phb, pd->bdfn, 0, &vdid);
 	pci_cfg_read32(phb, pd->bdfn, PCI_CFG_REV_ID, &rev_class);
 	pci_cfg_read8(phb, pd->bdfn, PCI_CFG_INT_PIN, &intpin);
 	is_pcie = pci_has_cap(pd, PCI_CFG_CAP_ID_EXP, false);
@@ -1574,16 +1500,16 @@ static void __noinline pci_add_one_device_node(struct phb *phb,
 	 * uses prefers to read the class code from the DT rather than
 	 * re-reading config space we can hack around it here.
 	 */
-	if (is_pcie && parent_node == phb->dt_node)
+	if (is_pcie && pd->dev_type == PCIE_TYPE_ROOT_PORT)
 		rev_class = (rev_class & 0xff) | 0x6040000;
 	cname = pci_class_name(rev_class >> 8);
 
-	if (pd->bdfn & 0x7)
+	if (PCI_FUNC(pd->bdfn))
 		snprintf(name, MAX_NAME - 1, "%s@%x,%x",
-			 cname, (pd->bdfn >> 3) & 0x1f, pd->bdfn & 0x7);
+			 cname, PCI_DEV(pd->bdfn), PCI_FUNC(pd->bdfn));
 	else
 		snprintf(name, MAX_NAME - 1, "%s@%x",
-			 cname, (pd->bdfn >> 3) & 0x1f);
+			 cname, PCI_DEV(pd->bdfn));
 	pd->dn = np = dt_new(parent_node, name);
 
 	/*
@@ -1593,17 +1519,17 @@ static void __noinline pci_add_one_device_node(struct phb *phb,
 	 */
 	if (is_pcie || phb->phb_type == phb_type_npu_v2_opencapi) {
 		snprintf(compat, MAX_NAME, "pciex%x,%x",
-			 vdid & 0xffff, vdid >> 16);
+			 PCI_VENDOR_ID(pd->vdid), PCI_DEVICE_ID(pd->vdid));
 		dt_add_property_cells(np, "ibm,pci-config-space-type", 1);
 	} else {
 		snprintf(compat, MAX_NAME, "pci%x,%x",
-			 vdid & 0xffff, vdid >> 16);
+			 PCI_VENDOR_ID(pd->vdid), PCI_DEVICE_ID(pd->vdid));
 		dt_add_property_cells(np, "ibm,pci-config-space-type", 0);
 	}
 	dt_add_property_cells(np, "class-code", rev_class >> 8);
 	dt_add_property_cells(np, "revision-id", rev_class & 0xff);
-	dt_add_property_cells(np, "vendor-id", vdid & 0xffff);
-	dt_add_property_cells(np, "device-id", vdid >> 16);
+	dt_add_property_cells(np, "vendor-id", PCI_VENDOR_ID(pd->vdid));
+	dt_add_property_cells(np, "device-id", PCI_DEVICE_ID(pd->vdid));
 	if (intpin)
 		dt_add_property_cells(np, "interrupts", intpin);
 
@@ -1633,15 +1559,16 @@ static void __noinline pci_add_one_device_node(struct phb *phb,
 				       phb->base_loc_code);
 
 	/* Make up location code */
-	pci_add_loc_code(np, pd);
+	if (platform.pci_add_loc_code)
+		platform.pci_add_loc_code(np, pd);
+	else
+		pci_add_loc_code(np);
 
 	/* XXX FIXME: We don't look for BARs, we only put the config space
 	 * entry in the "reg" property. That's enough for Linux and we might
 	 * even want to make this legit in future ePAPR
 	 */
-	reg[0] = pd->bdfn << 8;
-	reg[1] = reg[2] = reg[3] = reg[4] = 0;
-	dt_add_property(np, "reg", reg, sizeof(reg));
+	dt_add_property_cells(np, "reg", pd->bdfn << 8, 0, 0, 0, 0);
 
 	/* Print summary info about the device */
 	pci_print_summary_line(phb, pd, np, rev_class, cname);
@@ -1661,7 +1588,7 @@ static void __noinline pci_add_one_device_node(struct phb *phb,
 	/* Update the current interrupt swizzling level based on our own
 	 * device number
 	 */
-	swizzle = (swizzle + ((pd->bdfn >> 3) & 0x1f)) & 3;
+	swizzle = (swizzle + PCI_DEV(pd->bdfn)) & 3;
 
 	/* We generate a standard-swizzling interrupt map. This is pretty
 	 * big, we *could* try to be smarter for things that aren't hotplug
@@ -1676,7 +1603,13 @@ static void __noinline pci_add_one_device_node(struct phb *phb,
 	 * (ie. an empty ranges property).
 	 * Instead add a ranges property that explicitly translates 1:1.
 	 */
-	dt_add_property(np, "ranges", ranges_direct, sizeof(ranges_direct));
+	dt_add_property_cells(np, "ranges",
+				/* 64-bit direct mapping. We know the bridges
+				 * don't cover the entire address space so
+				 * use 0xf00... as a good compromise. */
+				0x02000000, 0x0, 0x0,
+				0x02000000, 0x0, 0x0,
+				0xf0000000, 0x0);
 }
 
 void __noinline pci_add_device_nodes(struct phb *phb,

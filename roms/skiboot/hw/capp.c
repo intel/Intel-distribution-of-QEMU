@@ -1,18 +1,10 @@
-/* Copyright 2013-2017 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * CAPP unit (i.e. CAPI)
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
+
 #include <skiboot.h>
 #include <io.h>
 #include <opal.h>
@@ -50,15 +42,12 @@ int preload_capp_ucode(void)
 	uint64_t rc;
 	int ret;
 
+	/* CAPI is supported on P8 and P9 only */
 	p = dt_find_compatible_node(dt_root, NULL, "ibm,power8-pbcq");
-
-	if (!p) {
+	if (!p)
 		p = dt_find_compatible_node(dt_root, NULL, "ibm,power9-pbcq");
-		if (!p) {
-			prlog(PR_INFO, "CAPI: WARNING: no compat thing found\n");
-			return OPAL_SUCCESS;
-		}
-	}
+	if (!p)
+		return OPAL_SUCCESS;
 
 	chip = get_chip(dt_get_chip_id(p));
 
@@ -176,7 +165,7 @@ int64_t capp_load_ucode(unsigned int chip_id, uint32_t opal_id,
 
 	/* 'CAPPULID' in ASCII */
 	if ((be64_to_cpu(ucode->eyecatcher) != 0x43415050554C4944UL) ||
-	    (be64_to_cpu(ucode->version != 1))) {
+	    (be64_to_cpu(ucode->version) != 1)) {
 		PHBERR(opal_id, chip_id, index,
 		       "CAPP: ucode header invalid\n");
 		return OPAL_HARDWARE;

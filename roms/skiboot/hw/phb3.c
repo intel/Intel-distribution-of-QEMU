@@ -1,18 +1,10 @@
-/* Copyright 2013-2014 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * PHB3: PCI Host Bridge 3, in POWER8
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
+
 #include <skiboot.h>
 #include <io.h>
 #include <timebase.h>
@@ -134,7 +126,7 @@ static int64_t phb3_pcicfg_check(struct phb3 *p, uint32_t bdfn,
 	 * error state if we try to probe beyond that, so let's
 	 * avoid that and just return an error to Linux
 	 */
-	if ((bdfn >> 8) == 0 && (bdfn & 0xff))
+	if (PCI_BUS_NUM(bdfn) == 0 && (bdfn & 0xff))
 		return OPAL_HARDWARE;
 
 	/* Check PHB state */
@@ -343,16 +335,6 @@ PHB3_PCI_CFG_READ(32, u32)
 PHB3_PCI_CFG_WRITE(8, u8)
 PHB3_PCI_CFG_WRITE(16, u16)
 PHB3_PCI_CFG_WRITE(32, u32)
-
-static uint8_t phb3_choose_bus(struct phb *phb __unused,
-			       struct pci_device *bridge __unused,
-			       uint8_t candidate, uint8_t *max_bus __unused,
-			       bool *use_max)
-{
-	/* Use standard bus number selection */
-	*use_max = false;
-	return candidate;
-}
 
 static int64_t phb3_get_reserved_pe_number(struct phb *phb __unused)
 {
@@ -2154,7 +2136,7 @@ static int64_t phb3_set_pe(struct phb *phb,
 		all = (all << 1) | 0x1;
 	else {
 		mask |= 0x7;
-		val  |= (bdfn & 0x7);
+		val  |= PCI_FUNC(bdfn);
 	}
 
 	/* Map or unmap the RTT range */
@@ -3286,7 +3268,7 @@ static int64_t phb3_err_inject_cfg(struct phb3 *p, uint64_t pe_number,
 		if (prefer == 0xffffull) {
 			if (is_bus_pe) {
 				m = PHB_PAPR_ERR_INJ_MASK_CFG;
-				prefer = SETFIELD(m, 0x0ull, (bdfn >> 8));
+				prefer = SETFIELD(m, 0x0ull, PCI_BUS_NUM(bdfn));
 			} else {
 				m = PHB_PAPR_ERR_INJ_MASK_CFG_ALL;
 				prefer = SETFIELD(m, 0x0ull, bdfn);
@@ -3301,7 +3283,7 @@ static int64_t phb3_err_inject_cfg(struct phb3 *p, uint64_t pe_number,
 		}
 
 		if (is_bus_pe &&
-		    GETFIELD(PHB_PAPR_ERR_INJ_MASK_CFG, addr) == (bdfn >> 8)) {
+		    GETFIELD(PHB_PAPR_ERR_INJ_MASK_CFG, addr) == PCI_BUS_NUM(bdfn)) {
 			a = addr;
 			break;
 		}
@@ -3865,7 +3847,6 @@ static const struct phb_ops phb3_ops = {
 	.cfg_write8		= phb3_pcicfg_write8,
 	.cfg_write16		= phb3_pcicfg_write16,
 	.cfg_write32		= phb3_pcicfg_write32,
-	.choose_bus		= phb3_choose_bus,
 	.get_reserved_pe_number	= phb3_get_reserved_pe_number,
 	.device_init		= phb3_device_init,
 	.device_remove		= phb3_device_remove,

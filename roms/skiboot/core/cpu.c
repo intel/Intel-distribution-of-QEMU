@@ -1,23 +1,10 @@
-/* Copyright 2013-2017 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Code to manage and manipulate CPUs
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
 
-/*
- * TODO: Index array by PIR to be able to catch them easily
- * from assembly such as machine checks etc...
- */
 #include <skiboot.h>
 #include <cpu.h>
 #include <device.h>
@@ -55,8 +42,8 @@ static unsigned long hid0_attn;
 static bool sreset_enabled;
 static bool ipi_enabled;
 static bool pm_enabled;
-static bool current_hile_mode;
-static bool current_radix_mode;
+static bool current_hile_mode = HAVE_LITTLE_ENDIAN;
+static bool current_radix_mode = true;
 static bool tm_suspend_enabled;
 
 unsigned long cpu_secondary_start __force_data = 0;
@@ -113,7 +100,7 @@ static void cpu_wake(struct cpu_thread *cpu)
 	if (proc_gen == proc_gen_p8) {
 		/* Poke IPI */
 		icp_kick_cpu(cpu);
-	} else if (proc_gen == proc_gen_p9) {
+	} else if (proc_gen == proc_gen_p9 || proc_gen == proc_gen_p10) {
 		p9_dbell_send(cpu->pir);
 	}
 }
@@ -450,7 +437,7 @@ static unsigned int cpu_idle_p9(enum cpu_wake_cause wake_on)
 	unsigned int vec = 0;
 
 	if (!pm_enabled) {
-		prlog_once(PR_DEBUG, "cpu_idle_p9 called pm disabled\n");
+		prlog(PR_DEBUG, "cpu_idle_p9 called on cpu 0x%04x with pm disabled\n", cpu->pir);
 		return vec;
 	}
 
@@ -518,6 +505,9 @@ static void cpu_idle_pm(enum cpu_wake_cause wake_on)
 		vec = cpu_idle_p8(wake_on);
 		break;
 	case proc_gen_p9:
+		vec = cpu_idle_p9(wake_on);
+		break;
+	case proc_gen_p10:
 		vec = cpu_idle_p9(wake_on);
 		break;
 	default:
@@ -606,6 +596,7 @@ no_pm:
 static void cpu_pm_disable(void)
 {
 	struct cpu_thread *cpu;
+	unsigned int timeout;
 
 	pm_enabled = false;
 	sync();
@@ -617,16 +608,24 @@ static void cpu_pm_disable(void)
 				cpu_relax();
 			}
 		}
-	} else if (proc_gen == proc_gen_p9) {
+	} else if (proc_gen == proc_gen_p9 || proc_gen == proc_gen_p10) {
 		for_each_available_cpu(cpu) {
 			if (cpu->in_sleep || cpu->in_idle)
 				p9_dbell_send(cpu->pir);
 		}
 
+		/*  This code is racy with cpus entering idle, late ones miss the dbell */
+
 		smt_lowest();
 		for_each_available_cpu(cpu) {
-			while (cpu->in_sleep || cpu->in_idle)
+			timeout = 0x08000000;
+			while ((cpu->in_sleep || cpu->in_idle) && --timeout)
 				barrier();
+			if (!timeout) {
+				prlog(PR_DEBUG, "cpu_pm_disable TIMEOUT on cpu 0x%04x to exit idle\n",
+				      cpu->pir);
+                                p9_dbell_send(cpu->pir);
+                        }
 		}
 		smt_medium();
 	}
@@ -652,7 +651,7 @@ void cpu_set_sreset_enable(bool enabled)
 				pm_enabled = true;
 		}
 
-	} else if (proc_gen == proc_gen_p9) {
+	} else if (proc_gen == proc_gen_p9 || proc_gen == proc_gen_p10) {
 		sreset_enabled = enabled;
 		sync();
 		/*
@@ -680,7 +679,7 @@ void cpu_set_ipi_enable(bool enabled)
 				pm_enabled = true;
 		}
 
-	} else if (proc_gen == proc_gen_p9) {
+	} else if (proc_gen == proc_gen_p9 || proc_gen == proc_gen_p10) {
 		ipi_enabled = enabled;
 		sync();
 		if (!enabled)
@@ -752,7 +751,7 @@ struct cpu_thread *find_cpu_by_pir(u32 pir)
 	return &cpu_stacks[pir].cpu;
 }
 
-struct __nomcount cpu_thread *find_cpu_by_pir_nomcount(u32 pir)
+struct cpu_thread __nomcount *find_cpu_by_pir_nomcount(u32 pir)
 {
 	if (pir > cpu_max_pir)
 		return NULL;
@@ -837,8 +836,8 @@ struct cpu_thread *first_ungarded_cpu(void)
 struct cpu_thread *next_ungarded_primary(struct cpu_thread *cpu)
 {
 	do {
-		cpu = next_cpu(cpu);
-	} while(cpu && (cpu->state == cpu_state_unavailable || cpu->primary != cpu));
+		cpu = next_ungarded_cpu(cpu);
+	} while (cpu && !(cpu == cpu->primary || cpu == cpu->ec_primary));
 
 	return cpu;
 }
@@ -877,7 +876,7 @@ struct cpu_thread *first_available_core_in_chip(u32 chip_id)
 
 uint32_t cpu_get_core_index(struct cpu_thread *cpu)
 {
-	return pir_to_core_id(cpu->pir);
+	return pir_to_fused_core_id(cpu->pir);
 }
 
 void cpu_remove_node(const struct cpu_thread *t)
@@ -945,6 +944,7 @@ static void init_cpu_thread(struct cpu_thread *t,
 #ifdef STACK_CHECK_ENABLED
 	t->stack_bot_mark = LONG_MAX;
 #endif
+	t->is_fused_core = is_fused_core(mfspr(SPR_PVR));
 	assert(pir == container_of(t, struct cpu_stack, cpu) - cpu_stacks);
 }
 
@@ -1017,6 +1017,13 @@ void init_boot_cpu(void)
 		hid0_hile = SPR_HID0_POWER9_HILE;
 		hid0_attn = SPR_HID0_POWER9_ENABLE_ATTN;
 		break;
+	case PVR_TYPE_P10:
+		proc_gen = proc_gen_p10;
+		hile_supported = true;
+		radix_supported = true;
+		hid0_hile = SPR_HID0_POWER10_HILE;
+		hid0_attn = SPR_HID0_POWER10_ENABLE_ATTN;
+		break;
 	default:
 		proc_gen = proc_gen_unknown;
 	}
@@ -1029,14 +1036,24 @@ void init_boot_cpu(void)
 		      " (max %d threads/core)\n", cpu_thread_count);
 		break;
 	case proc_gen_p9:
-		cpu_thread_count = 4;
+		if (is_fused_core(pvr))
+			cpu_thread_count = 8;
+		else
+			cpu_thread_count = 4;
 		prlog(PR_INFO, "CPU: P9 generation processor"
+		      " (max %d threads/core)\n", cpu_thread_count);
+		break;
+	case proc_gen_p10:
+		if (is_fused_core(pvr))
+			cpu_thread_count = 8;
+		else
+			cpu_thread_count = 4;
+		prlog(PR_INFO, "CPU: P10 generation processor"
 		      " (max %d threads/core)\n", cpu_thread_count);
 		break;
 	default:
 		prerror("CPU: Unknown PVR, assuming 1 thread\n");
 		cpu_thread_count = 1;
-		cpu_max_pir = mfspr(SPR_PIR);
 	}
 
 	if (is_power9n(pvr) && (PVR_VERS_MAJ(pvr) == 1)) {
@@ -1151,10 +1168,30 @@ void init_cpu_max_pir(void)
 	prlog(PR_DEBUG, "CPU: New max PIR set to 0x%x\n", cpu_max_pir);
 }
 
+/*
+ * Set cpu->state to cpu_state_no_cpu for all secondaries, before the dt is
+ * parsed and they will be flipped to present as populated CPUs are found.
+ *
+ * Some configurations (e.g., with memory encryption) will not zero system
+ * memory at boot, so can't rely on cpu->state to be zero (== cpu_state_no_cpu).
+ */
+static void mark_all_secondary_cpus_absent(void)
+{
+	unsigned int pir;
+	struct cpu_thread *cpu;
+
+	for (pir = 0; pir <= cpu_max_pir; pir++) {
+		cpu = &cpu_stacks[pir].cpu;
+		if (cpu == boot_cpu)
+			continue;
+		cpu->state = cpu_state_no_cpu;
+	}
+}
+
 void init_all_cpus(void)
 {
 	struct dt_node *cpus, *cpu;
-	unsigned int thread;
+	unsigned int pir, thread;
 	int dec_bits = find_dec_bits();
 
 	cpus = dt_find_by_path(dt_root, "/cpus");
@@ -1162,12 +1199,14 @@ void init_all_cpus(void)
 
 	init_tm_suspend_mode_property();
 
+	mark_all_secondary_cpus_absent();
+
 	/* Iterate all CPUs in the device-tree */
 	dt_for_each_child(cpus, cpu) {
-		unsigned int pir, server_no, chip_id;
+		unsigned int server_no, chip_id, threads;
 		enum cpu_thread_state state;
 		const struct dt_property *p;
-		struct cpu_thread *t, *pt;
+		struct cpu_thread *t, *pt0, *pt1;
 
 		/* Skip cache nodes */
 		if (strcmp(dt_prop_get(cpu, "device_type"), "cpu"))
@@ -1184,24 +1223,38 @@ void init_all_cpus(void)
 		chip_id = dt_get_chip_id(cpu);
 
 		/* Only use operational CPUs */
-		if (!strcmp(dt_prop_get(cpu, "status"), "okay"))
+		if (!strcmp(dt_prop_get(cpu, "status"), "okay")) {
 			state = cpu_state_present;
-		else
+			get_chip(chip_id)->ex_present = true;
+		} else {
 			state = cpu_state_unavailable;
+		}
 
 		prlog(PR_INFO, "CPU: CPU from DT PIR=0x%04x Server#=0x%x"
 		      " State=%d\n", pir, server_no, state);
 
+		/* Check max PIR */
+		if (cpu_max_pir < (pir + cpu_thread_count - 1)) {
+			prlog(PR_WARNING, "CPU: CPU potentially out of range"
+			      "PIR=0x%04x MAX=0x%04x !\n",
+			      pir, cpu_max_pir);
+			continue;
+		}
+
 		/* Setup thread 0 */
 		assert(pir <= cpu_max_pir);
-		t = pt = &cpu_stacks[pir].cpu;
+		t = pt0 = &cpu_stacks[pir].cpu;
 		if (t != boot_cpu) {
 			init_cpu_thread(t, state, pir);
 			/* Each cpu gets its own later in init_trace_buffers */
 			t->trace = boot_cpu->trace;
 		}
+		if (t->is_fused_core)
+			pt1 = &cpu_stacks[pir + 1].cpu;
+		else
+			pt1 = pt0;
 		t->server_no = server_no;
-		t->primary = t;
+		t->primary = t->ec_primary = t;
 		t->node = cpu;
 		t->chip_id = chip_id;
 		t->icp_regs = NULL; /* Will be set later */
@@ -1217,22 +1270,34 @@ void init_all_cpus(void)
 		/* Add the decrementer width property */
 		dt_add_property_cells(cpu, "ibm,dec-bits", dec_bits);
 
+		if (t->is_fused_core)
+			dt_add_property(t->node, "ibm,fused-core", NULL, 0);
+
 		/* Iterate threads */
 		p = dt_find_property(cpu, "ibm,ppc-interrupt-server#s");
 		if (!p)
 			continue;
-		for (thread = 1; thread < (p->len / 4); thread++) {
+		threads = p->len / 4;
+		if (threads > cpu_thread_count) {
+			prlog(PR_WARNING, "CPU: Threads out of range for PIR 0x%04x"
+			      " threads=%d max=%d\n",
+			      pir, threads, cpu_thread_count);
+			threads = cpu_thread_count;
+		}
+		for (thread = 1; thread < threads; thread++) {
 			prlog(PR_TRACE, "CPU:   secondary thread %d found\n",
 			      thread);
 			t = &cpu_stacks[pir + thread].cpu;
 			init_cpu_thread(t, state, pir + thread);
 			t->trace = boot_cpu->trace;
-			t->server_no = ((const u32 *)p->prop)[thread];
+			t->server_no = dt_property_get_cell(p, thread);
 			t->is_secondary = true;
-			t->primary = pt;
+			t->is_fused_core = pt0->is_fused_core;
+			t->primary = pt0;
+			t->ec_primary = (thread & 1) ? pt1 : pt0;
 			t->node = cpu;
 			t->chip_id = chip_id;
-			t->core_hmi_state_ptr = &pt->core_hmi_state;
+			t->core_hmi_state_ptr = &pt0->core_hmi_state;
 		}
 		prlog(PR_INFO, "CPU:  %d secondary threads\n", thread);
 	}
@@ -1407,7 +1472,7 @@ static int64_t cpu_change_all_hid0(struct hid0_change_req *req)
 	assert(jobs);
 
 	for_each_available_cpu(cpu) {
-		if (!cpu_is_thread0(cpu))
+		if (!cpu_is_thread0(cpu) && !cpu_is_core_chiplet_primary(cpu))
 			continue;
 		if (cpu == this_cpu())
 			continue;
@@ -1426,6 +1491,24 @@ static int64_t cpu_change_all_hid0(struct hid0_change_req *req)
 	free(jobs);
 
 	return OPAL_SUCCESS;
+}
+
+void cpu_set_hile_mode(bool hile)
+{
+	struct hid0_change_req req;
+
+	if (hile == current_hile_mode)
+		return;
+
+	if (hile) {
+		req.clr_bits = 0;
+		req.set_bits = hid0_hile;
+	} else {
+		req.clr_bits = hid0_hile;
+		req.set_bits = 0;
+	}
+	cpu_change_all_hid0(&req);
+	current_hile_mode = hile;
 }
 
 static void cpu_cleanup_one(void *param __unused)
@@ -1466,11 +1549,12 @@ static int64_t cpu_cleanup_all(void)
 
 void cpu_fast_reboot_complete(void)
 {
-	/* Fast reboot will have cleared HID0:HILE */
-	current_hile_mode = false;
+	/* Fast reboot will have set HID0:HILE to skiboot endian */
+	current_hile_mode = HAVE_LITTLE_ENDIAN;
 
 	/* and set HID0:RADIX */
-	current_radix_mode = true;
+	if (proc_gen == proc_gen_p9)
+		current_radix_mode = true;
 }
 
 static int64_t opal_reinit_cpus(uint64_t flags)
@@ -1551,7 +1635,8 @@ static int64_t opal_reinit_cpus(uint64_t flags)
 
 		flags &= ~(OPAL_REINIT_CPUS_MMU_HASH |
 			   OPAL_REINIT_CPUS_MMU_RADIX);
-		if (radix != current_radix_mode) {
+
+		if (proc_gen == proc_gen_p9 && radix != current_radix_mode) {
 			if (radix)
 				req.set_bits |= SPR_HID0_POWER9_RADIX;
 			else
@@ -1639,3 +1724,62 @@ static int64_t opal_nmmu_set_ptcr(uint64_t chip_id, uint64_t ptcr)
 	return rc;
 }
 opal_call(OPAL_NMMU_SET_PTCR, opal_nmmu_set_ptcr, 2);
+
+static void _exit_uv_mode(void *data __unused)
+{
+	prlog(PR_DEBUG, "Exit uv mode on cpu pir 0x%04x\n", this_cpu()->pir);
+	/* HW has smfctrl shared between threads but on Mambo it is per-thread */
+	if (chip_quirk(QUIRK_MAMBO_CALLOUTS))
+		exit_uv_mode(1);
+	else
+		exit_uv_mode(cpu_is_thread0(this_cpu()));
+}
+
+void cpu_disable_pef(void)
+{
+	struct cpu_thread *cpu;
+	struct cpu_job **jobs;
+
+	if (!(mfmsr() & MSR_S)) {
+		prlog(PR_DEBUG, "UV mode off on cpu pir 0x%04x\n", this_cpu()->pir);
+		return;
+	}
+
+	jobs = zalloc(sizeof(struct cpu_job *) * (cpu_max_pir + 1));
+	assert(jobs);
+
+	/* Exit uv mode on all secondary threads before touching
+	 * smfctrl on thread 0 */
+	for_each_available_cpu(cpu) {
+		if (cpu == this_cpu())
+			continue;
+
+		if (!cpu_is_thread0(cpu))
+			jobs[cpu->pir] = cpu_queue_job(cpu, "exit_uv_mode",
+					_exit_uv_mode, NULL);
+	}
+
+	for_each_available_cpu(cpu)
+		if (jobs[cpu->pir]) {
+			cpu_wait_job(jobs[cpu->pir], true);
+			jobs[cpu->pir] = NULL;
+		}
+
+	/* Exit uv mode and disable smfctrl on primary threads */
+	for_each_available_cpu(cpu) {
+		if (cpu == this_cpu())
+			continue;
+
+		if (cpu_is_thread0(cpu))
+			jobs[cpu->pir] = cpu_queue_job(cpu, "exit_uv_mode",
+					_exit_uv_mode, NULL);
+	}
+
+	for_each_available_cpu(cpu)
+		if (jobs[cpu->pir])
+			cpu_wait_job(jobs[cpu->pir], true);
+
+	free(jobs);
+
+	_exit_uv_mode(NULL);
+}

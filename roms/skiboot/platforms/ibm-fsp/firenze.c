@@ -1,19 +1,5 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
 
 #include <skiboot.h>
 #include <device.h>
@@ -220,6 +206,7 @@ DECLARE_PLATFORM(firenze) = {
 	.cec_reboot		= ibm_fsp_cec_reboot,
 	.pci_setup_phb		= firenze_pci_setup_phb,
 	.pci_get_slot_info	= firenze_pci_get_slot_info,
+	.pci_add_loc_code	= firenze_pci_add_loc_code,
 	.pci_probe_complete	= firenze_pci_send_inventory,
 	.nvram_info		= fsp_nvram_info,
 	.nvram_start_read	= fsp_nvram_start_read,

@@ -1,17 +1,8 @@
-/* Copyright 2017 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * PCI slots in the device tree.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2017-2018 IBM Corp.
  */
 
 #include <stdarg.h>
@@ -28,12 +19,6 @@
 
 #undef pr_fmt
 #define pr_fmt(fmt) "DT-SLOT: " fmt
-
-#define PCIDBG(_p, _bdfn, fmt, a...) \
-        prlog(PR_DEBUG, "PHB#%04x:%02x:%02x.%x " fmt,   \
-              (_p)->opal_id,                            \
-              ((_bdfn) >> 8) & 0xff,                    \
-              ((_bdfn) >> 3) & 0x1f, (_bdfn) & 0x7, ## a)
 
 struct dt_node *dt_slots;
 
@@ -68,7 +53,7 @@ static struct dt_node *map_phb_to_slot(struct phb *phb)
 
 static struct dt_node *find_devfn(struct dt_node *bus, uint32_t bdfn)
 {
-	uint32_t port_dev_id = (bdfn >> 3) & 0x1f;
+	uint32_t port_dev_id = PCI_DEV(bdfn);
 	struct dt_node *child;
 
 	dt_for_each_child(bus, child)

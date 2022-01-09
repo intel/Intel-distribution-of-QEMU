@@ -1,26 +1,12 @@
-/* Copyright 2013-2016 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 /*
  * This code will enable generation and pushing of error log from Sapphire
  * to FSP.
  * Critical events from Sapphire that needs to be reported will be pushed
  * on to FSP after converting the error log to Platform Error Log(PEL) format.
  * This is termed as write action to FSP.
+ *
+ * Copyright 2013-2016 IBM Corp.
  */
 
 #include <cpu.h>
@@ -136,7 +122,7 @@ static inline void fsp_elog_write_set_head_state(enum elog_head_state state)
 	elog_write_to_host_head_state = state;
 }
 
-bool opal_elog_info(uint64_t *opal_elog_id, uint64_t *opal_elog_size)
+bool opal_elog_info(__be64 *opal_elog_id, __be64 *opal_elog_size)
 {
 	struct errorlog *head;
 	bool rc = false;
@@ -157,8 +143,8 @@ bool opal_elog_info(uint64_t *opal_elog_id, uint64_t *opal_elog_size)
 			      __func__);
 			fsp_elog_write_set_head_state(ELOG_STATE_NONE);
 		} else {
-			*opal_elog_id = head->plid;
-			*opal_elog_size = head->log_size;
+			*opal_elog_id = cpu_to_be64(head->plid);
+			*opal_elog_size = cpu_to_be64(head->log_size);
 			fsp_elog_write_set_head_state(ELOG_STATE_HOST_INFO);
 			rc = true;
 		}
@@ -186,7 +172,7 @@ static void opal_commit_elog_in_host(void)
 	unlock(&elog_write_to_host_lock);
 }
 
-bool opal_elog_read(uint64_t *buffer, uint64_t opal_elog_size,
+bool opal_elog_read(void *buffer, uint64_t opal_elog_size,
 		    uint64_t opal_elog_id)
 {
 	struct errorlog *log_data;
@@ -208,8 +194,7 @@ bool opal_elog_read(uint64_t *buffer, uint64_t opal_elog_size,
 			return rc;
 		}
 
-		memcpy((void *)buffer, elog_write_to_host_buffer,
-							opal_elog_size);
+		memcpy(buffer, elog_write_to_host_buffer, opal_elog_size);
 		list_del(&log_data->link);
 		list_add(&elog_write_to_host_processed, &log_data->link);
 		fsp_elog_write_set_head_state(ELOG_STATE_NONE);

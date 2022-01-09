@@ -1,18 +1,5 @@
-/* Copyright 2013-2017 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2018 IBM Corp. */
 
 #ifndef pr_fmt
 #define pr_fmt(fmt) "STB: " fmt
@@ -140,6 +127,7 @@ static void cvc_service_register(uint32_t id, uint32_t offset, uint32_t version)
 static int cvc_reserved_mem_init(struct dt_node *parent) {
 	struct dt_node *node, *service;
 	struct dt_node *reserved_mem;
+	struct dt_node *exports;
 	uint32_t phandle;
 	uint64_t addr, size;
 
@@ -169,6 +157,13 @@ static int cvc_reserved_mem_init(struct dt_node *parent) {
 	addr = dt_get_address(cvc_resv_mem, 0, &size);
 	cvc_register(addr, addr + size-1);
 
+	exports = dt_find_by_path(dt_root, "/ibm,opal/firmware/exports");
+	if (!exports) {
+		prerror("OCC: dt node /ibm,opal/firmware/exports not found\n");
+		return false;
+	}
+	dt_add_property_u64s(exports, "cvc", addr, size - 1);
+
 	/*
 	 *  Each child of the CVC node describes a CVC service
 	 */
@@ -197,8 +192,9 @@ static int cvc_reserved_mem_init(struct dt_node *parent) {
 
 static int cvc_secure_rom_init(void) {
 	const uint32_t reg_addr = SECURE_ROM_XSCOM_ADDRESS;
-	uint64_t reg_data;
+	struct dt_node *exports;
 	struct proc_chip *chip;
+	uint64_t reg_data;
 
 	if (!secure_rom_mem) {
 		secure_rom_mem = malloc(SECURE_ROM_MEMORY_SIZE);
@@ -216,6 +212,16 @@ static int cvc_secure_rom_init(void) {
 		       SECURE_ROM_MEMORY_SIZE);
 	cvc_register((uint64_t)secure_rom_mem,
 		     (uint64_t)secure_rom_mem + SECURE_ROM_MEMORY_SIZE-1);
+
+	exports = dt_find_by_path(dt_root, "/ibm,opal/firmware/exports");
+	if (!exports) {
+		prerror("OCC: dt node /ibm,opal/firmware/exports not found\n");
+		return false;
+	}
+
+	dt_add_property_u64s(exports, "securerom", (uint64_t)secure_rom_mem,
+			     SECURE_ROM_MEMORY_SIZE-1);
+
 	cvc_service_register(CVC_SHA512_SERVICE, SECURE_ROM_SHA512_OFFSET, 1);
 	cvc_service_register(CVC_VERIFY_SERVICE, SECURE_ROM_VERIFY_OFFSET, 1);
 	return 0;
@@ -318,16 +324,19 @@ int call_cvc_sha512(const uint8_t *data, size_t data_len, uint8_t *digest,
 	if (!service)
 		return OPAL_UNSUPPORTED;
 
-	if (service->version == 1)
+	if (service->version == 1) {
+		unsigned long msr = mfmsr();
 		__cvc_sha512_v1((void*) service->addr, data, data_len, digest);
-	else
+		assert(msr == mfmsr());
+	} else {
 		return OPAL_UNSUPPORTED;
+	}
 
 	return OPAL_SUCCESS;
 }
 
 int call_cvc_verify(void *container, size_t len, const void *hw_key_hash,
-		    size_t hw_key_hash_size, uint64_t *log)
+		    size_t hw_key_hash_size, __be64 *log)
 {
 	ROM_hw_params hw_params;
 	ROM_response rc;
@@ -348,12 +357,15 @@ int call_cvc_verify(void *container, size_t len, const void *hw_key_hash,
 	memset(&hw_params, 0, sizeof(ROM_hw_params));
 	memcpy(&hw_params.hw_key_hash, hw_key_hash, hw_key_hash_size);
 
-	if (service->version == 1)
+	if (service->version == 1) {
+		unsigned long msr = mfmsr();
 		rc = __cvc_verify_v1((void*) service->addr,
 				   (ROM_container_raw*) container,
 				   &hw_params);
-	else
+		assert(msr == mfmsr());
+	} else {
 		return OPAL_UNSUPPORTED;
+	}
 
 	if (log)
 		*log = hw_params.log;

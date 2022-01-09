@@ -1,18 +1,5 @@
-/* Copyright 2013-2015 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0
+/* Copyright 2013-2019 IBM Corp. */
 
 #include <xscom.h>
 #include <chip.h>
@@ -184,19 +171,25 @@ static void dts_async_read_temp(struct timer *t __unused, void *data,
 
 	swkup_rc = dctl_set_special_wakeup(cpu);
 
-	rc = dts_read_core_temp_p9(cpu->pir, &dts);
+	if (proc_gen == proc_gen_p9)
+		rc = dts_read_core_temp_p9(cpu->pir, &dts);
+	else /* (proc_gen == proc_gen_p10) */
+		rc = OPAL_UNSUPPORTED; /* XXX P10 */
+
 	if (!rc) {
 		if (cpu->sensor_attr == SENSOR_DTS_ATTR_TEMP_MAX)
-			*cpu->sensor_data = dts.temp;
+			*cpu->sensor_data = cpu_to_be64(dts.temp);
 		else if (cpu->sensor_attr == SENSOR_DTS_ATTR_TEMP_TRIP)
-			*cpu->sensor_data = dts.trip;
+			*cpu->sensor_data = cpu_to_be64(dts.trip);
 	}
 
 	if (!swkup_rc)
 		dctl_clear_special_wakeup(cpu);
 
 	check_sensor_read(cpu->token);
-	rc = opal_queue_msg(OPAL_MSG_ASYNC_COMP, NULL, NULL, cpu->token, rc);
+	rc = opal_queue_msg(OPAL_MSG_ASYNC_COMP, NULL, NULL,
+			cpu_to_be64(cpu->token),
+			cpu_to_be64(rc));
 	if (rc)
 		prerror("Failed to queue async message\n");
 
@@ -204,7 +197,7 @@ static void dts_async_read_temp(struct timer *t __unused, void *data,
 }
 
 static int dts_read_core_temp(u32 pir, struct dts *dts, u8 attr,
-			      int token, u64 *sensor_data)
+			      int token, __be64 *sensor_data)
 {
 	struct cpu_thread *cpu;
 	int rc;
@@ -230,6 +223,7 @@ static int dts_read_core_temp(u32 pir, struct dts *dts, u8 attr,
 		rc = OPAL_ASYNC_COMPLETION;
 		unlock(&cpu->dts_lock);
 		break;
+	case proc_gen_p10: /* XXX P10 */
 	default:
 		rc = OPAL_UNSUPPORTED;
 	}
@@ -299,7 +293,7 @@ enum sensor_dts_class {
  */
 #define centaur_get_id(rid) (0x80000000 | ((rid) & 0x3ff))
 
-int64_t dts_sensor_read(u32 sensor_hndl, int token, u64 *sensor_data)
+int64_t dts_sensor_read(u32 sensor_hndl, int token, __be64 *sensor_data)
 {
 	uint8_t	attr = sensor_get_attr(sensor_hndl);
 	uint32_t rid = sensor_get_rid(sensor_hndl);
@@ -326,9 +320,9 @@ int64_t dts_sensor_read(u32 sensor_hndl, int token, u64 *sensor_data)
 		return rc;
 
 	if (attr == SENSOR_DTS_ATTR_TEMP_MAX)
-		*sensor_data = dts.temp;
+		*sensor_data = cpu_to_be64(dts.temp);
 	else if (attr == SENSOR_DTS_ATTR_TEMP_TRIP)
-		*sensor_data = dts.trip;
+		*sensor_data = cpu_to_be64(dts.trip);
 
 	return 0;
 }

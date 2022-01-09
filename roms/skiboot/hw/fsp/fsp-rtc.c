@@ -1,17 +1,8 @@
-/* Copyright 2013-2014 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Real Time Clock (RTC) attached to FSP
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2017 IBM Corp.
  */
 
 #include <skiboot.h>
@@ -90,8 +81,8 @@ static bool rtc_tod_cache_dirty = false;
 
 struct opal_tpo_data {
 	uint64_t tpo_async_token;
-	uint32_t *year_month_day;
-	uint32_t *hour_min;
+	__be32 *year_month_day;
+	__be32 *hour_min;
 };
 
 /* Timebase value when we last initiated a RTC read request */
@@ -134,10 +125,9 @@ static void fsp_tpo_req_complete(struct fsp_msg *read_resp)
 	case FSP_STATUS_SUCCESS:
 		/* Save the read TPO value in our cache */
 		if (attr->year_month_day)
-			*(attr->year_month_day) =
-				read_resp->resp->data.words[0];
+			*attr->year_month_day = cpu_to_be32(fsp_msg_get_data_word(read_resp->resp, 0));
 		if (attr->hour_min)
-			*(attr->hour_min) = read_resp->resp->data.words[1];
+			*attr->hour_min = cpu_to_be32(fsp_msg_get_data_word(read_resp->resp, 1));
 		rc = OPAL_SUCCESS;
 		break;
 
@@ -148,7 +138,8 @@ static void fsp_tpo_req_complete(struct fsp_msg *read_resp)
 		break;
 	}
 	opal_queue_msg(OPAL_MSG_ASYNC_COMP, NULL, NULL,
-		       attr->tpo_async_token, rc);
+		       cpu_to_be64(attr->tpo_async_token),
+		       cpu_to_be64(rc));
 	free(attr);
 	fsp_freemsg(read_resp);
 }
@@ -178,8 +169,8 @@ static void fsp_rtc_process_read(struct fsp_msg *read_resp)
 	case FSP_STATUS_SUCCESS:
 		/* Save the read RTC value in our cache */
 		rtc_tod_state = RTC_TOD_VALID;
-		datetime_to_tm(read_resp->data.words[0],
-			       (u64) read_resp->data.words[1] << 32, &tm);
+		datetime_to_tm(fsp_msg_get_data_word(read_resp, 0),
+			       (u64)fsp_msg_get_data_word(read_resp, 1) << 32, &tm);
 		rtc_cache_update(&tm);
 		prlog(PR_TRACE, "FSP-RTC Got time: %d-%d-%d %d:%d:%d\n",
 		      tm.tm_year, tm.tm_mon, tm.tm_mday,
@@ -258,12 +249,13 @@ static int64_t fsp_rtc_send_read_request(void)
 	return OPAL_BUSY_EVENT;
 }
 
-static int64_t fsp_opal_rtc_read(uint32_t *year_month_day,
-				 uint64_t *hour_minute_second_millisecond)
+static int64_t fsp_opal_rtc_read(__be32 *__ymd, __be64 *__hmsm)
 {
 	int64_t rc;
+	uint32_t ymd;
+	uint64_t hmsm;
 
-	if (!year_month_day || !hour_minute_second_millisecond)
+	if (!__ymd || !__hmsm)
 		return OPAL_PARAMETER;
 
 	lock(&rtc_lock);
@@ -276,8 +268,7 @@ static int64_t fsp_opal_rtc_read(uint32_t *year_month_day,
 	/* During R/R of FSP, read cached TOD */
 	if (fsp_in_rr()) {
 		if (rtc_tod_state == RTC_TOD_VALID) {
-			rtc_cache_get_datetime(year_month_day,
-					       hour_minute_second_millisecond);
+			rtc_cache_get_datetime(&ymd, &hmsm);
 			rc = OPAL_SUCCESS;
 		} else {
 			rc = OPAL_INTERNAL_ERROR;
@@ -299,11 +290,9 @@ static int64_t fsp_opal_rtc_read(uint32_t *year_month_day,
                 opal_rtc_eval_events(true);
 
                 if (rtc_tod_state == RTC_TOD_VALID) {
-                        rtc_cache_get_datetime(year_month_day,
-					       hour_minute_second_millisecond);
+                        rtc_cache_get_datetime(&ymd, &hmsm);
                         prlog(PR_TRACE,"FSP-RTC Cached datetime: %x %llx\n",
-                              *year_month_day,
-                              *hour_minute_second_millisecond);
+                              ymd, hmsm);
                         rc = OPAL_SUCCESS;
                 } else {
                         rc = OPAL_INTERNAL_ERROR;
@@ -315,8 +304,7 @@ static int64_t fsp_opal_rtc_read(uint32_t *year_month_day,
 		prlog(PR_TRACE, "RTC read timed out\n");
 
 		if (rtc_tod_state == RTC_TOD_VALID) {
-			rtc_cache_get_datetime(year_month_day,
-					       hour_minute_second_millisecond);
+			rtc_cache_get_datetime(&ymd, &hmsm);
 			rc = OPAL_SUCCESS;
 		} else {
                         rc = OPAL_INTERNAL_ERROR;
@@ -328,6 +316,12 @@ static int64_t fsp_opal_rtc_read(uint32_t *year_month_day,
 	}
 out:
 	unlock(&rtc_lock);
+
+	if (rc == OPAL_SUCCESS) {
+		*__ymd = cpu_to_be32(ymd);
+		*__hmsm = cpu_to_be64(hmsm);
+	}
+
 	return rc;
 }
 
@@ -447,8 +441,8 @@ static int64_t fsp_opal_tpo_write(uint64_t async_token, uint32_t y_m_d,
 }
 
 /* Read Timed power on (TPO) from FSP */
-static int64_t fsp_opal_tpo_read(uint64_t async_token, uint32_t *y_m_d,
-			uint32_t *hr_min)
+static int64_t fsp_opal_tpo_read(uint64_t async_token, __be32 *y_m_d,
+			__be32 *hr_min)
 {
 	static struct opal_tpo_data *attr;
 	struct fsp_msg *msg;

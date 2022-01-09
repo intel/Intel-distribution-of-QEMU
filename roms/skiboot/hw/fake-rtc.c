@@ -1,18 +1,5 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2017 IBM Corp. */
 
 #include <skiboot.h>
 #include <opal.h>
@@ -47,13 +34,15 @@ static int64_t fake_rtc_write(uint32_t ymd, uint64_t hmsm)
 	return OPAL_SUCCESS;
 }
 
-static int64_t fake_rtc_read(uint32_t *ymd, uint64_t *hmsm)
+static int64_t fake_rtc_read(__be32 *__ymd, __be64 *__hmsm)
 {
 
 	time_t sec;
 	struct tm tm_calculated;
+	uint32_t ymd;
+	uint64_t hmsm;
 
-	if (!ymd || !hmsm)
+	if (!__ymd || !__hmsm)
 		return OPAL_PARAMETER;
 
 	/* Compute the emulated clock value */
@@ -61,9 +50,12 @@ static int64_t fake_rtc_read(uint32_t *ymd, uint64_t *hmsm)
 
 	sec = tb_to_secs(mftb() - tb_synctime) + mktime(&tm_offset);
 	gmtime_r(&sec, &tm_calculated);
-	tm_to_datetime(&tm_calculated, ymd, hmsm);
+	tm_to_datetime(&tm_calculated, &ymd, &hmsm);
 
 	unlock(&emulation_lock);
+
+	*__ymd = cpu_to_be32(ymd);
+	*__hmsm = cpu_to_be64(hmsm);
 
 	return OPAL_SUCCESS;
 }

@@ -1,18 +1,5 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
 
 #ifndef __PCI_H
 #define __PCI_H
@@ -26,23 +13,23 @@
 #define PCITRACE(_p, _bdfn, fmt, a...) \
 	prlog(PR_TRACE, "PHB#%04x:%02x:%02x.%x " fmt,	\
 	      (_p)->opal_id,				\
-	      ((_bdfn) >> 8) & 0xff,			\
-	      ((_bdfn) >> 3) & 0x1f, (_bdfn) & 0x7, ## a)
+	      PCI_BUS_NUM(_bdfn),			\
+	      PCI_DEV(_bdfn), PCI_FUNC(_bdfn), ## a)
 #define PCIDBG(_p, _bdfn, fmt, a...) \
 	prlog(PR_DEBUG, "PHB#%04x:%02x:%02x.%x " fmt,	\
 	      (_p)->opal_id,				\
-	      ((_bdfn) >> 8) & 0xff,			\
-	      ((_bdfn) >> 3) & 0x1f, (_bdfn) & 0x7, ## a)
+	      PCI_BUS_NUM(_bdfn),			\
+	      PCI_DEV(_bdfn), PCI_FUNC(_bdfn), ## a)
 #define PCINOTICE(_p, _bdfn, fmt, a...) \
 	prlog(PR_NOTICE, "PHB#%04x:%02x:%02x.%x " fmt,	\
 	      (_p)->opal_id,				\
-	      ((_bdfn) >> 8) & 0xff,			\
-	      ((_bdfn) >> 3) & 0x1f, (_bdfn) & 0x7, ## a)
+	      PCI_BUS_NUM(_bdfn),			\
+	      PCI_DEV(_bdfn), PCI_FUNC(_bdfn), ## a)
 #define PCIERR(_p, _bdfn, fmt, a...) \
 	prlog(PR_ERR, "PHB#%04x:%02x:%02x.%x " fmt,	\
 	      (_p)->opal_id,				\
-	      ((_bdfn) >> 8) & 0xff,			\
-	      ((_bdfn) >> 3) & 0x1f, (_bdfn) & 0x7, ## a)
+	      PCI_BUS_NUM(_bdfn),			\
+	      PCI_DEV(_bdfn), PCI_FUNC(_bdfn), ## a)
 
 struct pci_device;
 struct pci_cfg_reg_filter;
@@ -231,12 +218,6 @@ struct phb_ops {
 	int64_t (*cfg_write32)(struct phb *phb, uint32_t bdfn,
 			       uint32_t offset, uint32_t data);
 
-	/*
-	 * Bus number selection. See pci_scan() for a description
-	 */
-	uint8_t (*choose_bus)(struct phb *phb, struct pci_device *bridge,
-			      uint8_t candidate, uint8_t *max_bus,
-			      bool *use_max);
 	int64_t (*get_reserved_pe_number)(struct phb *phb);
 
 	/*
@@ -310,6 +291,11 @@ struct phb_ops {
 					  uint64_t pci_start_addr,
 					  uint64_t pci_mem_size);
 
+	int64_t (*set_option)(struct phb *phb, enum OpalPhbOption opt,
+			      uint64_t setting);
+	int64_t (*get_option)(struct phb *phb, enum OpalPhbOption opt,
+			      __be64 *setting);
+
 	int64_t (*set_mve)(struct phb *phb, uint32_t mve_number,
 			   uint64_t pe_number);
 
@@ -366,10 +352,14 @@ enum phb_type {
 	phb_type_pcie_v4,
 	phb_type_npu_v2,
 	phb_type_npu_v2_opencapi,
+	phb_type_npu_v3,
 };
 
-
+/* Generic PCI NVRAM flags */
 extern bool verbose_eeh;
+extern bool pci_tracing;
+
+void pci_nvram_init(void);
 
 struct phb {
 	struct dt_node		*dt_node;
@@ -399,10 +389,17 @@ static inline void phb_lock(struct phb *phb)
 	lock(&phb->lock);
 }
 
+static inline bool phb_try_lock(struct phb *phb)
+{
+	return try_lock(&phb->lock);
+}
+
 static inline void phb_unlock(struct phb *phb)
 {
 	unlock(&phb->lock);
 }
+
+bool pci_check_clear_freeze(struct phb *phb);
 
 /* Config space ops wrappers */
 static inline int64_t pci_cfg_read8(struct phb *phb, uint32_t bdfn,

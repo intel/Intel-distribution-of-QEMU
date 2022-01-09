@@ -1,18 +1,5 @@
-/* Copyright 2013-2018 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
 
 #include <skiboot.h>
 #include <xscom.h>
@@ -419,6 +406,13 @@ static void npu2_err_interrupt(struct irq_source *is, uint32_t isn)
 			p->chip_id, irq_name);
 		free(irq_name);
 		show_all_regs(p, brick);
+		/*
+		 * P9 NPU doesn't support recovering a link going down
+		 * unexpectedly. So we mark the device as broken and
+		 * report it to the OS, so that the error is logged
+		 * and the drivers notified.
+		 */
+		npu2_opencapi_set_broken(p, brick);
 		opal_update_pending_evt(OPAL_EVENT_PCI_ERROR,
 					OPAL_EVENT_PCI_ERROR);
 		break;
@@ -543,7 +537,6 @@ static struct npu2 *setup_npu(struct dt_node *dn)
 	npu->index = dt_prop_get_u32(dn, "ibm,npu-index");
 	npu->chip_id = gcid;
 	npu->xscom_base = dt_get_address(dn, 0, NULL);
-	npu->phb_index = dt_prop_get_u32(dn, "ibm,phb-index");
 
 	init_lock(&npu->i2c_lock);
 	npu->i2c_pin_mode = ~0; // input mode by default
@@ -653,6 +646,10 @@ void probe_npu2(void)
 	struct npu2 *npu;
 	struct dt_node *np;
 	const char *zcal;
+
+	/* npu2 only */
+	if (!dt_find_compatible_node(dt_root, NULL, "ibm,power9-npu"))
+		return;
 
 	/* Abort if we're running on POWER9C DD1 (P9N DD1 is not supported) */
 	if (chip &&

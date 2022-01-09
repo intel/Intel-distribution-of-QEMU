@@ -1,18 +1,5 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
 
 #ifndef __NX_H
 #define __NX_H
@@ -99,7 +86,7 @@
 #define   NX_EE_CFG_CH7			PPC_BIT(53) /* AMF */
 #define   NX_EE_CFG_CH6			PPC_BIT(54) /* AMF */
 #define   NX_EE_CFG_CH5			PPC_BIT(55) /* AMF */
-#define   NX_EE_CFG_CH4			PPC_BIT(56) /* P7: SYM, P8: AMF */
+#define   NX_EE_CFG_CH4			PPC_BIT(56) /* AMF */
 #define   NX_EE_CFG_CH3			PPC_BIT(57) /* SYM */
 #define   NX_EE_CFG_CH2			PPC_BIT(58) /* SYM */
 #define   NX_P9_EE_CFG_CH4		PPC_BIT(61) /* gzip */
@@ -153,6 +140,9 @@
 #define   NX_P9_UMAC_STATUS_CTRL_CRB_ENABLE		PPC_BIT(1)
 
 #define NX_P9_ERAT_STATUS_CTRL			NX_P9_SAT(0x3, 0x16)
+
+/* Introduced in P10, but P10 NX SCOM address is same as P9 */
+#define	NX_P10_VAS_RMA_WRITE_BAR		NX_P9_SAT(0x3, 0x19)
 
 /* NX Status Register */
 #define NX_P8_STATUS		NX_P8_SAT(0x1, 0x00)

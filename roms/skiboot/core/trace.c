@@ -1,17 +1,8 @@
-/* Copyright 2013-2014 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Trace various things into in-memory buffers
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
 
 #include <trace.h>
@@ -27,6 +18,7 @@
 #include <skiboot.h>
 #include <opal-api.h>
 #include <debug_descriptor.h>
+#include <nvram.h>
 
 #define DEBUG_TRACES
 
@@ -130,7 +122,7 @@ void trace_add(union trace *trace, u8 type, u16 len)
 #endif
 	/* Skip traces not enabled in the debug descriptor */
 	if (trace->hdr.type < (8 * sizeof(debug_descriptor.trace_mask)) &&
-	    !((1ul << trace->hdr.type) & debug_descriptor.trace_mask))
+	    !((1ul << trace->hdr.type) & be64_to_cpu(debug_descriptor.trace_mask)))
 		return;
 
 	trace->hdr.timestamp = cpu_to_be64(mftb());
@@ -164,25 +156,44 @@ void trace_add(union trace *trace, u8 type, u16 len)
 	unlock(&ti->lock);
 }
 
-static void trace_add_dt_props(void)
+void trace_add_dt_props(void)
 {
+	uint64_t boot_buf_phys = (uint64_t) &boot_tracebuf.trace_info;
+	struct dt_node *exports, *traces;
 	unsigned int i;
-	u64 *prop, tmask;
-	struct dt_node *exports;
+	fdt64_t *prop;
+	u64 tmask;
 	char tname[256];
 
-	prop = malloc(sizeof(u64) * 2 * debug_descriptor.num_traces);
-
 	exports = dt_find_by_path(opal_node, "firmware/exports");
-	for (i = 0; i < debug_descriptor.num_traces; i++) {
-		prop[i * 2] = cpu_to_fdt64(debug_descriptor.trace_phys[i]);
-		prop[i * 2 + 1] = cpu_to_fdt64(debug_descriptor.trace_size[i]);
+	if (!exports)
+		return;
 
-		snprintf(tname, sizeof(tname), "trace-%x-%"PRIx64,
-			 debug_descriptor.trace_pir[i],
-			 debug_descriptor.trace_phys[i]);
-		dt_add_property_u64s(exports, tname, debug_descriptor.trace_phys[i],
-				     debug_descriptor.trace_size[i]);
+	/*
+	 * nvram hack to put all the trace buffer exports in the exports
+	 * node. This is useful if the kernel doesn't also export subnodes.
+	 */
+	if (nvram_query_safe("flat-trace-buf"))
+		traces = exports;
+	else
+		traces = dt_new(exports, "traces");
+
+	prop = malloc(sizeof(u64) * 2 * be32_to_cpu(debug_descriptor.num_traces));
+
+	for (i = 0; i < be32_to_cpu(debug_descriptor.num_traces); i++) {
+		uint64_t addr = be64_to_cpu(debug_descriptor.trace_phys[i]);
+		uint64_t size = be32_to_cpu(debug_descriptor.trace_size[i]);
+		uint32_t pir = be16_to_cpu(debug_descriptor.trace_pir[i]);
+
+		prop[i * 2]     = cpu_to_fdt64(addr);
+		prop[i * 2 + 1] = cpu_to_fdt64(size);
+
+		if (addr == boot_buf_phys)
+			snprintf(tname, sizeof(tname), "boot-%x", pir);
+		else
+			snprintf(tname, sizeof(tname), "trace-%x", pir);
+
+		dt_add_property_u64s(traces, tname, addr, size);
 	}
 
 	dt_add_property(opal_node, "ibm,opal-traces",
@@ -195,18 +206,18 @@ static void trace_add_dt_props(void)
 
 static void trace_add_desc(struct trace_info *t, uint64_t size, uint16_t pir)
 {
-	unsigned int i = debug_descriptor.num_traces;
+	unsigned int i = be32_to_cpu(debug_descriptor.num_traces);
 
 	if (i >= DEBUG_DESC_MAX_TRACES) {
 		prerror("TRACE: Debug descriptor trace list full !\n");
 		return;
 	}
-	debug_descriptor.num_traces++;
 
-	debug_descriptor.trace_phys[i] = (uint64_t)t;
+	debug_descriptor.num_traces = cpu_to_be32(i + 1);
+	debug_descriptor.trace_phys[i] = cpu_to_be64((uint64_t)t);
 	debug_descriptor.trace_tce[i] = 0; /* populated later */
-	debug_descriptor.trace_size[i] = size;
-	debug_descriptor.trace_pir[i] = pir;
+	debug_descriptor.trace_size[i] = cpu_to_be32(size);
+	debug_descriptor.trace_pir[i] = cpu_to_be16(pir);
 }
 
 /* Allocate trace buffers once we know memory topology */
@@ -251,7 +262,4 @@ void init_trace_buffers(void)
 			continue;
 		t->trace = t->primary->trace;
 	}
-
-	/* Trace node in DT. */
-	trace_add_dt_props();
 }

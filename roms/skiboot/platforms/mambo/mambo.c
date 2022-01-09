@@ -1,19 +1,5 @@
-/* Copyright 2015 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2015-2017 IBM Corp. */
 
 #include <skiboot.h>
 #include <device.h>
@@ -187,19 +173,44 @@ static void bogus_disk_flash_init(void)
 	}
 }
 
-static int64_t mambo_rtc_read(uint32_t *ymd, uint64_t *hmsm)
+static int64_t time_delta = 0;
+
+static int64_t mambo_rtc_read(__be32 *ymd, __be64 *hmsm)
 {
 	int64_t mambo_time;
 	struct tm t;
 	time_t mt;
+	uint32_t __ymd;
+	uint64_t __hmsm;
 
 	if (!ymd || !hmsm)
 		return OPAL_PARAMETER;
 
 	mambo_time = callthru0(SIM_GET_TIME_CODE);
 	mt = mambo_time >> 32;
+	mt += time_delta;
 	gmtime_r(&mt, &t);
-	tm_to_datetime(&t, ymd, hmsm);
+	tm_to_datetime(&t, &__ymd, &__hmsm);
+
+	*ymd = cpu_to_be32(__ymd);
+	*hmsm = cpu_to_be64(__hmsm);
+
+	return OPAL_SUCCESS;
+}
+
+static int64_t mambo_rtc_write(uint32_t ymd, uint64_t hmsm)
+{
+	int64_t mambo_time;
+	struct tm tm;
+	time_t mt, new_mt;
+
+	mambo_time = callthru0(SIM_GET_TIME_CODE);
+	mt = mambo_time >> 32;
+
+	datetime_to_tm(ymd, hmsm, &tm);
+	new_mt = mktime(&tm);
+
+	time_delta = new_mt - mt;
 
 	return OPAL_SUCCESS;
 }
@@ -210,6 +221,7 @@ static void mambo_rtc_init(void)
 	dt_add_property_strings(np, "compatible", "ibm,opal-rtc");
 
 	opal_register(OPAL_RTC_READ, mambo_rtc_read, 2);
+	opal_register(OPAL_RTC_WRITE, mambo_rtc_write, 2);
 }
 
 static void mambo_system_reset_cpu(struct cpu_thread *cpu)

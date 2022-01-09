@@ -1,23 +1,14 @@
-/* Copyright 2013-2016 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2018 IBM Corp. */
+
 #include <skiboot.h>
 #include <chip.h>
 #include <phys-map.h>
 #include <xscom.h>
 #include <io.h>
+#include <xive.h>
+#include <interrupts.h>
+#include <nvram.h>
 #include <vas.h>
 
 #define vas_err(__fmt,...)	prlog(PR_ERR,"VAS: " __fmt, ##__VA_ARGS__)
@@ -36,6 +27,7 @@ struct vas {
 	uint64_t	xscom_base;
 	uint64_t	wcbs;
 	uint32_t	vas_irq;
+	uint64_t	vas_port;
 };
 
 static inline void get_hvwc_mmio_bar(int chipid, uint64_t *start, uint64_t *len)
@@ -163,11 +155,149 @@ static void reset_fir(struct proc_chip *chip)
 	vas_scom_write(chip, VAS_FIR_ACTION1,	0xf8fffefffffc8000ull);
 }
 
-#define	RMA_LSMP_64K_SYS_ID		PPC_BITMASK(8, 12)
-#define	RMA_LSMP_64K_NODE_ID		PPC_BITMASK(15, 18)
-#define	RMA_LSMP_64K_CHIP_ID		PPC_BITMASK(19, 21)
+/* VAS workbook: Section 1.3.3.1: Send Message w/ Paste Commands (cl_rma_w) */
+/* P9 paste base address format */
+#define	P9_RMA_LSMP_64K_SYS_ID		PPC_BITMASK(8, 12)
+#define	P9_RMA_LSMP_64K_NODE_ID		PPC_BITMASK(15, 18)
+#define	P9_RMA_LSMP_64K_CHIP_ID		PPC_BITMASK(19, 21)
+
+/* Paste base address format (on P10 or later) */
+#define RMA_FOREIGN_ADDR_ENABLE		PPC_BITMASK(8, 11)
+#define RMA_TOPOLOGY_INDEX		PPC_BITMASK(15, 19)
+
 #define	RMA_LSMP_WINID_START_BIT	32
 #define	RMA_LSMP_WINID_NUM_BITS		16
+
+/*
+ * The start/base of the paste BAR is computed using the tables 1.1 through
+ * 1.4 in Section 1.3.3.1 (Send Message w/Paste Commands (cl_rma_w)) of VAS
+ * P9 Workbook.
+ *
+ * With 64K mode and Large SMP Mode the bits are used as follows:
+ *
+ *	Bits	Values		Comments
+ *	--------------------------------------
+ *	0:7	0b 0000_0000	Reserved
+ *	8:12	0b 0000_1	System id/Foreign Index 0:4
+ *	13:14	0b 00		Foreign Index 5:6
+ *
+ *	15:18	0 throuh 15	Node id (0 through 15)
+ *	19:21	0 through 7	Chip id (0 throuh 7)
+ *	22:23	0b 00		Unused, Foreign index 7:8
+ *
+ *	24:31	0b 0000_0000	RPN 0:7, Reserved
+ *	32:47	0 through 64K	Send Window Id
+ *	48:51	0b 0000		Spare
+ *
+ *	52	0b 0		Reserved
+ *	53	0b 1		Report Enable (Set to 1 for NX).
+ *	54	0b 0		Reserved
+ *
+ *	55:56	0b 00		Snoop Bus
+ *	57:63	0b 0000_000	Reserved
+ *
+ * Except for a few bits, the small SMP mode computation is similar.
+ *
+ * TODO: Detect and compute address for small SMP mode.
+ *
+ * Example: For Node 0, Chip 0, Window id 4, Report Enable 1:
+ *
+ *    Byte0    Byte1    Byte2    Byte3    Byte4    Byte5    Byte6    Byte7
+ *    00000000 00001000 00000000 00000000 00000000 00000100 00000100 00000000
+ *                    |   || |            |               |      |
+ *                    +-+-++++            +-------+-------+      v
+ *                      |   |                      |          Report Enable
+ *                      v   v                      v
+ *                   Node   Chip               Window id 4
+ *
+ *    Thus the paste address for window id 4 is 0x00080000_00040400 and
+ *    the _base_ paste address for Node 0 Chip 0 is 0x00080000_00000000.
+ */
+
+static void p9_get_rma_bar(int chipid, uint64_t *val)
+{
+	uint64_t v;
+
+	v = 0ULL;
+	v = SETFIELD(P9_RMA_LSMP_64K_SYS_ID, v, 1);
+	v = SETFIELD(P9_RMA_LSMP_64K_NODE_ID, v, P9_GCID2NODEID(chipid));
+	v = SETFIELD(P9_RMA_LSMP_64K_CHIP_ID, v, P9_GCID2CHIPID(chipid));
+
+	*val = v;
+}
+
+/*
+ * The start/base of the paste BAR is computed using the tables 1.1 through
+ * 1.3 in Section 1.3.3.1 (Send Message w/Paste Commands (cl_rma_w)) of VAS
+ * P10 Workbook.
+ *
+ * With 64K mode and Large SMP Mode the bits are used as follows:
+ *
+ *	Bits	Values		Comments
+ *	--------------------------------------
+ *	0:7	0b 0000_0000	Reserved
+ *	8:11	0b 0001		Foreign Address Enable
+ *	12	0b 0		SMF
+ *	13:14	0b 00		Memory Select
+ *
+ *	15:19	0 throuh 16	Topology Index
+ *	20:23	0b 0000		Chip Internal Address
+ *
+ *	24:31	0b 0000_0000	RPN 0:7, Reserved
+ *	32:47	0 through 64K	Send Window Id
+ *	48:51	0b 0000		Spare
+ *
+ *	52	0b 0		Reserved
+ *	53	0b 1		Report Enable (Set to 1 for NX).
+ *	54	0b 0		Reserved
+ *
+ *	55:56	0b 00		Snoop Bus
+ *	57:63	0b 0000_000	Reserved
+ *
+ * Example: For Node 0, Chip 0, Window id 4, Report Enable 1:
+ *
+ *    Byte0    Byte1    Byte2    Byte3    Byte4    Byte5    Byte6    Byte7
+ *    00000000 00010000 00000000 00000000 00000000 00000100 00000100 00000000
+ *                      |   |             |               |      |
+ *                      +---+             +-------+-------+      v
+ *                        |                       |          Report Enable
+ *                        v                       v
+ *                 Topology Index            Window id 4
+ *
+ *    Thus the paste address for window id 4 is 0x00100000_00040400 and
+ *    the _base_ paste address for Node 0 Chip 0 is 0x00100000_00000000.
+ *
+ * Note: Bit 11 (Foreign Address Enable) is set only for paste base address.
+ *	 Not for VAS/NX RMA BAR. RA(0:12) = 0 for VAS/NX RMA BAR.
+ */
+
+static void get_rma_bar(struct proc_chip *chip, uint64_t *val)
+{
+	uint64_t v;
+
+	v = 0ULL;
+	v = SETFIELD(RMA_TOPOLOGY_INDEX, v, chip->primary_topology);
+
+	*val = v;
+}
+
+/* Interface for NX - make sure VAS is fully initialized first */
+__attrconst uint64_t vas_get_rma_bar(int chipid)
+{
+	struct proc_chip *chip;
+	uint64_t addr;
+
+	if (!vas_initialized)
+		return 0ULL;
+
+	chip = get_chip(chipid);
+	if (!chip)
+		return 0ULL;
+
+	get_rma_bar(chip, &addr);
+
+	return addr;
+}
 
 /*
  * Initialize RMA BAR on this chip to correspond to its node/chip id.
@@ -179,10 +309,10 @@ static int init_rma(struct proc_chip *chip)
 	int rc;
 	uint64_t val;
 
-	val = 0ULL;
-	val = SETFIELD(RMA_LSMP_64K_SYS_ID, val, 1);
-	val = SETFIELD(RMA_LSMP_64K_NODE_ID, val, P9_GCID2NODEID(chip->id));
-	val = SETFIELD(RMA_LSMP_64K_CHIP_ID, val, P9_GCID2CHIPID(chip->id));
+	if (proc_gen == proc_gen_p9)
+		p9_get_rma_bar(chip->id, &val);
+	else
+		get_rma_bar(chip, &val);
 
 	rc = vas_scom_write(chip, VAS_RMA_BAR, val);
 	if (rc)
@@ -217,60 +347,29 @@ static int init_rma(struct proc_chip *chip)
  * separate page. Thus with a page size of 64K, the length of the paste
  * BAR for a chip is VAS_WINDOWS_PER_CHIP times 64K (or 4GB for Power9).
  *
- * The start/base of the paste BAR is computed using the tables 1.1 through
- * 1.4 in Section 1.3.3.1 (Send Message w/Paste Commands (cl_rma_w)) of VAS
- * P9 Workbook.
- *
- * With 64K mode and Large SMP Mode the bits are used as follows:
- *
- *      Bits    Values          Comments
- *      --------------------------------------
- *      0:7     0b 0000_0000    Reserved
- *      8:12    0b 0000_1       System id/Foreign Index 0:4
- *      13:14   0b 00           Foreign Index 5:6
- *
- *      15:18   0 throuh 15     Node id (0 through 15)
- *      19:21   0 through 7     Chip id (0 throuh 7)
- *      22:23   0b 00           Unused, Foreign index 7:8
- *
- *      24:31   0b 0000_0000    RPN 0:7, Reserved
- *      32:47   0 through 64K   Send Window Id
- *      48:51   0b 0000         Spare
- *
- *      52      0b 0            Reserved
- *      53      0b 1            Report Enable (Set to 1 for NX).
- *      54      0b 0            Reserved
- *
- *      55:56   0b 00           Snoop Bus
- *      57:63   0b 0000_000     Reserved
- *
- * Except for a few bits, the small SMP mode computation is similar.
- *
- * TODO: Detect and compute address for small SMP mode.
- *
- * Example: For Node 0, Chip 0, Window id 4, Report Enable 1:
- *
- *    Byte0    Byte1    Byte2    Byte3    Byte4    Byte5    Byte6    Byte7
- *    00000000 00001000 00000000 00000000 00000000 00000100 00000100 00000000
- *                    |   || |            |               |      |
- *                    +-+-++++            +-------+-------+      v
- *                      |   |                      |          Report Enable
- *                      v   v                      v
- *                   Node   Chip               Window id 4
- *
- *    Thus the paste address for window id 4 is 0x00080000_00040400 and
- *    the _base_ paste address for Node 0 Chip 0 is 0x00080000_00000000.
  */
 #define        VAS_PASTE_BAR_LEN       (1ULL << 32)    /* 4GB - see above */
 
 static inline void get_paste_bar(int chipid, uint64_t *start, uint64_t *len)
 {
+	struct proc_chip *chip;
 	uint64_t val;
 
-	val = 0ULL;
-	val = SETFIELD(RMA_LSMP_64K_SYS_ID, val, 1);
-	val = SETFIELD(RMA_LSMP_64K_NODE_ID, val, P9_GCID2NODEID(chipid));
-	val = SETFIELD(RMA_LSMP_64K_CHIP_ID, val, P9_GCID2CHIPID(chipid));
+	if (proc_gen == proc_gen_p9)
+		p9_get_rma_bar(chipid, &val);
+	else {
+		chip = get_chip(chipid);
+		if (!chip)
+			return;
+
+		get_rma_bar(chip, &val);
+
+		/*
+		 * RA(11) (Foreign Address Enable) is set only for paste
+		 * base address.
+		 */
+		val = SETFIELD(RMA_FOREIGN_ADDR_ENABLE, val, 1);
+	}
 
 	*start = val;
 	*len = VAS_PASTE_BAR_LEN;
@@ -387,24 +486,28 @@ static struct vas *alloc_vas(uint32_t chip_id, uint32_t vas_id, uint64_t base)
 
 static void create_mm_dt_node(struct proc_chip *chip)
 {
-	int gcid;
 	struct dt_node *dn;
 	struct vas *vas;
+	const char *compat;
 	uint64_t hvwc_start, hvwc_len;
 	uint64_t uwc_start, uwc_len;
-	uint64_t pbar_start, pbar_len;
 	uint64_t pbf_start, pbf_nbits;
+	uint64_t pbar_start = 0, pbar_len = 0;
 
 	vas = chip->vas;
-	gcid = chip->id;
 	get_hvwc_mmio_bar(chip->id, &hvwc_start, &hvwc_len);
 	get_uwc_mmio_bar(chip->id, &uwc_start, &uwc_len);
 	get_paste_bar(chip->id, &pbar_start, &pbar_len);
 	get_paste_bitfield(&pbf_start, &pbf_nbits);
 
+	if (proc_gen == proc_gen_p9)
+		compat = "ibm,power9-vas";
+	else
+		compat = "ibm,power10-vas";
+
 	dn = dt_new_addr(dt_root, "vas", hvwc_start);
 
-	dt_add_property_strings(dn, "compatible", "ibm,power9-vas",
+	dt_add_property_strings(dn, "compatible", compat,
 					"ibm,vas");
 
 	dt_add_property_u64s(dn, "reg", hvwc_start, hvwc_len,
@@ -412,8 +515,14 @@ static void create_mm_dt_node(struct proc_chip *chip)
 					pbar_start, pbar_len,
 					pbf_start, pbf_nbits);
 
-	dt_add_property(dn, "ibm,vas-id", &vas->vas_id, sizeof(vas->vas_id));
-	dt_add_property(dn, "ibm,chip-id", &gcid, sizeof(gcid));
+	dt_add_property_cells(dn, "ibm,vas-id", vas->vas_id);
+	dt_add_property_cells(dn, "ibm,chip-id", chip->id);
+	if (vas->vas_irq) {
+		dt_add_property_cells(dn, "interrupts", vas->vas_irq, 0);
+		dt_add_property_cells(dn, "interrupt-parent",
+					get_ics_phandle());
+		dt_add_property_u64(dn, "ibm,vas-port", vas->vas_port);
+	}
 }
 
 /*
@@ -433,6 +542,26 @@ static void disable_vas_inst(struct dt_node *np)
 	free_wcbs(chip);
 
 	reset_north_ctl(chip);
+}
+
+static void vas_setup_irq(struct proc_chip *chip)
+{
+	uint64_t port;
+	uint32_t irq;
+
+	irq = xive_alloc_ipi_irqs(chip->id, 1, 64);
+	if (irq == XIVE_IRQ_ERROR) {
+		vas_err("Failed to allocate interrupt sources for chipID %d\n",
+				chip->id);
+		return;
+	}
+
+	vas_vdbg("trigger port: 0x%p\n", xive_get_trigger_port(irq));
+
+	port = (uint64_t)xive_get_trigger_port(irq);
+
+	chip->vas->vas_irq = irq;
+	chip->vas->vas_port = port;
 }
 
 /*
@@ -464,6 +593,13 @@ static int init_vas_inst(struct dt_node *np, bool enable)
 	    			init_rma(chip))
 		return -1;
 
+	/*
+	 * Use NVRAM 'vas-user-space' config for backward compatibility
+	 * to older kernels. Remove this option in future if not needed.
+	 */
+	if (nvram_query_eq_dangerous("vas-user-space", "enable"))
+		vas_setup_irq(chip);
+
 	create_mm_dt_node(chip);
 
 	prlog(PR_INFO, "VAS: Initialized chip %d\n", chip->id);
@@ -471,17 +607,22 @@ static int init_vas_inst(struct dt_node *np, bool enable)
 
 }
 
-void vas_init()
+void vas_init(void)
 {
 	bool enabled;
 	struct dt_node *np;
+	const char *compat;
 
-	if (proc_gen != proc_gen_p9)
+	if (proc_gen == proc_gen_p9)
+		compat = "ibm,power9-vas-x";
+	else if (proc_gen == proc_gen_p10)
+		compat = "ibm,power10-vas-x";
+	else
 		return;
 
 	enabled = vas_nx_enabled();
 
-	dt_for_each_compatible(dt_root, np, "ibm,power9-vas-x") {
+	dt_for_each_compatible(dt_root, np, compat) {
 		if (init_vas_inst(np, enabled))
 			goto out;
 	}
@@ -490,7 +631,7 @@ void vas_init()
 	return;
 
 out:
-	dt_for_each_compatible(dt_root, np, "ibm,power9-vas-x")
+	dt_for_each_compatible(dt_root, np, compat)
 		disable_vas_inst(np);
 
 	vas_err("Disabled (failed initialization)\n");

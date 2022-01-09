@@ -1,17 +1,8 @@
-/* Copyright 2013-2014 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Base support for OPAL calls
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
 
 #include <skiboot.h>
@@ -37,10 +28,10 @@
 uint64_t opal_pending_events;
 
 /* OPAL dispatch table defined in head.S */
-extern uint64_t opal_branch_table[];
+extern const uint64_t opal_branch_table[];
 
 /* Number of args expected for each call. */
-static u8 opal_num_args[OPAL_LAST+1];
+static const u8 opal_num_args[OPAL_LAST+1];
 
 /* OPAL anchor node */
 struct dt_node *opal_node;
@@ -62,8 +53,8 @@ void opal_table_init(void)
 	prlog(PR_DEBUG, "OPAL table: %p .. %p, branch table: %p\n",
 	      s, e, opal_branch_table);
 	while(s < e) {
-		opal_branch_table[s->token] = function_entry_address(s->func);
-		opal_num_args[s->token] = s->nargs;
+		((uint64_t *)opal_branch_table)[s->token] = function_entry_address(s->func);
+		((u8 *)opal_num_args)[s->token] = s->nargs;
 		s++;
 	}
 }
@@ -198,6 +189,9 @@ int64_t opal_exit_check(int64_t retval, struct stack_frame *eframe)
 		      "Spent %llu msecs in OPAL call %llu!\n",
 		      call_time, token);
 	}
+
+	cpu->current_token = 0;
+
 	return retval;
 }
 
@@ -327,8 +321,8 @@ void __opal_register(uint64_t token, void *func, unsigned int nargs)
 {
 	assert(token <= OPAL_LAST);
 
-	opal_branch_table[token] = function_entry_address(func);
-	opal_num_args[token] = nargs;
+	((uint64_t *)opal_branch_table)[token] = function_entry_address(func);
+	((u8 *)opal_num_args)[token] = nargs;
 }
 
 /*
@@ -384,6 +378,7 @@ void add_opal_node(void)
 {
 	uint64_t base, entry, size;
 	extern uint32_t opal_entry;
+	extern uint32_t boot_entry;
 	struct dt_node *opal_event;
 
 	/* XXX TODO: Reorg this. We should create the base OPAL
@@ -413,13 +408,14 @@ void add_opal_node(void)
 	dt_add_property_cells(opal_node, "opal-msg-size", OPAL_MSG_SIZE);
 	dt_add_property_u64(opal_node, "opal-base-address", base);
 	dt_add_property_u64(opal_node, "opal-entry-address", entry);
+	dt_add_property_u64(opal_node, "opal-boot-address", (uint64_t)&boot_entry);
 	dt_add_property_u64(opal_node, "opal-runtime-size", size);
 
 	/* Add irqchip interrupt controller */
 	opal_event = dt_new(opal_node, "event");
 	dt_add_property_strings(opal_event, "compatible", "ibm,opal-event");
 	dt_add_property_cells(opal_event, "#interrupt-cells", 0x1);
-	dt_add_property(opal_event, "interrupt-controller", 0, 0);
+	dt_add_property(opal_event, "interrupt-controller", NULL, 0);
 
 	add_opal_firmware_node();
 	add_associativity_ref_point();

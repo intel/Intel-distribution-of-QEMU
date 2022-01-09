@@ -50,6 +50,7 @@ file pc-bios/s390-netboot.img	# pc-bios/s390-ccw/
 file pc-bios/kvmvapic.bin	# pc-bios/optionrom/
 file pc-bios/linuxboot*.bin	# ditto
 file pc-bios/multiboot.bin	# ditto
+file pc-bios/multiboot_dma.bin # ditto
 file pc-bios/pvh.bin		# ditto
 file pc-bios/skiboot.lid	# roms/skiboot/
 file pc-bios/u-boot.e500	# roms/u-boot/

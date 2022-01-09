@@ -1,21 +1,6 @@
-/* Copyright 2013-2016 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
 
-/*
-*/
 #ifndef __PHB4_H
 #define __PHB4_H
 
@@ -166,11 +151,12 @@ struct phb4_err {
 #define PHB4_CFG_BLOCKED	0x00000004
 #define PHB4_CAPP_RECOVERY	0x00000008
 #define PHB4_CAPP_DISABLE	0x00000010
+#define PHB4_ETU_IN_RESET	0x00000020
 
 struct phb4 {
-	unsigned int		index;	    /* 0..5 index inside p9 */
+	unsigned int		index;	    /* 0..5 index inside p9/p10 */
 	unsigned int		flags;
-	unsigned int		chip_id;    /* Chip ID (== GCID on p9) */
+	unsigned int		chip_id;    /* Chip ID (== GCID on p9/p10) */
 	unsigned int		pec;
 	bool			broken;
 	unsigned int		rev;        /* 00MMmmmm */
@@ -197,7 +183,7 @@ struct phb4 {
 	uint64_t		creset_start_time;
 
 	/* SkiBoot owned in-memory tables */
-	uint16_t		*tbl_rtt;
+	__be16			*tbl_rtt;
 	uint8_t			*tbl_peltv;
 	uint64_t		tbl_peltv_size;
 	uint64_t		tbl_pest;
@@ -211,6 +197,7 @@ struct phb4 {
 	bool			lane_eq_en;
 	unsigned int		max_link_speed;
 	unsigned int		dt_max_link_speed;
+	unsigned int		max_link_width;
 
 	uint64_t		mrt_size;
 	uint64_t		mbt_size;
@@ -259,11 +246,22 @@ static inline void phb4_set_err_pending(struct phb4 *p, bool pending)
 	p->err_pending = pending;
 }
 
-#define PHB4_PER_CHIP                        6 /* Max 6 PHBs per chip on p9 */
+#define MAX_PHBS_PER_CHIP_P9            6 /* Max 6 PHBs per chip on p9 */
+#define MAX_PHBS_PER_CHIP_P9P           0x10 /* extra for virt PHBs */
+#define MAX_PHBS_PER_CHIP_P10           0x12 /* 6 PCI + 12 opencapi */
 
 static inline int phb4_get_opal_id(unsigned int chip_id, unsigned int index)
 {
-	return chip_id * PHB4_PER_CHIP + index;
+	if (proc_gen == proc_gen_p10) {
+		return chip_id * MAX_PHBS_PER_CHIP_P10 + index;
+	} else {
+		if (PVR_TYPE(mfspr(SPR_PVR)) == PVR_TYPE_P9)
+			return chip_id * MAX_PHBS_PER_CHIP_P9 + index;
+		else
+			return chip_id * MAX_PHBS_PER_CHIP_P9P + index;
+	}
 }
+
+void phb4_pec2_dma_engine_realloc(struct phb4 *p);
 
 #endif /* __PHB4_H */

@@ -1,3 +1,6 @@
+.. _device-tree/vas:
+
+
 Virtual Accelerator Switchboard (VAS)
 =====================================
 
@@ -17,6 +20,12 @@ Each VAS node contains: ::
   ibm,chip-id: Chip-id of the chip containing this instance of VAS.
 
   ibm,vas-id: unique identifier for each instance of VAS in the system.
+
+  ibm,vas-port: Port address for the interrupt.
+
+  interrupts: <IRQ# level> for this VAS instance.
+
+  interrupt-parent: Interrupt controller phandle.
 
   reg: contains 8 64-bit fields.
 

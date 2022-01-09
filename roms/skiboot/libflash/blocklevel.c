@@ -1,18 +1,5 @@
-/* Copyright 2013-2017 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2018 IBM Corp. */
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -519,14 +506,20 @@ out:
 
 int blocklevel_smart_write(struct blocklevel_device *bl, uint64_t pos, const void *buf, uint64_t len)
 {
-	uint32_t erase_size;
-	const void *write_buf = buf;
-	void *write_buf_start = NULL;
+	void *ecc_buf = NULL;
 	uint64_t ecc_start;
-	void *erase_buf;
+	int ecc_protection;
+
+	void *erase_buf = NULL;
+	uint32_t erase_size;
+
+	const void *write_buf;
+	uint64_t write_len;
+	uint64_t write_pos;
+
 	int rc = 0;
 
-	if (!write_buf || !bl) {
+	if (!buf || !bl) {
 		errno = EINVAL;
 		return FLASH_ERR_PARM_ERROR;
 	}
@@ -542,23 +535,52 @@ int blocklevel_smart_write(struct blocklevel_device *bl, uint64_t pos, const voi
 	if (rc)
 		return rc;
 
-	if (ecc_protected(bl, pos, len, &ecc_start)) {
+	ecc_protection = ecc_protected(bl, pos, len, &ecc_start);
+	if (ecc_protection == -1) {
+		FL_ERR("%s: Can't cope with partial ecc\n", __func__);
+		errno = EINVAL;
+		return FLASH_ERR_PARM_ERROR;
+	}
+
+	if (ecc_protection) {
+		uint64_t ecc_pos, ecc_align, ecc_diff, ecc_len;
+
 		FL_DBG("%s: region has ECC\n", __func__);
 
-		len = ecc_buffer_size(len);
+		ecc_pos = with_ecc_pos(ecc_start, pos);
+		ecc_align = ecc_buffer_align(ecc_start, ecc_pos);
+		ecc_diff = ecc_pos - ecc_align;
+		ecc_len = ecc_buffer_size(len + ecc_diff);
 
-		write_buf_start = malloc(len);
-		if (!write_buf_start) {
+		ecc_buf = malloc(ecc_len);
+		if (!ecc_buf) {
 			errno = ENOMEM;
 			return FLASH_ERR_MALLOC_FAILED;
 		}
 
-		if (memcpy_to_ecc(write_buf_start, buf, ecc_buffer_size_minus_ecc(len))) {
-			free(write_buf_start);
+		if (ecc_diff) {
+			rc = blocklevel_read(bl, ecc_align, ecc_buf, ecc_diff);
+			if (rc) {
+				errno = EBADF;
+				rc = FLASH_ERR_ECC_INVALID;
+				goto out;
+			}
+		}
+
+		rc = memcpy_to_ecc_unaligned(ecc_buf, buf, len, ecc_diff);
+		if (rc) {
+			free(ecc_buf);
 			errno = EBADF;
 			return FLASH_ERR_ECC_INVALID;
 		}
-		write_buf = write_buf_start;
+
+		write_buf = ecc_buf;
+		write_len = ecc_len;
+		write_pos = ecc_pos;
+	} else {
+		write_buf = buf;
+		write_len = len;
+		write_pos = pos;
 	}
 
 	erase_buf = malloc(erase_size);
@@ -572,22 +594,24 @@ int blocklevel_smart_write(struct blocklevel_device *bl, uint64_t pos, const voi
 	if (rc)
 		goto out_free;
 
-	while (len > 0) {
-		uint32_t erase_block = pos & ~(erase_size - 1);
-		uint32_t block_offset = pos & (erase_size - 1);
-		uint32_t size = erase_size > len ? len : erase_size;
+	while (write_len > 0) {
+		uint32_t erase_block = write_pos & ~(erase_size - 1);
+		uint32_t block_offset = write_pos & (erase_size - 1);
+		uint32_t chunk_size = erase_size > write_len ?
+					write_len : erase_size;
 		int cmp;
 
 		/* Write crosses an erase boundary, shrink the write to the boundary */
-		if (erase_size < block_offset + size) {
-			size = erase_size - block_offset;
+		if (erase_size < block_offset + chunk_size) {
+			chunk_size = erase_size - block_offset;
 		}
 
 		rc = bl->read(bl, erase_block, erase_buf, erase_size);
 		if (rc)
 			goto out;
 
-		cmp = blocklevel_flashcmp(erase_buf + block_offset, write_buf, size);
+		cmp = blocklevel_flashcmp(erase_buf + block_offset, write_buf,
+					  chunk_size);
 		FL_DBG("%s: region 0x%08x..0x%08x ", __func__,
 				erase_block, erase_size);
 		if (cmp != 0) {
@@ -597,20 +621,23 @@ int blocklevel_smart_write(struct blocklevel_device *bl, uint64_t pos, const voi
 				bl->erase(bl, erase_block, erase_size);
 			}
 			FL_DBG("write\n");
-			memcpy(erase_buf + block_offset, write_buf, size);
+			memcpy(erase_buf + block_offset, write_buf, chunk_size);
 			rc = bl->write(bl, erase_block, erase_buf, erase_size);
 			if (rc)
 				goto out;
+		} else {
+			FL_DBG("clean\n");
 		}
-		len -= size;
-		pos += size;
-		write_buf += size;
+
+		write_len -= chunk_size;
+		write_pos += chunk_size;
+		write_buf += chunk_size;
 	}
 
 out:
 	release(bl);
 out_free:
-	free(write_buf_start);
+	free(ecc_buf);
 	free(erase_buf);
 	return rc;
 }

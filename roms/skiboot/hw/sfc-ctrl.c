@@ -1,18 +1,6 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2014 IBM Corp. */
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -122,33 +110,32 @@ struct sfc_ctrl {
 /* Command register support */
 static inline int sfc_reg_read(uint8_t reg, uint32_t *val)
 {
-	uint32_t tmp;
 	int rc;
 
 	*val = 0xffffffff;
-	rc = lpc_fw_read32(&tmp, SFC_CMDREG_OFFSET + reg);
+	rc = lpc_fw_read32(val, SFC_CMDREG_OFFSET + reg);
 	if (rc)
 		return rc;
-	*val = be32_to_cpu(tmp);
 	return 0;
 }
 
 static inline int sfc_reg_write(uint8_t reg, uint32_t val)
 {
-	return lpc_fw_write32(cpu_to_be32(val), SFC_CMDREG_OFFSET + reg);
+	return lpc_fw_write32(val, SFC_CMDREG_OFFSET + reg);
 }
 
 static int sfc_buf_write(uint32_t len, const void *data)
 {
-	uint32_t tmp, off = 0;
+	__be32 tmp;
+	uint32_t off = 0;
 	int rc;
 
 	if (len > SFC_CMDBUF_SIZE)
 		return FLASH_ERR_PARM_ERROR;
 
 	while (len >= 4) {
-		tmp = *(const uint32_t *)data;
-		rc = lpc_fw_write32(tmp, SFC_CMDBUF_OFFSET + off);
+		tmp = cpu_to_be32(*(const uint32_t *)data);
+		rc = lpc_fw_write32((u32)tmp, SFC_CMDBUF_OFFSET + off);
 		if (rc)
 			return rc;
 		off += 4;
@@ -162,9 +149,9 @@ static int sfc_buf_write(uint32_t len, const void *data)
 	 * in memory with memcpy. The swap in the register on LE doesn't
 	 * matter, the result in memory will be in the right order.
 	 */
-	tmp = -1;
-	memcpy(&tmp, data, len);
-	return lpc_fw_write32(tmp, SFC_CMDBUF_OFFSET + off);
+	tmp = cpu_to_be32(-1);
+	memcpy(&tmp, data, len); /* XXX: is this right? */
+	return lpc_fw_write32((u32)tmp, SFC_CMDBUF_OFFSET + off);
 }
 
 static int sfc_buf_read(uint32_t len, void *data)

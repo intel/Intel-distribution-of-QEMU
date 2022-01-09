@@ -1,18 +1,5 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
 
 #ifndef __CHIP_H
 #define __CHIP_H
@@ -47,9 +34,7 @@
  * |           |           |
  * |___|___|___|___|___|___|
  *
- * The difference with P7 is the absence of T bit, the ChipID
- * is 3 bits long. The GCID is thus the same as the high bits
- * if the PIR
+ * The the ChipID is 3 bits long, the GCID is the same as the high bits of PIR
  */
 #define P8_PIR2GCID(pir) (((pir) >> 7) & 0x3f)
 
@@ -71,6 +56,26 @@
  * thus we have a 6-bit core number.
  *
  * Note: XIVE Only supports 4-bit chip numbers ...
+ *
+ * Upper PIR Bits
+ * --------------
+ *
+ * Normal-Core Mode:
+ * 57:61 CoreID
+ * 62:63 ThreadID
+ *
+ * Fused-Core Mode:
+ * 57:59 FusedQuadID
+ * 60    FusedCoreID
+ * 61:63 FusedThreadID
+ *
+ * FusedCoreID 0 contains normal-core chiplet 0 and 1
+ * FusedCoreID 1 contains normal-core chiplet 2 and 3
+ *
+ * Fused cores have interleaved threads:
+ * core chiplet 0/2 = t0, t2, t4, t6
+ * core chiplet 1/3 = t1, t3, t5, t7
+ *
  */
 #define P9_PIR2GCID(pir) (((pir) >> 8) & 0x7f)
 
@@ -82,10 +87,71 @@
 
 #define P9_GCID2CHIPID(gcid) ((gcid) & 0x7)
 
+#define P9_PIR2FUSEDQUADID(pir) (((pir) >> 4) & 0x7)
+
+#define P9_PIR2FUSEDCOREID(pir) (((pir) >> 3) & 0x1)
+
+#define P9_PIR2FUSEDTHREADID(pir) ((pir) & 0x7)
+
+#define P9_PIRFUSED2NORMALCOREID(pir) \
+	(P9_PIR2FUSEDQUADID(pir) << 2) | \
+	(P9_PIR2FUSEDCOREID(pir) << 1) | \
+	(P9_PIR2FUSEDTHREADID(pir) & 1)
+
+#define P9_PIRFUSED2NORMALTHREADID(pir) (((pir) >> 1) & 0x3)
+
+#define P10_PIR2FUSEDCOREID(pir) P9_PIR2FUSEDCOREID(pir)
+#define P10_PIRFUSED2NORMALCOREID(pir) P9_PIRFUSED2NORMALCOREID(pir)
+#define P10_PIRFUSED2NORMALTHREADID(pir) P9_PIRFUSED2NORMALTHREADID(pir)
+
 /* P9 specific ones mostly used by XIVE */
 #define P9_PIR2LOCALCPU(pir) ((pir) & 0xff)
 #define P9_PIRFROMLOCALCPU(chip, cpu)	(((chip) << 8) | (cpu))
 
+/*
+ * P10 PIR
+ * -------
+ *
+ * PIR layout:
+ *
+ * |  49|  50|  51|  52|  53|  54|  55|  56|  57|  58|  59|  60|  61|  62|  63|
+ * |Spare ID      |Topology ID        |Sp. |Quad ID       |Core ID  |Thread ID|
+ *
+ * Bit 56 is a spare quad ID. In big-core mode, thread ID extends to bit 61.
+ *
+ * P10 GCID
+ * --------
+ *
+ * - Global chip ID is also called Topology ID.
+ * - Node ID is called Group ID (? XXX P10).
+ *
+ * Global chip ID is a 4 bit number.
+ *
+ * There is a topology mode bit that can be 0 or 1, which changes GCID mapping.
+ *
+ * Topology mode 0:
+ *      NodeID    ChipID
+ * |              |    |
+ * |____|____|____|____|
+ *
+ * Topology mode 1:
+ *    NodeID    ChipID
+ * |         |         |
+ * |____|____|____|____|
+ */
+#define P10_PIR2GCID(pir) (((pir) >> 8) & 0xf)
+
+#define P10_PIR2COREID(pir) (((pir) >> 2) & 0x3f)
+
+#define P10_PIR2THREADID(pir) ((pir) & 0x3)
+
+// XXX P10 These depend on the topology mode, how to get that (system type?)
+#define P10_GCID2NODEID(gcid, mode) ((mode) == 0 ? ((gcid) >> 1) & 0x7 : ((gcid) >> 2) & 0x3)
+#define P10_GCID2CHIPID(gcid, mode) ((mode) == 0 ? (gcid) & 0x1 : (gcid) & 0x3)
+
+/* P10 specific ones mostly used by XIVE */
+#define P10_PIR2LOCALCPU(pir) ((pir) & 0xff)
+#define P10_PIRFROMLOCALCPU(chip, cpu)	(((chip) << 8) | (cpu))
 
 struct dt_node;
 struct centaur_chip;
@@ -105,6 +171,7 @@ enum proc_chip_type {
 	PROC_CHIP_P9_NIMBUS,
 	PROC_CHIP_P9_CUMULUS,
 	PROC_CHIP_P9P,
+	PROC_CHIP_P10,
 };
 
 /* Simulator quirks */
@@ -118,6 +185,7 @@ enum proc_chip_quirks {
 	QUIRK_SLOW_SIM		= 0x00000040,
 	QUIRK_NO_DIRECT_CTL	= 0x00000080,
 	QUIRK_NO_RNG		= 0x00000100,
+	QUIRK_QEMU              = 0x00000200,
 };
 
 extern enum proc_chip_quirks proc_chip_quirks;
@@ -206,11 +274,27 @@ struct proc_chip {
 
 	/* Used by hw/dio-p9.c */
 	struct p9_dio		*dio;
+
+	/* Used during OCC init */
+	bool			ex_present;
+
+	/* Used by hw/vas.c on p10 */
+	uint32_t		primary_topology;
 };
 
 extern uint32_t pir_to_chip_id(uint32_t pir);
+
+/*
+ * Note: In P9 fused-core mode, these will return the "normal"
+ * core ID and thread ID (ie, thread ID 0..3)
+ */
 extern uint32_t pir_to_core_id(uint32_t pir);
 extern uint32_t pir_to_thread_id(uint32_t pir);
+
+/* In P9 fused core mode, this is the "fused" core ID, in
+ * normal core mode or P8, this is the same as pir_to_core_id
+ */
+extern uint32_t pir_to_fused_core_id(uint32_t pir);
 
 extern struct proc_chip *next_chip(struct proc_chip *chip);
 

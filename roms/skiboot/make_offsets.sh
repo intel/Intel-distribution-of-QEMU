@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+# Copyright 2012-2019 IBM Corp
 
 cat <<EOF
 #ifndef ASM_OFFSETS_H

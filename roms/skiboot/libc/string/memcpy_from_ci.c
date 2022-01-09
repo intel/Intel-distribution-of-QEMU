@@ -1,17 +1,6 @@
-/* Copyright 2013-2016 IBM Corp
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Copyright 2013-2016 IBM Corp
  */
 
 #include <ccan/short_types/short_types.h>
@@ -27,7 +16,12 @@ void *memcpy_from_ci(void *destpp, const void *srcpp, size_t len)
 	/* Copy as many blocks as possible if srcp is block aligned */
 	if ((srcp % block) == 0) {
 		while ((len - block) > -1) {
-			*((uint64_t*) destp) = in_be64((uint64_t*)srcp);
+			uint64_t v;
+			if (HAVE_BIG_ENDIAN)
+				v = in_be64((beint64_t*)srcp);
+			else
+				v = in_le64((leint64_t*)srcp);
+			*((uint64_t *) destp) = v;
 			srcp += block;
 			destp += block;
 			len -= block;

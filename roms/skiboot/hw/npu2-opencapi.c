@@ -1,19 +1,4 @@
-/* Copyright 2013-2018 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 /*
  * Support for OpenCAPI on POWER9 NPUs
  *
@@ -33,6 +18,8 @@
  *   - Presence detection
  *   - Consume HDAT NPU information
  *   - LPC Memory support
+ *
+ * Copyright 2013-2019 IBM Corp.
  */
 
 #include <skiboot.h>
@@ -66,8 +53,7 @@
 #define   OCAPI_SLOT_FRESET_INIT            (OCAPI_SLOT_FRESET + 2)
 #define   OCAPI_SLOT_FRESET_ASSERT_DELAY    (OCAPI_SLOT_FRESET + 3)
 #define   OCAPI_SLOT_FRESET_DEASSERT_DELAY  (OCAPI_SLOT_FRESET + 4)
-#define   OCAPI_SLOT_FRESET_DEASSERT_DELAY2 (OCAPI_SLOT_FRESET + 5)
-#define   OCAPI_SLOT_FRESET_INIT_DELAY      (OCAPI_SLOT_FRESET + 6)
+#define   OCAPI_SLOT_FRESET_INIT_DELAY      (OCAPI_SLOT_FRESET + 5)
 
 #define OCAPI_LINK_TRAINING_RETRIES	2
 #define OCAPI_LINK_TRAINING_TIMEOUT	3000 /* ms */
@@ -932,19 +918,53 @@ err:
 static void deassert_adapter_reset(struct npu2_dev *dev)
 {
 	uint8_t pin, data;
-	int rc;
+	int rc, rc2;
 
 	pin = get_reset_pin(dev);
 
+	/*
+	 * All we need to do here is deassert the reset signal by
+	 * setting the reset pin to high. However, we cannot leave the
+	 * pin in output mode, as it can cause troubles with the
+	 * opencapi adapter: when the slot is powered off (on a reboot
+	 * for example), if the i2c controller is actively setting the
+	 * reset signal to high, it maintains voltage on part of the
+	 * fpga and can leak current. It can lead the fpga to be in an
+	 * unspecified state and potentially cause damage.
+	 *
+	 * The circumvention is to set the pin back to input
+	 * mode. There are pullup resistors on the planar on all
+	 * platforms to make sure the signal will "naturally" be high,
+	 * without the i2c controller actively setting it, so we won't
+	 * have problems when the slot is powered off. And it takes
+	 * the adapter out of reset.
+	 *
+	 * To summarize:
+	 * 1. set the pin to input mode. That is enough to raise the
+	 *    signal
+	 * 2. set the value of the pin to high. The pin is input mode,
+	 *    so it won't really do anything. But it's more coherent
+	 *    and avoids bad surprises on the next call to
+	 *    assert_adapter_reset()
+	 */
 	lock(&dev->npu->i2c_lock);
-	dev->npu->i2c_pin_wr_state |= pin;
-	data = dev->npu->i2c_pin_wr_state;
+	dev->npu->i2c_pin_mode |= pin;
+	data = dev->npu->i2c_pin_mode;
 
 	rc = i2c_request_send(dev->npu->i2c_port_id_ocapi,
-			platform.ocapi->i2c_reset_addr, SMBUS_WRITE,
-			0x1, 1,
-			&data, sizeof(data), 120);
+			      platform.ocapi->i2c_reset_addr, SMBUS_WRITE,
+			      0x3, 1,
+			      &data, sizeof(data), 120);
+
+	dev->npu->i2c_pin_wr_state |= pin;
+	data = dev->npu->i2c_pin_wr_state;
+	rc2 = i2c_request_send(dev->npu->i2c_port_id_ocapi,
+			       platform.ocapi->i2c_reset_addr, SMBUS_WRITE,
+			       0x1, 1,
+			       &data, sizeof(data), 120);
 	unlock(&dev->npu->i2c_lock);
+	if (!rc)
+		rc = rc2;
 	if (rc) {
 		/**
 		 * @fwts-label OCAPIDeviceResetFailed
@@ -1046,10 +1066,33 @@ static int64_t npu2_opencapi_get_presence_state(struct pci_slot __unused *slot,
 	 * As such we will never be asked to get the presence of a slot that's
 	 * empty.
 	 *
-	 * This may change if we ever support hotplug down the track.
+	 * This may change if we ever support surprise hotplug down
+	 * the track.
 	 */
-	*val = true;
+	*val = OPAL_PCI_SLOT_PRESENT;
 	return OPAL_SUCCESS;
+}
+
+static void fence_brick(struct npu2_dev *dev)
+{
+	OCAPIDBG(dev, "Fencing brick\n");
+	set_fence_control(dev->npu->chip_id, dev->npu->xscom_base,
+			  dev->brick_index, 0b11);
+	/* from 13.2.1, Quiesce Fence State */
+	npu2_write(dev->npu, NPU2_MISC_FENCE_STATE,
+		   PPC_BIT(dev->brick_index + 6));
+}
+
+static void unfence_brick(struct npu2_dev *dev)
+{
+	OCAPIDBG(dev, "Unfencing brick\n");
+	npu2_write(dev->npu, NPU2_MISC_FENCE_STATE,
+		   PPC_BIT(dev->brick_index));
+
+	set_fence_control(dev->npu->chip_id, dev->npu->xscom_base,
+			  dev->brick_index, 0b10);
+	set_fence_control(dev->npu->chip_id, dev->npu->xscom_base,
+			  dev->brick_index, 0b00);
 }
 
 static enum OpalShpcLinkState get_link_width(uint64_t odl_status)
@@ -1082,6 +1125,38 @@ static int64_t npu2_opencapi_get_link_state(struct pci_slot *slot, uint8_t *val)
 	reg = get_odl_status(dev->npu->chip_id, dev->brick_index);
 	*val = get_link_width(reg);
 	return OPAL_SUCCESS;
+}
+
+static int64_t npu2_opencapi_get_power_state(struct pci_slot *slot,
+					     uint8_t *val)
+{
+	*val = slot->power_state;
+	return OPAL_SUCCESS;
+}
+
+static int64_t npu2_opencapi_set_power_state(struct pci_slot *slot, uint8_t val)
+{
+	struct npu2_dev *dev = phb_to_npu2_dev_ocapi(slot->phb);
+
+	switch (val) {
+	case PCI_SLOT_POWER_OFF:
+		OCAPIDBG(dev, "Fake power off\n");
+		fence_brick(dev);
+		assert_adapter_reset(dev);
+		slot->power_state = PCI_SLOT_POWER_OFF;
+		return OPAL_SUCCESS;
+
+	case PCI_SLOT_POWER_ON:
+		if (slot->power_state != PCI_SLOT_POWER_OFF)
+			return OPAL_SUCCESS;
+		OCAPIDBG(dev, "Fake power on\n");
+		slot->power_state = PCI_SLOT_POWER_ON;
+		slot->state = OCAPI_SLOT_NORMAL;
+		return OPAL_SUCCESS;
+
+	default:
+		return OPAL_UNSUPPORTED;
+	}
 }
 
 static void check_trained_link(struct npu2_dev *dev, uint64_t odl_status)
@@ -1124,6 +1199,14 @@ static int64_t npu2_opencapi_retry_state(struct pci_slot *slot,
 	return pci_slot_set_sm_timeout(slot, msecs_to_tb(1));
 }
 
+static void npu2_opencapi_prepare_link_change(struct pci_slot *slot __unused,
+					      bool up __unused)
+{
+	/*
+	 * PCI hotplug wants it defined, but we don't need to do anything
+	 */
+}
+
 static int64_t npu2_opencapi_poll_link(struct pci_slot *slot)
 {
 	struct npu2_dev *dev = phb_to_npu2_dev_ocapi(slot->phb);
@@ -1140,13 +1223,13 @@ static int64_t npu2_opencapi_poll_link(struct pci_slot *slot)
 		reg = get_odl_status(chip_id, dev->brick_index);
 		if (GETFIELD(OB_ODL_STATUS_TRAINING_STATE_MACHINE, reg) ==
 			OCAPI_LINK_STATE_TRAINED) {
-			OCAPIINF(dev, "link trained in %lld ms\n",
-				OCAPI_LINK_TRAINING_TIMEOUT - slot->retries);
+			OCAPIINF(dev, "link trained in %ld ms\n",
+				 tb_to_msecs(mftb() - dev->train_start));
 			check_trained_link(dev, reg);
 			pci_slot_set_state(slot, OCAPI_SLOT_LINK_TRAINED);
 			return pci_slot_set_sm_timeout(slot, msecs_to_tb(1));
 		}
-		if (slot->retries-- == 0)
+		if (tb_compare(mftb(), dev->train_timeout) == TB_AAFTERB)
 			return npu2_opencapi_retry_state(slot, reg);
 
 		return pci_slot_set_sm_timeout(slot, msecs_to_tb(1));
@@ -1154,6 +1237,10 @@ static int64_t npu2_opencapi_poll_link(struct pci_slot *slot)
 	case OCAPI_SLOT_LINK_TRAINED:
 		otl_enabletx(chip_id, dev->npu->xscom_base, dev);
 		pci_slot_set_state(slot, OCAPI_SLOT_NORMAL);
+		if (dev->flags & NPU2_DEV_BROKEN) {
+			OCAPIERR(dev, "Resetting a device which hit a previous error. Device recovery is not supported, so future behavior is undefined\n");
+			dev->flags &= ~NPU2_DEV_BROKEN;
+		}
 		check_perf_counters(dev);
 		dev->phb_ocapi.scan_map = 1;
 		return OPAL_SUCCESS;
@@ -1166,7 +1253,7 @@ static int64_t npu2_opencapi_poll_link(struct pci_slot *slot)
 	return OPAL_HARDWARE;
 }
 
-static int64_t npu2_opencapi_creset(struct pci_slot *slot __unused)
+static int64_t npu2_opencapi_creset(struct pci_slot *slot)
 {
 	struct npu2_dev *dev = phb_to_npu2_dev_ocapi(slot->phb);
 
@@ -1179,6 +1266,7 @@ static int64_t npu2_opencapi_freset(struct pci_slot *slot)
 	struct npu2_dev *dev = phb_to_npu2_dev_ocapi(slot->phb);
 	uint32_t chip_id = dev->npu->chip_id;
 	uint8_t presence = 1;
+	int rc;
 
 	switch (slot->state) {
 	case OCAPI_SLOT_NORMAL:
@@ -1196,19 +1284,10 @@ static int64_t npu2_opencapi_freset(struct pci_slot *slot)
 			OCAPIINF(dev, "no card detected\n");
 			return OPAL_SUCCESS;
 		}
-		if (dev->train_need_fence) {
-			OCAPIDBG(dev, "Fencing OTL during reset\n");
-			set_fence_control(chip_id, dev->npu->xscom_base,
-					dev->brick_index, 0b11);
-			npu2_write(dev->npu, NPU2_MISC_FENCE_STATE,
-				PPC_BIT(dev->brick_index + 6));
-			dev->train_fenced = true;
-		}
-		dev->train_need_fence = true;
 		slot->link_retries = OCAPI_LINK_TRAINING_RETRIES;
-		npu2_opencapi_phy_reset(dev);
 		/* fall-through */
 	case OCAPI_SLOT_FRESET_INIT:
+		fence_brick(dev);
 		assert_odl_reset(chip_id, dev->brick_index);
 		assert_adapter_reset(dev);
 		pci_slot_set_state(slot,
@@ -1217,32 +1296,20 @@ static int64_t npu2_opencapi_freset(struct pci_slot *slot)
 		return pci_slot_set_sm_timeout(slot, msecs_to_tb(5));
 
 	case OCAPI_SLOT_FRESET_ASSERT_DELAY:
+		rc = npu2_opencapi_phy_reset(dev);
+		if (rc) {
+			OCAPIERR(dev, "FRESET: couldn't reset PHY state\n");
+			return OPAL_HARDWARE;
+		}
 		deassert_odl_reset(chip_id, dev->brick_index);
-		pci_slot_set_state(slot,
-				OCAPI_SLOT_FRESET_DEASSERT_DELAY);
-		/*
-		 * Minimal delay before taking adapter out of
-		 * reset. Could be useless, but doesn't hurt
-		 */
-		return pci_slot_set_sm_timeout(slot, msecs_to_tb(1));
-
-	case OCAPI_SLOT_FRESET_DEASSERT_DELAY:
 		deassert_adapter_reset(dev);
 		pci_slot_set_state(slot,
-				OCAPI_SLOT_FRESET_DEASSERT_DELAY2);
+				OCAPI_SLOT_FRESET_DEASSERT_DELAY);
 		/* give 250ms to device to be ready */
 		return pci_slot_set_sm_timeout(slot, msecs_to_tb(250));
 
-	case OCAPI_SLOT_FRESET_DEASSERT_DELAY2:
-		if (dev->train_fenced) {
-			OCAPIDBG(dev, "Unfencing OTL after reset\n");
-			npu2_write(dev->npu, NPU2_MISC_FENCE_STATE,
-				   PPC_BIT(dev->brick_index));
-			set_fence_control(chip_id, dev->npu->xscom_base,
-					  dev->brick_index, 0b00);
-			dev->train_fenced = false;
-		}
-
+	case OCAPI_SLOT_FRESET_DEASSERT_DELAY:
+		unfence_brick(dev);
 		set_init_pattern(chip_id, dev);
 		pci_slot_set_state(slot,
 				OCAPI_SLOT_FRESET_INIT_DELAY);
@@ -1252,7 +1319,8 @@ static int64_t npu2_opencapi_freset(struct pci_slot *slot)
 		/* Bump lanes - this improves training reliability */
 		npu2_opencapi_bump_ui_lane(dev);
 		start_training(chip_id, dev);
-		slot->retries = OCAPI_LINK_TRAINING_TIMEOUT;
+		dev->train_start = mftb();
+		dev->train_timeout = dev->train_start + msecs_to_tb(OCAPI_LINK_TRAINING_TIMEOUT);
 		pci_slot_set_state(slot, OCAPI_SLOT_LINK_START);
 		return slot->ops.poll_link(slot);
 
@@ -1272,6 +1340,34 @@ static int64_t npu2_opencapi_hreset(struct pci_slot *slot __unused)
 	return OPAL_UNSUPPORTED;
 }
 
+static void make_slot_hotpluggable(struct pci_slot *slot, struct phb *phb)
+{
+	struct npu2_dev *dev = phb_to_npu2_dev_ocapi(phb);
+	char name[40];
+	const char *label = NULL;
+
+	/*
+	 * Add a few definitions to the DT so that the linux PCI
+	 * hotplug framework can find the slot and identify it as
+	 * hot-pluggable.
+	 *
+	 * The "ibm,slot-label" property is used by linux as the slot name
+	 */
+	slot->pluggable = 1;
+	pci_slot_add_dt_properties(slot, phb->dt_node);
+
+	if (platform.ocapi->ocapi_slot_label)
+		label = platform.ocapi->ocapi_slot_label(dev->npu->chip_id,
+							 dev->brick_index);
+
+	if (!label) {
+		snprintf(name, sizeof(name), "OPENCAPI-%04x",
+			 (int)PCI_SLOT_PHB_INDEX(slot->id));
+		label = name;
+	}
+	dt_add_property_string(phb->dt_node, "ibm,slot-label", label);
+}
+
 static struct pci_slot *npu2_opencapi_slot_create(struct phb *phb)
 {
 	struct pci_slot *slot;
@@ -1283,12 +1379,13 @@ static struct pci_slot *npu2_opencapi_slot_create(struct phb *phb)
 	/* TODO: Figure out other slot functions */
 	slot->ops.get_presence_state  = npu2_opencapi_get_presence_state;
 	slot->ops.get_link_state      = npu2_opencapi_get_link_state;
-	slot->ops.get_power_state     = NULL;
+	slot->ops.get_power_state     = npu2_opencapi_get_power_state;
 	slot->ops.get_attention_state = NULL;
 	slot->ops.get_latch_state     = NULL;
-	slot->ops.set_power_state     = NULL;
+	slot->ops.set_power_state     = npu2_opencapi_set_power_state;
 	slot->ops.set_attention_state = NULL;
 
+	slot->ops.prepare_link_change = npu2_opencapi_prepare_link_change;
 	slot->ops.poll_link           = npu2_opencapi_poll_link;
 	slot->ops.creset              = npu2_opencapi_creset;
 	slot->ops.freset              = npu2_opencapi_freset;
@@ -1330,7 +1427,7 @@ static int64_t npu2_opencapi_pcicfg_read(struct phb *phb, uint32_t bdfn,
 	cfg_addr = SETFIELD(NPU2_CQ_CTL_CONFIG_ADDR_REGISTER_NUMBER,
 			    cfg_addr, offset & ~3u);
 
-	out_be64((uint64_t *)genid_base, cfg_addr);
+	out_be64((beint64_t *)genid_base, cfg_addr);
 	sync();
 
 	switch (size) {
@@ -1340,10 +1437,10 @@ static int64_t npu2_opencapi_pcicfg_read(struct phb *phb, uint32_t bdfn,
 		break;
 	case 2:
 		*((uint16_t *)data) =
-			in_le16((volatile uint16_t *)(genid_base + 128 + (offset & 2)));
+			in_le16((volatile leint16_t *)(genid_base + 128 + (offset & 2)));
 		break;
 	case 4:
-		*((uint32_t *)data) = in_le32((volatile uint32_t *)(genid_base + 128));
+		*((uint32_t *)data) = in_le32((volatile leint32_t *)(genid_base + 128));
 		break;
 	default:
 		return OPAL_PARAMETER;
@@ -1388,7 +1485,7 @@ static int64_t npu2_opencapi_pcicfg_write(struct phb *phb, uint32_t bdfn,
 	cfg_addr = SETFIELD(NPU2_CQ_CTL_CONFIG_ADDR_REGISTER_NUMBER,
 			    cfg_addr, offset & ~3u);
 
-	out_be64((uint64_t *)genid_base, cfg_addr);
+	out_be64((beint64_t *)genid_base, cfg_addr);
 	sync();
 
 	switch (size) {
@@ -1397,11 +1494,11 @@ static int64_t npu2_opencapi_pcicfg_write(struct phb *phb, uint32_t bdfn,
 		      data);
 		break;
 	case 2:
-		out_le16((volatile uint16_t *)(genid_base + 128 + (offset & 2)),
+		out_le16((volatile leint16_t *)(genid_base + 128 + (offset & 2)),
 					       data);
 		break;
 	case 4:
-		out_le32((volatile uint32_t *)(genid_base + 128), data);
+		out_le32((volatile leint32_t *)(genid_base + 128), data);
 		break;
 	default:
 		return OPAL_PARAMETER;
@@ -1440,7 +1537,7 @@ static int64_t npu2_opencapi_set_pe(struct phb *phb,
 				    uint8_t __unused bcompare,
 				    uint8_t __unused dcompare,
 				    uint8_t __unused fcompare,
-				    uint8_t __unused action)
+				    uint8_t action)
 {
 	struct npu2_dev *dev = phb_to_npu2_dev_ocapi(phb);
 	/*
@@ -1452,6 +1549,11 @@ static int64_t npu2_opencapi_set_pe(struct phb *phb,
 	 * functions on the device, the OS can define many PEs, we
 	 * only keep one, the OS will handle it.
 	 */
+	if (action != OPAL_MAP_PE && action != OPAL_UNMAP_PE)
+		return OPAL_PARAMETER;
+
+	if (action == OPAL_UNMAP_PE)
+		pe_num = -1;
 	dev->linux_pe = pe_num;
 	return OPAL_SUCCESS;
 }
@@ -1476,14 +1578,12 @@ static int64_t npu2_opencapi_eeh_next_error(struct phb *phb,
 				   uint16_t *severity)
 {
 	struct npu2_dev *dev = phb_to_npu2_dev_ocapi(phb);
-	uint64_t reg;
 
 	if (!first_frozen_pe || !pci_error_type || !severity)
 		return OPAL_PARAMETER;
 
-	reg = npu2_read(dev->npu, NPU2_MISC_FENCE_STATE);
-	if (reg & PPC_BIT(dev->brick_index)) {
-		OCAPIERR(dev, "Brick %d fenced!\n", dev->brick_index);
+	if (dev->flags & NPU2_DEV_BROKEN) {
+		OCAPIDBG(dev, "Reporting device as broken\n");
 		*first_frozen_pe = dev->linux_pe;
 		*pci_error_type = OPAL_EEH_PHB_ERROR;
 		*severity = OPAL_EEH_SEV_PHB_DEAD;
@@ -1593,7 +1693,7 @@ static int enable_interrupts(struct npu2 *p)
 	 *   the systems, since we can just fence the brick and keep
 	 *   the system alive.
 	 * - the exception to the above is 2 FIRs for XSL errors
-	 *   resulting of bad AFU behavior, for which we don't want to
+	 *   resulting from bad AFU behavior, for which we don't want to
 	 *   checkstop but can't configure to send an error interrupt
 	 *   either, as the XSL errors are reported on 2 links (the
 	 *   XSL is shared between 2 links). Instead, we mask
@@ -1605,7 +1705,8 @@ static int enable_interrupts(struct npu2 *p)
 	 */
 	xsl_fault = PPC_BIT(0) | PPC_BIT(1) | PPC_BIT(2) | PPC_BIT(3);
 	xstop_override = 0x0FFFEFC00F91B000;
-	xsl_mask = PPC_BIT(41) | PPC_BIT(42);
+	xsl_mask = NPU2_CHECKSTOP_REG2_XSL_XLAT_REQ_WHILE_SPAP_INVALID |
+		   NPU2_CHECKSTOP_REG2_XSL_INVALID_PEE;
 
 	xscom_read(p->chip_id, p->xscom_base + NPU2_MISC_FIR2_MASK, &reg);
 	reg |= xsl_fault | xstop_override | xsl_mask;
@@ -1621,10 +1722,16 @@ static int enable_interrupts(struct npu2 *p)
 	 * Make sure the brick is fenced on those errors.
 	 * Fencing is incompatible with freezing, but there's no
 	 * freeze defined for FIR2, so we don't have to worry about it
+	 *
+	 * For the 2 XSL bits we ignore, we need to make sure they
+	 * don't fence the link, as the NPU logic could allow it even
+	 * when masked.
 	 */
 	reg = npu2_scom_read(p->chip_id, p->xscom_base, NPU2_MISC_FENCE_ENABLE2,
 			     NPU2_MISC_DA_LEN_8B);
 	reg |= xstop_override;
+	reg &= ~NPU2_CHECKSTOP_REG2_XSL_XLAT_REQ_WHILE_SPAP_INVALID;
+	reg &= ~NPU2_CHECKSTOP_REG2_XSL_INVALID_PEE;
 	npu2_scom_write(p->chip_id, p->xscom_base, NPU2_MISC_FENCE_ENABLE2,
 			NPU2_MISC_DA_LEN_8B, reg);
 
@@ -1678,6 +1785,8 @@ static void setup_device(struct npu2_dev *dev)
 	dt_add_property_strings(dn_phb, "device_type", "pciex");
 	dt_add_property(dn_phb, "reg", mm_win, sizeof(mm_win));
 	dt_add_property_cells(dn_phb, "ibm,npu-index", dev->npu->index);
+	dt_add_property_cells(dn_phb, "ibm,phb-index",
+			      npu2_get_phb_index(dev->brick_index));
 	dt_add_property_cells(dn_phb, "ibm,chip-id", dev->npu->chip_id);
 	dt_add_property_cells(dn_phb, "ibm,xscom-base", dev->npu->xscom_base);
 	dt_add_property_cells(dn_phb, "ibm,npcq", dev->npu->dt_node->phandle);
@@ -1704,8 +1813,6 @@ static void setup_device(struct npu2_dev *dev)
 
 	dev->bdfn = 0;
 	dev->linux_pe = -1;
-	dev->train_need_fence = false;
-	dev->train_fenced = false;
 
 	/* TODO: Procedure 13.1.3.7 - AFU Memory Range BARs */
 	/* Procedure 13.1.3.8 - AFU MMIO Range BARs */
@@ -1716,6 +1823,8 @@ static void setup_device(struct npu2_dev *dev)
 	npu2_opencapi_phy_init(dev);
 
 	set_fence_control(dev->npu->chip_id, dev->npu->xscom_base, dev->brick_index, 0b00);
+
+	pci_register_phb(&dev->phb_ocapi, OPAL_DYNAMIC_PHB_ID);
 
 	if (npu2_ocapi_training_state != NPU2_TRAIN_DEFAULT) {
 		setup_debug_training_state(dev);
@@ -1729,8 +1838,8 @@ static void setup_device(struct npu2_dev *dev)
 			 */
 			prlog(PR_ERR, "OCAPI: Cannot create PHB slot\n");
 		}
+		make_slot_hotpluggable(slot, &dev->phb_ocapi);
 	}
-	pci_register_phb(&dev->phb_ocapi, OPAL_DYNAMIC_PHB_ID);
 	return;
 }
 
@@ -1806,7 +1915,6 @@ static const struct phb_ops npu2_opencapi_ops = {
 	.cfg_write8		= npu2_opencapi_pcicfg_write8,
 	.cfg_write16		= npu2_opencapi_pcicfg_write16,
 	.cfg_write32		= npu2_opencapi_pcicfg_write32,
-	.choose_bus		= NULL,
 	.device_init		= NULL,
 	.phb_final_fixup	= npu2_opencapi_final_fixup,
 	.ioda_reset		= npu2_opencapi_ioda_reset,
@@ -1833,6 +1941,21 @@ static const struct phb_ops npu2_opencapi_ops = {
 	.set_capp_recovery	= NULL,
 	.tce_kill		= NULL,
 };
+
+void npu2_opencapi_set_broken(struct npu2 *npu, int brick)
+{
+	struct phb *phb;
+	struct npu2_dev *dev;
+
+	for_each_phb(phb) {
+		if (phb->phb_type == phb_type_npu_v2_opencapi) {
+			dev = phb_to_npu2_dev_ocapi(phb);
+			if (dev->npu == npu &&
+			    dev->brick_index == brick)
+				dev->flags |= NPU2_DEV_BROKEN;
+		}
+	}
+}
 
 static int64_t opal_npu_spa_setup(uint64_t phb_id, uint32_t __unused bdfn,
 				uint64_t addr, uint64_t PE_mask)
@@ -2109,25 +2232,46 @@ static void set_mem_bar(struct npu2_dev *dev, uint64_t base, uint64_t size)
 
 static int64_t alloc_mem_bar(struct npu2_dev *dev, uint64_t size, uint64_t *bar)
 {
-	uint64_t phys_map_base, phys_map_size;
+	uint64_t phys_map_base, phys_map_size, val;
 	int rc = OPAL_SUCCESS;
 
 	lock(&dev->npu->lock);
 
-	/*
-	 * Right now, we support 1 allocation per chip, of up to 4TB.
-	 *
-	 * In future, we will use chip address extension to support
-	 * >4TB ranges, and we will implement a more sophisticated
-	 * allocator to allow an allocation for every link on a chip.
-	 */
-
-	if (dev->npu->lpc_mem_allocated) {
+	if (dev->lpc_mem_base) {
+		OCAPIERR(dev, "LPC allocation failed - BAR already in use\n");
 		rc = OPAL_RESOURCE;
 		goto out;
 	}
 
-	phys_map_get(dev->npu->chip_id, OCAPI_MEM, 0, &phys_map_base, &phys_map_size);
+	/*
+	 * The supported chip address extension mask is 1100 100 (mask
+	 * off 2 bits from group ID and 1 bit from chip ID).
+	 *
+	 * Fall back to only permitting a single allocation if we
+	 * don't see this mask value.
+	 */
+	xscom_read(dev->npu->chip_id, PB_CENT_MODE, &val);
+	if (GETFIELD(PB_CFG_CHIP_ADDR_EXTENSION_MASK_CENT, val) == 0b1100100) {
+		phys_map_get(dev->npu->chip_id, OCAPI_MEM,
+			     dev->brick_index - 2, &phys_map_base,
+			     &phys_map_size);
+	} else {
+		bool in_use = false;
+
+		for (int i = 0; i < dev->npu->total_devices; i++) {
+			if (dev->npu->devices[i].lpc_mem_base)
+				in_use = true;
+		}
+
+		if (in_use) {
+			OCAPIERR(dev, "LPC allocation failed - single device per chip limit, FW upgrade required (pb_cent_mode=0x%016llx)\n", val);
+			rc = OPAL_RESOURCE;
+			goto out;
+		}
+
+		phys_map_get(dev->npu->chip_id, OCAPI_MEM, 0, &phys_map_base,
+			     &phys_map_size);
+	}
 
 	if (size > phys_map_size) {
 		/**
@@ -2148,12 +2292,13 @@ static int64_t alloc_mem_bar(struct npu2_dev *dev, uint64_t size, uint64_t *bar)
 	}
 
 	if (!is_pow2(size)) {
-		size = 1 << (ilog2(size) + 1);
+		size = 1ull << (ilog2(size) + 1);
 	}
 
 	set_mem_bar(dev, phys_map_base, size);
 	*bar = phys_map_base;
-	dev->npu->lpc_mem_allocated = dev;
+	dev->lpc_mem_base = phys_map_base;
+	dev->lpc_mem_size = size;
 
 out:
 	unlock(&dev->npu->lock);
@@ -2166,13 +2311,14 @@ static int64_t release_mem_bar(struct npu2_dev *dev)
 
 	lock(&dev->npu->lock);
 
-	if (dev->npu->lpc_mem_allocated != dev) {
+	if (!dev->lpc_mem_base) {
 		rc = OPAL_PARAMETER;
 		goto out;
 	}
 
 	set_mem_bar(dev, 0, 0);
-	dev->npu->lpc_mem_allocated = NULL;
+	dev->lpc_mem_base = 0;
+	dev->lpc_mem_size = 0;
 
 out:
 	unlock(&dev->npu->lock);
@@ -2180,10 +2326,12 @@ out:
 }
 
 static int64_t opal_npu_mem_alloc(uint64_t phb_id, uint32_t __unused bdfn,
-				  uint64_t size, uint64_t *bar)
+				  uint64_t size, __be64 *__bar)
 {
 	struct phb *phb = pci_get_phb(phb_id);
 	struct npu2_dev *dev;
+	uint64_t bar;
+	int64_t rc;
 
 
 	if (!phb || phb->phb_type != phb_type_npu_v2_opencapi)
@@ -2193,10 +2341,14 @@ static int64_t opal_npu_mem_alloc(uint64_t phb_id, uint32_t __unused bdfn,
 	if (!dev)
 		return OPAL_PARAMETER;
 
-	if (!opal_addr_valid(bar))
+	if (!opal_addr_valid(__bar))
 		return OPAL_PARAMETER;
 
-	return alloc_mem_bar(dev, size, bar);
+	rc = alloc_mem_bar(dev, size, &bar);
+	if (rc == OPAL_SUCCESS)
+		*__bar = cpu_to_be64(bar);
+
+	return rc;
 }
 opal_call(OPAL_NPU_MEM_ALLOC, opal_npu_mem_alloc, 4);
 

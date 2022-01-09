@@ -1,18 +1,8 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Copyright 2013-2019 IBM Corp
  */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -77,14 +67,14 @@ struct cpu_job *__cpu_queue_job(struct cpu_thread *cpu,
 	return NULL;
 }
 
-void __attrconst cpu_wait_job(struct cpu_job *job, bool free_it)
+void cpu_wait_job(struct cpu_job *job, bool free_it)
 {
 	(void)job;
 	(void)free_it;
 	return;
 }
 
-void __attrconst cpu_process_local_jobs(void)
+void cpu_process_local_jobs(void)
 {
 }
 
@@ -108,3 +98,4 @@ STUB(dt_next);
 STUB(dt_has_node_property);
 STUB(dt_get_address);
 STUB(add_chip_dev_associativity);
+STUB(pci_check_clear_freeze);

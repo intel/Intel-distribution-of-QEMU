@@ -16,7 +16,7 @@
 #include "vgautil.h" // VBE_framebuffer
 
 static inline void
-memmove_stride(void *dst, void *src, int copylen, int stride, int lines)
+memmove_stride(u16 seg, void *dst, void *src, int copylen, int stride, int lines)
 {
     if (src < dst) {
         dst += stride * (lines - 1);
@@ -24,24 +24,22 @@ memmove_stride(void *dst, void *src, int copylen, int stride, int lines)
         stride = -stride;
     }
     for (; lines; lines--, dst+=stride, src+=stride)
-        memcpy(dst, src, copylen);
+        memcpy_far(seg, dst, seg, src, copylen);
 }
 
 static inline void
-memset_stride(void *dst, u8 val, int setlen, int stride, int lines)
+memset_stride(u16 seg, void *dst, u8 val, int setlen, int stride, int lines)
 {
     for (; lines; lines--, dst+=stride)
-        memset(dst, val, setlen);
+        memset_far(seg, dst, val, setlen);
 }
 
-#if 0
 static inline void
-memset16_stride(void *dst, u16 val, int setlen, int stride, int lines)
+memset16_stride(u16 seg, void *dst, u16 val, int setlen, int stride, int lines)
 {
     for (; lines; lines--, dst+=stride)
-        memset16(dst, val, setlen);
+        memset16_far(seg, dst, val, setlen);
 }
-#endif
 
 
 /****************************************************************
@@ -53,8 +51,7 @@ gfx_planar(struct gfx_op *op)
 {
     if (!CONFIG_VGA_STDVGA_PORTS)
         return;
-    unsigned long fb = parisc_vga_mem;
-    void *dest_far = (void*)(fb + op->y * op->linelength + op->x / 8);
+    void *dest_far = (void*)(op->y * op->linelength + op->x / 8);
     int plane;
     switch (op->op) {
     default:
@@ -62,7 +59,7 @@ gfx_planar(struct gfx_op *op)
         memset(op->pixels, 0, sizeof(op->pixels));
         for (plane = 0; plane < 4; plane++) {
             stdvga_planar4_plane(plane);
-            u8 data = *(u8*)dest_far;
+            u8 data = GET_FARVAR(SEG_GRAPH, *(u8*)dest_far);
             int pixel;
             for (pixel=0; pixel<8; pixel++)
                 op->pixels[pixel] |= ((data>>(7-pixel)) & 1) << plane;
@@ -75,22 +72,22 @@ gfx_planar(struct gfx_op *op)
             int pixel;
             for (pixel=0; pixel<8; pixel++)
                 data |= ((op->pixels[pixel]>>plane) & 1) << (7-pixel);
-            *(u8*)dest_far = data;
+            SET_FARVAR(SEG_GRAPH, *(u8*)dest_far, data);
         }
         break;
     case GO_MEMSET:
         for (plane = 0; plane < 4; plane++) {
             stdvga_planar4_plane(plane);
             u8 data = (op->pixels[0] & (1<<plane)) ? 0xff : 0x00;
-            memset_stride(dest_far, data
+            memset_stride(SEG_GRAPH, dest_far, data
                           , op->xlen / 8, op->linelength, op->ylen);
         }
         break;
     case GO_MEMMOVE: ;
-        void *src_far = fb + (void*)(op->srcy * op->linelength + op->x / 8);
+        void *src_far = (void*)(op->srcy * op->linelength + op->x / 8);
         for (plane = 0; plane < 4; plane++) {
             stdvga_planar4_plane(plane);
-            memmove_stride(dest_far, src_far
+            memmove_stride(SEG_GRAPH, dest_far, src_far
                            , op->xlen / 8, op->linelength, op->ylen);
         }
         break;
@@ -145,21 +142,17 @@ gfx_cga(struct gfx_op *op)
             data = (data&1) | ((data&1)<<1);
         data &= 3;
         data |= (data<<2) | (data<<4) | (data<<6);
-#if 0
         memset_stride(SEG_CTEXT, dest_far, data
                       , op->xlen / 8 * bpp, op->linelength, op->ylen / 2);
         memset_stride(SEG_CTEXT, dest_far + 0x2000, data
                       , op->xlen / 8 * bpp, op->linelength, op->ylen / 2);
-#endif
         break;
-    case GO_MEMMOVE:
-#if 0
+    case GO_MEMMOVE: ;
         void *src_far = (void*)(op->srcy / 2 * op->linelength + op->x / 8 * bpp);
         memmove_stride(SEG_CTEXT, dest_far, src_far
                        , op->xlen / 8 * bpp, op->linelength, op->ylen / 2);
         memmove_stride(SEG_CTEXT, dest_far + 0x2000, src_far + 0x2000
                        , op->xlen / 8 * bpp, op->linelength, op->ylen / 2);
-#endif
         break;
     }
 }
@@ -167,23 +160,22 @@ gfx_cga(struct gfx_op *op)
 static void
 gfx_packed(struct gfx_op *op)
 {
-    unsigned long fb = parisc_vga_mem;
-    void *dest_far = (void*)(fb + op->y * op->linelength + op->x);
+    void *dest_far = (void*)(op->y * op->linelength + op->x);
     switch (op->op) {
     default:
     case GO_READ8:
-        memcpy(op->pixels, dest_far, 8);
+        memcpy_far(GET_SEG(SS), op->pixels, SEG_GRAPH, dest_far, 8);
         break;
     case GO_WRITE8:
-        memcpy(dest_far, op->pixels, 8);
+        memcpy_far(SEG_GRAPH, dest_far, GET_SEG(SS), op->pixels, 8);
         break;
     case GO_MEMSET:
-        memset_stride(dest_far, op->pixels[0]
+        memset_stride(SEG_GRAPH, dest_far, op->pixels[0]
                       , op->xlen, op->linelength, op->ylen);
         break;
     case GO_MEMMOVE: ;
-        void *src_far = (void*)(fb + op->srcy * op->linelength + op->x);
-        memmove_stride(dest_far, src_far
+        void *src_far = (void*)(op->srcy * op->linelength + op->x);
+        memmove_stride(SEG_GRAPH, dest_far, src_far
                        , op->xlen, op->linelength, op->ylen);
         break;
     }
@@ -195,12 +187,8 @@ gfx_packed(struct gfx_op *op)
  ****************************************************************/
 
 // Use int 1587 call to copy memory to/from the framebuffer.
-static void
-memcpy_high(void *dest, void *src, u32 len)
+void memcpy_high(void *dest, void *src, u32 len)
 {
-#if CONFIG_PARISC
-    memcpy(dest, src, len);
-#else
     u64 gdt[6];
     gdt[2] = GDT_DATA | GDT_LIMIT(0xfffff) | GDT_BASE((u32)src);
     gdt[3] = GDT_DATA | GDT_LIMIT(0xfffff) | GDT_BASE((u32)dest);
@@ -220,7 +208,6 @@ memcpy_high(void *dest, void *src, u32 len)
         "popl %0\n"
         : "=r" (flags), "+a" (eax), "+S" (si), "+c" (len)
         : : "cc", "memory");
-#endif
 }
 
 static void
@@ -253,9 +240,7 @@ get_color(int depth, u8 attr)
     int rv = DIV_ROUND_CLOSEST(((1<<rbits) - 1) * (r + h), 3);
     int gv = DIV_ROUND_CLOSEST(((1<<gbits) - 1) * (g + h), 3);
     int bv = DIV_ROUND_CLOSEST(((1<<bbits) - 1) * (b + h), 3);
-    u32 color = (rv << (gbits+bbits)) + (gv << bbits) + bv;
-    // ?? color = cpu_to_le32(color);
-    return color;
+    return (rv << (gbits+bbits)) + (gv << bbits) + bv;
 }
 
 // Find the closest attribute for a given framebuffer color
@@ -269,7 +254,6 @@ reverse_color(int depth, u32 color)
     default:
     case 24: rbits=8; gbits=8; bbits=8; break;
     }
-    // ?? color = le32_to_cpu(color);
     int rv = (color >> (gbits+bbits)) & ((1<<rbits)-1);
     int gv = (color >> bbits) & ((1<<gbits)-1);
     int bv = color & ((1<<bbits)-1);
@@ -280,24 +264,10 @@ reverse_color(int depth, u32 color)
     return (h ? 8 : 0) | ((r-h) ? 4 : 0) | ((g-h) ? 2 : 0) | ((b-h) ? 1 : 0);
 }
 
-static u32 get_unaligned32(u32 *ptr)
-{
-    u32 tmp;
-    memcpy(&tmp, ptr, sizeof(tmp));
-    return tmp;
-}
-
-static u32 put_unaligned32(u32 *ptr, u32 val)
-{
-    memcpy(ptr, &val, sizeof(val));
-    return val;
-}
-
 static void
 gfx_direct(struct gfx_op *op)
 {
     void *fb = (void*)GET_GLOBAL(VBE_framebuffer);
-    // void *fb = (void*)parisc_vga_mem;
     if (!fb)
         return;
     int depth = GET_GLOBAL(op->vmode_g->depth);
@@ -309,20 +279,20 @@ gfx_direct(struct gfx_op *op)
     switch (op->op) {
     default:
     case GO_READ8:
-        memcpy_high(&data, dest_far, bypp * 8);
+        memcpy_high(MAKE_FLATPTR(GET_SEG(SS), data), dest_far, bypp * 8);
         for (i=0; i<8; i++)
-            op->pixels[i] = reverse_color(depth, get_unaligned32((u32*)&data[i*bypp]));
+            op->pixels[i] = reverse_color(depth, *(u32*)&data[i*bypp]);
         break;
     case GO_WRITE8:
         for (i=0; i<8; i++)
-            put_unaligned32((u32*)&data[i*bypp], get_color(depth, op->pixels[i]));
-        memcpy_high(dest_far, &data, bypp * 8);
+            *(u32*)&data[i*bypp] = get_color(depth, op->pixels[i]);
+        memcpy_high(dest_far, MAKE_FLATPTR(GET_SEG(SS), data), bypp * 8);
         break;
     case GO_MEMSET: ;
         u32 color = get_color(depth, op->pixels[0]);
         for (i=0; i<8; i++)
-            put_unaligned32((u32*)&data[i*bypp], color);
-        memcpy_high(dest_far, &data, bypp * 8);
+            *(u32*)&data[i*bypp] = color;
+        memcpy_high(dest_far, MAKE_FLATPTR(GET_SEG(SS), data), bypp * 8);
         memcpy_high(dest_far + bypp * 8, dest_far, op->xlen * bypp - bypp * 8);
         for (i=1; i < op->ylen; i++)
             memcpy_high(dest_far + op->linelength * i
@@ -423,7 +393,6 @@ get_font_data(u8 c)
         font = GET_IVT(0x43);
     }
     font.offset += c * char_height;
-    font.seg = 0; // HELGE
     return font;
 }
 
@@ -462,7 +431,7 @@ gfx_write_char(struct vgamode_s *vmode_g
     }
     int i;
     for (i = 0; i < cheight; i++, op.y++) {
-        u8 fontline = *(u8*)(font.offset+i);
+        u8 fontline = GET_FARVAR(font.seg, *(u8*)(font.offset+i));
         if (usexor) {
             op.op = GO_READ8;
             handle_gfx_op(&op);
@@ -521,7 +490,8 @@ gfx_read_char(struct vgamode_s *vmode_g, struct cursorpos cp)
     // Determine font
     for (; car<256; car++) {
         struct segoff_s font = get_font_data(car);
-        if (memcmp(lines, (void*)(font.offset+0), cheight) == 0)
+        if (memcmp_far(GET_SEG(SS), lines
+                       , font.seg, (void*)(font.offset+0), cheight) == 0)
             return (struct carattr){car, fgattr | (bgattr << 4), 0};
     }
 fail:
@@ -597,9 +567,10 @@ vgafb_move_chars(struct cursorpos dest, struct cursorpos movesize, int lines)
         return;
     }
 
-    // int stride = GET_BDA(video_cols) * 2;
-    // void *dest_addr = text_address(dest), *src_addr = dest_addr + lines * stride;
-    // memmove_stride(GET_GLOBAL(vmode_g->sstart), dest_addr, src_addr , movesize.x * 2, stride, movesize.y);
+    int stride = GET_BDA(video_cols) * 2;
+    void *dest_addr = text_address(dest), *src_addr = dest_addr + lines * stride;
+    memmove_stride(GET_GLOBAL(vmode_g->sstart), dest_addr, src_addr
+                   , movesize.x * 2, stride, movesize.y);
 }
 
 // Clear area of screen.
@@ -616,9 +587,10 @@ vgafb_clear_chars(struct cursorpos win, struct cursorpos winsize
         return;
     }
 
-    // int stride = GET_BDA(video_cols) * 2;
-    // u16 attr = ((ca.use_attr ? ca.attr : 0x07) << 8) | ca.car;
-    // memset16_stride(vmode_g->sstart, text_address(win), attr , winsize.x * 2, stride, winsize.y);
+    int stride = GET_BDA(video_cols) * 2;
+    u16 attr = ((ca.use_attr ? ca.attr : 0x07) << 8) | ca.car;
+    memset16_stride(GET_GLOBAL(vmode_g->sstart), text_address(win), attr
+                    , winsize.x * 2, stride, winsize.y);
 }
 
 // Scroll characters within a window on the screen

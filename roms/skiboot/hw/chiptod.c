@@ -1,20 +1,9 @@
-/* Copyright 2013-2014 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Handle ChipTOD chip & configure core and CAPP timebases
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
-
-/* Handle ChipTOD chip & configure core and CAPP timebases */
 
 #define pr_fmt(fmt)	"CHIPTOD: " fmt
 
@@ -116,6 +105,9 @@
 /* -- TOD Error interrupt register -- */
 #define TOD_ERROR_INJECT		0x00040031
 
+/* PC unit PIB address which recieves the timebase transfer from TOD */
+#define   PC_TOD			0x4A3
+
 /* Local FIR EH.TPCHIP.TPC.LOCAL_FIR */
 #define LOCAL_CORE_FIR		0x0104000C
 #define LFIR_SWITCH_COMPLETE	PPC_BIT(18)
@@ -133,7 +125,8 @@
 static enum chiptod_type {
 	chiptod_unknown,
 	chiptod_p8,
-	chiptod_p9
+	chiptod_p9,
+	chiptod_p10,
 } chiptod_type;
 
 enum chiptod_chip_role {
@@ -227,6 +220,8 @@ static uint64_t base_tfmr;
  */
 static struct lock chiptod_lock = LOCK_UNLOCKED;
 static bool chiptod_unrecoverable;
+
+#define NUM_SYNC_RETRIES 10
 
 static void _chiptod_cache_tod_regs(int32_t chip_id)
 {
@@ -504,6 +499,12 @@ static void chiptod_setup_base_tfmr(void)
 		core_freq = dt_prop_get_u64(cpu, "ibm,extended-clock-frequency");
 	else
 		core_freq = dt_prop_get_u32(cpu, "clock-frequency");
+
+	if (!core_freq) {
+		prlog(PR_ERR, "CPU clock frequency is not set\n");
+		abort();
+	}
+
 	tod_freq = 32000000;
 
 	/* Calculate the "Max Cycles Between Steps" value according
@@ -606,7 +607,8 @@ static bool chiptod_poll_running(void)
 
 static bool chiptod_to_tb(void)
 {
-	uint64_t tval, tfmr, tvbits;
+	uint32_t pir = this_cpu()->pir;
+	uint64_t tval, tfmr;
 	uint64_t timeout = 0;
 
 	/* Tell the ChipTOD about our fabric address
@@ -616,25 +618,51 @@ static bool chiptod_to_tb(void)
 	 * PIR between p7 and p8, we need to do the calculation differently.
 	 *
 	 * p7: 0b00001 || 3-bit core id
-	 * p8: 0b0001 || 4-bit core id
+	 * p8:  0b0001 || 4-bit core id
+	 * p9:   0b001 || 5-bit core id
+	 * p10:  0b001 || 5-bit core id
+	 *
+	 * However in P10 we don't use the core ID addressing, but rather core
+	 * scom addressing mode, which appears to work better.
 	 */
 
 	if (xscom_readme(TOD_PIB_MASTER, &tval)) {
 		prerror("XSCOM error reading PIB_MASTER\n");
 		return false;
 	}
-	if (chiptod_type == chiptod_p9) {
-		tvbits = (this_cpu()->pir >> 2) & 0x1f;
-		tvbits |= 0x20;
-	} else if (chiptod_type == chiptod_p8) {
-		tvbits = (this_cpu()->pir >> 3) & 0xf;
-		tvbits |= 0x10;
+
+	if (chiptod_type == chiptod_p10) {
+		uint32_t core_id = pir_to_core_id(pir);
+
+		if (this_cpu()->is_fused_core &&
+				PVR_VERS_MAJ(mfspr(SPR_PVR)) == 2) {
+			/* Workaround: must address the even small core. */
+			core_id &= ~1;
+		}
+
+		tval = XSCOM_ADDR_P10_EC(core_id, PC_TOD);
+
+		tval <<= 32; /* PIB slave address goes in PPC bits [0:31] */
+
+		tval |= PPC_BIT(35); /* Enable SCOM addressing. */
+
 	} else {
-		tvbits = (this_cpu()->pir >> 2) & 0x7;
-		tvbits |= 0x08;
+		uint64_t tvbits;
+
+		if (chiptod_type == chiptod_p9) {
+			tvbits = (pir >> 2) & 0x1f;
+			tvbits |= 0x20;
+		} else if (chiptod_type == chiptod_p8) {
+			tvbits = (pir >> 3) & 0xf;
+			tvbits |= 0x10;
+		} else {
+			tvbits = (pir >> 2) & 0x7;
+			tvbits |= 0x08;
+		}
+		tval &= ~TOD_PIBM_ADDR_CFG_MCAST;
+		tval = SETFIELD(TOD_PIBM_ADDR_CFG_SLADDR, tval, tvbits);
 	}
-	tval &= ~TOD_PIBM_ADDR_CFG_MCAST;
-	tval = SETFIELD(TOD_PIBM_ADDR_CFG_SLADDR, tval, tvbits);
+
 	if (xscom_writeme(TOD_PIB_MASTER, tval)) {
 		prerror("XSCOM error writing PIB_MASTER\n");
 		return false;
@@ -872,17 +900,28 @@ static void chiptod_sync_master(void *data)
 	*result = true;
 	return;
  error:
-	prerror("Master sync failed! TFMR=0x%016lx\n", mfspr(SPR_TFMR));
+	prerror("Master sync failed! TFMR=0x%016lx,  retrying...\n", mfspr(SPR_TFMR));
 	*result = false;
 }
 
 static void chiptod_sync_slave(void *data)
 {
 	bool *result = data;
+	bool do_sync = false;
 
 	/* Only get primaries, not threads */
-	if (this_cpu()->is_secondary) {
-		/* On secondaries we just cleanup the TFMR */
+	if (!this_cpu()->is_secondary)
+		do_sync = true;
+
+	if (chiptod_type == chiptod_p10 && this_cpu()->is_fused_core &&
+			PVR_VERS_MAJ(mfspr(SPR_PVR)) == 2) {
+		/* P10 DD2 fused core workaround, must sync on small cores */
+		if (this_cpu() == this_cpu()->ec_primary)
+			do_sync = true;
+	}
+
+	if (!do_sync) {
+		/* Just cleanup the TFMR */
 		chiptod_cleanup_thread_tfmr();
 		*result = true;
 		return;
@@ -931,7 +970,7 @@ static void chiptod_sync_slave(void *data)
 	*result = true;
 	return;
  error:
-	prerror("Slave sync failed ! TFMR=0x%016lx\n", mfspr(SPR_TFMR));
+	prerror("Slave sync failed ! TFMR=0x%016lx, retrying...\n", mfspr(SPR_TFMR));
 	*result = false;
 }
 
@@ -968,6 +1007,30 @@ bool chiptod_wakeup_resync(void)
 	prerror("Resync failed ! TFMR=0x%16lx\n", mfspr(SPR_TFMR));
 	unlock(&chiptod_lock);
 	return false;
+}
+
+/*
+ * Fixup for p10 TOD bug workaround.
+ *
+ * The TOD may fail to start if all clocks in the system are derived from
+ * the same reference oscillator.
+ *
+ * Avoiding this is pretty easy: Whenever we clear/reset the TOD registers,
+ * make sure to init bits 26:31 of TOD_SLAVE_PATH_CTRL (0x40005) to 0b111111
+ * instead of 0b000000. The value 0 in TOD_S_PATH_CTRL_REG(26:31) must be
+ * avoided, and if it does get written it must be followed up by writing a
+ * value of all ones to clean up the resulting bad state before the (nonzero)
+ * final value can be written.
+ */
+static void fixup_tod_reg_value(struct chiptod_tod_regs *treg_entry)
+{
+	int32_t chip_id = this_cpu()->chip_id;
+
+	if (proc_gen != proc_gen_p10)
+		return;
+
+	if (treg_entry->xscom_addr == TOD_SLAVE_PATH_CTRL)
+		treg_entry->val[chip_id].data |= PPC_BITMASK(26,31);
 }
 
 static int __chiptod_recover_tod_errors(void)
@@ -1008,8 +1071,12 @@ static int __chiptod_recover_tod_errors(void)
 			return 0;
 		}
 
+		fixup_tod_reg_value(&chiptod_tod_regs[i]);
+
 		prlog(PR_DEBUG, "Parity error, Restoring TOD register: "
-				"%08llx\n", chiptod_tod_regs[i].xscom_addr);
+				"%08llx = %016llx\n",
+				chiptod_tod_regs[i].xscom_addr,
+				chiptod_tod_regs[i].val[chip_id].data);
 		if (xscom_writeme(chiptod_tod_regs[i].xscom_addr,
 			chiptod_tod_regs[i].val[chip_id].data)) {
 			prerror("XSCOM error writing 0x%08llx reg.\n",
@@ -1650,6 +1717,8 @@ static bool chiptod_probe(void)
 				chiptod_type = chiptod_p8;
 			if (dt_node_is_compatible(np, "ibm,power9-chiptod"))
 				chiptod_type = chiptod_p9;
+			if (dt_node_is_compatible(np, "ibm,power10-chiptod"))
+				chiptod_type = chiptod_p10;
 		}
 
 		if (dt_has_node_property(np, "secondary", NULL))
@@ -1757,6 +1826,7 @@ void chiptod_init(void)
 {
 	struct cpu_thread *cpu0, *cpu;
 	bool sres;
+	int i;
 
 	/* Mambo and qemu doesn't simulate the chiptod */
 	if (chip_quirk(QUIRK_NO_CHIPTOD))
@@ -1780,10 +1850,14 @@ void chiptod_init(void)
 
 	prlog(PR_DEBUG, "Base TFMR=0x%016llx\n", base_tfmr);
 
-	/* Schedule master sync */
-	sres = false;
-	cpu_wait_job(cpu_queue_job(cpu0, "chiptod_sync_master",
+	i = NUM_SYNC_RETRIES;
+	do {
+		/* Schedule master sync */
+		sres = false;
+		cpu_wait_job(cpu_queue_job(cpu0, "chiptod_sync_master",
 				   chiptod_sync_master, &sres), true);
+	} while (!sres && i--);
+
 	if (!sres) {
 		op_display(OP_FATAL, OP_MOD_CHIPTOD, 2);
 		abort();
@@ -1797,13 +1871,19 @@ void chiptod_init(void)
 		if (cpu == cpu0)
 			continue;
 
-		/* Queue job */
-		sres = false;
-		cpu_wait_job(cpu_queue_job(cpu, "chiptod_sync_slave",
-					   chiptod_sync_slave, &sres),
-			     true);
+		i = NUM_SYNC_RETRIES;
+		do {
+			/* Queue job */
+			sres = false;
+			cpu_wait_job(cpu_queue_job(cpu, "chiptod_sync_slave",
+						   chiptod_sync_slave, &sres),
+				     true);
+		} while (!sres && i--);
+
 		if (!sres) {
 			op_display(OP_WARN, OP_MOD_CHIPTOD, 3|(cpu->pir << 8));
+			prerror("CHIPTOD: Failed to sync PIR 0x%04x\n",
+					this_cpu()->pir);
 
 			/* Disable threads */
 			cpu_disable_all_threads(cpu);

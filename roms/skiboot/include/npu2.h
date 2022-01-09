@@ -1,18 +1,5 @@
-/* Copyright 2013-2016 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
 
 #ifndef __NPU2_H
 #define __NPU2_H
@@ -31,9 +18,9 @@
 
 #define NPU2DEVLOG(l, p, fmt, a...)	prlog(l, "NPU%d:%d:%d.%d " fmt, \
 					      (p)->npu->phb_nvlink.opal_id, \
-					      ((p)->bdfn >> 8) & 0xff, \
-					      ((p)->bdfn >> 3) & 0x1f, \
-					      (p)->bdfn & 0x7, ##a)
+					      PCI_BUS_NUM((p)->bdfn), \
+					      PCI_DEV((p)->bdfn), \
+					      PCI_FUNC((p)->bdfn), ##a)
 #define NPU2DEVDBG(p, fmt, a...)	NPU2DEVLOG(PR_DEBUG, p, fmt, ##a)
 #define NPU2DEVINF(p, fmt, a...)	NPU2DEVLOG(PR_INFO, p, fmt, ##a)
 #define NPU2DEVERR(p, fmt, a...)	NPU2DEVLOG(PR_ERR, p, fmt, ##a)
@@ -131,6 +118,8 @@ struct npu2_dev_nvlink {
 	const char		*slot_label;
 };
 
+#define NPU2_DEV_BROKEN		0x1
+
 struct npu2_dev {
 	enum npu2_dev_type	type;
 	uint32_t		link_index;
@@ -139,6 +128,7 @@ struct npu2_dev {
 	struct dt_node		*dt_node;
 	struct npu2_pcie_bar	bars[2];
 	struct npu2		*npu;
+	long			flags;
 
 	uint32_t		bdfn;
 
@@ -158,8 +148,10 @@ struct npu2_dev {
 	/* OpenCAPI */
 	struct phb		phb_ocapi;
 	uint64_t		linux_pe;
-	bool			train_need_fence;
-	bool			train_fenced;
+	unsigned long		train_start;
+	unsigned long		train_timeout;
+	uint64_t		lpc_mem_base;
+	uint64_t		lpc_mem_size;
 };
 
 struct npu2 {
@@ -188,18 +180,12 @@ struct npu2 {
 
 	/* NVLink */
 	struct phb	phb_nvlink;
-	uint32_t	phb_index;
 
 	/* OCAPI */
 	uint64_t	i2c_port_id_ocapi;
 	struct lock	i2c_lock;
 	uint8_t		i2c_pin_mode;
 	uint8_t		i2c_pin_wr_state;
-	/*
-	 * Which device currently has an LPC allocation.
-	 * Temporary as long as we only support 1 LPC alloc per chip.
-	 */
-	struct npu2_dev	*lpc_mem_allocated;
 };
 
 static inline struct npu2 *phb_to_npu2_nvlink(struct phb *phb)
@@ -247,7 +233,7 @@ void npu2_clear_link_flag(struct npu2_dev *ndev, uint8_t flag);
 uint32_t reset_ntl(struct npu2_dev *ndev);
 extern int nv_zcal_nominal;
 void npu2_opencapi_phy_init(struct npu2_dev *dev);
-void npu2_opencapi_phy_reset(struct npu2_dev *dev);
+int npu2_opencapi_phy_reset(struct npu2_dev *dev);
 void npu2_opencapi_phy_prbs31(struct npu2_dev *dev);
 void npu2_opencapi_bump_ui_lane(struct npu2_dev *dev);
 int64_t npu2_freeze_status(struct phb *phb __unused,
@@ -256,4 +242,33 @@ int64_t npu2_freeze_status(struct phb *phb __unused,
 			   uint16_t *pci_error_type __unused,
 			   uint16_t *severity __unused);
 void npu2_dump_scoms(int chip_id);
+
+int64_t npu2_init_context(struct phb *phb, uint64_t msr, uint64_t bdf);
+int64_t npu2_destroy_context(struct phb *phb, uint64_t bdf);
+int64_t npu2_map_lpar(struct phb *phb, uint64_t bdf, uint64_t lparid,
+		      uint64_t lpcr);
+int64_t npu2_set_relaxed_order(struct phb *phb, uint32_t gcid, int pec,
+			       bool enable);
+
+void npu2_opencapi_set_broken(struct npu2 *npu, int brick);
+
+#define NPU2_PHB_INDEX_BASE 7
+/* to avoid conflicts with PCI and for historical reasons */
+
+static inline int npu2_get_phb_index(unsigned int brick_index)
+{
+	/*
+	 * There's one virtual PHB per brick with opencapi, so we no
+	 * longer have a 1-to-1 mapping between a NPU and a virtual
+	 * PHB. And we want a static phb-index, as it is needed to use
+	 * a slot table on some platforms. So we associate a per-chip
+	 * phb-index based on the brick index.
+	 *
+	 * nvlink only creates one virtual PHB per chip, so it is
+	 * treated as if using brick 0, which is never used by
+	 * opencapi.
+	 */
+	return NPU2_PHB_INDEX_BASE + brick_index;
+}
+
 #endif /* __NPU2_H */

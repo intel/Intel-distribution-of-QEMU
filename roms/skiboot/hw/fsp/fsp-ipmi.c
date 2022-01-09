@@ -1,17 +1,8 @@
-/* Copyright 2014-2015 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Conduit for IPMI messages to/from FSP
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2014-2019 IBM Corp.
  */
 
 #include <errorlog.h>
@@ -79,6 +70,10 @@ static void fsp_ipmi_cmd_done(uint8_t cmd, uint8_t netfn, uint8_t cc)
 	struct fsp_ipmi_msg *fsp_ipmi_msg = fsp_ipmi.cur_msg;
 
 	lock(&fsp_ipmi.lock);
+	if (fsp_ipmi.cur_msg == NULL) {
+		unlock(&fsp_ipmi.lock);
+		return;
+	}
 	list_del(&fsp_ipmi_msg->link);
 	fsp_ipmi.cur_msg = NULL;
 	unlock(&fsp_ipmi.lock);
@@ -90,7 +85,7 @@ static void fsp_ipmi_cmd_done(uint8_t cmd, uint8_t netfn, uint8_t cc)
 static void fsp_ipmi_req_complete(struct fsp_msg *msg)
 {
 	uint8_t status = (msg->resp->word1 >> 8) & 0xff;
-	uint32_t length = msg->resp->data.words[0];
+	uint32_t length = fsp_msg_get_data_word(msg->resp, 0);
 	struct fsp_ipmi_msg *fsp_ipmi_msg = msg->user_data;
 	struct ipmi_msg *ipmi_msg;
 
@@ -258,6 +253,35 @@ static struct ipmi_backend fsp_ipmi_backend = {
 	.poll           = NULL,
 };
 
+static bool fsp_ipmi_rr_notify(uint32_t cmd_sub_mod,
+			       struct fsp_msg *msg __unused)
+{
+	struct ipmi_msg *ipmi_msg;
+
+	switch (cmd_sub_mod) {
+	case FSP_RESET_START:
+		return true;
+	case FSP_RELOAD_COMPLETE:
+		/*
+		 * We will not get response for outstanding request. Send error
+		 * message to caller and start sending new ipmi messages.
+		 */
+		if (fsp_ipmi.cur_msg) {
+			ipmi_msg = &fsp_ipmi.cur_msg->ipmi_msg;
+			fsp_ipmi_cmd_done(ipmi_msg->cmd,
+					  IPMI_NETFN_RETURN_CODE(ipmi_msg->netfn),
+					  IPMI_ERR_UNSPECIFIED);
+		}
+		fsp_ipmi_send_request();
+		return true;
+	}
+	return false;
+}
+
+static struct fsp_client fsp_ipmi_client_rr = {
+	.message = fsp_ipmi_rr_notify,
+};
+
 static bool fsp_ipmi_send_response(uint32_t cmd)
 {
 	struct fsp_msg *resp;
@@ -284,8 +308,8 @@ static bool fsp_ipmi_send_response(uint32_t cmd)
 static bool fsp_ipmi_read_response(struct fsp_msg *msg)
 {
 	uint8_t *resp_buf = fsp_ipmi.ipmi_resp_buf;
-	uint32_t status = msg->data.words[3];
-	uint32_t length = msg->data.words[2];
+	uint32_t status = fsp_msg_get_data_word(msg, 3);
+	uint32_t length = fsp_msg_get_data_word(msg, 2);
 	struct ipmi_msg *ipmi_msg;
 	uint8_t netfn, cmd, cc;
 
@@ -293,7 +317,7 @@ static bool fsp_ipmi_read_response(struct fsp_msg *msg)
 	ipmi_msg = &fsp_ipmi.cur_msg->ipmi_msg;
 
 	/* Response TCE token */
-	assert(msg->data.words[1] == PSI_DMA_PLAT_RESP_BUF);
+	assert(fsp_msg_get_data_word(msg, 1) == PSI_DMA_PLAT_RESP_BUF);
 
 	if (status != FSP_STATUS_SUCCESS) {
 		if(status == FSP_STATUS_DMA_ERROR)
@@ -371,5 +395,6 @@ void fsp_ipmi_init(void)
 	init_lock(&fsp_ipmi.lock);
 
 	fsp_register_client(&fsp_ipmi_client, FSP_MCLASS_FETCH_SPDATA);
+	fsp_register_client(&fsp_ipmi_client_rr, FSP_MCLASS_RR_EVENT);
 	ipmi_register_backend(&fsp_ipmi_backend);
 }

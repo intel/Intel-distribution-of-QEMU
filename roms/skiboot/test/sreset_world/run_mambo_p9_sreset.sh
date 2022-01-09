@@ -9,7 +9,7 @@ if [ -z "$P9MAMBO_BINARY" ]; then
 fi
 
 if [ ! -x "$P9MAMBO_PATH/$P9MAMBO_BINARY" ]; then
-    echo "Could not find executable P9MAMBO_BINARY ($P9MAMBO_PATH/$MAMBO_BINARY). Skipping sreset_world test";
+    echo "Could not find executable P9MAMBO_BINARY ($P9MAMBO_PATH/$P9MAMBO_BINARY). Skipping sreset_world test";
     exit 0;
 fi
 
@@ -25,12 +25,12 @@ fi
 
 if [ -n "$SKIBOOT_ENABLE_MAMBO_STB" ]; then
     export SKIBOOT_ZIMAGE=$(pwd)/test/sreset_world/sreset_kernel/sreset_kernel.stb
+    export SKIBOOT_CVC_CODE=$(pwd)/external/mambo/cvc.bin
 else
     export SKIBOOT_ZIMAGE=$(pwd)/test/sreset_world/sreset_kernel/sreset_kernel
 fi
 
 # Currently getting some core dumps from mambo, so disable them!
-OLD_ULIMIT_C=$(ulimit -c)
 ulimit -c 0
 
 t=$(mktemp) || exit 1
@@ -70,8 +70,7 @@ if [ $r != 0 ]; then
     exit $r
 fi
 
-ulimit -c $OLD_ULIMIT_C
-
+if [ -n "$V" ] ; then cat "$t" ; fi
 rm -f -- "$t"
 trap - EXIT
 exit 0;

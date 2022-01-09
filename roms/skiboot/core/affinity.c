@@ -1,18 +1,5 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
 
 /*
  *
@@ -60,7 +47,7 @@ static uint32_t get_chip_node_id(struct proc_chip *chip)
 
 	/*
 	 * Else use the 3 top bits of the chip ID which should be
-	 * the node on both P7 and P8
+	 * the node on P8
 	 */
 	return chip->id >> 3;
 }
@@ -123,6 +110,8 @@ void add_core_associativity(struct cpu_thread *cpu)
 	if (proc_gen == proc_gen_p8)
 		core_id = (cpu->pir >> 3) & 0xf;
 	else if (proc_gen == proc_gen_p9)
+		core_id = (cpu->pir >> 2) & 0x1f;
+	else if (proc_gen == proc_gen_p10)
 		core_id = (cpu->pir >> 2) & 0x1f;
 	else
 		return;

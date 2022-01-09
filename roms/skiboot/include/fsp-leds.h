@@ -1,24 +1,8 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-/*
- */
-
-
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 /*
  * SPCN based LED location code and other information
+ *
+ * Copyright 2013-2016 IBM Corp.
  */
 
 #ifndef __FSP_LEDS_H
@@ -50,9 +34,9 @@ enum spcn_cmd_src {
 /* SPCN set LED */
 struct spcn_led_data {
 	u8	lc_len;
-	u16	state;
+	__be16	state;
 	char	lc_code[LOC_CODE_SIZE];
-};
+} __packed;
 
 /* LED data */
 struct fsp_led_data {
@@ -67,17 +51,17 @@ struct fsp_led_data {
 
 /* FSP location code request */
 struct fsp_loc_code_req {
-	u16	len;
-	u16	req_type;
+	__be16	len;
+	__be16	req_type;
 	u8	raw_len;
 	u8	lc_sz;
 	char	loc_code[LOC_CODE_SIZE];
-};
+} __packed;
 
 /* FSP location code data */
 struct fsp_loc_code_data {
-	u16	size;
-	u32	ccin;
+	__be16	size;
+	__be32	ccin;
 	u8	status;
 	u8	ind_state;
 	u8	raw_len;
@@ -97,22 +81,22 @@ struct fsp_loc_code_data {
 
 /* Get indicator state request */
 struct fsp_get_ind_state_req {
-	u16	size;
+	__be16	size;
 	u8	lc_len;
 	u8	fld_sz;
 	char	loc_code[LOC_CODE_SIZE];
-};
+} __packed;
 
 /* Set indicator state request */
 struct fsp_set_ind_state_req {
-	u16	size;
-	u16	req_type;
+	__be16	size;
+	__be16	req_type;
 	u8	reserved[3];
 	u8	ind_state;
 	u8	lc_len;
 	u8	fld_sz;
 	char	loc_code[LOC_CODE_SIZE];
-};
+} __packed;
 
 /* LED set SPCN command */
 struct led_set_cmd {

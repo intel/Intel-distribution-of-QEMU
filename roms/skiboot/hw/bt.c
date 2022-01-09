@@ -1,17 +1,8 @@
-/* Copyright 2013-2019 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Block Transfer, typically what IPMI goes over
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
 
 #define pr_fmt(fmt) "BT: " fmt
@@ -220,6 +211,11 @@ static void bt_msg_del(struct bt_msg *bt_msg)
 {
 	list_del(&bt_msg->link);
 	bt.queue_len--;
+
+	/* once inflight_bt_msg out of list, it should be emptyed */
+	if (bt_msg == inflight_bt_msg)
+		inflight_bt_msg = NULL;
+
 	unlock(&bt.lock);
 	ipmi_cmd_done(bt_msg->ipmi_msg.cmd,
 		      IPMI_NETFN_RETURN_CODE(bt_msg->ipmi_msg.netfn),
@@ -401,9 +397,6 @@ static void bt_expire_old_msg(uint64_t tb)
 		} else {
 			BT_Q_ERR(bt_msg, "Timeout sending message");
 			bt_msg_del(bt_msg);
-
-			/* Ready to send next message */
-			inflight_bt_msg = NULL;
 
 			/*
 			 * Timing out a message is inherently racy as the BMC

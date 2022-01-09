@@ -1,17 +1,8 @@
-/* Copyright 2015 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * NX has 842 and GZIP (P9) accellerators
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2015-2018 IBM Corp.
  */
 
 #include <skiboot.h>
@@ -120,6 +111,30 @@ static int nx_cfg_umac_status_ctrl(u32 gcid, u64 xcfg)
 	else
 		prlog(PR_DEBUG, "NX%d: Setting UMAC Status Control 0x%016lx\n",
 			gcid, (unsigned long)uctrl);
+
+	return rc;
+}
+
+static int nx_cfg_vas_rma_bar(u32 gcid, u64 xcfg)
+{
+	int rc = 0;
+	u64 cfg;
+
+	cfg = vas_get_rma_bar(gcid);
+	/*
+	 * NOTE: Write the entire bar address to SCOM. VAS/NX will extract
+	 *	 the relevant (NX_P10_VAS_RMA_WRITE_BAR) bits. IOW, _don't_
+	 *	 just write the bit field like:
+	 *	 cfg = SETFIELD(NX_P10_VAS_RMA_WRITE_BAR, 0ULL, cfg);
+	 */
+	rc = xscom_write(gcid, xcfg, cfg);
+
+	if (rc)
+		prerror("NX%d: ERROR: VAS RMA WRITE BAR, %d\n", gcid, rc);
+	else
+		prlog(PR_DEBUG, "NX%d: VAS RMA WRITE BAR, 0x%016lx, "
+				"xcfg 0x%llx\n", gcid, (unsigned long)cfg,
+				xcfg);
 
 	return rc;
 }
@@ -281,6 +296,10 @@ void nx_create_compress_node(struct dt_node *node)
 
 	prlog(PR_INFO, "NX%d: 842 at 0x%x\n", gcid, pb_base);
 
+	/*
+	 * ibm,power9-nx is compatible on P10. So using same
+	 * compatible string.
+	 */
 	if (dt_node_is_compatible(node, "ibm,power9-nx")) {
 		u64 cfg_mmio, cfg_txwc, cfg_uctrl, cfg_dma;
 
@@ -305,6 +324,14 @@ void nx_create_compress_node(struct dt_node *node)
 		rc = nx_cfg_umac_status_ctrl(gcid, cfg_uctrl);
 		if (rc)
 			return;
+
+		if (proc_gen > proc_gen_p9) {
+			u64 cfg_rma = pb_base + NX_P10_VAS_RMA_WRITE_BAR;
+
+			rc = nx_cfg_vas_rma_bar(gcid, cfg_rma);
+			if (rc)
+				return;
+		}
 
 		p9_nx_enable_842(node, gcid, pb_base);
 		p9_nx_enable_gzip(node, gcid, pb_base);

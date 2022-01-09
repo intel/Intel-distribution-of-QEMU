@@ -1,18 +1,10 @@
-/* Copyright 2013-2014 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Centaur memory buffer chip
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2017 IBM Corp.
  */
+
 #include <skiboot.h>
 #include <xscom.h>
 #include <processor.h>
@@ -315,9 +307,11 @@ static int centaur_xscom_ind_write(struct centaur_chip *centaur,
 	return rc;
 }
 
-int64_t centaur_xscom_read(uint32_t id, uint64_t pcb_addr, uint64_t *val)
+static int64_t centaur_xscom_read(struct scom_controller *scom,
+				  uint32_t id __unused, uint64_t pcb_addr,
+				  uint64_t *val)
 {
-	struct centaur_chip *centaur = get_centaur(id);
+	struct centaur_chip *centaur = scom->private;
 	int64_t rc;
 
 	if (!centaur)
@@ -357,9 +351,11 @@ int64_t centaur_xscom_read(uint32_t id, uint64_t pcb_addr, uint64_t *val)
 	return rc;
 }
 
-int64_t centaur_xscom_write(uint32_t id, uint64_t pcb_addr, uint64_t val)
+static int64_t centaur_xscom_write(struct scom_controller *scom,
+				   uint32_t id __unused, uint64_t pcb_addr,
+				   uint64_t val)
 {
-	struct centaur_chip *centaur = get_centaur(id);
+	struct centaur_chip *centaur = scom->private;
 	int64_t rc;
 
 	if (!centaur)
@@ -470,6 +466,12 @@ static bool centaur_add(uint32_t part_id, uint32_t mchip, uint32_t meng,
 
 	if (!centaur_check_id(centaur))
 		return false;
+
+	centaur->scom.part_id = part_id;
+	centaur->scom.private = centaur;
+	centaur->scom.read = centaur_xscom_read;
+	centaur->scom.write = centaur_xscom_write;
+	scom_register(&centaur->scom);
 
 	cent_log(PR_INFO, centaur, "Found DD%x.%x chip\n",
 		       centaur->ec_level >> 4,

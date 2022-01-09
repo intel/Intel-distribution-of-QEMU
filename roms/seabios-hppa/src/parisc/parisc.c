@@ -1,6 +1,6 @@
 // Glue code for parisc architecture
 //
-// Copyright (C) 2017-2019  Helge Deller <deller@gmx.de>
+// Copyright (C) 2017-2021  Helge Deller <deller@gmx.de>
 // Copyright (C) 2019 Sven Schnelle <svens@stackframe.org>
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
@@ -31,7 +31,7 @@
 
 #include "vgabios.h"
 
-#define SEABIOS_HPPA_VERSION 1
+#define SEABIOS_HPPA_VERSION 2
 
 /*
  * Various variables which are needed by x86 code.
@@ -1778,9 +1778,15 @@ void __VISIBLE start_parisc_firmware(void)
     if (ram_size >= FIRMWARE_START)
         ram_size = FIRMWARE_START;
 
+    /* Initialize malloc stack */
+    malloc_preinit();
+
     /* Initialize qemu fw_cfg interface */
     PORT_QEMU_CFG_CTL = fw_cfg_port;
     qemu_cfg_init();
+
+    /* Initialize boot structures. Needs working fw_cfg for bootprio option. */
+    boot_init();
 
     i = romfile_loadint("/etc/firmware-min-version", 0);
     if (i && i > SEABIOS_HPPA_VERSION) {
@@ -1798,6 +1804,7 @@ void __VISIBLE start_parisc_firmware(void)
     powersw_ptr = (int *) (unsigned long)
         romfile_loadint("/etc/power-button-addr", (unsigned long)&powersw_nop);
 
+    /* use -fw_cfg opt/pdc_debug,string=255 to enable all firmware debug infos */
     pdc_debug = romfile_loadstring_to_int("opt/pdc_debug", 0);
 
     /* Initialize PAGE0 */
@@ -1859,8 +1866,6 @@ void __VISIBLE start_parisc_firmware(void)
 
     chassis_code = 0;
 
-    malloc_preinit();
-
     // set Qemu serial debug port
     DebugOutputPort = PARISC_SERIAL_CONSOLE;
     // PlatformRunningOn = PF_QEMU;  // emulate runningOnQEMU()
@@ -1897,7 +1902,7 @@ void __VISIBLE start_parisc_firmware(void)
             "\n"
             "Memory Test/Initialization Completed\n\n", SEABIOS_HPPA_VERSION);
     printf("------------------------------------------------------------------------------\n"
-            "  (c) Copyright 2017-2020 Helge Deller <deller@gmx.de> and SeaBIOS developers.\n"
+            "  (c) Copyright 2017-2021 Helge Deller <deller@gmx.de> and SeaBIOS developers.\n"
             "------------------------------------------------------------------------------\n\n");
     printf( "  Processor   Speed            State           Coprocessor State  Cache Size\n"
             "  ---------  --------   ---------------------  -----------------  ----------\n");

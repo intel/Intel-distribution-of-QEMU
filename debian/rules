@@ -58,7 +58,7 @@ common_configure_opts = \
 	--libexecdir=/usr/lib/qemu \
 	--firmwarepath=${FIRMWAREPATH} \
 	--localstatedir=/var \
-	--disable-blobs \
+	--disable-install-blobs \
 	--disable-strip \
 	--interp-prefix=/etc/qemu-binfmt/%M \
 	--localstatedir=/var \
@@ -291,7 +291,7 @@ b/microvm/configured: configure debian/microvm-devices.mak
 		--without-default-features \
 		--disable-user \
 		--target-list=x86_64-softmmu --enable-kvm --disable-tcg \
-		--disable-slirp --disable-capstone --disable-fdt \
+		--disable-slirp --disable-capstone \
 		--enable-vnc \
 		--enable-attr --enable-avx2 \
 		--enable-coroutine-pool \
@@ -473,8 +473,8 @@ sysdata-components += openbios
 ### powernv firmware in roms/skiboot
 # skiboot's make_version.sh derives its version from the git tag
 # we do not have git repository in the source, so we have to keep it somewhere
-ifeq (${DEB_VERSION_UPSTREAM},6.1+dfsg)
-SKIBOOT_VERSION = v6.4
+ifeq (${DEB_VERSION_UPSTREAM},6.2+dfsg)
+SKIBOOT_VERSION = v6.8-104-g820d43c0
 else
 $(error Check roms/skiboot version)
 endif
@@ -569,6 +569,8 @@ sysdata-components += s390x-fw
 build-hppa-fw: b/hppafw/hppa-firmware.img
 b/hppafw/hppa-firmware.img:
 	mkdir -p b/hppafw
+	echo CONFIG_PARISC=y > roms/seabios-hppa/.config
+	${MAKE} -C roms/seabios-hppa olddefconfig
 	${MAKE} -C roms/seabios-hppa OUT=../../b/hppafw/ PYTHON=python3 parisc
 	hppa-linux-gnu-strip -R.note -R.comment $@
 install-hppa-fw: b/hppafw/hppa-firmware.img

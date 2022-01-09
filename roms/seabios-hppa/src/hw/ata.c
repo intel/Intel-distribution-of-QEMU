@@ -701,7 +701,7 @@ ata_extract_model(char *model, u32 size, u16 *buffer)
     // Read model name
     int i;
     for (i=0; i<size/2; i++)
-        *(u16*)&model[i*2] = le16_to_cpu(buffer[27+i]);
+        *(u16*)&model[i*2] = cpu_to_le16(be16_to_cpu(buffer[27+i]));
     model[size] = 0x00;
     nullTrailingSpace(model);
     return model;
@@ -755,6 +755,10 @@ init_drive_atapi(struct atadrive_s *dummy, u16 *buffer)
         int prio = bootprio_find_ata_device(adrive->chan_gf->pci_tmp,
                                             adrive->chan_gf->chanid,
                                             adrive->slave);
+        boot_lchs_find_ata_device(adrive->chan_gf->pci_tmp,
+                                  adrive->chan_gf->chanid,
+                                  adrive->slave,
+                                  &(adrive->drive.lchs));
         boot_add_cd(&adrive->drive, desc, prio);
     }
 
@@ -805,6 +809,10 @@ init_drive_ata(struct atadrive_s *dummy, u16 *buffer)
     int prio = bootprio_find_ata_device(adrive->chan_gf->pci_tmp,
                                         adrive->chan_gf->chanid,
                                         adrive->slave);
+    boot_lchs_find_ata_device(adrive->chan_gf->pci_tmp,
+                              adrive->chan_gf->chanid,
+                              adrive->slave,
+                              &(adrive->drive.lchs));
     // Register with bcv system.
     boot_add_hd(&adrive->drive, desc, prio);
 

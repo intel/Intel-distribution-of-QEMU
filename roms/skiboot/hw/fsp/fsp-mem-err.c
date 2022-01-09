@@ -1,17 +1,8 @@
-/* Copyright 2013-2019 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Sometimes some memory needs to go and sit in the naughty corner
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
 
 #define pr_fmt(fmt) "FSPMEMERR: " fmt
@@ -105,10 +96,11 @@ static void queue_event_for_delivery(void *data __unused, int staus __unused)
 	merr_data = (uint64_t *)&entry->data;
 
 	/* queue up for delivery */
-	rc = opal_queue_msg(OPAL_MSG_MEM_ERR, NULL,
-			    queue_event_for_delivery,
-			    merr_data[0], merr_data[1],
-			    merr_data[2], merr_data[3]);
+	rc = opal_queue_msg(OPAL_MSG_MEM_ERR, NULL, queue_event_for_delivery,
+			    cpu_to_be64(merr_data[0]),
+			    cpu_to_be64(merr_data[1]),
+			    cpu_to_be64(merr_data[2]),
+			    cpu_to_be64(merr_data[3]));
 	lock(&mem_err_lock);
 	if (rc) {
 		/*
@@ -241,7 +233,7 @@ send_response:
 		log_append_msg(buf,
 			"OPAL_MEM_ERR: Cannot queue up memory "
 			"resilience error event to the OS");
-		log_add_section(buf, 0x44455350);
+		log_add_section(buf, OPAL_ELOG_SEC_DESC);
 		log_append_data(buf, (char *) &mem_err_evt,
 					   sizeof(struct OpalMemoryErrorData));
 		log_commit(buf);
@@ -330,7 +322,7 @@ send_response:
 		log_append_msg(buf,
 			"OPAL_MEM_ERR: Cannot queue up memory "
 			"deallocation error event to the OS");
-		log_add_section(buf, 0x44455350);
+		log_add_section(buf, OPAL_ELOG_SEC_DESC);
 		log_append_data(buf, (char *)&mem_err_evt,
 					   sizeof(struct OpalMemoryErrorData));
 		log_commit(buf);
@@ -353,13 +345,13 @@ static bool fsp_mem_err_msg(u32 cmd_sub_mod, struct fsp_msg *msg)
 		 * correctable/Uncorrectable/scrub UE errors with real
 		 * address of 4K memory page in which the error occurred.
 		 */
-		paddr_start = be64_to_cpu(*((__be64 *)&msg->data.words[0]));
+		paddr_start = be64_to_cpu(*((__be64 *)&msg->data.bytes[0]));
 		printf("Got memory resilience error message for "
 		       "paddr=0x%016llux\n", paddr_start);
 		return handle_memory_resilience(cmd_sub_mod, paddr_start);
 	case FSP_CMD_MEM_DYN_DEALLOC:
-		paddr_start = be64_to_cpu(*((__be64 *)&msg->data.words[0]));
-		paddr_end = be64_to_cpu(*((__be64 *)&msg->data.words[2]));
+		paddr_start = be64_to_cpu(*((__be64 *)&msg->data.bytes[0]));
+		paddr_end = be64_to_cpu(*((__be64 *)&msg->data.bytes[8]));
 		printf("Got dynamic memory deallocation message: "
 		       "paddr_start=0x%016llux, paddr_end=0x%016llux\n",
 		       paddr_start, paddr_end);

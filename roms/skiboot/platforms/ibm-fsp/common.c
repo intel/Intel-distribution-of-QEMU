@@ -1,18 +1,5 @@
-/* Copyright 2013-2017 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
 
 
 #include <skiboot.h>
@@ -37,20 +24,14 @@ static void map_debug_areas(void)
 	fsp_tce_map(PSI_DMA_MEMCONS, &memcons, 0x1000);
 	fsp_tce_map(PSI_DMA_LOG_BUF, (void*)INMEM_CON_START, INMEM_CON_LEN);
 
-	debug_descriptor.memcons_tce = PSI_DMA_MEMCONS;
-	t = memcons.obuf_phys - INMEM_CON_START + PSI_DMA_LOG_BUF;
-	debug_descriptor.memcons_obuf_tce = t;
-	t = memcons.ibuf_phys - INMEM_CON_START + PSI_DMA_LOG_BUF;
-	debug_descriptor.memcons_ibuf_tce = t;
-
-	/* We only have space in the TCE table for the trace
-	 * areas on P8
-	 */
-	if (proc_gen != proc_gen_p8)
-		return;
+	debug_descriptor.memcons_tce = cpu_to_be32(PSI_DMA_MEMCONS);
+	t = be64_to_cpu(memcons.obuf_phys) - INMEM_CON_START + PSI_DMA_LOG_BUF;
+	debug_descriptor.memcons_obuf_tce = cpu_to_be32(t);
+	t = be64_to_cpu(memcons.ibuf_phys) - INMEM_CON_START + PSI_DMA_LOG_BUF;
+	debug_descriptor.memcons_ibuf_tce = cpu_to_be32(t);
 
 	t = PSI_DMA_TRACE_BASE;
-	for (i = 0; i < debug_descriptor.num_traces; i++) {
+	for (i = 0; i < be32_to_cpu(debug_descriptor.num_traces); i++) {
 		/*
 		 * Trace buffers are misaligned by 0x10 due to the lock
 		 * in the trace structure, and their size is also not
@@ -65,15 +46,16 @@ static void map_debug_areas(void)
 		 * Note: Maybe we should map them read-only...
 		 */
 		uint64_t tstart, tend, toff, tsize;
+		uint64_t trace_phys = be64_to_cpu(debug_descriptor.trace_phys[i]);
+		uint32_t trace_size = be32_to_cpu(debug_descriptor.trace_size[i]);
 
-		tstart = ALIGN_DOWN(debug_descriptor.trace_phys[i], 0x1000);
-		tend = ALIGN_UP(debug_descriptor.trace_phys[i] +
-				debug_descriptor.trace_size[i], 0x1000);
-		toff = debug_descriptor.trace_phys[i] - tstart;
+		tstart = ALIGN_DOWN(trace_phys, 0x1000);
+		tend = ALIGN_UP(trace_phys + trace_size, 0x1000);
+		toff = trace_phys - tstart;
 		tsize = tend - tstart;
 
 		fsp_tce_map(t, (void *)tstart, tsize);
-		debug_descriptor.trace_tce[i] = t + toff;
+		debug_descriptor.trace_tce[i] = cpu_to_be32(t + toff);
 		t += tsize;
 	}
 }
@@ -218,6 +200,9 @@ int64_t ibm_fsp_cec_reboot(void)
 	    fsp_flash_term_hook() == OPAL_SUCCESS)
 		cmd = FSP_CMD_DEEP_REBOOT;
 
+	/* Clear flash hook */
+	fsp_flash_term_hook = NULL;
+
 	printf("FSP: Sending 0x%02x reboot command to FSP...\n", cmd);
 
 	/* If that failed, talk to the FSP */
@@ -246,6 +231,9 @@ int64_t ibm_fsp_cec_power_down(uint64_t request)
 	if (fsp_flash_term_hook)
 		fsp_flash_term_hook();
 
+	/* Clear flash hook */
+	fsp_flash_term_hook = NULL;
+
 	printf("FSP: Sending shutdown command to FSP...\n");
 
 	if (fsp_sync_msg(fsp_mkmsg(FSP_CMD_POWERDOWN_NORM, 1, request), true))
@@ -256,7 +244,7 @@ int64_t ibm_fsp_cec_power_down(uint64_t request)
 }
 
 int64_t ibm_fsp_sensor_read(uint32_t sensor_hndl, int token,
-				uint64_t *sensor_data)
+				__be64 *sensor_data)
 {
 	return fsp_opal_read_sensor(sensor_hndl, token, sensor_data);
 }

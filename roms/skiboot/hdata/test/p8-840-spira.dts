@@ -1,8 +1,8 @@
 /dts-v1/;
 
-/memreserve/	0x000070fd07000000 0x0000100000000000;
-/memreserve/	0x00006afd07000000 0x0000060000000000;
-/memreserve/	0x000051fd07000000 0x0000190000000000;
+/memreserve/	0x00000007fd510000 0x0000000000190000;
+/memreserve/	0x00000007fd6a0000 0x0000000000060000;
+/memreserve/	0x00000007fd700000 0x0000000000100000;
 / {
 	phandle = <0x1>;
 	#address-cells = <0x2>;
@@ -12,7 +12,7 @@
 	nest-frequency = <0x0 0x77359400>;
 	vendor = "IBM";
 	ibm,io-base-loc-code = "U78C9.001.WZS0CWX-P1";
-	ibm,vpd-lx-info = <0x0 0x1040031 0x43003000>;
+	ibm,vpd-lx-info = <0x0 0x31000401 0x300043>;
 	model = "8286-41A";
 	system-id = "TU00163";
 	system-brand = "S0";
@@ -32,7 +32,7 @@
 			device_type = "cpu";
 			status = "okay";
 			reg = <0x28>;
-			cpu-version = <0x4d0200>;
+			cpu-version = <0x4b0201>;
 			64-bit;
 			32-64-bridge;
 			graphics;
@@ -75,7 +75,7 @@
 			device_type = "cpu";
 			status = "okay";
 			reg = <0x60>;
-			cpu-version = <0x4d0200>;
+			cpu-version = <0x4b0201>;
 			64-bit;
 			32-64-bridge;
 			graphics;
@@ -118,7 +118,7 @@
 			device_type = "cpu";
 			status = "okay";
 			reg = <0x68>;
-			cpu-version = <0x4d0200>;
+			cpu-version = <0x4b0201>;
 			64-bit;
 			32-64-bridge;
 			graphics;
@@ -161,7 +161,7 @@
 			device_type = "cpu";
 			status = "okay";
 			reg = <0xb0>;
-			cpu-version = <0x4d0200>;
+			cpu-version = <0x4b0201>;
 			64-bit;
 			32-64-bridge;
 			graphics;
@@ -204,7 +204,7 @@
 			device_type = "cpu";
 			status = "okay";
 			reg = <0xe8>;
-			cpu-version = <0x4d0200>;
+			cpu-version = <0x4b0201>;
 			64-bit;
 			32-64-bridge;
 			graphics;
@@ -247,7 +247,7 @@
 			device_type = "cpu";
 			status = "okay";
 			reg = <0xf0>;
-			cpu-version = <0x4d0200>;
+			cpu-version = <0x4b0201>;
 			64-bit;
 			32-64-bridge;
 			graphics;
@@ -563,7 +563,10 @@
 			phandle = <0x3c>;
 			#address-cells = <0x0>;
 			#size-cells = <0x0>;
+			abc-bus-freq-mhz = < 0x00 0x1900 >;
 			ibm,sys-model = " 41A";
+			wxyz-bus-freq-mhz = < 0x00 0xfa0 >;
+
 		};
 	};
 
@@ -988,7 +991,7 @@
 
 		pbcq@2012000 {
 			phandle = <0x4c>;
-			reg = <0x200102 0x20000000 0x200109 0x5000000 0x3c0109 0x15000000>;
+			reg = <0x2012000 0x20 0x9012000 0x05 0x9013c00 0x15>;
 			compatible = "ibm,power8-pbcq";
 			ibm,phb-index = <0x0>;
 			ibm,hub-id = <0x0>;
@@ -999,7 +1002,7 @@
 
 		pbcq@2012400 {
 			phandle = <0x4d>;
-			reg = <0x240102 0x20000000 0x240109 0x5000000 0x403c0109 0x15000000>;
+			reg = <0x2012400 0x20 0x9012400 0x05 0x9013c40 0x15>;
 			compatible = "ibm,power8-pbcq";
 			ibm,phb-index = <0x1>;
 			ibm,hub-id = <0x0>;
@@ -1053,7 +1056,7 @@
 
 		pbcq@2012000 {
 			phandle = <0x4e>;
-			reg = <0x200102 0x20000000 0x200109 0x5000000 0x3c0109 0x15000000>;
+			reg = <0x2012000 0x20 0x9012000 0x05 0x9013c00 0x15>;
 			compatible = "ibm,power8-pbcq";
 			ibm,phb-index = <0x0>;
 			ibm,hub-id = <0x1>;
@@ -1064,7 +1067,7 @@
 
 		pbcq@2012400 {
 			phandle = <0x4f>;
-			reg = <0x240102 0x20000000 0x240109 0x5000000 0x403c0109 0x15000000>;
+			reg = <0x2012400 0x20 0x9012400 0x05 0x9013c40 0x15>;
 			compatible = "ibm,power8-pbcq";
 			ibm,phb-index = <0x1>;
 			ibm,hub-id = <0x1>;

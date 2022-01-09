@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 CC = $(CROSS_COMPILE)gcc
 
 XSCOM_VERSION ?= $(shell ../../make_version.sh xscom-utils)
@@ -21,7 +22,7 @@ endif
 
 all: getscom putscom getsram
 
-getscom: getscom.c xscom.o version.o
+getscom: getscom.o xscom.o version.o
 	$(Q_LINK)$(LINK.o) -o $@ $^
 
 getsram: getsram.o xscom.o sram.o version.o

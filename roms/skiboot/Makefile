@@ -1,5 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+# Copyright 2012-2019 IBM Corp
+
+#
 # If you want to build in another directory copy this file there and
 # fill in the following values
+#
 
 #
 # Prefix of cross toolchain, if anything
@@ -11,7 +16,15 @@ ifdef CROSS_COMPILE
 endif
 ifneq ("$(ARCH)", "ppc64")
 ifneq ("$(ARCH)", "ppc64le")
+ifneq ($(shell which powerpc64-linux-gcc 2> /dev/null),)
 	CROSS ?= powerpc64-linux-
+else ifneq ($(shell which powerpc64le-linux-gcc 2> /dev/null),)
+	CROSS ?= powerpc64le-linux-
+else ifneq ($(shell which powerpc64-linux-gnu-gcc 2> /dev/null),)
+	CROSS ?= powerpc64-linux-gnu-
+else ifneq ($(shell which powerpc64le-linux-gnu-gcc 2> /dev/null),)
+	CROSS ?= powerpc64le-linux-gnu-
+endif
 endif
 endif
 

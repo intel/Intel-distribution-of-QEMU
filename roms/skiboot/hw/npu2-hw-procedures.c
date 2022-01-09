@@ -1,18 +1,10 @@
-/* Copyright 2013-2019 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * NPU2 (POWER9) Hardware Procedures
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
+
 #include <skiboot.h>
 #include <io.h>
 #include <timebase.h>
@@ -68,8 +60,14 @@ static struct npu2_phy_reg NPU2_PHY_RX_PR_FW_OFF	   = {0x08a, 56, 1};
 static struct npu2_phy_reg NPU2_PHY_RX_PR_FW_INERTIA_AMT   = {0x08a, 57, 3};
 static struct npu2_phy_reg NPU2_PHY_RX_CFG_LTE_MC	   = {0x000, 60, 4};
 static struct npu2_phy_reg NPU2_PHY_RX_A_INTEG_COARSE_GAIN = {0x00a, 48, 4};
+static struct npu2_phy_reg NPU2_PHY_RX_A_CTLE_COARSE	   = {0x00c, 48, 5};
+static struct npu2_phy_reg NPU2_PHY_RX_A_CTLE_GAIN	   = {0x00c, 53, 4};
 static struct npu2_phy_reg NPU2_PHY_RX_B_INTEG_COARSE_GAIN = {0x026, 48, 4};
+static struct npu2_phy_reg NPU2_PHY_RX_B_CTLE_COARSE	   = {0x028, 48, 5};
+static struct npu2_phy_reg NPU2_PHY_RX_B_CTLE_GAIN	   = {0x028, 53, 4};
 static struct npu2_phy_reg NPU2_PHY_RX_E_INTEG_COARSE_GAIN = {0x030, 48, 4};
+static struct npu2_phy_reg NPU2_PHY_RX_E_CTLE_COARSE	   = {0x032, 48, 5};
+static struct npu2_phy_reg NPU2_PHY_RX_E_CTLE_GAIN	   = {0x032, 53, 4};
 
 /* These registers are per-PHY, not per lane */
 static struct npu2_phy_reg NPU2_PHY_RX_SPEED_SELECT	       = {0x262, 51, 2};
@@ -80,6 +78,7 @@ static struct npu2_phy_reg NPU2_PHY_TX_ZCAL_DONE	       = {0x3c1, 50, 1};
 static struct npu2_phy_reg NPU2_PHY_TX_ZCAL_ERROR	       = {0x3c1, 51, 1};
 static struct npu2_phy_reg NPU2_PHY_TX_ZCAL_N		       = {0x3c3, 48, 9};
 static struct npu2_phy_reg NPU2_PHY_TX_ZCAL_P		       = {0x3c5, 48, 9};
+static struct npu2_phy_reg NPU2_PHY_TX_FFE_BOOST_EN	       = {0x34b, 59, 1};
 static struct npu2_phy_reg NPU2_PHY_TX_PSEG_PRE_EN	       = {0x34d, 51, 5};
 static struct npu2_phy_reg NPU2_PHY_TX_PSEG_PRE_SELECT	       = {0x34d, 56, 5};
 static struct npu2_phy_reg NPU2_PHY_TX_NSEG_PRE_EN	       = {0x34f, 51, 5};
@@ -266,8 +265,8 @@ static bool poll_fence_status(struct npu2_dev *ndev, uint64_t val)
 /* Procedure 1.2.1 - Reset NPU/NDL */
 uint32_t reset_ntl(struct npu2_dev *ndev)
 {
-	uint64_t val;
-	int lane;
+	uint64_t val, check;
+	int lane, i;
 
 	set_iovalid(ndev, true);
 
@@ -285,10 +284,17 @@ uint32_t reset_ntl(struct npu2_dev *ndev)
 
 	/* Clear fence state for the brick */
 	val = npu2_read(ndev->npu, NPU2_MISC_FENCE_STATE);
-	if (val & PPC_BIT(ndev->brick_index)) {
-		NPU2DEVINF(ndev, "Clearing brick fence\n");
-		val = PPC_BIT(ndev->brick_index);
+	if (val) {
+		NPU2DEVINF(ndev, "Clearing all bricks fence\n");
 		npu2_write(ndev->npu, NPU2_MISC_FENCE_STATE, val);
+		for (i = 0, check = 0; i < 4096; i++) {
+			check = npu2_read(ndev->npu, NPU2_NTL_CQ_FENCE_STATUS(ndev));
+			if (!check)
+				break;
+		}
+		if (check)
+			NPU2DEVERR(ndev, "Clearing NPU2_MISC_FENCE_STATE=0x%llx timeout, current=0x%llx\n",
+					val, check);
 	}
 
 	/* Write PRI */
@@ -426,25 +432,6 @@ static uint32_t phy_reset_complete(struct npu2_dev *ndev)
 {
 	int lane;
 
-	if (ndev->type == NPU2_DEV_TYPE_OPENCAPI) {
-		phy_write(ndev, &NPU2_PHY_RX_AC_COUPLED, 1);
-
-		switch (ndev->link_speed) {
-		case 20000000000UL:
-			prlog(PR_INFO, "OCAPI: Link speed set at 20Gb/s\n");
-			phy_write(ndev, &NPU2_PHY_RX_SPEED_SELECT, 1);
-			break;
-		case 25000000000UL:
-		case 25781250000UL:
-			prlog(PR_INFO, "OCAPI: Link speed set at 25.xGb/s\n");
-			phy_write(ndev, &NPU2_PHY_RX_SPEED_SELECT, 0);
-			break;
-		default:
-			prlog(PR_CRIT, "OCAPI: Invalid link speed!\n");
-			assert(false);
-		}
-	}
-
 	FOR_EACH_LANE(ndev, lane) {
 		phy_write_lane(ndev, &NPU2_PHY_RX_LANE_ANA_PDWN, lane, 0);
 		phy_write_lane(ndev, &NPU2_PHY_RX_LANE_DIG_PDWN, lane, 0);
@@ -456,6 +443,16 @@ static uint32_t phy_reset_complete(struct npu2_dev *ndev)
 		phy_write_lane(ndev, &NPU2_PHY_RX_A_INTEG_COARSE_GAIN, lane, 11);
 		phy_write_lane(ndev, &NPU2_PHY_RX_B_INTEG_COARSE_GAIN, lane, 11);
 		phy_write_lane(ndev, &NPU2_PHY_RX_E_INTEG_COARSE_GAIN, lane, 11);
+
+		if (ndev->type == NPU2_DEV_TYPE_OPENCAPI) {
+			phy_write_lane(ndev, &NPU2_PHY_RX_A_CTLE_GAIN, lane, 0);
+			phy_write_lane(ndev, &NPU2_PHY_RX_B_CTLE_GAIN, lane, 0);
+			phy_write_lane(ndev, &NPU2_PHY_RX_E_CTLE_GAIN, lane, 0);
+
+			phy_write_lane(ndev, &NPU2_PHY_RX_A_CTLE_COARSE, lane, 20);
+			phy_write_lane(ndev, &NPU2_PHY_RX_B_CTLE_COARSE, lane, 20);
+			phy_write_lane(ndev, &NPU2_PHY_RX_E_CTLE_COARSE, lane, 20);
+		}
 	}
 
 	set_iovalid(ndev, true);
@@ -537,6 +534,8 @@ static uint32_t therm_with_half(uint32_t dec, uint8_t width)
 static uint32_t phy_tx_zcal_calculate(struct npu2_dev *ndev)
 {
 	int p_value, n_value;
+	int ffe_pre_coeff = FFE_PRE_COEFF;
+	int ffe_post_coeff = FFE_POST_COEFF;
 	uint32_t zcal_n;
 	uint32_t zcal_p;
 	uint32_t p_main_enable = MAIN_X2_MAX;
@@ -568,9 +567,15 @@ static uint32_t phy_tx_zcal_calculate(struct npu2_dev *ndev)
 	    (zcal_p < ZCAL_MIN) || (zcal_p > ZCAL_MAX))
 		return PROCEDURE_COMPLETE | PROCEDURE_FAILED;
 
+	if (ndev->type == NPU2_DEV_TYPE_OPENCAPI &&
+	    platform.ocapi->phy_setup) {
+		ffe_pre_coeff = platform.ocapi->phy_setup->tx_ffe_pre_coeff;
+		ffe_post_coeff = platform.ocapi->phy_setup->tx_ffe_post_coeff;
+	}
+
 	p_value = zcal_p - TOTAL_X2_MAX;
-	p_precursor_select = (p_value * FFE_PRE_COEFF)/128;
-	p_postcursor_select = (p_value * FFE_POST_COEFF)/128;
+	p_precursor_select = (p_value * ffe_pre_coeff)/128;
+	p_postcursor_select = (p_value * ffe_post_coeff)/128;
 	margin_pu_select = (p_value * MARGIN_RATIO)/256;
 
 	if (p_value % 2) {
@@ -591,8 +596,8 @@ static uint32_t phy_tx_zcal_calculate(struct npu2_dev *ndev)
 	}
 
 	n_value = zcal_n - TOTAL_X2_MAX;
-	n_precursor_select = (n_value * FFE_PRE_COEFF)/128;
-	n_postcursor_select = (n_value * FFE_POST_COEFF)/128;
+	n_precursor_select = (n_value * ffe_pre_coeff)/128;
+	n_postcursor_select = (n_value * ffe_post_coeff)/128;
 	margin_pd_select = (p_value * MARGIN_RATIO)/256;
 
 	if (n_value % 2) {
@@ -791,17 +796,14 @@ static uint32_t check_credit(struct npu2_dev *ndev, uint64_t reg,
 
 static uint32_t check_credits(struct npu2_dev *ndev)
 {
-	int fail = 0;
 	uint64_t val;
 
-	fail += CHECK_CREDIT(ndev, NPU2_NTL_CRED_HDR_CREDIT_RX, 0x0BE0BE0000000000ULL);
-	fail += CHECK_CREDIT(ndev, NPU2_NTL_RSP_HDR_CREDIT_RX, 0x0BE0BE0000000000ULL);
-	fail += CHECK_CREDIT(ndev, NPU2_NTL_CRED_DATA_CREDIT_RX, 0x1001000000000000ULL);
-	fail += CHECK_CREDIT(ndev, NPU2_NTL_RSP_DATA_CREDIT_RX, 0x1001000000000000ULL);
-	fail += CHECK_CREDIT(ndev, NPU2_NTL_DBD_HDR_CREDIT_RX, 0x0640640000000000ULL);
-	fail += CHECK_CREDIT(ndev, NPU2_NTL_ATSD_HDR_CREDIT_RX, 0x0200200000000000ULL);
-
-	assert(!fail);
+	CHECK_CREDIT(ndev, NPU2_NTL_CRED_HDR_CREDIT_RX, 0x0BE0BE0000000000ULL);
+	CHECK_CREDIT(ndev, NPU2_NTL_RSP_HDR_CREDIT_RX, 0x0BE0BE0000000000ULL);
+	CHECK_CREDIT(ndev, NPU2_NTL_CRED_DATA_CREDIT_RX, 0x1001000000000000ULL);
+	CHECK_CREDIT(ndev, NPU2_NTL_RSP_DATA_CREDIT_RX, 0x1001000000000000ULL);
+	CHECK_CREDIT(ndev, NPU2_NTL_DBD_HDR_CREDIT_RX, 0x0640640000000000ULL);
+	CHECK_CREDIT(ndev, NPU2_NTL_ATSD_HDR_CREDIT_RX, 0x0200200000000000ULL);
 
 	val = npu2_read(ndev->npu, NPU2_NTL_MISC_CFG1(ndev));
 	val &= 0xFF3FFFFFFFFFFFFFUL;
@@ -1027,6 +1029,12 @@ void npu2_opencapi_bump_ui_lane(struct npu2_dev *dev)
 
 void npu2_opencapi_phy_init(struct npu2_dev *dev)
 {
+	if (platform.ocapi->phy_setup) {
+		OCAPIINF(dev, "Enabling platform-specific PHY setup\n");
+		phy_write(dev, &NPU2_PHY_TX_FFE_BOOST_EN,
+			  platform.ocapi->phy_setup->tx_ffe_boost_en);
+	}
+
 	run_procedure(dev, 5); /* procedure_phy_tx_zcal */
 	/*
 	 * This is only required for OpenCAPI - Hostboot tries to set this
@@ -1034,12 +1042,35 @@ void npu2_opencapi_phy_init(struct npu2_dev *dev)
 	 * Witherspoon it needs to be done in skiboot after device detection.
 	 */
 	phy_write(dev, &NPU2_PHY_RX_RC_ENABLE_AUTO_RECAL, 0x1);
+	phy_write(dev, &NPU2_PHY_RX_AC_COUPLED, 1);
+
+	switch (dev->link_speed) {
+	case 20000000000UL:
+		OCAPIINF(dev, "Link speed set at 20Gb/s\n");
+		phy_write(dev, &NPU2_PHY_RX_SPEED_SELECT, 1);
+		break;
+	case 25000000000UL:
+	case 25781250000UL:
+		OCAPIINF(dev, "Link speed set at 25.xGb/s\n");
+		phy_write(dev, &NPU2_PHY_RX_SPEED_SELECT, 0);
+		break;
+	default:
+		OCAPIERR(dev, "Invalid link speed!\n");
+		assert(false);
+	}
 }
 
-void npu2_opencapi_phy_reset(struct npu2_dev *dev)
+int npu2_opencapi_phy_reset(struct npu2_dev *dev)
 {
-	run_procedure(dev, 4); /* procedure_phy_reset */
-	run_procedure(dev, 6); /* procedure_phy_rx_dccal */
+	int rc;
+
+	rc = run_procedure(dev, 4); /* procedure_phy_reset */
+	if (rc != PROCEDURE_COMPLETE)
+		return -1;
+	rc = run_procedure(dev, 6); /* procedure_phy_rx_dccal */
+	if (rc != PROCEDURE_COMPLETE)
+		return -1;
+	return 0;
 }
 
 void npu2_opencapi_phy_prbs31(struct npu2_dev *dev)

@@ -1,20 +1,9 @@
-/* Copyright 2013-2014 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * This is based on the hostboot ecc code
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2018 IBM Corp.
  */
-
-/* This is based on the hostboot ecc code */
 
 #ifndef __ECC_H
 #define __ECC_H
@@ -27,12 +16,12 @@ struct ecc64 {
 	uint8_t ecc;
 } __attribute__((__packed__));
 
-extern int memcpy_from_ecc(uint64_t *dst, struct ecc64 *src, uint64_t len);
-extern int memcpy_from_ecc_unaligned(uint64_t *dst, struct ecc64 *src, uint64_t len,
+extern int memcpy_from_ecc(beint64_t *dst, struct ecc64 *src, uint64_t len);
+extern int memcpy_from_ecc_unaligned(beint64_t *dst, struct ecc64 *src, uint64_t len,
 		uint8_t alignment);
 
-extern int memcpy_to_ecc(struct ecc64 *dst, const uint64_t *src, uint64_t len);
-extern int memcpy_to_ecc_unaligned(struct ecc64 *dst, const uint64_t *src, uint64_t len,
+extern int memcpy_to_ecc(struct ecc64 *dst, const beint64_t *src, uint64_t len);
+extern int memcpy_to_ecc_unaligned(struct ecc64 *dst, const beint64_t *src, uint64_t len,
 		uint8_t alignment);
 
 /*

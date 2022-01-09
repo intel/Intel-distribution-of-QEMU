@@ -1,17 +1,8 @@
-/* Copyright 2015 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * When everything is terrible, tell the FSP as much as possible as to why
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
 
 #include <errorlog.h>
@@ -19,9 +10,11 @@
 #include <pel.h>
 #include <platform.h>
 #include <processor.h>
+#include <sbe-p9.h>
 #include <skiboot.h>
 #include <stack.h>
 #include <timebase.h>
+#include <xscom.h>
 
 /* Use same attention SRC for BMC based machine */
 DEFINE_LOG_ENTRY(OPAL_RC_ATTN, OPAL_PLATFORM_ERR_EVT,
@@ -65,21 +58,43 @@ static void ipmi_log_terminate_event(const char *msg)
 
 void __attribute__((noreturn)) ipmi_terminate(const char *msg)
 {
-	/* Terminate called before initializing IPMI (early abort) */
-	if (!ipmi_present()) {
-		if (platform.cec_reboot)
-			platform.cec_reboot();
-		goto out;
-	}
-
 	/* Log eSEL event */
-	ipmi_log_terminate_event(msg);
+	if (ipmi_present())
+		ipmi_log_terminate_event(msg);
+
+	/*
+	 * If mpipl is supported then trigger SBE interrupt
+	 * to initiate mpipl
+	 */
+	p9_sbe_terminate();
+
+	/*
+	 * Trigger software xstop (OPAL TI). It will stop all the CPU threads
+	 * moving them into quiesced state. OCC will collect all FIR data.
+	 * Upon checkstop signal, BMC will then decide whether to reboot/IPL or
+	 * not depending on AutoReboot policy, if any. This helps in cases
+	 * where OPAL is crashing/terminating before host reaches to runtime.
+	 * With OpenBMC AutoReboot policy, in such cases, it will make sure
+	 * that system is moved to Quiesced state after 3 or so attempts to
+	 * IPL.  Without OPAL TI, OpenBMC will never know that OPAL is
+	 * terminating and system would go into never ending IPL'ing loop.
+	 *
+	 * Once the system reaches to runtime, OpenBMC resets the boot counter.
+	 * Hence next time when BMC receieves the OPAL TI, it will IPL the
+	 * system if AutoReboot is enabled. We don't need to worry about self
+	 * rebooting.
+	 */
+
+	xscom_trigger_xstop();
+	/*
+	 * Control will not reach here if software xstop has been supported and
+	 * enabled. If not supported then fallback to cec reboot path below.
+	 */
 
 	/* Reboot call */
 	if (platform.cec_reboot)
 		platform.cec_reboot();
 
-out:
 	while (1)
 		time_wait_ms(100);
 }

@@ -1,18 +1,5 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
 
 #ifndef __XSCOM_H
 #define __XSCOM_H
@@ -123,19 +110,26 @@
 
 /*
  * Additional useful definitions for P9
+ *
+ * Note: In all of these, the core numbering is the
+ * *normal* (small) core number.
  */
 
-/* An EQ is a quad (also named an EP) */
-#define XSCOM_ADDR_P9_EP(core, addr) \
+/*
+ * An EQ is a quad. The Pervasive spec also uses the term "EP"
+ * to refer to an EQ and it's two child EX chiplets, but
+ * nothing else does
+ */
+#define XSCOM_ADDR_P9_EQ(core, addr) \
 	(((((core) & 0x1c) + 0x40) << 22) | (addr))
-#define XSCOM_ADDR_P9_EP_SLAVE(core, addr) \
-	XSCOM_ADDR_P9_EP(core, (addr) | 0xf0000)
+#define XSCOM_ADDR_P9_EQ_SLAVE(core, addr) \
+	XSCOM_ADDR_P9_EQ(core, (addr) | 0xf0000)
 
 /* An EX is a pair of cores. They are accessed via their corresponding EQs
  * with bit 0x400 indicating which of the 2 EX to address
  */
 #define XSCOM_ADDR_P9_EX(core, addr) \
-	(XSCOM_ADDR_P9_EP(core, addr | (((core) & 2) << 9)))
+	(XSCOM_ADDR_P9_EQ(core, addr | (((core) & 2) << 9)))
 
 /* An EC is an individual core and has its own XSCOM addressing */
 #define XSCOM_ADDR_P9_EC(core, addr) \
@@ -143,51 +137,91 @@
 #define XSCOM_ADDR_P9_EC_SLAVE(core, addr) \
 	XSCOM_ADDR_P9_EC(core, (addr) | 0xf0000)
 
-/* Power 9 EC slave per-core power mgt slave registers */
-#define EC_PPM_SPECIAL_WKUP_OTR		0x010A
-#define EC_PPM_SPECIAL_WKUP_FSP		0x010B
-#define EC_PPM_SPECIAL_WKUP_OCC		0x010C
-#define EC_PPM_SPECIAL_WKUP_HYP		0x010D
+/*
+ * Additional useful definitions for P10
+ */
 
-/************* XXXX Move these P8 only registers elswhere !!! ****************/
+/*
+ * POWER10 pervasive structure
+ * Chip has 8 EQ chiplets (aka super-chiplets), and other nest chiplets.
+ * Each EQ contains 4 EX regions.
+ * Each EX contains an ECL2, L3, MMA.
+ * Each ECL2 contains an EC (core), L2, and NCU.
+ *
+ * Each EQ has a Quad Management Engine (QME), responsible for power management
+ * for the cores, among other things.
+ *
+ * POWER10 XSCOM address format:
+ *
+ *      | 0| 1| 2| 3| 4| 5| 6| 7| 8| 9|10|11|12|13|14|15|16-31|
+ * MC=0 |WR|MC|SLAVE ADDR       |PIB MASTER |PORT NUMBER|LOCAL|
+ * MC=1 |WR|MC|MC TYPE |MC GROUP|PIB MASTER |PORT NUMBER|LOCAL|
+ *
+ * * Port is also known as PSCOM endpoint.
+ *
+ * WR is set by the xscom access functions (XSCOM_DATA_IND_READ bit)
+ * MC is always 0 (skiboot does not use multicast scoms).
+ *
+ * For unicast:
+ * EQ0-7 is addressed from 0x20 to 0x27 in the top 8 bits.
+ * L3 is on port 1
+ * NCU is on port 1
+ * ECL2 (core+L2) is on port 2 (XXX P10 scoms html doc suggests port 1?)
+ * QME is on port E.
+ *
+ * EQ chiplets (aka super chiplet) local address format:
+ *
+ *      | 0| 1| 2| 3| 4| 5| 6| 7| 8| 9|10|11|12|13|14|15|
+ *      |C0|C1|C2|C3|RING ID |SAT ID  |REGISTER ID      |
+ *
+ * EX0-4 are selected with one-hot encoding (C0-3)
+ *
+ * QME per-core register access address format:
+ *      | 0| 1| 2| 3| 4| 5| 6| 7| 8| 9|10|11|12|13|14|15|
+ *      |C0|C1|C2|C3| 1| 0| 0| 0|PER-CORE REGISTER ID   |
+ *
+ * NCU - ring 6 (port 1)
+ * L3  - ring 3 (port 1) (XXX P10 scoms html doc suggests ring 6)
+ * L2  - ring 0 (port 2) (XXX P10 scoms html doc suggests ring 4)
+ * EC (PC unit) - rings 2-5 (port 2)
+ *
+ * Other chiplets:
+ *
+ *      | 0| 1| 2| 3| 4| 5| 6| 7| 8| 9|10|11|12|13|14|15|
+ *      | 1|RING ID       |SAT ID     |REGISTER ID      |
+ */
 
-/* Per core power mgt registers */
-#define PM_OHA_MODE_REG		0x1002000D
-#define L2_FIR_ACTION1		0x10012807
+#define P10_CORE_EQ_CHIPLET(core)	(0x20 + ((core) >> 2))
+#define P10_CORE_PROC(core)		((core) & 0x3)
 
-/* EX slave per-core power mgt slave regisers */
-#define EX_PM_GP0			0x0100
-#define EX_PM_GP1			0x0103
-#define EX_PM_CLEAR_GP1			0x0104 /* AND SCOM */
-#define EX_PM_SET_GP1			0x0105 /* OR SCOM */
-#define EX_PM_SPECIAL_WAKEUP_FSP	0x010B
-#define EX_PM_SPECIAL_WAKEUP_OCC	0x010C
-#define EX_PM_SPECIAL_WAKEUP_PHYP	0x010D
-#define EX_PM_IDLE_STATE_HISTORY_PHYP	0x0110
-#define EX_PM_IDLE_STATE_HISTORY_FSP	0x0111
-#define EX_PM_IDLE_STATE_HISTORY_OCC	0x0112
-#define EX_PM_IDLE_STATE_HISTORY_PERF	0x0113
-#define EX_PM_CORE_PFET_VRET		0x0130
-#define EX_PM_CORE_ECO_VRET		0x0150
-#define EX_PM_PPMSR			0x0153
-#define EX_PM_PPMCR			0x0159
+#define XSCOM_P10_EQ(chiplet)		((chiplet) << 24)
 
-/* Power mgt bits in GP0 */
-#define EX_PM_GP0_SPECIAL_WAKEUP_DONE		PPC_BIT(31)
+#define XSCOM_P10_QME(chiplet) \
+	(XSCOM_P10_EQ(chiplet) | (0xE << 16))
 
-/* Power mgt settings in GP1 */
-#define EX_PM_SETUP_GP1_FAST_SLEEP		0xD800000000000000ULL
-#define EX_PM_SETUP_GP1_DEEP_SLEEP		0x2400000000000000ULL
-#define EX_PM_SETUP_GP1_FAST_SLEEP_DEEP_WINKLE	0xC400000000000000ULL
-#define EX_PM_GP1_SLEEP_WINKLE_MASK		0xFC00000000000000ULL
-#define EX_PM_SETUP_GP1_PM_SPR_OVERRIDE_EN	0x0010000000000000ULL
-#define EX_PM_SETUP_GP1_DPLL_FREQ_OVERRIDE_EN	0x0020000000000000ULL
+#define XSCOM_P10_QME_CORE(chiplet, proc) \
+	(XSCOM_P10_QME(chiplet) | ((1 << (3 - proc)) << 12))
 
-/* Fields in history regs */
-#define EX_PM_IDLE_ST_HIST_PM_STATE_MASK	PPC_BITMASK(0, 2)
-#define EX_PM_IDLE_ST_HIST_PM_STATE_LSH		PPC_BITLSHIFT(2)
+#define XSCOM_P10_EC(chiplet, proc) \
+	(XSCOM_P10_EQ(chiplet) | (0x2 << 16) | ((1 << (3 - proc)) << 12))
 
-/***************************************************************************/
+#define XSCOM_P10_NCU(chiplet, proc) \
+	(XSCOM_P10_EQ(chiplet) | (0x1 << 16) | ((1 << (3 - proc)) << 12))
+
+#define XSCOM_ADDR_P10_EQ(core, addr) \
+	(XSCOM_P10_EQ(P10_CORE_EQ_CHIPLET(core)) | (addr))
+
+#define XSCOM_ADDR_P10_QME(core, addr) \
+	(XSCOM_P10_QME(P10_CORE_EQ_CHIPLET(core)) | (addr))
+
+#define XSCOM_ADDR_P10_QME_CORE(core, addr) \
+	(XSCOM_P10_QME_CORE(P10_CORE_EQ_CHIPLET(core), P10_CORE_PROC(core)) | (addr))
+
+#define XSCOM_ADDR_P10_EC(core, addr) \
+	(XSCOM_P10_EC(P10_CORE_EQ_CHIPLET(core), P10_CORE_PROC(core)) | (addr))
+
+#define XSCOM_ADDR_P10_NCU(core, addr)					\
+	(XSCOM_P10_NCU(P10_CORE_EQ_CHIPLET(core), P10_CORE_PROC(core)) | (addr))
 
 /* Definitions relating to indirect XSCOMs shared with centaur */
 #define XSCOM_ADDR_IND_FLAG		PPC_BIT(0)
@@ -250,5 +284,17 @@ extern bool xscom_ok(void);
 
 extern int64_t xscom_read_cfam_chipid(uint32_t partid, uint32_t *chip_id);
 extern int64_t xscom_trigger_xstop(void);
+
+
+struct scom_controller {
+	uint32_t part_id;
+	void *private;
+	int64_t (*read)(struct scom_controller *, uint32_t chip, uint64_t reg, uint64_t *val);
+	int64_t (*write)(struct scom_controller *, uint32_t chip, uint64_t reg, uint64_t val);
+
+	struct list_node link;
+};
+
+int64_t scom_register(struct scom_controller *new);
 
 #endif /* __XSCOM_H */

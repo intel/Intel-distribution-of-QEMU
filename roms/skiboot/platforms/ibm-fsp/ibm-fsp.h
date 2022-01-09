@@ -1,19 +1,5 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
 
 #ifndef __IBM_FSP_COMMON_H
 #define __IBM_FSP_COMMON_H
@@ -29,7 +15,7 @@ struct errorlog;
 extern int elog_fsp_commit(struct errorlog *buf);
 
 extern int64_t ibm_fsp_sensor_read(uint32_t sensor_hndl, int token,
-				uint64_t *sensor_data);
+					__be64 *sensor_data);
 
 /* Apollo PCI support */
 extern void apollo_pci_setup_phb(struct phb *phb,
@@ -43,13 +29,15 @@ extern void firenze_pci_setup_phb(struct phb *phb,
 				  unsigned int index);
 extern void firenze_pci_get_slot_info(struct phb *phb,
 				      struct pci_device *pd);
+extern void firenze_pci_add_loc_code(struct dt_node *np,
+				      struct pci_device *pd);
 
 /* VPD support */
 void vpd_iohub_load(struct dt_node *hub_node);
 void vpd_preload(struct dt_node *hub_node);
 
 /* Platform heartbeat time */
-int fsp_heartbeat_time(void);
+int __attrconst fsp_heartbeat_time(void);
 
 extern struct platform_psi fsp_platform_psi;
 extern struct platform_prd fsp_platform_prd;

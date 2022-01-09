@@ -1,20 +1,4 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 /*
  * Dump support:
  *  We get dump notification from different sources:
@@ -33,6 +17,8 @@
  *   - Sapphire fetches dump data from FSP.
  *   - Linux writes dump to disk and sends acknowledgement.
  *   - Sapphire acknowledges FSP.
+ *
+ * Copyright 2013-2015 IBM Corp.
  */
 
 #include <fsp.h>
@@ -370,8 +356,8 @@ static int64_t fsp_opal_dump_init(uint8_t dump_type)
 /*
  * OPAL interface to send dump information to Linux.
  */
-static int64_t fsp_opal_dump_info2(uint32_t *dump_id, uint32_t *dump_size,
-				   uint32_t *dump_type)
+static int64_t fsp_opal_dump_info2(__be32 *dump_id, __be32 *dump_size,
+				   __be32 *dump_type)
 {
 	struct dump_record *record;
 	int rc = OPAL_SUCCESS;
@@ -387,18 +373,18 @@ static int64_t fsp_opal_dump_info2(uint32_t *dump_id, uint32_t *dump_size,
 		rc = OPAL_INTERNAL_ERROR;
 		goto out;
 	}
-	*dump_id = record->id;
-	*dump_size = record->size;
-	*dump_type = record->type;
+	*dump_id = cpu_to_be32(record->id);
+	*dump_size = cpu_to_be32(record->size);
+	*dump_type = cpu_to_be32(record->type);
 
 out:
 	unlock(&dump_lock);
 	return rc;
 }
 
-static int64_t fsp_opal_dump_info(uint32_t *dump_id, uint32_t *dump_size)
+static int64_t fsp_opal_dump_info(__be32 *dump_id, __be32 *dump_size)
 {
-	uint32_t dump_type;
+	__be32 dump_type;
 	return fsp_opal_dump_info2(dump_id, dump_size, &dump_type);
 }
 
@@ -519,11 +505,11 @@ static void dump_read_complete(struct fsp_msg *msg)
 	bool compl = false;
 
 	status = (msg->resp->word1 >> 8) & 0xff;
-	flags = (msg->data.words[0] >> 16) & 0xff;
-	id = msg->data.words[0] & 0xffff;
-	dump_id = msg->data.words[1];
-	offset = msg->resp->data.words[1];
-	length = msg->resp->data.words[2];
+	flags = (fsp_msg_get_data_word(msg, 0) >> 16) & 0xff;
+	id = fsp_msg_get_data_word(msg, 0) & 0xffff;
+	dump_id = fsp_msg_get_data_word(msg, 1);
+	offset = fsp_msg_get_data_word(msg->resp, 1);
+	length = fsp_msg_get_data_word(msg->resp, 2);
 
 	fsp_freemsg(msg);
 
@@ -668,9 +654,9 @@ static void dump_ack_complete(struct fsp_msg *msg)
 	if (status)
 		log_simple_error(&e_info(OPAL_RC_DUMP_ACK),
 				 "DUMP: ACK failed for ID: 0x%x\n",
-				 msg->data.words[0]);
+				 fsp_msg_get_data_word(msg, 0));
 	else
-		printf("DUMP: ACKed dump ID: 0x%x\n", msg->data.words[0]);
+		printf("DUMP: ACKed dump ID: 0x%x\n", fsp_msg_get_data_word(msg, 0));
 
 	fsp_freemsg(msg);
 }
@@ -821,10 +807,11 @@ static bool fsp_sys_dump_notify(uint32_t cmd_sub_mod, struct fsp_msg *msg)
 		return false;
 
 	printf("DUMP: Platform dump available. ID = 0x%x [size: %d bytes]\n",
-	       msg->data.words[0], msg->data.words[1]);
+	       fsp_msg_get_data_word(msg, 0), fsp_msg_get_data_word(msg, 1));
 
 	add_dump_id_to_list(DUMP_TYPE_SYS,
-			    msg->data.words[0], msg->data.words[1]);
+			    fsp_msg_get_data_word(msg, 0),
+			    fsp_msg_get_data_word(msg, 1));
 	return true;
 }
 
@@ -835,8 +822,19 @@ static bool fsp_sys_dump_notify(uint32_t cmd_sub_mod, struct fsp_msg *msg)
  */
 static void check_ipl_sys_dump(void)
 {
-	struct dt_node *dump_node;
+	struct dt_node *dump_node, *opal_node;
 	uint32_t dump_id, dump_size;
+
+	if (proc_gen >= proc_gen_p9) {
+		opal_node = dt_find_by_path(dt_root, "ibm,opal");
+		if (!opal_node)
+			return;
+		dump_node = dt_find_by_path(opal_node, "dump");
+		if (dump_node) {
+			if (dt_find_property(dump_node, "mpipl-boot"))
+				return;
+		}
+	}
 
 	dump_node = dt_find_by_path(dt_root, "ipl-params/platform-dump");
 	if (!dump_node)

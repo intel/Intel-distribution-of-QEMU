@@ -23,7 +23,7 @@
 /* STI function configuration structs */
 
 typedef union region {
-    struct { 
+    struct {
         u32 offset:14;          /* offset in 4kbyte page */
         u32 sys_only:1;         /* don't map to user space */
         u32 cache:1;            /* map to data cache */
@@ -224,7 +224,7 @@ struct sti_rom_font {
 
 struct font {
     struct sti_rom_font hdr;
-    char font[16*256];
+    unsigned char font[16*256];
 };
 
 /* STI font printing function structs */

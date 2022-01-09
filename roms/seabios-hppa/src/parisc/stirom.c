@@ -370,15 +370,43 @@ static u32 __stifunc("block_move") sti_bmove(struct sti_blkmv_flags *flags,
     return 0;
 }
 
+/* can not call millicode routines in STI ROM code */
+static inline int inline_mul(int val, int mul)
+{
+    switch (mul) {
+    case 7:     return (val << 3) - val;
+    case 6:     return (val << 2) + (val << 1);
+    case 5:     return (val << 2) + val;
+    case 4:     return (val << 2);
+    case 3:     return (val << 1) + val;
+    case 2:     return (val << 1);
+    case 1:     return val;
+    case 0:     return 0;
+    default:    return 0;
+    }
+}
+
 static int __stifunc("font_unpmv") sti_font_unpmv(struct sti_font_flags *flags,
                                                   struct sti_font_inptr *in,
                                                   struct sti_font_outptr *out,
                                                   struct sti_glob_cfg *cfg)
 {
-    unsigned char *src = (unsigned char *)in->font_start_addr \
-        + sizeof(struct sti_rom_font) + (in->index * 16);
-    int y;
+    struct font *font = (struct font *) in->font_start_addr;
+    int bpc = font->hdr.bytes_per_char;
+    int width = font->hdr.width;
+    unsigned char *src;
+    int c, y, pitch;
     (void)flags;
+
+    /* same as: src = &font->font[in->index * bpc]; */
+    c = in->index;
+    y = inline_mul(c, bpc & 7);
+    if (bpc & 8) y += c << 3;
+    if (bpc & 16) y += c << 4;
+    if (bpc & 32) y += c << 5;
+    if (bpc & 64) y += c << 6;
+    if (bpc & 128) y += c << 7;
+    src = &font->font[y];
 
     write_artist(cfg, ARTIST_VRAM_IDX,
         (in->dest_y << 13) | (in->dest_x << 2));
@@ -386,13 +414,21 @@ static int __stifunc("font_unpmv") sti_font_unpmv(struct sti_font_flags *flags,
     write_artist(cfg, ARTIST_FGCOLOR, in->fg_color);
     write_artist(cfg, ARTIST_BGCOLOR, in->bg_color);
     write_artist(cfg, ARTIST_BITMAP_OP, 0x23000300);
-    write_artist(cfg, ARTIST_VRAM_BITMASK, 0xff000000);
+    write_artist(cfg, ARTIST_VRAM_BITMASK, 0xffffffff << (32 - width));
     write_artist(cfg, ARTIST_DST_BM_ACCESS, 0x2ea01000);
     write_artist(cfg, ARTIST_PLANE_BITMASK, 7);
     barrier();
 
-    for(y = 0; y <  16; y++) {
-        write_artist(cfg, ARTIST_VRAM_BYTE_WRITE, src[y] << 24);
+    pitch = (width + 7) / 8;
+    for (y = 0; y < bpc; y += pitch) {
+        u32 val = 0;
+        switch (pitch) {
+            case 4:     val |= src[y+3] << 0;  /* fall through */
+            case 3:     val |= src[y+2] << 8;  /* fall through */
+            case 2:     val |= src[y+1] << 16; /* fall through */
+            default:    val |= src[y+0] << 24; /* fall through */
+        }
+        write_artist(cfg, ARTIST_VRAM_BYTE_WRITE, val);
         barrier();
     }
     out->errno = 0;
@@ -421,8 +457,10 @@ static int __stifunc("init_graph") sti_init_graph(struct sti_init_flags *flags,
     cfg->onscreen_y = resolution & 0xfff;
     cfg->offscreen_x = 0;
     cfg->offscreen_y = 0;
-    cfg->total_x = cfg->onscreen_x;
+    cfg->total_x = 2048;  /* hardcoded width */
     cfg->total_y = cfg->onscreen_y;
+    if (cfg->total_y < 1024)
+        cfg->total_y = 1024;
 
     if (flags->clear) {
         /* clear screen */
@@ -480,6 +518,8 @@ static __stifunc("inq_conf") int sti_inq_conf(struct sti_conf_flags *flags,
     out->bits_per_pixel = 8;
     out->bits_used = 8;
     out->planes = cfg->text_planes;
+    /* attributes for GCDESCRIBE. See graphics.h and framebuf.h include files. */
+    out->attributes = 0x1836;
     out->dev_name[0] = 'H';
     out->dev_name[1] = 'P';
     out->dev_name[2] = 'A';

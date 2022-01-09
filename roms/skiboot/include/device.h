@@ -1,18 +1,5 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2018 IBM Corp. */
 
 #ifndef __DEVICE_H
 #define __DEVICE_H
@@ -131,7 +118,8 @@ struct dt_property *__dt_add_property_u64s(struct dt_node *node,
 static inline struct dt_property *dt_add_property_u64(struct dt_node *node,
 						      const char *name, u64 val)
 {
-	return dt_add_property_cells(node, name, (u32)(val >> 32), (u32)val);
+	return dt_add_property_cells(node, name, (u32)(val >> 32),
+						(u32)(val & 0xffffffffUL));
 }
 
 void dt_del_property(struct dt_node *node, struct dt_property *prop);
@@ -143,6 +131,7 @@ void dt_resize_property(struct dt_property **prop, size_t len);
 
 void dt_property_set_cell(struct dt_property *prop, u32 index, u32 val);
 u32 dt_property_get_cell(const struct dt_property *prop, u32 index);
+u64 dt_property_get_u64(const struct dt_property *prop, u32 index);
 
 /* First child of this node. */
 struct dt_node *dt_first(const struct dt_node *root);

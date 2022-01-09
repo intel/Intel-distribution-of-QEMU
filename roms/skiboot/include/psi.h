@@ -1,22 +1,8 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 /*
  * IBM System P PSI (Processor Service Interface)
+ *
+ * Copyright 2013-2019 IBM Corp.
  */
 #ifndef __PSI_H
 #define __PSI_H
@@ -46,20 +32,16 @@
 #define  PSIHB_TAR_256K_ENTRIES		2 /* P8 only */
 #define  PSIHB_TAR_512K_ENTRIES		4 /* P8 only */
 
-/* PSI Host Bridge Control Register
- *
- * note: TCE_ENABLE moved to the new PSIHB_PHBSCR on P8 but is
- * the same bit position
- */
+/* PSI Host Bridge Control Register */
 #define PSIHB_CR			0x20
 #define   PSIHB_CR_FSP_CMD_ENABLE	PPC_BIT(0)
 #define   PSIHB_CR_FSP_MMIO_ENABLE	PPC_BIT(1)
-#define   PSIHB_CR_TCE_ENABLE		PPC_BIT(2)
 #define   PSIHB_CR_FSP_IRQ_ENABLE	PPC_BIT(3)
 #define   PSIHB_CR_FSP_ERR_RSP_ENABLE	PPC_BIT(4)
 #define   PSIHB_CR_PSI_LINK_ENABLE	PPC_BIT(5)
 #define   PSIHB_CR_FSP_RESET		PPC_BIT(6)
 #define   PSIHB_CR_PSIHB_RESET		PPC_BIT(7)
+#define   PSIHB10_CR_STORE_EOI		PPC_BIT(12)
 #define   PSIHB_CR_PSI_IRQ		PPC_BIT(16)	/* PSIHB interrupt */
 #define   PSIHB_CR_FSP_IRQ		PPC_BIT(17)	/* FSP interrupt */
 #define   PSIHB_CR_FSP_LINK_ACTIVE	PPC_BIT(18)	/* FSP link active */
@@ -105,6 +87,7 @@
 
 /* Secure version of CR for P8 and P9 (TCE enable bit) */
 #define PSIHB_PHBSCR			0x90
+#define   PSIHB_PHBSCR_TCE_ENABLE	PPC_BIT(2)
 
 /* P9 registers */
 
@@ -112,9 +95,10 @@
 #define   PSIHB_IRQ_METHOD		PPC_BIT(0)
 #define   PSIHB_IRQ_RESET		PPC_BIT(1)
 #define PSIHB_ESB_CI_BASE		0x60
-#define   PSIHB_ESB_CI_VALID		1
+#define   PSIHB10_ESB_CI_64K		PPC_BIT(1)
+#define   PSIHB_ESB_CI_VALID		PPC_BIT(63)
 #define PSIHB_ESB_NOTIF_ADDR		0x68
-#define   PSIHB_ESB_NOTIF_VALID		1
+#define   PSIHB_ESB_NOTIF_VALID		PPC_BIT(63)
 #define PSIHB_IVT_OFFSET		0x70
 #define   PSIHB_IVT_OFF_SHIFT		32
 /*
@@ -133,6 +117,13 @@
 #define PSIHB_XSCOM_P9_HBCSR_SET	0x12
 #define PSIHB_XSCOM_P9_HBCSR_CLR	0x13
 #define   PSIHB_XSCOM_P9_HBSCR_FSP_IRQ 	PPC_BIT(17)
+
+#define PSIHB_XSCOM_P10_BASE		0xa
+#define   PSIHB_XSCOM_P10_HBBAR_EN	PPC_BIT(63)
+#define PSIHB_XSCOM_P10_HBCSR		0xe
+#define PSIHB_XSCOM_P10_HBCSR_SET	0x12
+#define PSIHB_XSCOM_P10_HBCSR_CLR	0x13
+#define   PSIHB_XSCOM_P10_HBSCR_FSP_IRQ 	PPC_BIT(17)
 
 /* P9 PSI Interrupts */
 #define P9_PSI_IRQ_PSI			0
@@ -156,8 +147,8 @@
 /*
  * Layout of the PSI DMA address space
  *
- * On P8, we use a larger mapping of 256K TCEs which provides
- * us with a 1G window in order to fit the trace buffers
+ * We use a larger mapping of 256K TCEs which provides us with a 1G window in
+ * order to fit the trace buffers
  *
  * Currently we have:
  *
@@ -229,7 +220,6 @@
 #define PSI_DMA_HBRT_FSP_MSG		0x03302000
 #define PSI_DMA_HBRT_FSP_MSG_SIZE	0x00011000
 
-/* P8 only mappings */
 #define PSI_DMA_TRACE_BASE		0x04000000
 
 struct psi {
@@ -260,18 +250,6 @@ extern struct psi *psi_find_functional_chip(void);
 extern void psi_irq_reset(void);
 extern void psi_enable_fsp_interrupt(struct psi *psi);
 extern void psi_fsp_link_in_use(struct psi *psi);
-
-/*
- * Must be called by the platform probe() function as the policy
- * is established before platform.init
- *
- * This defines whether the external interrupt should be passed to
- * the OS or handled locally in skiboot. Return true for skiboot
- * handling. Default if not called is Linux.
- */
-#define EXTERNAL_IRQ_POLICY_LINUX	false
-#define EXTERNAL_IRQ_POLICY_SKIBOOT	true
-extern void psi_set_external_irq_policy(bool policy);
 
 extern struct lock psi_lock;
 

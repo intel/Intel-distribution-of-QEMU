@@ -14,7 +14,7 @@ choice
     config PARISC
         bool "PA-RISC"
         help
-            Build PARISC BIOS.
+            Build PA-RISC firmware for QEMU.
 endchoice
 
 menu "General Features"
@@ -89,6 +89,13 @@ endchoice
         help
             Support controlling of the boot order via the fw_cfg/CBFS
             "bootorder" file.
+    config HOST_BIOS_GEOMETRY
+        depends on BOOT
+        bool "Boot device bios geometry override"
+        default y
+        help
+            Support overriding bios (logical) geometry of boot devices via the
+            fw_cfg/CBFS "bios-geometry" file.
 
     config COREBOOT_FLASH
         depends on COREBOOT
@@ -186,19 +193,19 @@ menu "Hardware support"
         help
             Support for SD cards on PCI host controllers.
     config VIRTIO_BLK
-        depends on DRIVES && QEMU_HARDWARE
+        depends on DRIVES && QEMU_HARDWARE && !PARISC
         bool "virtio-blk controllers"
         default y
         help
             Support boot from virtio-blk storage.
     config VIRTIO_SCSI
-        depends on DRIVES && QEMU_HARDWARE
+        depends on DRIVES && QEMU_HARDWARE && !PARISC
         bool "virtio-scsi controllers"
         default y
         help
             Support boot from virtio-scsi storage.
     config PVSCSI
-        depends on DRIVES && QEMU_HARDWARE
+        depends on DRIVES && QEMU_HARDWARE && !PARISC
         bool "PVSCSI controllers"
         default y
         help
@@ -348,7 +355,7 @@ menu "Hardware support"
 
     config HARDWARE_IRQ
         bool "Hardware interrupts"
-        depends on !PARISC
+        depends on X86
         default y
         help
             Program and support hardware interrupts using the i8259
@@ -538,6 +545,13 @@ menu "BIOS Tables"
             Required for QEMU 1.7 and newer.
             This option can be disabled for QEMU 1.6 and older
             to save some space in the ROM file.
+            If unsure, say Y.
+    config ACPI_PARSE
+        bool "Include ACPI DSDT parser."
+        default y
+        help
+            Support parsing ACPI DSDT for device probing.
+            Needed to find virtio-mmio devices.
             If unsure, say Y.
 endmenu
 

@@ -1,23 +1,11 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 /*
  * Code for handling FSP_MCLASS_DIAG messages (cmd 0xee)
  * Receiving a high level ack timeout is likely indicative of a firmware bug
+ *
+ * Copyright 2013-2014 IBM Corp.
  */
+
 #include <skiboot.h>
 #include <fsp.h>
 #include <lock.h>
@@ -41,7 +29,7 @@ static bool fsp_diag_msg(u32 cmd_sub_mod, struct fsp_msg *msg)
 	}
 
 	printf("BUG: High Level ACK timeout (FSP_MCLASS_DIAG) for 0x%x\n",
-	       msg->data.words[0] & 0xffff0000);
+	       fsp_msg_get_data_word(msg, 0) & 0xffff0000);
 
 	return true;
 }

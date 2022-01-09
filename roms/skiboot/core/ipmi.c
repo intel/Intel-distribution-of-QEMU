@@ -1,17 +1,8 @@
-/* Copyright 2013-2014 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * in-band IPMI, probably over bt (or via FSP mbox on FSP)
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
 
 #include <stdio.h>
@@ -160,12 +151,16 @@ void ipmi_cmd_done(uint8_t cmd, uint8_t netfn, uint8_t cc, struct ipmi_msg *msg)
 	   completion functions. */
 
 	/* If this is a synchronous message flag that we are done */
-	if (msg == sync_msg)
+	if (msg == sync_msg) {
 		sync_msg = NULL;
+		barrier();
+	}
 }
 
 void ipmi_queue_msg_sync(struct ipmi_msg *msg)
 {
+	void (*poll)(void) = msg->backend->poll;
+
 	if (!ipmi_present())
 		return;
 
@@ -190,8 +185,8 @@ void ipmi_queue_msg_sync(struct ipmi_msg *msg)
 	 * progress.
 	 */
 	while (sync_msg == msg) {
-		if (msg->backend->poll)
-			msg->backend->poll();
+		if (poll)
+			poll();
 		time_wait_ms(10);
 	}
 }

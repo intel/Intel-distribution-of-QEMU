@@ -1,22 +1,10 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 /*
  * Service Processor serial console handling code
+ *
+ * Copyright 2013-2019 IBM Corp.
  */
+
 #include <io.h>
 #include <psi.h>
 #include <fsp.h>
@@ -41,7 +29,6 @@ static LIST_HEAD(psis);
 static u64 psi_link_timer;
 static u64 psi_link_timeout;
 static bool psi_link_poll_active;
-static bool psi_ext_irq_policy = EXTERNAL_IRQ_POLICY_LINUX;
 
 static void psi_activate_phb(struct psi *psi);
 
@@ -277,9 +264,12 @@ static void psi_spurious_fsp_irq(struct psi *psi)
 {
 	u64 reg, bit;
 
-	prerror("PSI: Spurious interrupt, attempting clear\n");
+	prlog(PR_NOTICE, "PSI: Spurious interrupt, attempting clear\n");
 
-	if (proc_gen == proc_gen_p9) {
+	if (proc_gen == proc_gen_p10) {
+		reg = PSIHB_XSCOM_P10_HBCSR_CLR;
+		bit = PSIHB_XSCOM_P10_HBSCR_FSP_IRQ;
+	} else if (proc_gen == proc_gen_p9) {
 		reg = PSIHB_XSCOM_P9_HBCSR_CLR;
 		bit = PSIHB_XSCOM_P9_HBSCR_FSP_IRQ;
 	} else if (proc_gen == proc_gen_p8) {
@@ -483,8 +473,8 @@ static uint64_t psi_p8_irq_attributes(struct irq_source *is, uint32_t isn)
 	if (psi->no_lpc_irqs && idx == P8_IRQ_PSI_LPC)
 		return IRQ_ATTR_TARGET_LINUX;
 
-	if (idx == P8_IRQ_PSI_EXTERNAL &&
-	    psi_ext_irq_policy == EXTERNAL_IRQ_POLICY_LINUX)
+	/* Only direct external interrupts to OPAL if we have a handler */
+	if (idx == P8_IRQ_PSI_EXTERNAL && !platform.external_irq)
 		return IRQ_ATTR_TARGET_LINUX;
 
 	attr = IRQ_ATTR_TARGET_OPAL | IRQ_ATTR_TYPE_LSI;
@@ -498,19 +488,24 @@ static char *psi_p8_irq_name(struct irq_source *is, uint32_t isn)
 {
 	struct psi *psi = is->data;
 	uint32_t idx = isn - psi->interrupt;
+	char tmp[30];
 
 	static const char *names[P8_IRQ_PSI_IRQ_COUNT] = {
-		"psi:fsp",
-		"psi:occ",
-		"psi:fsi",
-		"psi:lpchc",
-		"psi:local_err",
-		"psi:external",
+		"fsp",
+		"occ",
+		"fsi",
+		"lpchc",
+		"local_err",
+		"external",
 	};
 
 	if (idx >= P8_IRQ_PSI_IRQ_COUNT)
 		return NULL;
-	return strdup(names[idx]);
+
+	snprintf(tmp, sizeof(tmp), "psi#%x:%s",
+		 psi->chip_id, names[idx]);
+
+	return strdup(tmp);
 }
 
 static const struct irq_source_ops psi_p8_irq_ops = {
@@ -520,6 +515,67 @@ static const struct irq_source_ops psi_p8_irq_ops = {
 	.attributes = psi_p8_irq_attributes,
 	.name = psi_p8_irq_name,
 };
+
+static const char *psi_p9_irq_names[P9_PSI_NUM_IRQS] = {
+	"fsp",
+	"occ",
+	"fsi",
+	"lpchc",
+	"local_err",
+	"global_err",
+	"external",
+	"lpc_serirq_mux0", /* Have a callback to get name ? */
+	"lpc_serirq_mux1", /* Have a callback to get name ? */
+	"lpc_serirq_mux2", /* Have a callback to get name ? */
+	"lpc_serirq_mux3", /* Have a callback to get name ? */
+	"i2c",
+	"dio",
+	"psu"
+};
+
+static void psi_p9_mask_all(struct psi *psi)
+{
+	struct irq_source *is;
+	int isn;
+
+	/* Mask all sources */
+	is = irq_find_source(psi->interrupt);
+	for (isn = is->start; isn < is->end; isn++)
+		xive_source_mask(is, isn);
+}
+
+static void psi_p9_mask_unhandled_irq(struct irq_source *is, uint32_t isn)
+{
+	struct psi *psi = is->data;
+	int idx = isn - psi->interrupt;
+	const char *name;
+
+	if (idx < ARRAY_SIZE(psi_p9_irq_names))
+		name = psi_p9_irq_names[idx];
+	else
+		name = "unknown!";
+
+	prerror("PSI[0x%03x]: Masking unhandled LSI %d (%s)\n",
+			psi->chip_id, idx, name);
+
+	/*
+	 * All the PSI interrupts are LSIs and will be constantly re-fired
+	 * unless the underlying interrupt condition is cleared. If we don't
+	 * have a handler for the interrupt then it needs to be masked to
+	 * prevent the IRQ from locking up the thread which handles it.
+	 */
+	switch (proc_gen) {
+	case proc_gen_p9:
+		xive_source_mask(is, isn);
+		break;
+	case proc_gen_p10:
+		xive2_source_mask(is, isn);
+		return;
+	default:
+		assert(false);
+	}
+
+}
 
 static void psihb_p9_interrupt(struct irq_source *is, uint32_t isn)
 {
@@ -533,21 +589,17 @@ static void psihb_p9_interrupt(struct irq_source *is, uint32_t isn)
 	case P9_PSI_IRQ_OCC:
 		occ_p9_interrupt(psi->chip_id);
 		break;
-	case P9_PSI_IRQ_FSI:
-		printf("PSI: FSI irq received\n");
-		break;
 	case P9_PSI_IRQ_LPCHC:
 		lpc_interrupt(psi->chip_id);
 		break;
 	case P9_PSI_IRQ_LOCAL_ERR:
 		prd_psi_interrupt(psi->chip_id);
 		break;
-	case P9_PSI_IRQ_GLOBAL_ERR:
-		printf("PSI: Global error irq received\n");
-		break;
 	case P9_PSI_IRQ_EXTERNAL:
 		if (platform.external_irq)
 			platform.external_irq(psi->chip_id);
+		else
+			psi_p9_mask_unhandled_irq(is, isn);
 		break;
 	case P9_PSI_IRQ_LPC_SIRQ0:
 	case P9_PSI_IRQ_LPC_SIRQ1:
@@ -565,6 +617,9 @@ static void psihb_p9_interrupt(struct irq_source *is, uint32_t isn)
 	case P9_PSI_IRQ_PSU:
 		p9_sbe_interrupt(psi->chip_id);
 		break;
+
+	default:
+		psi_p9_mask_unhandled_irq(is, isn);
 	}
 }
 
@@ -592,6 +647,10 @@ static uint64_t psi_p9_irq_attributes(struct irq_source *is __unused,
 	 if (is_lpc_serirq)
 		 return lpc_get_irq_policy(psi->chip_id, idx - P9_PSI_IRQ_LPC_SIRQ0);
 
+	/* Only direct external interrupts to OPAL if we have a handler */
+	if (idx == P9_PSI_IRQ_EXTERNAL && !platform.external_irq)
+		return IRQ_ATTR_TARGET_LINUX | IRQ_ATTR_TYPE_LSI;
+
 	return IRQ_ATTR_TARGET_OPAL | IRQ_ATTR_TYPE_LSI;
 }
 
@@ -599,27 +658,15 @@ static char *psi_p9_irq_name(struct irq_source *is, uint32_t isn)
 {
 	struct psi *psi = is->data;
 	uint32_t idx = isn - psi->interrupt;
+	char tmp[30];
 
-	static const char *names[P9_PSI_NUM_IRQS] = {
-		"psi:fsp",
-		"psi:occ",
-		"psi:fsi",
-		"psi:lpchc",
-		"psi:local_err",
-		"psi:global_err",
-		"psi:external",
-		"psi:lpc_serirq_mux0", /* Have a callback to get name ? */
-		"psi:lpc_serirq_mux1", /* Have a callback to get name ? */
-		"psi:lpc_serirq_mux2", /* Have a callback to get name ? */
-		"psi:lpc_serirq_mux3", /* Have a callback to get name ? */
-		"psi:i2c",
-		"psi:dio",
-		"psi:psu"
-	};
-
-	if (idx >= P9_PSI_NUM_IRQS)
+	if (idx >= ARRAY_SIZE(psi_p9_irq_names))
 		return NULL;
-	return strdup(names[idx]);
+
+	snprintf(tmp, sizeof(tmp), "psi#%x:%s",
+		 psi->chip_id, psi_p9_irq_names[idx]);
+
+	return strdup(tmp);
 }
 
 static const struct irq_source_ops psi_p9_irq_ops = {
@@ -627,11 +674,6 @@ static const struct irq_source_ops psi_p9_irq_ops = {
 	.attributes = psi_p9_irq_attributes,
 	.name = psi_p9_irq_name,
 };
-
-void psi_set_external_irq_policy(bool policy)
-{
-	psi_ext_irq_policy = policy;
-}
 
 static void psi_init_p8_interrupts(struct psi *psi)
 {
@@ -682,16 +724,6 @@ static void psi_init_p9_interrupts(struct psi *psi)
 	prlog(PR_DEBUG, "PSI[0x%03x]: ESB MMIO at @%p\n",
 	       psi->chip_id, psi->esb_mmio);
 
-	/* Grab and configure the notification port */
-	val = xive_get_notify_port(psi->chip_id, XIVE_HW_SRC_PSI);
-	val |= PSIHB_ESB_NOTIF_VALID;
-	out_be64(psi->regs + PSIHB_ESB_NOTIF_ADDR, val);
-
-	/* Setup interrupt offset */
-	val = xive_get_notify_base(psi->interrupt);
-	val <<= 32;
-	out_be64(psi->regs + PSIHB_IVT_OFFSET, val);
-
 	/* Register sources */
 	prlog(PR_DEBUG,
 	      "PSI[0x%03x]: Interrupts sources registered for P9 DD2.x\n",
@@ -699,6 +731,94 @@ static void psi_init_p9_interrupts(struct psi *psi)
 	xive_register_hw_source(psi->interrupt, P9_PSI_NUM_IRQS,
 				12, psi->esb_mmio, XIVE_SRC_LSI,
 				psi, &psi_p9_irq_ops);
+
+	psi_p9_mask_all(psi);
+
+	/* Setup interrupt offset */
+	val = xive_get_notify_base(psi->interrupt);
+	val <<= 32;
+	out_be64(psi->regs + PSIHB_IVT_OFFSET, val);
+
+	/* Grab and configure the notification port */
+	val = xive_get_notify_port(psi->chip_id, XIVE_HW_SRC_PSI);
+	val |= PSIHB_ESB_NOTIF_VALID;
+	out_be64(psi->regs + PSIHB_ESB_NOTIF_ADDR, val);
+
+	/* Reset irq handling and switch to ESB mode */
+	out_be64(psi->regs + PSIHB_INTERRUPT_CONTROL, PSIHB_IRQ_RESET);
+	out_be64(psi->regs + PSIHB_INTERRUPT_CONTROL, 0);
+}
+
+/*
+ * P9 and P10 have the same PSIHB interface
+ */
+static const struct irq_source_ops psi_p10_irq_ops = {
+	.interrupt = psihb_p9_interrupt,
+	.attributes = psi_p9_irq_attributes,
+	.name = psi_p9_irq_name,
+};
+
+#define PSIHB10_CAN_STORE_EOI(x) XIVE2_STORE_EOI_ENABLED
+
+static void psi_init_p10_interrupts(struct psi *psi)
+{
+	struct proc_chip *chip;
+	u64 val;
+	uint32_t esb_shift = 16;
+	uint32_t flags = XIVE_SRC_LSI;
+	struct irq_source *is;
+	int isn;
+
+	/* Grab chip */
+	chip = get_chip(psi->chip_id);
+	if (!chip)
+		return;
+
+	/* Configure the CI BAR */
+	phys_map_get(chip->id, PSIHB_ESB, 0, &val, NULL);
+	val |= PSIHB_ESB_CI_VALID;
+	if (esb_shift == 16)
+		val |= PSIHB10_ESB_CI_64K;
+	out_be64(psi->regs + PSIHB_ESB_CI_BASE, val);
+
+	val = in_be64(psi->regs + PSIHB_ESB_CI_BASE);
+	psi->esb_mmio = (void *)(val & ~(PSIHB_ESB_CI_VALID|PSIHB10_ESB_CI_64K));
+	prlog(PR_DEBUG, "PSI[0x%03x]: ESB MMIO at @%p\n",
+	       psi->chip_id, psi->esb_mmio);
+
+	/* Store EOI */
+	if (PSIHB10_CAN_STORE_EOI(psi)) {
+		val = in_be64(psi->regs + PSIHB_CR);
+		val |= PSIHB10_CR_STORE_EOI;
+		out_be64(psi->regs + PSIHB_CR, val);
+		prlog(PR_DEBUG, "PSI[0x%03x]: store EOI is enabled\n",
+		      psi->chip_id);
+		flags |= XIVE_SRC_STORE_EOI;
+	}
+
+	/* Register sources */
+	prlog(PR_DEBUG,
+	      "PSI[0x%03x]: Interrupts sources registered for P10 DD%i.%i\n",
+	      psi->chip_id, 0xf & (chip->ec_level >> 4), chip->ec_level & 0xf);
+
+	xive2_register_hw_source(psi->interrupt, P9_PSI_NUM_IRQS,
+				esb_shift, psi->esb_mmio, flags,
+				psi, &psi_p10_irq_ops);
+
+	/* Mask all sources */
+	is = irq_find_source(psi->interrupt);
+	for (isn = is->start; isn < is->end; isn++)
+		xive2_source_mask(is, isn);
+
+	/* Setup interrupt offset */
+	val = xive2_get_notify_base(psi->interrupt);
+	val <<= 32;
+	out_be64(psi->regs + PSIHB_IVT_OFFSET, val);
+
+	/* Grab and configure the notification port */
+	val = xive2_get_notify_port(psi->chip_id, XIVE_HW_SRC_PSI);
+	val |= PSIHB_ESB_NOTIF_VALID;
+	out_be64(psi->regs + PSIHB_ESB_NOTIF_ADDR, val);
 
 	/* Reset irq handling and switch to ESB mode */
 	out_be64(psi->regs + PSIHB_INTERRUPT_CONTROL, PSIHB_IRQ_RESET);
@@ -714,6 +834,9 @@ static void psi_init_interrupts(struct psi *psi)
 		break;
 	case proc_gen_p9:
 		psi_init_p9_interrupts(psi);
+		break;
+	case proc_gen_p10:
+		psi_init_p10_interrupts(psi);
 		break;
 	default:
 		/* Unknown: just no interrupts */
@@ -763,14 +886,14 @@ static void psi_activate_phb(struct psi *psi)
 
 static void psi_create_p9_int_map(struct psi *psi, struct dt_node *np)
 {
-	uint32_t map[P9_PSI_NUM_IRQS][4];
+	__be32 map[P9_PSI_NUM_IRQS][4];
 	int i;
 
 	for (i = 0; i < P9_PSI_NUM_IRQS; i++) {
-		map[i][0] = i;
-		map[i][1] = get_ics_phandle();
-		map[i][2] = psi->interrupt + i;
-		map[i][3] = 1;
+		map[i][0] = cpu_to_be32(i);
+		map[i][1] = cpu_to_be32(get_ics_phandle());
+		map[i][2] = cpu_to_be32(psi->interrupt + i);
+		map[i][3] = cpu_to_be32(1);
 	}
 	dt_add_property(np, "interrupt-map", map, sizeof(map));
 	dt_add_property_cells(np, "#address-cells", 0);
@@ -794,12 +917,14 @@ static void psi_create_mm_dtnode(struct psi *psi)
 					"ibm,power8-psi");
 		break;
 	case proc_gen_p9:
+	case proc_gen_p10:
 		dt_add_property_strings(np, "compatible", "ibm,psi",
 					"ibm,power9-psi");
 		psi_create_p9_int_map(psi, np);
 		break;
 	default:
-		dt_add_property_strings(np, "compatible", "ibm,psi");
+		assert(0);
+		break;
 	}
 	dt_add_property_cells(np, "interrupt-parent", get_ics_phandle());
 	dt_add_property_cells(np, "interrupts", psi->interrupt, 1);
@@ -861,6 +986,23 @@ static struct psi *psi_probe_p9(struct proc_chip *chip, u64 base)
 	return psi;
 }
 
+static struct psi *psi_probe_p10(struct proc_chip *chip, u64 base)
+{
+	struct psi *psi = NULL;
+	uint64_t addr;
+
+	phys_map_get(chip->id, PSIHB_REG, 0, &addr, NULL);
+	xscom_write(chip->id, base + PSIHB_XSCOM_P9_BASE,
+		    addr | PSIHB_XSCOM_P9_HBBAR_EN);
+
+	psi = alloc_psi(chip, base);
+	if (!psi)
+		return NULL;
+	psi->regs = (void *)addr;
+	psi->interrupt = xive2_alloc_hw_irqs(chip->id, P9_PSI_NUM_IRQS, 16);
+	return psi;
+}
+
 static bool psi_init_psihb(struct dt_node *psihb)
 {
 	uint32_t chip_id = dt_get_chip_id(psihb);
@@ -879,6 +1021,8 @@ static bool psi_init_psihb(struct dt_node *psihb)
 		psi = psi_probe_p8(chip, base);
 	else if (dt_node_is_compatible(psihb, "ibm,power9-psihb-x"))
 		psi = psi_probe_p9(chip, base);
+	else if (dt_node_is_compatible(psihb, "ibm,power10-psihb-x"))
+		psi = psi_probe_p10(chip, base);
 	else {
 		prerror("PSI: Unknown processor type\n");
 		return false;

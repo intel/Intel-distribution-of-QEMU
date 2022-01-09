@@ -1,19 +1,7 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
+# SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 #
 # Copyright 2016 IBM Corp.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# 	http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-# implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 import json
 import sys
@@ -26,17 +14,17 @@ json_params = {
 
 def get_input():
     while True:
-        resp = raw_input("Update pattern to match both? (y/n): ")
+        resp = input("Update pattern to match both? (y/n): ")
         if resp in [ "y", "Y" ]:
             break
         elif resp in [ "n", "N" ]:
-            print "New entry will be added."
+            print("New entry will be added.")
             return False
         else:
-            print "???"
+            print("???")
             continue
 
-    return raw_input("New pattern: ")
+    return input("New pattern: ")
 
 def main():
     if len(sys.argv) != 4:
@@ -81,12 +69,12 @@ def main():
                 continue
 
             if cp["pattern"] != op["pattern"]:
-                print "Pattern update detected."
-                print "Label: %s" % cp["label"]
-                print ""
-                print "Cur Pattern: %s" % cp["pattern"]
-                print "New Pattern: %s" % op["pattern"]
-                print ""
+                print("Pattern update detected.")
+                print("Label: %s" % cp["label"])
+                print("")
+                print("Cur Pattern: %s" % cp["pattern"])
+                print("New Pattern: %s" % op["pattern"])
+                print("")
 
                 user_pattern = get_input()
 

@@ -45,11 +45,11 @@ extern struct segoff_s ivt_table[256];
 static inline struct bios_data_area_s *
 get_bda_ptr(void)
 {
-#if CONFIG_PARISC
+#if CONFIG_X86
+    return MAKE_FLATPTR(SEG_BDA, 0);
+#elif CONFIG_PARISC
     extern struct bios_data_area_s bios_data_area;
     return &bios_data_area;
-#else
-    return MAKE_FLATPTR(SEG_BDA, 0);
 #endif
 }
 

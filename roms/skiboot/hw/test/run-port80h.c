@@ -1,17 +1,8 @@
-/* Copyright 2018 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Test result of our LPC port 80h boot progress code
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2018-2019 IBM Corp.
  */
 
 #include <stdio.h>
@@ -19,20 +10,25 @@
 #include <stdint.h>
 #include <assert.h>
 
+#define __unused __attribute__((unused))
+
 #define __LPC_H
 
 uint8_t port80;
 uint16_t port8x;
 
-static inline void lpc_outb(uint8_t data, uint32_t addr)
+static int64_t lpc_probe_write(int addr_type __unused, uint32_t addr,
+                        uint32_t data, uint32_t sz)
 {
 	assert((addr - 0x80) <= 2);
+	assert(sz == 1);
 	if (addr == 0x80)
 		port80 = data;
 	if (addr == 0x81)
 		port8x = data << 8 | (port8x & 0xff);
 	if (addr == 0x82)
 		port8x = (port8x & 0xff00) | data;
+	return 0;
 }
 
 #include "op-panel.h"

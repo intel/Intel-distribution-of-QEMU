@@ -1,18 +1,5 @@
-/* Copyright 2013-2016 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
 
 #ifndef __PLATFORM_H
 #define __PLATFORM_H
@@ -23,6 +10,7 @@ struct pci_device;
 struct pci_slot;
 struct errorlog;
 struct npu2;
+struct npu3;
 
 enum resource_id {
 	RESOURCE_ID_KERNEL,
@@ -59,6 +47,12 @@ struct bmc_platform {
 	const struct bmc_sw_config *sw;
 };
 
+struct ocapi_phy_setup {
+	int tx_ffe_pre_coeff;
+	int tx_ffe_post_coeff;
+	int tx_ffe_boost_en;
+};
+
 /* OpenCAPI platform-specific I2C information */
 struct platform_ocapi {
 	uint8_t i2c_engine;		/* I2C engine number */
@@ -75,6 +69,8 @@ struct platform_ocapi {
 	uint8_t i2c_presence_brick5;	/* I2C pin to read for presence on brick 5 */
 	bool odl_phy_swap;		/* Swap ODL1 to use brick 2 rather than
 					 * brick 1 lanes */
+	const char *(*ocapi_slot_label)(uint32_t chip_id, uint32_t brick_index);
+	const struct ocapi_phy_setup *phy_setup;
 };
 
 struct dt_node;
@@ -128,8 +124,9 @@ struct platform {
 	/* OpenCAPI platform-specific I2C information */
 	const struct platform_ocapi *ocapi;
 
-	/* NPU2 device detection */
+	/* NPU device detection */
 	void		(*npu2_device_detect)(struct npu2 *npu);
+	void		(*npu3_device_detect)(struct npu3 *npu);
 
 	/*
 	 * Probe platform, return true on a match, called before
@@ -196,6 +193,14 @@ struct platform {
 					     struct pci_device *pd);
 
 	/*
+	 * Called for each device during pci_add_device_nodes() descend
+	 * to create the device tree, in order to get the correct per-platform
+	 * preference for the ibm,loc-code property
+	 */
+	void		(*pci_add_loc_code)(struct dt_node *np,
+					     struct pci_device *pd);
+
+	/*
 	 * Called after PCI probe is complete and before inventory is
 	 * displayed in console. This can either run platform fixups or
 	 * can be used to send the inventory to a service processor.
@@ -221,6 +226,8 @@ struct platform {
 					    uint32_t len);
 	int		(*nvram_write)(uint32_t dst, void *src, uint32_t len);
 
+	int (*secvar_init)(void);
+
 	/*
 	 * OCC timeout. This return how long we should wait for the OCC
 	 * before timing out. This lets us use a high value on larger FSP
@@ -245,10 +252,10 @@ struct platform {
 	/*
 	 * Returns true when resource is loaded.
 	 * Only has to return true once, for the
-	 * preivous start_preload_resource call for this resource.
+	 * previous start_preload_resource call for this resource.
 	 * If not implemented, will return true and start_preload_resource
 	 * *must* have synchronously done the load.
-	 * Retruns OPAL_SUCCESS, OPAL_BUSY or an error code
+	 * Returns OPAL_SUCCESS, OPAL_BUSY or an error code
 	 */
 	int		(*resource_loaded)(enum resource_id id, uint32_t idx);
 
@@ -267,7 +274,7 @@ struct platform {
 	 * Read a sensor value
 	 */
 	int64_t		(*sensor_read)(uint32_t sensor_hndl, int token,
-				       uint64_t *sensor_data);
+				       __be64 *sensor_data);
 	/*
 	 * Return the heartbeat time
 	 */

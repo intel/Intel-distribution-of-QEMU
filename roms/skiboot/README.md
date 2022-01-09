@@ -12,6 +12,8 @@ Archives: https://lists.ozlabs.org/pipermail/skiboot/
 
 Patchwork: http://patchwork.ozlabs.org/project/skiboot/list/
 
+Documentation: http://open-power.github.io/skiboot/doc/index.html
+
 ## Overview
 OPAL firmware (OpenPower Abstraction Layer) comes in several parts.
 
@@ -54,14 +56,15 @@ To build on Ubuntu:
 ```
 apt-get install gcc-powerpc64le-linux-gnu gcc valgrind \
 	expect libssl-dev device-tree-compiler make \
-	xz-utils
+	xz-utils libmbedtls-dev
 CROSS=powerpc64le-linux-gnu- make -j`nproc`
 ```
 
 To build on Fedora:
 ```
 dnf install gcc-powerpc64le-linux-gnu binutils-powerpc64-linux-gnu gcc make \
-    diffutils findutils expect valgrind-devel dtc openssl-devel xz
+    diffutils findutils expect valgrind-devel dtc openssl-devel xz \
+    mbedtls-devel
 CROSS=powerpc64le-linux-gnu- make -j`nproc`
 ```
 
@@ -78,6 +81,30 @@ Alternatively, pre-built cross compilers for x86 systems can be downloaded
 from here: https://www.kernel.org/pub/tools/crosstool/ When using
 these compilers add /opt/cross/gcc-4.8.0-nolibc/powerpc64-linux/bin/
 to your PATH. Once this is done skiboot can be compiler by just running `make`
+
+### Building Documentation
+
+We use [Sphinx](http://www.sphinx-doc.org/) to produce various documentation
+from reStructuredText (preferred) and Markdown. The Sphinx documentation has
+a useful primer for  reStructuredText
+[here](http://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html).
+And the docutils website has a nice [quick
+reference](http://docutils.sourceforge.net/docs/user/rst/quickref.html) for the
+basic constructes.
+
+Building on Fedora
+```
+dnf install python3-sphinx python3-recommonmark.noarch
+pip install -r doc/requirements.txt
+make -C doc/ html SPHINXBUILD=sphinx-build-3
+```
+
+On Ubuntu:
+```
+Patches welcome!
+```
+
+View the output using `doc/_build/html/index.html`
 
 ## Testing
 Skiboot comes with a set of unit tests that can be run on your desktop.

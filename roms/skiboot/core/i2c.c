@@ -1,17 +1,8 @@
-/* Copyright 2013-2014 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * I2C
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
 
 #include <skiboot.h>
@@ -22,6 +13,7 @@
 #include <timebase.h>
 #include <processor.h>
 #include <timer.h>
+#include <trace.h>
 
 static LIST_HEAD(i2c_bus_list);
 
@@ -47,11 +39,43 @@ struct i2c_bus *i2c_find_bus_by_id(uint32_t opal_id)
 	return NULL;
 }
 
+static inline void i2c_trace_req(struct i2c_request *req, int rc)
+{
+	struct trace_i2c t;
+
+	memset(&t, 0, sizeof(t));
+
+	t.bus = req->bus->opal_id;
+	t.type = req->op | (req->offset_bytes << 4);
+	t.i2c_addr = req->dev_addr;
+	t.smbus_reg = req->offset & 0xffff; // FIXME: log whole offset
+	t.size = req->rw_len;
+	t.rc = rc;
+
+	/* FIXME: trace should not be a union... */
+	trace_add((void *)&t, TRACE_I2C, sizeof(t));
+}
+
+int64_t i2c_queue_req(struct i2c_request *req)
+{
+	int64_t ret = req->bus->queue_req(req);
+
+	i2c_trace_req(req, OPAL_ASYNC_COMPLETION);
+
+	if (!ret)
+		req->req_state = i2c_req_queued;
+	return ret;
+}
+
 static void opal_i2c_request_complete(int rc, struct i2c_request *req)
 {
 	uint64_t token = (uint64_t)(unsigned long)req->user_data;
 
-	opal_queue_msg(OPAL_MSG_ASYNC_COMP, NULL, NULL, token, rc);
+	opal_queue_msg(OPAL_MSG_ASYNC_COMP, NULL, NULL,
+			cpu_to_be64(token),
+			cpu_to_be64(rc));
+	i2c_trace_req(req, rc);
+
 	free(req);
 }
 
@@ -145,6 +169,8 @@ int64_t i2c_request_sync(struct i2c_request *req)
 	uint64_t timer_period = msecs_to_tb(5), timer_count;
 	uint64_t time_to_wait = 0;
 	int64_t rc, waited, retries;
+	size_t i, count;
+	char buf[17]; /* 8 bytes in hex + NUL */
 
 	for (retries = 0; retries <= MAX_NACK_RETRIES; retries++) {
 		waited = 0;
@@ -182,10 +208,17 @@ int64_t i2c_request_sync(struct i2c_request *req)
 		req->req_state = i2c_req_new;
 	}
 
-	prlog(PR_DEBUG, "I2C: %s req op=%x offset=%x buf=%016llx buflen=%d "
+	i2c_trace_req(req, rc);
+	count = 0;
+	for (i = 0; i < req->rw_len && count < sizeof(buf); i++) {
+		count += snprintf(buf+count, sizeof(buf)-count, "%02x",
+				*(unsigned char *)(req->rw_buf+i));
+	}
+
+	prlog(PR_DEBUG, "I2C: %s req op=%x offset=%x buf=%s buflen=%d "
 	      "delay=%lu/%lld rc=%lld\n",
 	      (rc) ? "!!!!" : "----", req->op, req->offset,
-	      *(uint64_t*) req->rw_buf, req->rw_len, tb_to_msecs(waited), req->timeout, rc);
+	      buf, req->rw_len, tb_to_msecs(waited), req->timeout, rc);
 
 	return rc;
 }

@@ -1,18 +1,10 @@
-/* Copyright 2013-2018 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * NPU - NVlink and OpenCAPI
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
+
 #include <skiboot.h>
 #include <io.h>
 #include <timebase.h>
@@ -36,6 +28,7 @@
 #include <nvram.h>
 #include <xscom-p9-regs.h>
 #include <phb4.h>
+#include <cache-p9.h>
 
 #define VENDOR_CAP_START    0x80
 #define VENDOR_CAP_END      0x90
@@ -315,144 +308,6 @@ static int64_t npu2_dev_cfg_bar(void *dev, struct pci_cfg_reg_filter *pcrf,
 	return npu2_cfg_read_bar(ndev, pcrf, offset, len, data);
 }
 
-static int start_l2_purge(uint32_t chip_id, uint32_t core_id)
-{
-	uint64_t addr = XSCOM_ADDR_P9_EX(core_id, L2_PRD_PURGE_CMD_REG);
-	int rc;
-
-	rc = xscom_write_mask(chip_id, addr, L2CAC_FLUSH,
-			      L2_PRD_PURGE_CMD_TYPE_MASK);
-	if (!rc)
-		rc = xscom_write_mask(chip_id, addr, L2_PRD_PURGE_CMD_TRIGGER,
-			      L2_PRD_PURGE_CMD_TRIGGER);
-	if (rc)
-		prlog(PR_ERR, "PURGE L2 on core 0x%x: XSCOM write_mask "
-		      "failed %i\n", core_id, rc);
-	return rc;
-}
-
-static int wait_l2_purge(uint32_t chip_id, uint32_t core_id)
-{
-	uint64_t val;
-	uint64_t addr = XSCOM_ADDR_P9_EX(core_id, L2_PRD_PURGE_CMD_REG);
-	unsigned long now = mftb();
-	unsigned long end = now + msecs_to_tb(L2_L3_PRD_PURGE_TIMEOUT_MS);
-	int rc;
-
-	while (1) {
-		rc = xscom_read(chip_id, addr, &val);
-		if (rc) {
-			prlog(PR_ERR, "PURGE L2 on core 0x%x: XSCOM read "
-			      "failed %i\n", core_id, rc);
-			break;
-		}
-		if (!(val & L2_PRD_PURGE_CMD_REG_BUSY))
-			break;
-		now = mftb();
-		if (tb_compare(now, end) == TB_AAFTERB) {
-			prlog(PR_ERR, "PURGE L2 on core 0x%x timed out %i\n",
-			      core_id, rc);
-			return OPAL_BUSY;
-		}
-	}
-
-	/* We have to clear the trigger bit ourselves */
-	val &= ~L2_PRD_PURGE_CMD_TRIGGER;
-	rc = xscom_write(chip_id, addr, val);
-	if (rc)
-		prlog(PR_ERR, "PURGE L2 on core 0x%x: XSCOM write failed %i\n",
-		      core_id, rc);
-	return rc;
-}
-
-static int start_l3_purge(uint32_t chip_id, uint32_t core_id)
-{
-	uint64_t addr = XSCOM_ADDR_P9_EX(core_id, L3_PRD_PURGE_REG);
-	int rc;
-
-	rc = xscom_write_mask(chip_id, addr, L3_FULL_PURGE,
-			      L3_PRD_PURGE_TTYPE_MASK);
-	if (!rc)
-		rc = xscom_write_mask(chip_id, addr, L3_PRD_PURGE_REQ,
-			      L3_PRD_PURGE_REQ);
-	if (rc)
-		prlog(PR_ERR, "PURGE L3 on core 0x%x: XSCOM write_mask "
-		      "failed %i\n", core_id, rc);
-	return rc;
-}
-
-static int wait_l3_purge(uint32_t chip_id, uint32_t core_id)
-{
-	uint64_t val;
-	uint64_t addr = XSCOM_ADDR_P9_EX(core_id, L3_PRD_PURGE_REG);
-	unsigned long now = mftb();
-	unsigned long end = now + msecs_to_tb(L2_L3_PRD_PURGE_TIMEOUT_MS);
-	int rc;
-
-	/* Trigger bit is automatically set to zero when flushing is done */
-	while (1) {
-		rc = xscom_read(chip_id, addr, &val);
-		if (rc) {
-			prlog(PR_ERR, "PURGE L3 on core 0x%x: XSCOM read "
-			      "failed %i\n", core_id, rc);
-			break;
-		}
-		if (!(val & L3_PRD_PURGE_REQ))
-			break;
-		now = mftb();
-		if (tb_compare(now, end) == TB_AAFTERB) {
-			prlog(PR_ERR, "PURGE L3 on core 0x%x timed out %i\n",
-			      core_id, rc);
-			return OPAL_BUSY;
-		}
-	}
-	return rc;
-}
-
-static int64_t purge_l2_l3_caches(void)
-{
-	struct cpu_thread *t;
-	uint64_t core_id, prev_core_id = (uint64_t)-1;
-	int rc;
-	unsigned long now = mftb();
-
-	for_each_ungarded_cpu(t) {
-		/* Only need to do it once per core chiplet */
-		core_id = pir_to_core_id(t->pir);
-		if (prev_core_id == core_id)
-			continue;
-		prev_core_id = core_id;
-		rc = start_l2_purge(t->chip_id, core_id);
-		if (rc)
-			goto trace_exit;
-		rc = start_l3_purge(t->chip_id, core_id);
-		if (rc)
-			goto trace_exit;
-	}
-
-	prev_core_id = (uint64_t)-1;
-	for_each_ungarded_cpu(t) {
-		/* Only need to do it once per core chiplet */
-		core_id = pir_to_core_id(t->pir);
-		if (prev_core_id == core_id)
-			continue;
-		prev_core_id = core_id;
-
-		rc = wait_l2_purge(t->chip_id, core_id);
-		if (rc)
-			goto trace_exit;
-		rc = wait_l3_purge(t->chip_id, core_id);
-		if (rc)
-			goto trace_exit;
-	}
-
-trace_exit:
-	prlog(PR_TRACE, "L2/L3 purging took %ldus\n",
-			tb_to_usecs(mftb() - now));
-
-	return rc;
-}
-
 static int64_t npu2_dev_cfg_exp_devcap(void *dev,
 		struct pci_cfg_reg_filter *pcrf __unused,
 		uint32_t offset, uint32_t size,
@@ -655,7 +510,6 @@ static void npu2_append_phandle(struct dt_node *dn,
 	/* Need to append to the properties */
 	len = prop->len + sizeof(*npu_phandles);
 	dt_resize_property(&prop, len);
-	prop->len = len;
 
 	npu_phandles = (uint32_t *)prop->prop;
 	npu_phandles[len / sizeof(*npu_phandles) - 1] = phandle;
@@ -693,7 +547,7 @@ static void npu2_get_gpu_base(struct npu2_dev *ndev, uint64_t *addr, uint64_t *s
 	struct npu2 *p = ndev->npu;
 	int group;
 
-	group = (ndev->bdfn >> 3) & 0x1f;
+	group = PCI_DEV(ndev->bdfn);
 	phys_map_get(ndev->npu->chip_id, p->gpu_map_type, group, addr, size);
 }
 
@@ -729,10 +583,10 @@ static int npu2_assign_gmb(struct npu2_dev *ndev)
 	 * the highest bdfn (fn = 6) and count back until we find a
 	 * npu2_dev. */
 	for (bdfn = (ndev->bdfn & ~0x7) | NPU2_LINKS_PER_CHIP;
-	     (bdfn & 0x7) != 0x7; bdfn = (bdfn & ~0x7) | ((bdfn & 0x7) - 1))
+	     PCI_FUNC(bdfn) != 0x7; bdfn = (bdfn & ~0x7) | (PCI_FUNC(bdfn) - 1))
 		if (npu2_bdf_to_dev(p, bdfn))
 			break;
-	peers = bdfn & 0x7;
+	peers = PCI_FUNC(bdfn);
 
 	npu2_get_gpu_base(ndev, &base, &size);
 
@@ -770,7 +624,7 @@ static int npu2_assign_gmb(struct npu2_dev *ndev)
 		assert(0);
 	}
 
-	mode += ndev->bdfn & 0x7;
+	mode += PCI_FUNC(ndev->bdfn);
 	val = SETFIELD(NPU2_MEM_BAR_MODE, val, mode);
 
 	gmb = NPU2_GPU0_MEM_BAR;
@@ -1402,12 +1256,19 @@ static int64_t npu2_tce_kill(struct phb *phb, uint32_t kill_type,
 			return OPAL_PARAMETER;
 		}
 
-		while (npages--) {
-			val = SETFIELD(NPU2_ATS_TCE_KILL_PENUM, dma_addr, pe_number);
-			npu2_write(npu, NPU2_ATS_TCE_KILL, NPU2_ATS_TCE_KILL_ONE | val);
-			dma_addr += tce_size;
+		if (npages < 128) {
+			while (npages--) {
+				val = SETFIELD(NPU2_ATS_TCE_KILL_PENUM, dma_addr, pe_number);
+				npu2_write(npu, NPU2_ATS_TCE_KILL, NPU2_ATS_TCE_KILL_ONE | val);
+				dma_addr += tce_size;
+			}
+			break;
 		}
-		break;
+		/*
+		 * For too many TCEs do not bother with the loop above and simply
+		 * flush everything, going to be lot faster.
+		 */
+		/* Fall through */
 	case OPAL_PCI_TCE_KILL_PE:
 		/*
 		 * NPU2 doesn't support killing a PE so fall through
@@ -1430,7 +1291,6 @@ static const struct phb_ops npu_ops = {
 	.cfg_write8		= npu2_cfg_write8,
 	.cfg_write16		= npu2_cfg_write16,
 	.cfg_write32		= npu2_cfg_write32,
-	.choose_bus		= NULL,
 	.device_init		= NULL,
 	.phb_final_fixup	= npu2_phb_final_fixup,
 	.ioda_reset		= npu2_ioda_reset,
@@ -1623,7 +1483,7 @@ int npu2_nvlink_init_npu(struct npu2 *npu)
 				"ibm,ioda2-npu2-phb");
 	dt_add_property_strings(np, "device_type", "pciex");
 	dt_add_property(np, "reg", reg, sizeof(reg));
-	dt_add_property_cells(np, "ibm,phb-index", npu->phb_index);
+	dt_add_property_cells(np, "ibm,phb-index", npu2_get_phb_index(0));
 	dt_add_property_cells(np, "ibm,npu-index", npu->index);
 	dt_add_property_cells(np, "ibm,chip-id", npu->chip_id);
 	dt_add_property_cells(np, "ibm,xscom-base", npu->xscom_base);
@@ -2075,16 +1935,11 @@ static int npu_table_search(struct npu2 *p, uint64_t table_addr, int stride,
  * allocated.
  */
 #define NPU2_VALID_ATS_MSR_BITS (MSR_DR | MSR_HV | MSR_PR | MSR_SF)
-static int64_t opal_npu_init_context(uint64_t phb_id, int pasid __unused,
-				     uint64_t msr, uint64_t bdf)
+int64_t npu2_init_context(struct phb *phb, uint64_t msr, uint64_t bdf)
 {
-	struct phb *phb = pci_get_phb(phb_id);
 	struct npu2 *p;
 	uint64_t xts_bdf, old_xts_bdf_pid, xts_bdf_pid;
 	int id;
-
-	if (!phb || phb->phb_type != phb_type_npu_v2)
-		return OPAL_PARAMETER;
 
 	/*
 	 * MSR bits should be masked by the caller to allow for future
@@ -2163,18 +2018,12 @@ out:
 	unlock(&p->lock);
 	return id;
 }
-opal_call(OPAL_NPU_INIT_CONTEXT, opal_npu_init_context, 4);
 
-static int opal_npu_destroy_context(uint64_t phb_id, uint64_t pid __unused,
-				    uint64_t bdf)
+int64_t npu2_destroy_context(struct phb *phb, uint64_t bdf)
 {
-	struct phb *phb = pci_get_phb(phb_id);
 	struct npu2 *p;
 	uint64_t xts_bdf;
 	int rc = OPAL_PARAMETER, id;
-
-	if (!phb || phb->phb_type != phb_type_npu_v2)
-		return OPAL_PARAMETER;
 
 	p = phb_to_npu2_nvlink(phb);
 	lock(&p->lock);
@@ -2204,15 +2053,13 @@ static int opal_npu_destroy_context(uint64_t phb_id, uint64_t pid __unused,
 	unlock(&p->lock);
 	return rc;
 }
-opal_call(OPAL_NPU_DESTROY_CONTEXT, opal_npu_destroy_context, 3);
 
 /*
  * Map the given virtual bdf to lparid with given lpcr.
  */
-static int opal_npu_map_lpar(uint64_t phb_id, uint64_t bdf, uint64_t lparid,
-			     uint64_t lpcr)
+int64_t npu2_map_lpar(struct phb *phb, uint64_t bdf, uint64_t lparid,
+		      uint64_t lpcr)
 {
-	struct phb *phb = pci_get_phb(phb_id);
 	struct npu2 *p;
 	struct npu2_dev *ndev = NULL;
 	uint64_t xts_bdf_lpar, atsd_lpar, rc = OPAL_SUCCESS;
@@ -2224,9 +2071,6 @@ static int opal_npu_map_lpar(uint64_t phb_id, uint64_t bdf, uint64_t lparid,
 		NPU2_XTS_MMIO_ATSD4_LPARID, NPU2_XTS_MMIO_ATSD5_LPARID,
 		NPU2_XTS_MMIO_ATSD6_LPARID, NPU2_XTS_MMIO_ATSD7_LPARID
 	};
-
-	if (!phb || phb->phb_type != phb_type_npu_v2)
-		return OPAL_PARAMETER;
 
 	if (lpcr)
 		/* The LPCR bits are only required for hash based ATS,
@@ -2310,7 +2154,6 @@ out:
 	unlock(&p->lock);
 	return rc;
 }
-opal_call(OPAL_NPU_MAP_LPAR, opal_npu_map_lpar, 4);
 
 static inline uint32_t npu2_relaxed_ordering_source_grpchp(uint32_t gcid)
 {
@@ -2456,123 +2299,25 @@ static void npu2_disable_relaxed_ordering(struct npu2_dev *ndev, uint32_t gcid,
  * relaxed ordering partially enabled if there are insufficient HW resources to
  * enable it on all links.
  */
-static int npu2_set_relaxed_ordering(uint32_t gcid, int pec, bool enable)
+int64_t npu2_set_relaxed_order(struct phb *phb, uint32_t gcid, int pec,
+			       bool enable)
 {
-	int rc = OPAL_SUCCESS;
-	struct phb *phb;
-	struct npu2 *npu;
+	struct npu2 *npu = phb_to_npu2_nvlink(phb);
 	struct npu2_dev *ndev;
+	int64_t rc = OPAL_SUCCESS;
 
-	for_each_phb(phb) {
-		if (phb->phb_type != phb_type_npu_v2)
-			continue;
+	for (int i = 0; i < npu->total_devices; i++) {
+		ndev = &npu->devices[i];
+		if (enable)
+			rc = npu2_enable_relaxed_ordering(ndev, gcid, pec);
+		else
+			npu2_disable_relaxed_ordering(ndev, gcid, pec);
 
-		npu = phb_to_npu2_nvlink(phb);
-		for (int i = 0; i < npu->total_devices; i++) {
-			ndev = &npu->devices[i];
-			if (enable)
-				rc = npu2_enable_relaxed_ordering(ndev, gcid, pec);
-			else
-				npu2_disable_relaxed_ordering(ndev, gcid, pec);
-
-			if (rc != OPAL_SUCCESS) {
-				NPU2DEVINF(ndev, "Insufficient resources to activate relaxed ordering mode\n");
-				return OPAL_RESOURCE;
-			}
+		if (rc != OPAL_SUCCESS) {
+			NPU2DEVINF(ndev, "Insufficient resources to activate relaxed ordering mode\n");
+			return OPAL_RESOURCE;
 		}
 	}
 
 	return OPAL_SUCCESS;
 }
-
-static int npu2_check_relaxed_ordering(struct phb *phb __unused,
-				       struct pci_device *pd, void *enable)
-{
-	/*
-	 * IBM PCIe bridge devices (ie. the root ports) can always allow relaxed
-	 * ordering
-	 */
-	if (pd->vdid == 0x04c11014)
-		pd->allow_relaxed_ordering = true;
-
-	PCIDBG(phb, pd->bdfn, "Checking relaxed ordering config\n");
-	if (pd->allow_relaxed_ordering)
-		return 0;
-
-	PCIDBG(phb, pd->bdfn, "Relaxed ordering not allowed\n");
-	*(bool *) enable = false;
-
-	return 1;
-}
-
-static int64_t opal_npu_set_relaxed_order(uint64_t phb_id, uint16_t bdfn,
-					  bool request_enabled)
-{
-	struct phb *phb = pci_get_phb(phb_id);
-	struct phb4 *phb4;
-	uint32_t chip_id, pec;
-	struct pci_device *pd;
-	bool enable = true;
-
-	if (!phb || phb->phb_type != phb_type_pcie_v4)
-		return OPAL_PARAMETER;
-
-	phb4 = phb_to_phb4(phb);
-	pec = phb4->pec;
-	chip_id = phb4->chip_id;
-
-	if (npu2_relaxed_ordering_source_grpchp(chip_id) == OPAL_PARAMETER)
-		return OPAL_PARAMETER;
-
-	pd = pci_find_dev(phb, bdfn);
-	if (!pd)
-		return OPAL_PARAMETER;
-
-	/*
-	 * Not changing state, so no need to rescan PHB devices to determine if
-	 * we need to enable/disable it
-	 */
-	if (pd->allow_relaxed_ordering == request_enabled)
-		return OPAL_SUCCESS;
-
-	pd->allow_relaxed_ordering = request_enabled;
-
-	/*
-	 * Walk all devices on this PHB to ensure they all support relaxed
-	 * ordering
-	 */
-	pci_walk_dev(phb, NULL, npu2_check_relaxed_ordering, &enable);
-
-	if (request_enabled && !enable) {
-		/*
-		 * Not all devices on this PHB support relaxed-ordering
-		 * mode so we can't enable it as requested
-		 */
-		prlog(PR_INFO, "Cannot set relaxed ordering for PEC %d on chip %d\n",
-		      pec, chip_id);
-		return OPAL_CONSTRAINED;
-	}
-
-	if (npu2_set_relaxed_ordering(chip_id, pec, request_enabled) != OPAL_SUCCESS) {
-		npu2_set_relaxed_ordering(chip_id, pec, false);
-		return OPAL_RESOURCE;
-	}
-
-	phb4->ro_state = request_enabled;
-	return OPAL_SUCCESS;
-}
-opal_call(OPAL_NPU_SET_RELAXED_ORDER, opal_npu_set_relaxed_order, 3);
-
-static int64_t opal_npu_get_relaxed_order(uint64_t phb_id,
-					  uint16_t bdfn __unused)
-{
-	struct phb *phb = pci_get_phb(phb_id);
-	struct phb4 *phb4;
-
-	if (!phb || phb->phb_type != phb_type_pcie_v4)
-		return OPAL_PARAMETER;
-
-	phb4 = phb_to_phb4(phb);
-	return phb4->ro_state;
-}
-opal_call(OPAL_NPU_GET_RELAXED_ORDER, opal_npu_get_relaxed_order, 2);

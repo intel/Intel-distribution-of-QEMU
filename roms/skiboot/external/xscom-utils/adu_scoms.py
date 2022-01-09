@@ -1,22 +1,10 @@
 #!/usr/bin/python
-
+# SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+#
 # Python library for in-band SCom access
 # (based on xscom-utils from OPAL firmware)
 #
 # Copyright 2018 IBM Corp.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#	http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-# implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 import os, sys, struct, getopt
 
@@ -176,7 +164,7 @@ class GetSCom(object):
 
 		c_id = val >> 44
 		id = c_id & 0xff
-                if id == 0xef:
+		if id == 0xef:
 			name = "P8E (Murano) processor"
 		elif id == 0xea:
 			name = "P8 (Venice) processor"
@@ -186,6 +174,10 @@ class GetSCom(object):
 			name = "P9 (Nimbus) processor"
 		elif id == 0xd4:
 			name = "P9 (Cumulus) processor"
+		elif id == 0xd9:
+			name = "P9P (Axone) processor"
+		elif id == 0xda:
+			name = "P10 processor"
 		elif id == 0xe9:
 			name = "Centaur memory buffer"
 		else:

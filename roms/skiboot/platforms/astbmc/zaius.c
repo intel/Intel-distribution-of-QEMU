@@ -1,18 +1,5 @@
-/* Copyright 2017 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2017-2019 IBM Corp. */
 
 #include <skiboot.h>
 #include <device.h>
@@ -170,7 +157,6 @@ static void zaius_create_npu(void)
 {
 	struct dt_node *xscom, *npu;
 	int npu_index = 0;
-	int phb_index = 7;
 	char namebuf[32];
 
 	/* Abort if there's already an NPU in the device tree */
@@ -184,7 +170,6 @@ static void zaius_create_npu(void)
 		dt_add_property_cells(npu, "reg", NPU_BASE, NPU_SIZE);
 		dt_add_property_strings(npu, "compatible", "ibm,power9-npu");
 		dt_add_property_cells(npu, "ibm,npu-index", npu_index++);
-		dt_add_property_cells(npu, "ibm,phb-index", phb_index++);
 		dt_add_property_cells(npu, "ibm,npu-links", 2);
 		create_link(npu, 1, 2);
 		create_link(npu, 2, 3);

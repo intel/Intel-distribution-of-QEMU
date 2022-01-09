@@ -1,28 +1,16 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2018 IBM Corp. */
 
 #ifndef __HDATA_H
 #define __HDATA_H
 
 #include <processor.h>
+#include "hdif.h"
+#include "spira.h"
 
 struct dt_node;
 
 extern void memory_parse(void);
-extern int paca_parse(void);
 extern bool pcia_parse(void);
 extern void fsp_parse(void);
 extern void bmc_parse(void);
@@ -36,10 +24,12 @@ extern void vpd_data_parse(struct dt_node *node,
 
 extern struct dt_node *find_xscom_for_chip(uint32_t chip_id);
 extern uint32_t pcid_to_chip_id(uint32_t proc_chip_id);
+extern uint32_t pcid_to_topology_idx(uint32_t proc_chip_id);
+extern uint32_t get_xscom_id(const struct sppcrd_chip_info *cinfo);
 
 extern struct dt_node *add_core_common(struct dt_node *cpus,
-				       const struct sppaca_cpu_cache *cache,
-				       const struct sppaca_cpu_timebase *tb,
+				       const struct sppcia_cpu_cache *cache,
+				       const struct sppcia_cpu_timebase *tb,
 				       uint32_t int_server, bool okay);
 extern void add_core_attr(struct dt_node *cpu, uint32_t attr);
 extern uint32_t add_core_cache_info(struct dt_node *cpus,

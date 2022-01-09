@@ -1,18 +1,5 @@
-/* Copyright 2013-2019 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
 
 #include <skiboot.h>
 #include <xscom.h>
@@ -28,6 +15,9 @@
 #define P9_PBA_BAR0		0x5012B00
 #define P9_PBA_BARMASK0		0x5012B04
 
+#define P10_PBA_BAR0		0x01010CDA
+#define P10_PBA_BARMASK0	0x01010CDE
+
 #define PBA_MASK_ALL_BITS 0x000001FFFFF00000ULL /* Bits 23:43 */
 
 enum P8_BAR {
@@ -42,6 +32,13 @@ enum P9_BAR {
 	P9_BAR_CENTAUR = 1,
 	P9_BAR_OCC_COMMON = 2,
 	P9_BAR_SBE = 3,
+};
+
+enum P10_BAR {
+	P10_BAR_HOMER = 0,
+	P10_BAR_OCMB_THERMAL = 1,
+	P10_BAR_OCC_COMMON = 2,
+	P10_BAR_SBE = 3,
 };
 
 static u64 pba_bar0, pba_barmask0;
@@ -202,6 +199,12 @@ void homer_init(void)
 		pba_barmask0 = P9_PBA_BARMASK0;
 		bar_homer = P9_BAR_HOMER;
 		bar_occ_common = P9_BAR_OCC_COMMON;
+		break;
+	case proc_gen_p10:
+		pba_bar0 = P10_PBA_BAR0;
+		pba_barmask0 = P10_PBA_BARMASK0;
+		bar_homer = P10_BAR_HOMER;
+		bar_occ_common = P10_BAR_OCC_COMMON;
 		break;
 	default:
 		return;

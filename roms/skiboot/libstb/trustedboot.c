@@ -1,18 +1,5 @@
-/* Copyright 2013-2017 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
 
 #ifndef pr_fmt
 #define pr_fmt(fmt) "STB: " fmt
@@ -25,7 +12,7 @@
 #include "secureboot.h"
 #include "trustedboot.h"
 #include "tpm_chip.h"
-#include "tss/trustedTypes.H"
+#include "ibmtss/TPM_Types.h"
 
 /* For debugging only */
 //#define STB_DEBUG
@@ -40,7 +27,7 @@ static bool boot_services_exited = false;
  * the boot security, and the event log to inspect what measurements were
  * extended to the PCRs.
  *
- * The whitelist below should map every skiboot event (or resource) to a PCR
+ * The list below should map every skiboot event (or resource) to a PCR
  * following the TCG PC Client Platform Firmware Profile specification,
  * Family 2.0, Level 00, Revision 1.03 v51.
  *
@@ -52,7 +39,7 @@ static bool boot_services_exited = false;
  */
 static struct {
 	enum resource_id id;
-	TPM_Pcr pcr;
+	TPMI_DH_PCR pcr;
 } resources[] = {
 	{ RESOURCE_ID_IMA_CATALOG,	PCR_4},
 	{ RESOURCE_ID_KERNEL,		PCR_4},
@@ -129,6 +116,7 @@ void trustedboot_init(void)
 	tpm_init();
 
 	trusted_init = true;
+	boot_services_exited = false;
 }
 
 int trustedboot_exit_boot_services(void)
@@ -137,33 +125,37 @@ int trustedboot_exit_boot_services(void)
 	int rc = 0;
 	bool failed = false;
 
-	boot_services_exited = true;
-
 	if (!trusted_mode)
 		goto out_free;
 
+	if (boot_services_exited) {
+		prlog(PR_WARNING, "Trusted boot services exited before.\n");
+		goto out_free;
+	}
+
+	boot_services_exited = true;
 #ifdef STB_DEBUG
 	prlog(PR_NOTICE, "ev_separator.event: %s\n", ev_separator.event);
 	prlog(PR_NOTICE, "ev_separator.sha1:\n");
-	stb_print_data((uint8_t*) ev_separator.sha1, TPM_ALG_SHA1_SIZE);
+	stb_print_data((uint8_t*) ev_separator.sha1, SHA1_DIGEST_SIZE);
 	prlog(PR_NOTICE, "ev_separator.sha256:\n");
-	stb_print_data((uint8_t*) ev_separator.sha256, TPM_ALG_SHA256_SIZE);
+	stb_print_data((uint8_t*) ev_separator.sha256, SHA256_DIGEST_SIZE);
 #endif
 	/*
 	 * Extend the digest of 0xFFFFFFFF to PCR[0-7] and record it as
 	 * EV_SEPARATOR
 	 */
 	for (pcr = 0; pcr < 8; pcr++) {
-		rc = tpm_extendl(pcr, TPM_ALG_SHA256,
-				(uint8_t*) ev_separator.sha256,
-				TPM_ALG_SHA256_SIZE, TPM_ALG_SHA1,
-				(uint8_t*) ev_separator.sha1,
-				TPM_ALG_SHA1_SIZE, EV_SEPARATOR,
-				ev_separator.event);
+		rc = tpm_extendl(pcr,
+				TPM_ALG_SHA256, (uint8_t*) ev_separator.sha256,
+				TPM_ALG_SHA1, (uint8_t*) ev_separator.sha1,
+				EV_SEPARATOR, ev_separator.event,
+				strlen(ev_separator.event));
 		if (rc)
 			failed = true;
 	}
 	tpm_add_status_property();
+	tss_set_platform_auth();
 
 out_free:
 	tpm_cleanup();
@@ -177,7 +169,7 @@ int trustedboot_measure(enum resource_id id, void *buf, size_t len)
 	void *buf_aux;
 	size_t len_aux;
 	const char *name;
-	TPM_Pcr pcr;
+	TPMI_DH_PCR pcr;
 	int rc = -1;
 
 	if (!trusted_mode)
@@ -252,15 +244,15 @@ int trustedboot_measure(enum resource_id id, void *buf, size_t len)
 	}
 
 #ifdef STB_DEBUG
-	stb_print_data(digest, TPM_ALG_SHA256_SIZE);
+	stb_print_data(digest, SHA256_DIGEST_SIZE);
+
 #endif
 	/*
 	 * Extend the given PCR number in both sha256 and sha1 banks with the
 	 * sha512 hash calculated. The hash is truncated accordingly to fit the
 	 * PCR.
 	 */
-	return tpm_extendl(pcr,
-			   TPM_ALG_SHA256, digest, TPM_ALG_SHA256_SIZE,
-			   TPM_ALG_SHA1,   digest, TPM_ALG_SHA1_SIZE,
-			   EV_COMPACT_HASH, name);
+	return tpm_extendl(pcr,	TPM_ALG_SHA256, (uint8_t*) digest,
+			   TPM_ALG_SHA1, (uint8_t*) digest,
+			   EV_COMPACT_HASH, name, strlen(name));
 }

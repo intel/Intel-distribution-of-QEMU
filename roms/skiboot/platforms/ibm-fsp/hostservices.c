@@ -1,18 +1,5 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -191,11 +178,11 @@ static bool hbrt_con_wrapped;
 #define HBRT_CON_OUT_LEN	(HBRT_CON_LEN - HBRT_CON_IN_LEN)
 
 static struct memcons hbrt_memcons __section(".data.memcons") = {
-	.magic		= MEMCONS_MAGIC,
-	.obuf_phys	= HBRT_CON_START,
-	.ibuf_phys	= HBRT_CON_START + HBRT_CON_OUT_LEN,
-	.obuf_size	= HBRT_CON_OUT_LEN,
-	.ibuf_size	= HBRT_CON_IN_LEN,
+	.magic		= CPU_TO_BE64(MEMCONS_MAGIC),
+	.obuf_phys	= CPU_TO_BE64(HBRT_CON_START),
+	.ibuf_phys	= CPU_TO_BE64(HBRT_CON_START + HBRT_CON_OUT_LEN),
+	.obuf_size	= CPU_TO_BE32(HBRT_CON_OUT_LEN),
+	.ibuf_size	= CPU_TO_BE32(HBRT_CON_IN_LEN),
 };
 
 static void hservice_putc(char c)
@@ -219,7 +206,7 @@ static void hservice_putc(char c)
 	if (hbrt_con_wrapped)
 		opos |= MEMCONS_OUT_POS_WRAP;
 	lwsync();
-	hbrt_memcons.out_pos = opos;
+	hbrt_memcons.out_pos = cpu_to_be32(opos);
 }
 
 static void hservice_puts(const char *str)
@@ -564,6 +551,10 @@ int hservice_wakeup(uint32_t i_core, uint32_t i_mode)
 		i_core &= SPR_PIR_P9_MASK;
 		i_core <<= 2;
 		break;
+	case proc_gen_p10:
+		i_core &= SPR_PIR_P10_MASK;
+		i_core <<= 2;
+		break;
 	default:
 		return OPAL_UNSUPPORTED;
 	}
@@ -574,7 +565,7 @@ int hservice_wakeup(uint32_t i_core, uint32_t i_mode)
 		cpu = find_cpu_by_pir(i_core);
 		if (!cpu)
 			return OPAL_PARAMETER;
-		prlog(PR_DEBUG, "HBRT: Special wakeup assert for core 0x%x,"
+		prlog(PR_TRACE, "HBRT: Special wakeup assert for core 0x%x,"
 		      " count=%d\n", i_core, cpu->hbrt_spec_wakeup);
 		if (cpu->hbrt_spec_wakeup == 0)
 			rc = dctl_set_special_wakeup(cpu);
@@ -585,7 +576,7 @@ int hservice_wakeup(uint32_t i_core, uint32_t i_mode)
 		cpu = find_cpu_by_pir(i_core);
 		if (!cpu)
 			return OPAL_PARAMETER;
-		prlog(PR_DEBUG, "HBRT: Special wakeup release for core"
+		prlog(PR_TRACE, "HBRT: Special wakeup release for core"
 		      " 0x%x, count=%d\n", i_core, cpu->hbrt_spec_wakeup);
 		if (cpu->hbrt_spec_wakeup == 0) {
 			prerror("HBRT: Special wakeup clear"
@@ -886,8 +877,8 @@ static bool hservice_hbrt_msg_notify(uint32_t cmd_sub_mod, struct fsp_msg *msg)
 
 	prlog(PR_TRACE, "HBRT: FSP - HBRT message generated\n");
 
-	tce_token = msg->data.words[1];
-	len = msg->data.words[2];
+	tce_token = fsp_msg_get_data_word(msg, 1);
+	len = fsp_msg_get_data_word(msg, 2);
 	buf = fsp_inbound_buf_from_tce(tce_token);
 	if (!buf) {
 		prlog(PR_DEBUG, "HBRT: Invalid inbound data\n");
@@ -895,8 +886,10 @@ static bool hservice_hbrt_msg_notify(uint32_t cmd_sub_mod, struct fsp_msg *msg)
 		return true;
 	}
 
-	if (prd_hbrt_fsp_msg_notify(buf, len))
-		hservice_hbrt_msg_response(FSP_STATUS_GENERIC_FAILURE);
+	if (prd_hbrt_fsp_msg_notify(buf, len)) {
+		hservice_hbrt_msg_response(FSP_STATUS_GENERIC_ERROR);
+		prlog(PR_NOTICE, "Unable to send FSP - HBRT message\n");
+	}
 
 	return true;
 }

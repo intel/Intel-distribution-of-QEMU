@@ -1,17 +1,9 @@
-/* Copyright 2013-2019 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Interface with the On Chip Controller,
+ * which enforces power and thermal management
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
 
 #include <skiboot.h>
@@ -44,12 +36,14 @@
 #define MAX_PSTATES			256
 #define MAX_P8_CORES			12
 #define MAX_P9_CORES			24
+#define MAX_P10_CORES			32
 
 #define MAX_OPAL_CMD_DATA_LENGTH	4090
 #define MAX_OCC_RSP_DATA_LENGTH		8698
 
 #define P8_PIR_CORE_MASK		0xFFF8
 #define P9_PIR_QUAD_MASK		0xFFF0
+#define P10_PIR_CHIP_MASK		0x0000
 #define FREQ_MAX_IN_DOMAIN		0
 #define FREQ_MOST_RECENTLY_SET		1
 
@@ -105,7 +99,7 @@ struct occ_pstate_table {
 				u8 flags;
 				u8 vdd;
 				u8 vcs;
-				u32 freq_khz;
+				__be32 freq_khz;
 			} pstates[MAX_PSTATES];
 			s8 core_max[MAX_P8_CORES];
 			u8 pad[100];
@@ -123,11 +117,33 @@ struct occ_pstate_table {
 				u8 id;
 				u8 flags;
 				u16 reserved;
-				u32 freq_khz;
+				__be32 freq_khz;
 			} pstates[MAX_PSTATES];
 			u8 core_max[MAX_P9_CORES];
 			u8 pad[56];
 		} v9;
+		struct __packed { /* Version 0xA0 */
+			u8 occ_role;
+			u8 pstate_min;
+			u8 pstate_fixed_freq;
+			u8 pstate_base;
+			u8 pstate_ultra_turbo;
+			u8 pstate_fmax;
+			u8 minor;
+			u8 pstate_bottom_throttle;
+			u8 spare;
+			u8 spare1;
+			u32 reserved_32;
+			u64 reserved_64;
+			struct __packed {
+				u8 id;
+				u8 valid;
+				u16 reserved;
+				__be32 freq_khz;
+			} pstates[MAX_PSTATES];
+			u8 core_max[MAX_P10_CORES];
+			u8 pad[48];
+		} v10;
 	};
 } __packed;
 
@@ -245,7 +261,12 @@ struct occ_dynamic_data {
 	u8 major_version;
 	u8 minor_version;
 	u8 gpus_present;
-	u8 spare1;
+	struct __packed { /* Version 0x90 */
+		u8 spare1;
+	} v9;
+	struct __packed { /* Version 0xA0 */
+		u8 wof_enabled;
+	} v10;
 	u8 cpu_throttle;
 	u8 mem_throttle;
 	u8 quick_pwr_drop;
@@ -320,12 +341,17 @@ struct occ_dynamic_data *get_occ_dynamic_data(struct proc_chip *chip)
 		OPAL_DYNAMIC_DATA_OFFSET);
 }
 
-/* Check each chip's HOMER/Sapphire area for PState valid bit */
+/*
+ * On Chips which have at least one active EX unit, check the
+ * HOMER area for pstate-table valid bit on versions 0x1 and 0x2, or
+ * HOMER dynamic area occ_state on version 0x90.
+ */
 static bool wait_for_all_occ_init(void)
 {
 	struct proc_chip *chip;
 	struct dt_node *xn;
 	struct occ_pstate_table *occ_data;
+	struct occ_dynamic_data *occ_dyn_data;
 	int tries;
 	uint64_t start_time, end_time;
 	uint32_t timeout = 0;
@@ -335,6 +361,19 @@ static bool wait_for_all_occ_init(void)
 
 	start_time = mftb();
 	for_each_chip(chip) {
+		u8 version;
+
+		/*
+		 * If the chip doesn't any EX unit present, then OCC
+		 * will not update the pstate-table. So, skip the
+		 * check.
+		 */
+		if (!chip->ex_present) {
+			prlog(PR_DEBUG, "OCC: Chip %02x has no active EX units. Skipping check\n",
+			      chip->id);
+			continue;
+		}
+
 		/* Check for valid homer address */
 		if (!chip->homer_base) {
 			/**
@@ -355,27 +394,159 @@ static bool wait_for_all_occ_init(void)
 		occ_data = get_occ_pstate_table(chip);
 
 		/*
-		 * Checking for occ_data->valid == 1 is ok because we clear all
-		 * homer_base+size before passing memory to host services.
-		 * This ensures occ_data->valid == 0 before OCC load
+		 * Wait for the OCC to set an appropriate version bit.
+		 * The wait is needed since on some platforms (such P8
+		 * Tuletta), OCC is not loaded before OPAL boot. Hence
+		 * initialization can take a while.
+		 *
+		 * Note: Checking for occ_data->version == (0x01/0x02/0x90/0xA0)
+		 * is ok because we clear all of
+		 * homer_base+size before passing memory to host
+		 * services.  This ensures occ_data->version == 0x0
+		 * before OCC load.
 		 */
 		tries = timeout * 10;
-		while((occ_data->valid != 1) && tries--) {
+		while (tries--) {
+			version = occ_data->version;
+
+			if (version == 0x01 || version == 0x02 ||
+			    version == 0x90 || version == 0xA0)
+				break;
+
 			time_wait_ms(100);
 		}
-		if (occ_data->valid != 1) {
-			/**
-			 * @fwts-label OCCInvalidPStateTable
-			 * @fwts-advice The pstate table for a chip
-			 * was not valid. This means that OCC (On Chip
-			 * Controller) will be non-functional and CPU
-			 * frequency scaling will not be functional. CPU may
-			 * be set to a low, safe frequency. This means
-			 * that CPU idle states and CPU frequency scaling
-			 * may not be functional.
+
+		version = occ_data->version;
+		switch (version) {
+		case 0x1:
+		case 0x2:
+		/*
+		 * OCC-OPAL interface version 0x1 and 0x2 do not have
+		 * the dynamic data.  Hence the the only way to figure out
+		 * if the OCC is up or not is to check the valid-bit
+		 * in the pstate table.
+		 */
+			if (occ_data->valid != 1) {
+				/**
+				 * @fwts-label OCCInvalidPStateTable
+				 * @fwts-advice The pstate table for a chip
+				 * was not valid. This means that OCC (On Chip
+				 * Controller) will be non-functional and CPU
+				 * frequency scaling will not be functional. CPU may
+				 * be set to a low, safe frequency. This means
+				 * that CPU idle states and CPU frequency scaling
+				 * may not be functional.
+				 */
+				prlog(PR_ERR, "OCC: Chip: %x PState table is not valid\n",
+				      chip->id);
+				return false;
+			}
+			break;
+
+		case 0x90:
+			/*
+			 * OCC-OPAL interface version 0x90 has a
+			 * dynamic data section.  This has an
+			 * occ_state field whose values inform about
+			 * the state of the OCC.
+			 *
+			 * 0x00 = OCC not running. No communication
+			 *        allowed.
+			 *
+			 * 0x01 = Standby. No communication allowed.
+			 *
+			 * 0x02 = Observation State. Communication
+			 *        allowed and is command dependent.
+			 *
+			 * 0x03 = Active State. Communication allowed
+			 *        and is command dependent.
+			 *
+			 * 0x04 = Safe State. No communication
+			 *        allowed. Just like CPU throttle
+			 *        status, some failures will not allow
+			 *        for OCC to update state to safe.
+			 *
+			 * 0x05 = Characterization State.
+			 *        Communication allowed and is command
+			 *        dependent.
+			 *
+			 * We will error out if OCC is not in the
+			 * Active State.
+			 *
+			 * XXX : Should we error out only if no
+			 *       communication is allowed with the
+			 *       OCC ?
 			 */
-			prlog(PR_ERR, "OCC: Chip: %x PState table is not valid\n",
-				chip->id);
+			occ_dyn_data = get_occ_dynamic_data(chip);
+			if (occ_dyn_data->occ_state != 0x3) {
+				/**
+				 * @fwts-label OCCInactive
+				 * @fwts-advice The OCC for a chip was not active.
+				 * This means that CPU frequency scaling will
+				 * not be functional. CPU may be set to a low,
+				 * safe frequency. This means that CPU idle
+				 * states and CPU frequency scaling may not be
+				 * functional.
+				 */
+				prlog(PR_ERR, "OCC: Chip: %x: OCC not active\n",
+				      chip->id);
+				return false;
+			}
+			break;
+
+		case 0xA0:
+			/*
+			 * OCC-OPAL interface version 0x90 has a
+			 * dynamic data section.  This has an
+			 * occ_state field whose values inform about
+			 * the state of the OCC.
+			 *
+			 * 0x00 = OCC not running. No communication
+			 *        allowed.
+			 *
+			 * 0x01 = Standby. No communication allowed.
+			 *
+			 * 0x02 = Observation State. Communication
+			 *        allowed and is command dependent.
+			 *
+			 * 0x03 = Active State. Communication allowed
+			 *        and is command dependent.
+			 *
+			 * 0x04 = Safe State. No communication
+			 *        allowed. Just like CPU throttle
+			 *        status, some failures will not allow
+			 *        for OCC to update state to safe.
+			 *
+			 * 0x05 = Characterization State.
+			 *        Communication allowed and is command
+			 *        dependent.
+			 *
+			 * We will error out if OCC is not in the
+			 * Active State.
+			 *
+			 * XXX : Should we error out only if no
+			 *       communication is allowed with the
+			 *       OCC ?
+			 */
+			occ_dyn_data = get_occ_dynamic_data(chip);
+			if (occ_dyn_data->occ_state != 0x3) {
+				/**
+				 * @fwts-label OCCInactive
+				 * @fwts-advice The OCC for a chip was not active.
+				 * This means that CPU frequency scaling will
+				 * not be functional. CPU may be set to a low,
+				 * safe frequency. This means that CPU idle
+				 * states and CPU frequency scaling may not be
+				 * functional.
+				 */
+				prlog(PR_ERR, "OCC: Chip: %x: OCC not active\n",
+				      chip->id);
+				return false;
+			}
+			break;
+
+		default:
+			prlog(PR_ERR, "OCC: Unknown OCC-OPAL interface version.\n");
 			return false;
 		}
 
@@ -383,8 +554,16 @@ static bool wait_for_all_occ_init(void)
 			chip->occ_functional = true;
 
 		prlog(PR_DEBUG, "OCC: Chip %02x Data (%016llx) = %016llx\n",
-		      chip->id, (uint64_t)occ_data, *(uint64_t *)occ_data);
+		      chip->id, (uint64_t)occ_data, be64_to_cpu(*(__be64 *)occ_data));
+
+		if (version == 0x90 || version == 0xA0) {
+			occ_dyn_data = get_occ_dynamic_data(chip);
+			prlog(PR_DEBUG, "OCC: Chip %02x Dynamic Data (%016llx) = %016llx\n",
+			      chip->id, (uint64_t)occ_dyn_data,
+			      be64_to_cpu(*(__be64 *)occ_dyn_data));
+		}
 	}
+
 	end_time = mftb();
 	prlog(PR_NOTICE, "OCC: All Chip Rdy after %lu ms\n",
 	      tb_to_msecs(end_time - start_time));
@@ -406,8 +585,8 @@ static bool wait_for_all_occ_init(void)
  * the list and break from the loop as this is the last valid
  * element in the pstate table.
  */
-static void parse_pstates_v2(struct occ_pstate_table *data, u32 *dt_id,
-			     u32 *dt_freq, int nr_pstates, int pmax, int pmin)
+static void parse_pstates_v2(struct occ_pstate_table *data, __be32 *dt_id,
+			     __be32 *dt_freq, int nr_pstates, int pmax, int pmin)
 {
 	int i, j;
 
@@ -415,8 +594,8 @@ static void parse_pstates_v2(struct occ_pstate_table *data, u32 *dt_id,
 		if (cmp_pstates(data->v2.pstates[i].id, pmax) > 0)
 			continue;
 
-		dt_id[j] = data->v2.pstates[i].id;
-		dt_freq[j] = data->v2.pstates[i].freq_khz / 1000;
+		dt_id[j] = cpu_to_be32(data->v2.pstates[i].id);
+		dt_freq[j] = cpu_to_be32(be32_to_cpu(data->v2.pstates[i].freq_khz) / 1000);
 		j++;
 
 		if (data->v2.pstates[i].id == pmin)
@@ -428,8 +607,8 @@ static void parse_pstates_v2(struct occ_pstate_table *data, u32 *dt_id,
 			nr_pstates, j);
 }
 
-static void parse_pstates_v9(struct occ_pstate_table *data, u32 *dt_id,
-			     u32 *dt_freq, int nr_pstates, int pmax, int pmin)
+static void parse_pstates_v9(struct occ_pstate_table *data, __be32 *dt_id,
+			     __be32 *dt_freq, int nr_pstates, int pmax, int pmin)
 {
 	int i, j;
 
@@ -437,8 +616,8 @@ static void parse_pstates_v9(struct occ_pstate_table *data, u32 *dt_id,
 		if (cmp_pstates(data->v9.pstates[i].id, pmax) > 0)
 			continue;
 
-		dt_id[j] = data->v9.pstates[i].id;
-		dt_freq[j] = data->v9.pstates[i].freq_khz / 1000;
+		dt_id[j] = cpu_to_be32(data->v9.pstates[i].id);
+		dt_freq[j] = cpu_to_be32(be32_to_cpu(data->v9.pstates[i].freq_khz) / 1000);
 		j++;
 
 		if (data->v9.pstates[i].id == pmin)
@@ -448,6 +627,36 @@ static void parse_pstates_v9(struct occ_pstate_table *data, u32 *dt_id,
 	if (j != nr_pstates)
 		prerror("OCC: Expected pstates(%d) is not equal to parsed pstates(%d)\n",
 			nr_pstates, j);
+}
+
+static void parse_pstates_v10(struct occ_pstate_table *data, __be32 *dt_id,
+			     __be32 *dt_freq, int nr_pstates, int pmax, int pmin)
+{
+	int i, j;
+	int invalid = 0;
+
+	for (i = 0, j = 0; i < MAX_PSTATES && j < nr_pstates; i++) {
+		if (cmp_pstates(data->v10.pstates[i].id, pmax) > 0)
+			continue;
+
+		if (!data->v10.pstates[i].valid) {
+			prlog(PR_WARNING, "OCC: Found Invalid pstate with index %d. Skipping it.\n", i);
+			invalid++;
+			continue;
+		}
+
+		dt_id[j] = cpu_to_be32(data->v10.pstates[i].id);
+		dt_freq[j] = cpu_to_be32(be32_to_cpu(data->v10.pstates[i].freq_khz) / 1000);
+		j++;
+
+		if (data->v10.pstates[i].id == pmin)
+			break;
+	}
+
+	if ((j + invalid) != nr_pstates) {
+		prerror("OCC: Expected pstates(%d) not equal to (Parsed pstates(%d) + Invalid Pstates (%d))\n",
+			nr_pstates, j, invalid);
+	}
 }
 
 static void parse_vid(struct occ_pstate_table *occ_data,
@@ -488,9 +697,10 @@ static bool add_cpu_pstate_properties(struct dt_node *power_mgt,
 {
 	struct proc_chip *chip;
 	uint64_t occ_data_area;
-	struct occ_pstate_table *occ_data;
+	struct occ_pstate_table *occ_data = NULL;
+	struct occ_dynamic_data *occ_dyn_data;
 	/* Arrays for device tree */
-	u32 *dt_id, *dt_freq;
+	__be32 *dt_id, *dt_freq;
 	int pmax, pmin, pnom;
 	u8 nr_pstates;
 	bool ultra_turbo_supported;
@@ -498,24 +708,34 @@ static bool add_cpu_pstate_properties(struct dt_node *power_mgt,
 
 	prlog(PR_DEBUG, "OCC: CPU pstate state device tree init\n");
 
-	/* Find first chip */
-	chip = next_chip(NULL);
+	/*
+	 * Find first chip with an OCC which has as a valid
+	 * pstate-table
+	 */
+	for_each_chip(chip) {
+		occ_data = get_occ_pstate_table(chip);
 
-	/* Extract PState information from OCC */
-	occ_data = get_occ_pstate_table(chip);
+		/* Dump first 16 bytes of PState table */
+		occ_data_area = (uint64_t)occ_data;
+		prlog(PR_DEBUG, "OCC: Chip %02d :Data (%16llx) = %16llx %16llx\n",
+			chip->id, occ_data_area,
+			be64_to_cpu(*(__be64 *)occ_data_area),
+			be64_to_cpu(*(__be64 *)(occ_data_area + 8)));
 
-	/* Dump first 16 bytes of PState table */
-	occ_data_area = (uint64_t)occ_data;
-	prlog(PR_DEBUG, "OCC: Data (%16llx) = %16llx %16llx\n",
-	      occ_data_area,
-	      *(uint64_t *)occ_data_area,
-	      *(uint64_t *)(occ_data_area + 8));
+		if (occ_data->valid)
+			break;
+		/*
+		 * XXX : Error out if !occ_data->valid but Chip has at
+		 * least one EX Unit?
+		 */
+	}
 
+	assert(occ_data);
 	if (!occ_data->valid) {
 		/**
 		 * @fwts-label OCCInvalidPStateTableDT
-		 * @fwts-advice The pstate table for the first chip
-		 * was not valid. This means that OCC (On Chip
+		 * @fwts-advice The pstate tables for none of the chips
+		 * are valid. This means that OCC (On Chip
 		 * Controller) will be non-functional. This means
 		 * that CPU idle states and CPU frequency scaling
 		 * will not be functional as OPAL doesn't populate
@@ -538,7 +758,7 @@ static bool add_cpu_pstate_properties(struct dt_node *power_mgt,
 	/* Parse Pmax, Pmin and Pnominal */
 	switch (major) {
 	case 0:
-		if (proc_gen == proc_gen_p9) {
+		if (proc_gen >= proc_gen_p9) {
 			/**
 			 * @fwts-label OCCInvalidVersion02
 			 * @fwts-advice The PState table layout version is not
@@ -575,6 +795,15 @@ static bool add_cpu_pstate_properties(struct dt_node *power_mgt,
 		pmin = occ_data->v9.pstate_min;
 		pnom = occ_data->v9.pstate_nom;
 		pmax = occ_data->v9.pstate_ultra_turbo;
+		break;
+	case 0xA:
+		pmin = occ_data->v10.pstate_min;
+		pnom = occ_data->v10.pstate_fixed_freq;
+		occ_dyn_data = get_occ_dynamic_data(chip);
+		if (occ_dyn_data->v10.wof_enabled)
+			pmax = occ_data->v10.pstate_ultra_turbo;
+		else
+			pmax = occ_data->v10.pstate_fmax;
 		break;
 	default:
 		/**
@@ -621,7 +850,7 @@ static bool add_cpu_pstate_properties(struct dt_node *power_mgt,
 	nr_pstates = labs(pmax - pmin) + 1;
 	prlog(PR_DEBUG, "OCC: Version %x Min %d Nom %d Max %d Nr States %d\n",
 	      occ_data->version, pmin, pnom, pmax, nr_pstates);
-	if ((major == 0x9 && nr_pstates <= 1) ||
+	if (((major == 0x9 || major == 0xA) && nr_pstates <= 1) ||
 	    (major == 0 && (nr_pstates <= 1 || nr_pstates > 128))) {
 		/**
 		 * @fwts-label OCCInvalidPStateRange
@@ -637,9 +866,9 @@ static bool add_cpu_pstate_properties(struct dt_node *power_mgt,
 		return false;
 	}
 
-	dt_id = malloc(nr_pstates * sizeof(u32));
+	dt_id = malloc(nr_pstates * sizeof(__be32));
 	assert(dt_id);
-	dt_freq = malloc(nr_pstates * sizeof(u32));
+	dt_freq = malloc(nr_pstates * sizeof(__be32));
 	assert(dt_freq);
 
 	switch (major) {
@@ -651,15 +880,19 @@ static bool add_cpu_pstate_properties(struct dt_node *power_mgt,
 		parse_pstates_v9(occ_data, dt_id, dt_freq, nr_pstates,
 				 pmax, pmin);
 		break;
+	case 0xA:
+		parse_pstates_v10(occ_data, dt_id, dt_freq, nr_pstates,
+				 pmax, pmin);
+		break;
 	default:
 		return false;
 	}
 
 	/* Add the device-tree entries */
 	dt_add_property(power_mgt, "ibm,pstate-ids", dt_id,
-			nr_pstates * sizeof(u32));
+			nr_pstates * sizeof(__be32));
 	dt_add_property(power_mgt, "ibm,pstate-frequencies-mhz", dt_freq,
-			nr_pstates * sizeof(u32));
+			nr_pstates * sizeof(__be32));
 	dt_add_property_cells(power_mgt, "ibm,pstate-min", pmin);
 	dt_add_property_cells(power_mgt, "ibm,pstate-nominal", pnom);
 	dt_add_property_cells(power_mgt, "ibm,pstate-max", pmax);
@@ -675,7 +908,7 @@ static bool add_cpu_pstate_properties(struct dt_node *power_mgt,
 	if (ultra_turbo_supported) {
 		int pturbo, pultra_turbo;
 		u8 nr_cores = get_available_nr_cores_in_chip(chip->id);
-		u32 *dt_cmax;
+		__be32 *dt_cmax;
 
 		dt_cmax = malloc(nr_cores * sizeof(u32));
 		assert(dt_cmax);
@@ -684,13 +917,19 @@ static bool add_cpu_pstate_properties(struct dt_node *power_mgt,
 			pturbo = occ_data->v2.pstate_turbo;
 			pultra_turbo = occ_data->v2.pstate_ultra_turbo;
 			for (i = 0; i < nr_cores; i++)
-				dt_cmax[i] = occ_data->v2.core_max[i];
+				dt_cmax[i] = cpu_to_be32(occ_data->v2.core_max[i]);
 			break;
 		case 0x9:
 			pturbo = occ_data->v9.pstate_turbo;
 			pultra_turbo = occ_data->v9.pstate_ultra_turbo;
 			for (i = 0; i < nr_cores; i++)
-				dt_cmax[i] = occ_data->v9.core_max[i];
+				dt_cmax[i] = cpu_to_be32(occ_data->v9.core_max[i]);
+			break;
+		case 0xA:
+			pturbo = occ_data->v10.pstate_base;
+			pultra_turbo = occ_data->v10.pstate_ultra_turbo;
+			for (i = 0; i < nr_cores; i++)
+				dt_cmax[i] = cpu_to_be32(occ_data->v10.core_max[i]);
 			break;
 		default:
 			return false;
@@ -711,10 +950,11 @@ static bool add_cpu_pstate_properties(struct dt_node *power_mgt,
 		dt_add_property(power_mgt, "ibm,pstate-core-max", dt_cmax,
 				nr_cores * sizeof(u32));
 
+		dt_add_property_cells(power_mgt, "ibm,pstate-base", pturbo);
 		free(dt_cmax);
 	}
 
-	if (major == 0x9)
+	if (major == 0x9 || major == 0xA)
 		goto out;
 
 	dt_add_property_cells(power_mgt, "#address-cells", 2);
@@ -778,7 +1018,7 @@ static bool cpu_pstates_prepare_core(struct proc_chip *chip,
 	 *
 	 * Use the OR SCOM to set the required bits in PM_GP1 register
 	 * since the OCC might be mainpulating the PM_GP1 register as well.
-	 */ 
+	 */
 	rc = xscom_write(chip->id, XSCOM_ADDR_P8_EX_SLAVE(core, EX_PM_SET_GP1),
 			 EX_PM_SETUP_GP1_PM_SPR_OVERRIDE_EN);
 	if (rc) {
@@ -860,6 +1100,7 @@ static inline u8 get_cpu_throttle(struct proc_chip *chip)
 	case 0:
 		return pdata->v2.throttle;
 	case 0x9:
+	case 0xA:
 		data = get_occ_dynamic_data(chip);
 		return data->cpu_throttle;
 	default:
@@ -1133,7 +1374,9 @@ static inline void queue_occ_rsp_msg(int token, int rc)
 {
 	int ret;
 
-	ret = opal_queue_msg(OPAL_MSG_ASYNC_COMP, NULL, NULL, token, rc);
+	ret = opal_queue_msg(OPAL_MSG_ASYNC_COMP, NULL, NULL,
+			cpu_to_be64(token),
+			cpu_to_be64(rc));
 	if (ret)
 		prerror("OCC: Failed to queue OCC response status message\n");
 }
@@ -1267,7 +1510,7 @@ static void occ_cmd_interface_init(void)
 	struct occ_pstate_table *pdata;
 	struct dt_node *power_mgt;
 	struct proc_chip *chip;
-	int i = 0;
+	int i = 0, major;
 
 	/* Check if the OCC data is valid */
 	for_each_chip(chip) {
@@ -1278,7 +1521,8 @@ static void occ_cmd_interface_init(void)
 
 	chip = next_chip(NULL);
 	pdata = get_occ_pstate_table(chip);
-	if ((pdata->version >> 4) != 0x9)
+	major = pdata->version >> 4;
+	if (major != 0x9 || major != 0xA)
 		return;
 
 	for_each_chip(chip)
@@ -1291,11 +1535,18 @@ static void occ_cmd_interface_init(void)
 		pdata = get_occ_pstate_table(chip);
 		data = get_occ_dynamic_data(chip);
 		chips[i].chip_id = chip->id;
-		chips[i].occ_role = pdata->v9.occ_role;
 		chips[i].occ_state = &data->occ_state;
 		chips[i].valid = &pdata->valid;
 		chips[i].cmd = &data->cmd;
 		chips[i].rsp = &data->rsp;
+		switch (major) {
+		case 0x9:
+			chips[i].occ_role = pdata->v9.occ_role;
+			break;
+		case 0xA:
+			chips[i].occ_role = pdata->v10.occ_role;
+			break;
+		}
 		init_lock(&chips[i].queue_lock);
 		chips[i].cmd_in_progress = false;
 		chips[i].request_id = 0;
@@ -1400,7 +1651,7 @@ static struct opal_occ_cmd_data pcap_data = {
 	.cmd		= OCC_CMD_SET_POWER_CAP,
 };
 
-int occ_set_powercap(u32 handle, int token, u32 pcap)
+int __attribute__((__const__)) occ_set_powercap(u32 handle, int token, u32 pcap)
 {
 	struct occ_dynamic_data *ddata;
 	struct proc_chip *chip;
@@ -1607,7 +1858,7 @@ int occ_sensor_group_enable(u32 group_hndl, int token, bool enable)
 	return opal_occ_command(&chips[i], token, &sensor_mask_data);
 }
 
-void occ_add_sensor_groups(struct dt_node *sg, u32 *phandles, u32 *ptype,
+void occ_add_sensor_groups(struct dt_node *sg, __be32 *phandles, u32 *ptype,
 			   int nr_phandles, int chipid)
 {
 	struct group_info {
@@ -1694,7 +1945,7 @@ void occ_add_sensor_groups(struct dt_node *sg, u32 *phandles, u32 *ptype,
 		dt_add_property_cells(node, "ibm,chip-id", chipid);
 		dt_add_property_cells(node, "reg", handle);
 		if (groups[j].ops == OPAL_SENSOR_GROUP_ENABLE) {
-			u32 *_phandles;
+			__be32 *_phandles;
 			int k, pcount = 0;
 
 			_phandles = malloc(sizeof(u32) * nr_phandles);
@@ -1726,10 +1977,6 @@ void occ_pstates_init(void)
 	u8 domain_runs_at;
 	static bool occ_pstates_initialized;
 
-	/* OCC is supported in P8 and P9 */
-	if (proc_gen < proc_gen_p8)
-		return;
-
 	power_mgt = dt_find_by_path(dt_root, "/ibm,opal/power-mgt");
 	if (!power_mgt) {
 		/**
@@ -1755,6 +2002,7 @@ void occ_pstates_init(void)
 				"ibm,pstate-nominal",
 				"ibm,pstate-turbo",
 				"ibm,pstate-ultra-turbo",
+				"ibm,pstate-base",
 				"#address-cells",
 				"#size-cells",
 				};
@@ -1772,6 +2020,7 @@ void occ_pstates_init(void)
 		homer_opal_data_offset = P8_HOMER_OPAL_DATA_OFFSET;
 		break;
 	case proc_gen_p9:
+	case proc_gen_p10:
 		homer_opal_data_offset = P9_HOMER_OPAL_DATA_OFFSET;
 		break;
 	default:
@@ -1834,6 +2083,11 @@ void occ_pstates_init(void)
 	} else if (proc_gen == proc_gen_p9) {
 		freq_domain_mask = P9_PIR_QUAD_MASK;
 		domain_runs_at = FREQ_MAX_IN_DOMAIN;
+	} else if (proc_gen == proc_gen_p10) {
+		freq_domain_mask = P10_PIR_CHIP_MASK;
+		domain_runs_at = FREQ_MAX_IN_DOMAIN;
+	} else {
+		assert(0);
 	}
 
 	dt_add_property_cells(power_mgt, "freq-domain-mask", freq_domain_mask);
@@ -1887,7 +2141,7 @@ int find_master_and_slave_occ(uint64_t **master, uint64_t **slave,
 
 int occ_msg_queue_occ_reset(void)
 {
-	struct opal_occ_msg occ_msg = { OCC_RESET, 0, 0 };
+	struct opal_occ_msg occ_msg = { CPU_TO_BE64(OCC_RESET), 0, 0 };
 	struct proc_chip *chip;
 	int rc;
 
@@ -1975,8 +2229,8 @@ void occ_send_dummy_interrupt(void)
 	struct psi *psi;
 	struct proc_chip *chip = get_chip(this_cpu()->chip_id);
 
-	/* Emulators and P7 doesn't do this */
-	if (proc_gen < proc_gen_p8 || chip_quirk(QUIRK_NO_OCC_IRQ))
+	/* Emulators don't do this */
+	if (chip_quirk(QUIRK_NO_OCC_IRQ))
 		return;
 
 	/* Find a functional PSI. This ensures an interrupt even if
@@ -1999,6 +2253,11 @@ void occ_send_dummy_interrupt(void)
 			    OCB_OCI_OCIMISC_IRQ_OPAL_DUMMY);
 		break;
 	case proc_gen_p9:
+		xscom_write(psi->chip_id, P9_OCB_OCI_OCCMISC_OR,
+			    OCB_OCI_OCIMISC_IRQ |
+			    OCB_OCI_OCIMISC_IRQ_OPAL_DUMMY);
+		break;
+	case proc_gen_p10:
 		xscom_write(psi->chip_id, P9_OCB_OCI_OCCMISC_OR,
 			    OCB_OCI_OCIMISC_IRQ |
 			    OCB_OCI_OCIMISC_IRQ_OPAL_DUMMY);

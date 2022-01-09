@@ -1,18 +1,5 @@
-/* Copyright 2017 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2017-2019 IBM Corp. */
 
 #ifndef __PHYS_MAP_H
 #define __PHYS_MAP_H
@@ -33,6 +20,10 @@ enum phys_map_type {
 	PHB4_32BIT_MMIO,
 	PHB4_XIVE_ESB,
 	PHB4_REG_SPC,
+	PHB5_64BIT_MMIO,
+	PHB5_32BIT_MMIO,
+	PHB5_XIVE_ESB,
+	PHB5_REG_SPC,
 	NPU_OCAPI_MMIO,
 	XIVE_VC,
 	XIVE_PC,
@@ -52,14 +43,23 @@ enum phys_map_type {
 	PSIHB_ESB,
 	NX_RNG,
 	CENTAUR_SCOM,
+	MC_OCMB_CFG,
+	MC_OCMB_MMIO,
 	XSCOM,
-	RESV
+	RESV,
+	XIVE_NVC,
+	XIVE_NVPG,
+	XIVE_ESB,
+	XIVE_END,
 };
 
 extern void phys_map_get(uint64_t gcid, enum phys_map_type type,
 			 int index, uint64_t *addr, uint64_t *size);
 
-extern void phys_map_init(void);
+extern void __phys_map_get(uint64_t topology_idx, uint64_t gcid,
+			   enum phys_map_type type, int index, uint64_t *addr, uint64_t *size);
+
+extern void phys_map_init(unsigned long pvr);
 
 #endif /* __PHYS_MAP_H */
 

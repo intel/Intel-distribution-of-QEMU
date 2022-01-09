@@ -1,19 +1,5 @@
-/* Copyright 2013-2016 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
 
 #ifndef __ASTBMC_H
 #define __ASTBMC_H
@@ -61,22 +47,24 @@ struct slot_table_entry {
  * table for each slot (e.g. power limit, devfn != 0) then you need to
  * define the actual structure.
  */
-#define ST_BUILTIN_DEV(st_name, slot_name) \
+#define ST_BUILTIN_DEV(st_name, slot_name, ...) \
 static struct slot_table_entry st_name[] = \
 { \
 	{ \
 		.etype = st_pluggable_slot, \
 		.name = slot_name, \
+		##__VA_ARGS__ \
 	}, \
 	{ .etype = st_end }, \
 }
 
-#define ST_PLUGGABLE(st_name, slot_name) \
+#define ST_PLUGGABLE(st_name, slot_name, ...) \
 static struct slot_table_entry st_name[] = \
 { \
 	{ \
 		.etype = st_pluggable_slot, \
 		.name = slot_name, \
+		##__VA_ARGS__ \
 	}, \
 	{ .etype = st_end }, \
 }
@@ -89,11 +77,21 @@ static struct slot_table_entry st_name[] = \
 	##__VA_ARGS__ \
 }
 
+#define SW_BUILTIN(slot_name, port, ...) \
+{ \
+	.etype = st_builtin_dev, \
+	.name = slot_name, \
+	.location = ST_LOC_DEVFN(port, 0), \
+	##__VA_ARGS__ \
+}
+
 extern const struct bmc_hw_config bmc_hw_ast2400;
 extern const struct bmc_hw_config bmc_hw_ast2500;
+extern const struct bmc_hw_config bmc_hw_ast2600;
 extern const struct bmc_platform bmc_plat_ast2400_ami;
 extern const struct bmc_platform bmc_plat_ast2500_ami;
 extern const struct bmc_platform bmc_plat_ast2500_openbmc;
+extern const struct bmc_platform bmc_plat_ast2600_openbmc;
 
 extern void astbmc_early_init(void);
 extern int64_t astbmc_ipmi_reboot(void);

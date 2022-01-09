@@ -1,17 +1,7 @@
-/**
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
  * Copyright (c) 2018 YADRO
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2018-2019 IBM Corp.
  */
 
 #include <skiboot.h>
@@ -48,13 +38,13 @@
  * All fields have Big Endian byte order.
  */
 struct pciinv_device {
-	uint16_t	domain_num;
+	beint16_t	domain_num;
 	uint8_t		bus_num;
 	uint8_t		device_num;
 	uint8_t		func_num;
-	uint16_t	vendor_id;
-	uint16_t	device_id;
-	uint32_t	class_code;
+	beint16_t	vendor_id;
+	beint16_t	device_id;
+	beint32_t	class_code;
 	uint8_t		revision;
 } __packed;
 
@@ -277,9 +267,9 @@ static int pciinv_walk(struct phb *phb, struct pci_device *pd, void *data)
 
 	/* Fill the PCI device inventory description */
 	pack->device.domain_num = cpu_to_be16(phb->opal_id & 0xffff);
-	pack->device.bus_num = (pd->bdfn >> 8) & 0xff;
-	pack->device.device_num = (pd->bdfn >> 3) & 0x1f;
-	pack->device.func_num = pd->bdfn & 0x7;
+	pack->device.bus_num = PCI_BUS_NUM(pd->bdfn);
+	pack->device.device_num = PCI_DEV(pd->bdfn);
+	pack->device.func_num = PCI_FUNC(pd->bdfn);
 	pack->device.vendor_id = cpu_to_be16(PCI_VENDOR_ID(pd->vdid));
 	pack->device.device_id = cpu_to_be16(PCI_DEVICE_ID(pd->vdid));
 	pack->device.class_code = cpu_to_be32(pd->class & 0xffffff);

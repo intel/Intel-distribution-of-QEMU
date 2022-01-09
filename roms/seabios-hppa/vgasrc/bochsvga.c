@@ -23,98 +23,25 @@
  * Mode tables
  ****************************************************************/
 
-static struct bochsvga_mode
-{
-    u16 mode;
-    struct vgamode_s info;
-} bochsvga_modes[] VAR16 = {
-    /* standard modes */
-    { 0x100, { MM_PACKED, 640,  400,  8,  8, 16, SEG_GRAPH } },
-    { 0x101, { MM_PACKED, 640,  480,  8,  8, 16, SEG_GRAPH } },
-    { 0x102, { MM_PLANAR, 800,  600,  4,  8, 16, SEG_GRAPH } },
-    { 0x103, { MM_PACKED, 800,  600,  8,  8, 16, SEG_GRAPH } },
-    { 0x104, { MM_PLANAR, 1024, 768,  4,  8, 16, SEG_GRAPH } },
-    { 0x105, { MM_PACKED, 1024, 768,  8,  8, 16, SEG_GRAPH } },
-    { 0x106, { MM_PLANAR, 1280, 1024, 4,  8, 16, SEG_GRAPH } },
-    { 0x107, { MM_PACKED, 1280, 1024, 8,  8, 16, SEG_GRAPH } },
-    { 0x10D, { MM_DIRECT, 320,  200,  15, 8, 16, SEG_GRAPH } },
-    { 0x10E, { MM_DIRECT, 320,  200,  16, 8, 16, SEG_GRAPH } },
-    { 0x10F, { MM_DIRECT, 320,  200,  24, 8, 16, SEG_GRAPH } },
-    { 0x110, { MM_DIRECT, 640,  480,  15, 8, 16, SEG_GRAPH } },
-    { 0x111, { MM_DIRECT, 640,  480,  16, 8, 16, SEG_GRAPH } },
-    { 0x112, { MM_DIRECT, 640,  480,  24, 8, 16, SEG_GRAPH } },
-    { 0x113, { MM_DIRECT, 800,  600,  15, 8, 16, SEG_GRAPH } },
-    { 0x114, { MM_DIRECT, 800,  600,  16, 8, 16, SEG_GRAPH } },
-    { 0x115, { MM_DIRECT, 800,  600,  24, 8, 16, SEG_GRAPH } },
-    { 0x116, { MM_DIRECT, 1024, 768,  15, 8, 16, SEG_GRAPH } },
-    { 0x117, { MM_DIRECT, 1024, 768,  16, 8, 16, SEG_GRAPH } },
-    { 0x118, { MM_DIRECT, 1024, 768,  24, 8, 16, SEG_GRAPH } },
-    { 0x119, { MM_DIRECT, 1280, 1024, 15, 8, 16, SEG_GRAPH } },
-    { 0x11A, { MM_DIRECT, 1280, 1024, 16, 8, 16, SEG_GRAPH } },
-    { 0x11B, { MM_DIRECT, 1280, 1024, 24, 8, 16, SEG_GRAPH } },
-    { 0x11C, { MM_PACKED, 1600, 1200, 8,  8, 16, SEG_GRAPH } },
-    { 0x11D, { MM_DIRECT, 1600, 1200, 15, 8, 16, SEG_GRAPH } },
-    { 0x11E, { MM_DIRECT, 1600, 1200, 16, 8, 16, SEG_GRAPH } },
-    { 0x11F, { MM_DIRECT, 1600, 1200, 24, 8, 16, SEG_GRAPH } },
-    /* BOCHS modes */
-    { 0x140, { MM_DIRECT, 320,  200,  32, 8, 16, SEG_GRAPH } },
-    { 0x141, { MM_DIRECT, 640,  400,  32, 8, 16, SEG_GRAPH } },
-    { 0x142, { MM_DIRECT, 640,  480,  32, 8, 16, SEG_GRAPH } },
-    { 0x143, { MM_DIRECT, 800,  600,  32, 8, 16, SEG_GRAPH } },
-    { 0x144, { MM_DIRECT, 1024, 768,  32, 8, 16, SEG_GRAPH } },
-    { 0x145, { MM_DIRECT, 1280, 1024, 32, 8, 16, SEG_GRAPH } },
-    { 0x146, { MM_PACKED, 320,  200,  8,  8, 16, SEG_GRAPH } },
-    { 0x147, { MM_DIRECT, 1600, 1200, 32, 8, 16, SEG_GRAPH } },
-    { 0x148, { MM_PACKED, 1152, 864,  8,  8, 16, SEG_GRAPH } },
-    { 0x149, { MM_DIRECT, 1152, 864,  15, 8, 16, SEG_GRAPH } },
-    { 0x14a, { MM_DIRECT, 1152, 864,  16, 8, 16, SEG_GRAPH } },
-    { 0x14b, { MM_DIRECT, 1152, 864,  24, 8, 16, SEG_GRAPH } },
-    { 0x14c, { MM_DIRECT, 1152, 864,  32, 8, 16, SEG_GRAPH } },
-    { 0x175, { MM_DIRECT, 1280, 768,  16, 8, 16, SEG_GRAPH } },
-    { 0x176, { MM_DIRECT, 1280, 768,  24, 8, 16, SEG_GRAPH } },
-    { 0x177, { MM_DIRECT, 1280, 768,  32, 8, 16, SEG_GRAPH } },
-    { 0x178, { MM_DIRECT, 1280, 800,  16, 8, 16, SEG_GRAPH } },
-    { 0x179, { MM_DIRECT, 1280, 800,  24, 8, 16, SEG_GRAPH } },
-    { 0x17a, { MM_DIRECT, 1280, 800,  32, 8, 16, SEG_GRAPH } },
-    { 0x17b, { MM_DIRECT, 1280, 960,  16, 8, 16, SEG_GRAPH } },
-    { 0x17c, { MM_DIRECT, 1280, 960,  24, 8, 16, SEG_GRAPH } },
-    { 0x17d, { MM_DIRECT, 1280, 960,  32, 8, 16, SEG_GRAPH } },
-    { 0x17e, { MM_DIRECT, 1440, 900,  16, 8, 16, SEG_GRAPH } },
-    { 0x17f, { MM_DIRECT, 1440, 900,  24, 8, 16, SEG_GRAPH } },
-    { 0x180, { MM_DIRECT, 1440, 900,  32, 8, 16, SEG_GRAPH } },
-    { 0x181, { MM_DIRECT, 1400, 1050, 16, 8, 16, SEG_GRAPH } },
-    { 0x182, { MM_DIRECT, 1400, 1050, 24, 8, 16, SEG_GRAPH } },
-    { 0x183, { MM_DIRECT, 1400, 1050, 32, 8, 16, SEG_GRAPH } },
-    { 0x184, { MM_DIRECT, 1680, 1050, 16, 8, 16, SEG_GRAPH } },
-    { 0x185, { MM_DIRECT, 1680, 1050, 24, 8, 16, SEG_GRAPH } },
-    { 0x186, { MM_DIRECT, 1680, 1050, 32, 8, 16, SEG_GRAPH } },
-    { 0x187, { MM_DIRECT, 1920, 1200, 16, 8, 16, SEG_GRAPH } },
-    { 0x188, { MM_DIRECT, 1920, 1200, 24, 8, 16, SEG_GRAPH } },
-    { 0x189, { MM_DIRECT, 1920, 1200, 32, 8, 16, SEG_GRAPH } },
-    { 0x18a, { MM_DIRECT, 2560, 1600, 16, 8, 16, SEG_GRAPH } },
-    { 0x18b, { MM_DIRECT, 2560, 1600, 24, 8, 16, SEG_GRAPH } },
-    { 0x18c, { MM_DIRECT, 2560, 1600, 32, 8, 16, SEG_GRAPH } },
-    { 0x18d, { MM_DIRECT, 1280, 720,  16, 8, 16, SEG_GRAPH } },
-    { 0x18e, { MM_DIRECT, 1280, 720,  24, 8, 16, SEG_GRAPH } },
-    { 0x18f, { MM_DIRECT, 1280, 720,  32, 8, 16, SEG_GRAPH } },
-    { 0x190, { MM_DIRECT, 1920, 1080, 16, 8, 16, SEG_GRAPH } },
-    { 0x191, { MM_DIRECT, 1920, 1080, 24, 8, 16, SEG_GRAPH } },
-    { 0x192, { MM_DIRECT, 1920, 1080, 32, 8, 16, SEG_GRAPH } },
-};
+#include "svgamodes.h"
 
 static int dispi_found VAR16 = 0;
 
 static int is_bochsvga_mode(struct vgamode_s *vmode_g)
 {
-    return (vmode_g >= &bochsvga_modes[0].info
-            && vmode_g <= &bochsvga_modes[ARRAY_SIZE(bochsvga_modes)-1].info);
+    unsigned int mcount = GET_GLOBAL(svga_mcount);
+
+    return (vmode_g >= &svga_modes[0].info
+            && vmode_g <= &svga_modes[mcount-1].info);
 }
 
 struct vgamode_s *bochsvga_find_mode(int mode)
 {
-    struct bochsvga_mode *m = bochsvga_modes;
+    struct generic_svga_mode *m = svga_modes;
+    unsigned int mcount = GET_GLOBAL(svga_mcount);
+
     if (GET_GLOBAL(dispi_found))
-        for (; m < &bochsvga_modes[ARRAY_SIZE(bochsvga_modes)]; m++)
+        for (; m < &svga_modes[mcount]; m++)
             if (GET_GLOBAL(m->mode) == mode)
                 return &m->info;
     return stdvga_find_mode(mode);
@@ -123,9 +50,11 @@ struct vgamode_s *bochsvga_find_mode(int mode)
 void
 bochsvga_list_modes(u16 seg, u16 *dest, u16 *last)
 {
-    struct bochsvga_mode *m = bochsvga_modes;
+    struct generic_svga_mode *m = svga_modes;
+    unsigned int mcount = GET_GLOBAL(svga_mcount);
+
     if (GET_GLOBAL(dispi_found)) {
-        for (; m < &bochsvga_modes[ARRAY_SIZE(bochsvga_modes)] && dest<last; m++) {
+        for (; m < &svga_modes[mcount] && dest<last; m++) {
             u16 mode = GET_GLOBAL(m->mode);
             if (mode == 0xffff)
                 continue;
@@ -143,21 +72,13 @@ bochsvga_list_modes(u16 seg, u16 *dest, u16 *last)
 
 static inline u16 dispi_read(u16 reg)
 {
-#if CONFIG_PARISC
-    return le16_to_cpu(*(u16 *)(parisc_vga_mmio + 0x500 + (reg<<1)));
-#else
     outw(reg, VBE_DISPI_IOPORT_INDEX);
     return inw(VBE_DISPI_IOPORT_DATA);
-#endif
 }
 static inline void dispi_write(u16 reg, u16 val)
 {
-#if CONFIG_PARISC
-    *(u16 *)(parisc_vga_mmio + 0x500 + (reg<<1)) = cpu_to_le16(val);
-#else
     outw(reg, VBE_DISPI_IOPORT_INDEX);
     outw(val, VBE_DISPI_IOPORT_DATA);
-#endif
 }
 
 static u8
@@ -404,19 +325,25 @@ bochsvga_setup(void)
         return 0;
 
     u32 lfb_addr = VBE_DISPI_LFB_PHYSICAL_ADDRESS;
+    u32 io_addr = 0;
     int bdf = GET_GLOBAL(VgaBDF);
     if (CONFIG_VGA_PCI && bdf >= 0) {
         u16 vendor = pci_config_readw(bdf, PCI_VENDOR_ID);
-        int barid;
+        int barid, bar;
         switch (vendor) {
         case 0x15ad: /* qemu vmware vga */
             barid = 1;
             break;
-        default: /* stdvga, qxl, virtio */
+        case 0x1234: /* stdvga */
+            bar = pci_config_readl(bdf, PCI_BASE_ADDRESS_2);
+            io_addr = bar & PCI_BASE_ADDRESS_IO_MASK;
+            barid = 0;
+            break;
+        default: /* qxl, virtio */
             barid = 0;
             break;
         }
-        u32 bar = pci_config_readl(bdf, PCI_BASE_ADDRESS_0 + barid * 4);
+        bar = pci_config_readl(bdf, PCI_BASE_ADDRESS_0 + barid * 4);
         lfb_addr = bar & PCI_BASE_ADDRESS_MEM_MASK;
         dprintf(1, "VBE DISPI: bdf %02x:%02x.%x, bar %d\n", pci_bdf_to_bus(bdf)
                 , pci_bdf_to_dev(bdf), pci_bdf_to_fn(bdf), barid);
@@ -437,8 +364,9 @@ bochsvga_setup(void)
     u16 max_xres = dispi_read(VBE_DISPI_INDEX_XRES);
     u16 max_bpp = dispi_read(VBE_DISPI_INDEX_BPP);
     dispi_write(VBE_DISPI_INDEX_ENABLE, en);
-    struct bochsvga_mode *m = bochsvga_modes;
-    for (; m < &bochsvga_modes[ARRAY_SIZE(bochsvga_modes)]; m++) {
+    struct generic_svga_mode *m = svga_modes;
+    unsigned int mcount = GET_GLOBAL(svga_mcount);
+    for (; m < &svga_modes[mcount]; m++) {
         u16 width = GET_GLOBAL(m->info.width);
         u16 height = GET_GLOBAL(m->info.height);
         u8 depth = GET_GLOBAL(m->info.depth);
@@ -449,6 +377,13 @@ bochsvga_setup(void)
             dprintf(1, "Removing mode %x\n", GET_GLOBAL(m->mode));
             SET_VGA(m->mode, 0xffff);
         }
+    }
+
+    if (io_addr) {
+        int i;
+        u8 *edid = (void*)(io_addr);
+        for (i = 0; i < sizeof(VBE_edid); i++)
+            SET_VGA(VBE_edid[i], readb(edid + i));
     }
 
     return 0;

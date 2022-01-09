@@ -1,3 +1,22 @@
+qemu (1:6.2+dfsg-1) unstable; urgency=medium
+
+  [ Christian Ehrhardt ]
+  * 6.2.0 upstream release
+  * d/get-orig-source.sh: remove pc-bios/multiboot_dma.bin in dfsg-clean
+  * Drop patches upstream in v6.2.0
+  * d/p/spelling.diff: update for v6.2.0 (partially accepted)
+  * d/rules: use new --disable-install-blobs build arg
+  * Revert "make fuse debian-only, since libfuse3 in ubuntu is in universe",
+    it is now in main (LP: #1934510)
+  * d/rules: bump skiboot version for qemu v6.2.0
+  * d/p/ignore-roms-dependency-in-qtest.patch: fix meson issue
+    due to dfsg removal of blobs
+  * d/rules: drop --disable-fdt on microvm builds
+    (now strictly required on any x86 build)
+  * d/rules: select default PARISC config for hppa-firmware
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 09 Jan 2022 12:52:10 +0300
+
 qemu (1:6.1+dfsg-8) unstable; urgency=medium
 
   * fix keymaps definitions placement in last upload

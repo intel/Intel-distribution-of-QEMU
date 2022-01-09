@@ -1,17 +1,6 @@
-/**
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
  * Copyright (c) 2019 YADRO
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
  */
 
 #include <skiboot.h>
@@ -45,6 +34,26 @@ static const struct slot_table_entry nicole_phb_table[] = {
 	{ .etype = st_end },
 };
 
+/* Fixup the system VPD EEPROM size.
+ *
+ * Hostboot doesn't export the correct description for EEPROMs, as a result,
+ * all EEPROMs in the system work in "atmel,24c128" compatibility mode (16KiB).
+ * Nicole platform has 32KiB EEPROM for the system VPD.
+ */
+static void vpd_dt_fixup(void)
+{
+	struct dt_node* vpd_eeprom = dt_find_by_path(dt_root,
+		"/xscom@603fc00000000/i2cm@a2000/i2c-bus@0/eeprom@50");
+
+	if (vpd_eeprom) {
+		dt_check_del_prop(vpd_eeprom, "compatible");
+		dt_add_property_string(vpd_eeprom, "compatible", "atmel,24c256");
+
+		dt_check_del_prop(vpd_eeprom, "label");
+		dt_add_property_string(vpd_eeprom, "label", "system-vpd");
+	}
+}
+
 static bool nicole_probe(void)
 {
 	if (!dt_node_is_compatible(dt_root, "YADRO,nicole"))
@@ -55,6 +64,9 @@ static bool nicole_probe(void)
 
 	/* Setup UART for use by OPAL (Linux hvc) */
 	uart_set_console_policy(UART_CONSOLE_OPAL);
+
+	/* Fixup system VPD EEPROM size */
+	vpd_dt_fixup();
 
 	slot_table_init(nicole_phb_table);
 

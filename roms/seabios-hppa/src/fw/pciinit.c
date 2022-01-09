@@ -296,12 +296,10 @@ static void intel_igd_setup(struct pci_device *dev, void *arg)
 {
     struct romfile_s *opregion = romfile_find("etc/igd-opregion");
     u64 bdsm_size = le64_to_cpu(romfile_loadint("etc/igd-bdsm-size", 0));
-    void *addr;
-    u16 bdf = dev->bdf;
 
     /* Apply OpRegion to any Intel VGA device, more than one is undefined */
     if (opregion && opregion->size) {
-        addr = memalign_high(PAGE_SIZE, opregion->size);
+        void *addr = memalign_high(PAGE_SIZE, opregion->size);
         if (!addr) {
             warn_noalloc();
             return;
@@ -312,16 +310,15 @@ static void intel_igd_setup(struct pci_device *dev, void *arg)
             return;
         }
 
-        pci_config_writel(bdf, 0xFC, cpu_to_le32((u32)addr));
+        pci_config_writel(dev->bdf, 0xFC, cpu_to_le32((u32)addr));
 
-        dprintf(1, "Intel IGD OpRegion enabled at 0x%08x, size %dKB, dev "
-                "%02x:%02x.%x\n", (u32)addr, opregion->size >> 10,
-                pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf), pci_bdf_to_fn(bdf));
+        dprintf(1, "Intel IGD OpRegion enabled at 0x%08x, size %dKB, dev %pP\n"
+                , (u32)addr, opregion->size >> 10, dev);
     }
 
     /* Apply BDSM only to Intel VGA at 00:02.0 */
-    if (bdsm_size && (bdf == pci_to_bdf(0, 2, 0))) {
-        addr = memalign_tmphigh(1024 * 1024, bdsm_size);
+    if (bdsm_size && (dev->bdf == pci_to_bdf(0, 2, 0))) {
+        void *addr = memalign_tmphigh(1024 * 1024, bdsm_size);
         if (!addr) {
             warn_noalloc();
             return;
@@ -329,10 +326,10 @@ static void intel_igd_setup(struct pci_device *dev, void *arg)
 
         e820_add((u32)addr, bdsm_size, E820_RESERVED);
 
-        pci_config_writel(bdf, 0x5C, cpu_to_le32((u32)addr));
+        pci_config_writel(dev->bdf, 0x5C, cpu_to_le32((u32)addr));
 
-        dprintf(1, "Intel IGD BDSM enabled at 0x%08x, size %lldMB, dev "
-                "00:02.0\n", (u32)addr, bdsm_size >> 20);
+        dprintf(1, "Intel IGD BDSM enabled at 0x%08x, size %lldMB, dev %pP\n"
+                , (u32)addr, bdsm_size >> 20, dev);
     }
 }
 
@@ -487,6 +484,7 @@ static void mch_mmconfig_setup(u16 bdf)
     pci_config_writel(bdf, Q35_HOST_BRIDGE_PCIEXBAR, 0);
     pci_config_writel(bdf, Q35_HOST_BRIDGE_PCIEXBAR + 4, upper);
     pci_config_writel(bdf, Q35_HOST_BRIDGE_PCIEXBAR, lower);
+    pci_enable_mmconfig(Q35_HOST_BRIDGE_PCIEXBAR_ADDR, "q35");
 }
 
 static void mch_mem_addr_setup(struct pci_device *dev, void *arg)
@@ -532,18 +530,6 @@ static void dino_mem_addr_setup(struct pci_device *dev, void *arg)
     outl(0x7ffffffe, DINO_HPA + 0x060); /* Set DINO_IO_ADDR_EN */
     // outl(0x00000001, DINO_HPA + 0x05c); /* Set IO_FBB_EN */
     // outl(0x0000006f, DINO_HPA + 0x810); /* Set PCICMD */
-#if 0
-m01 ghost_em write1 0xfffc0020 0xff000001      /* Set Flex                 */
-m02 ghost_em write1 0xff000038 0x00000080      /* Set IO_CONTROL           */
-m03 ghost_em write1 0xff000804 0x00000000      /* Set PAMR                 */
-m04 ghost_em write1 0xff000808 0x00000000      /* Set PAPR                 */
-m05 ghost_em write1 0xff00005c 0x00000001      /* Set IO_FBB_EN            */
-m06 ghost_em write1 0xff000060 0x0000fffe      /* Set IO_ADDR_EN           */
-m07 ghost_em write1 0xff00080c 0x00000000      /* Set DAMODE               */
-m08 ghost_em write1 0xff000824 0x00000000      /* Set PCIROR read hint=1   */
-m09 ghost_em write1 0xff000828 0x00000000      /* Set PCIWOR write hint=1  */
-m10 ghost_em write1 0xff000810 0x0000006f      /* Set PCICMD reset PCI     */
-#endif
 
     pci_slot_get_irq = dino_pci_slot_get_irq;
 

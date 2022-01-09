@@ -56,7 +56,6 @@ allocate_pmm(u32 size, int highmem, int aligned)
         dprintf(1, "Attempting to allocate %u bytes %s via pmm call to %04x:%04x\n"
                 , size, highmem ? "highmem" : "lowmem"
                 , entry.seg, entry.offset);
-#if CONFIG_X86
         u16 res1, res2;
         u16 flags = 8 |
             ( highmem ? 2 : 1 )|
@@ -75,9 +74,6 @@ allocate_pmm(u32 size, int highmem, int aligned)
             : "+r" (entry.segoff), "+r" (size), "+r" (flags),
               "=a" (res1), "=d" (res2) : : "cc", "memory");
         u32 res = res1 | (res2 << 16);
-#else
-        u32 res = 0;
-#endif
         if (!res || res == PMM_FUNCTION_NOT_SUPPORTED)
             return 0;
         return res;
@@ -157,11 +153,7 @@ init_bios_area(void)
 int VgaBDF VAR16 = -1;
 int HaveRunInit VAR16;
 
-#if CONFIG_PARISC
-void __VISIBLE
-#else
 void VISIBLE16
-#endif
 vga_post(struct bregs *regs)
 {
     serial_debug_preinit();
@@ -192,10 +184,8 @@ vga_post(struct bregs *regs)
     if (CONFIG_VGA_STDVGA_PORTS)
         stdvga_build_video_param();
 
-#if CONFIG_X86
     extern void entry_10(void);
     SET_IVT(0x10, SEGOFF(get_global_seg(), (u32)entry_10));
-#endif
 
     allocate_extra_stack();
 
@@ -203,12 +193,10 @@ vga_post(struct bregs *regs)
 
     SET_VGA(HaveRunInit, 1);
 
-#if !CONFIG_PARISC
     // Fixup checksum
     extern u8 _rom_header_size, _rom_header_checksum;
     SET_VGA(_rom_header_checksum, 0);
     u8 sum = -checksum_far(get_global_seg(), 0,
                            GET_GLOBAL(_rom_header_size) * 512);
     SET_VGA(_rom_header_checksum, sum);
-#endif
 }

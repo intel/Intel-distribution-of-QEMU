@@ -1,17 +1,8 @@
-/* Copyright 2013-2014 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Excuse me, you do work for me now?
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
 
 #include <skiboot.h>
@@ -203,7 +194,8 @@ void add_opal_interrupts(void)
 {
 	struct irq_source *is;
 	unsigned int i, ns, tns = 0, count = 0;
-	uint32_t *irqs = NULL, isn;
+	uint32_t isn;
+	__be32 *irqs = NULL;
 	char *names = NULL;
 
 	lock(&irq_lock);
@@ -240,8 +232,8 @@ void add_opal_interrupts(void)
 				names[tns++] = 0;
 			i = count++;
 			irqs = realloc(irqs, 8 * count);
-			irqs[i*2] = isn;
-			irqs[i*2+1] = iflags;
+			irqs[i*2] = cpu_to_be32(isn);
+			irqs[i*2+1] = cpu_to_be32(iflags);
 		}
 	}
 	unlock(&irq_lock);
@@ -448,9 +440,11 @@ static int64_t opal_set_xive(uint32_t isn, uint16_t server, uint8_t priority)
 }
 opal_call(OPAL_SET_XIVE, opal_set_xive, 3);
 
-static int64_t opal_get_xive(uint32_t isn, uint16_t *server, uint8_t *priority)
+static int64_t opal_get_xive(uint32_t isn, __be16 *server, uint8_t *priority)
 {
 	struct irq_source *is = irq_find_source(isn);
+	uint16_t s;
+	int64_t ret;
 
 	if (!opal_addr_valid(server))
 		return OPAL_PARAMETER;
@@ -458,7 +452,9 @@ static int64_t opal_get_xive(uint32_t isn, uint16_t *server, uint8_t *priority)
 	if (!is || !is->ops->get_xive)
 		return OPAL_PARAMETER;
 
-	return is->ops->get_xive(is, isn, server, priority);
+	ret = is->ops->get_xive(is, isn, &s, priority);
+	*server = cpu_to_be16(s);
+	return ret;
 }
 opal_call(OPAL_GET_XIVE, opal_get_xive, 3);
 

@@ -38,10 +38,6 @@ struct segoff_s {
     };
 };
 
-extern unsigned long parisc_vga_mem;
-extern unsigned long parisc_vga_mmio;
-
-
 #ifdef MANUAL_NO_JUMP_TABLE
 # define default case 775324556: asm(""); default
 #endif
@@ -111,8 +107,8 @@ extern void __force_link_error__only_in_16bit(void) __noreturn;
 # define VISIBLE32FLAT __section(".text.runtime." UNIQSEC) __VISIBLE
 # define VISIBLE32INIT __section(".text.init." UNIQSEC) __VISIBLE
 # define VISIBLE32SEG
-# define VAR16 // __section(".discard.var16." UNIQSEC)
-# define VAR32SEG // __section(".discard.var32seg." UNIQSEC)
+# define VAR16 __section(".discard.var16." UNIQSEC)
+# define VAR32SEG __section(".discard.var32seg." UNIQSEC)
 # define VARLOW __section(".data.varlow." UNIQSEC) __VISIBLE __weak
 # define VARFSEG __section(".data.varfseg." UNIQSEC) __VISIBLE
 # define VARFSEGFIXED(addr) __section(".fixedaddr." __stringify(addr)) __VISIBLE __aligned(1)

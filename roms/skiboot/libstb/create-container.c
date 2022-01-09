@@ -1,18 +1,5 @@
-/* Copyright 2017 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2017-2018 IBM Corp. */
 
 #include <config.h>
 
@@ -108,7 +95,7 @@ void getPublicKeyRaw(ecc_key_t *pubkeyraw, char *filename)
 		 * with a leading byte of 0x04, indicating an uncompressed key. */
 		int fdin, r;
 		struct stat s;
-		void *infile = NULL;
+		void *infile = MAP_FAILED;
 
 		fdin = open(filename, O_RDONLY);
 		if (fdin <= 0)
@@ -123,7 +110,7 @@ void getPublicKeyRaw(ecc_key_t *pubkeyraw, char *filename)
 
 		close(fdin);
 
-		if (!infile || (*(unsigned char*) infile != 0x04)) {
+		if ((infile == MAP_FAILED) || (*(unsigned char*) infile != 0x04)) {
 			die(EX_DATAERR,
 					"File \"%s\" is not in expected format (private or public key in PEM, or public key RAW)",
 					filename);
@@ -161,7 +148,7 @@ void getSigRaw(ecc_signature_t *sigraw, char *filename)
 		die(EX_NOINPUT, "Cannot stat sig file: %s", filename);
 
 	infile = mmap(NULL, s.st_size, PROT_READ, MAP_PRIVATE, fdin, 0);
-	if (!infile)
+	if (infile == MAP_FAILED)
 		die(EX_OSERR, "%s", "Cannot mmap file");
 
 	close(fdin);
@@ -477,7 +464,7 @@ int main(int argc, char* argv[])
 		die(EX_NOINPUT, "Cannot stat payload file: %s", params.payloadfn);
 
 	infile = mmap(NULL, payload_st.st_size, PROT_READ, MAP_PRIVATE, fdin, 0);
-	if (!infile)
+	if (infile == MAP_FAILED)
 		die(EX_OSERR, "%s", "Cannot mmap file");
 
 	fdout = open(params.imagefn, O_WRONLY | O_CREAT | O_TRUNC,

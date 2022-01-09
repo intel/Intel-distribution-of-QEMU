@@ -1,17 +1,8 @@
-/* Copyright 2013-2014 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * PCIe OPAL Calls
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
 
 #include <skiboot.h>
@@ -67,9 +58,38 @@ OPAL_PCICFG_ACCESS_WRITE(write_byte,		write8, uint8_t)
 OPAL_PCICFG_ACCESS_WRITE(write_half_word,	write16, uint16_t)
 OPAL_PCICFG_ACCESS_WRITE(write_word,		write32, uint32_t)
 
+static int64_t opal_pci_config_read_half_word_be(uint64_t phb_id,
+						 uint64_t bus_dev_func,
+						 uint64_t offset,
+						 __be16 *__data)
+{
+	uint16_t data;
+	int64_t rc;
+
+	rc = opal_pci_config_read_half_word(phb_id, bus_dev_func, offset, &data);
+	*__data = cpu_to_be16(data);
+
+	return rc;
+}
+
+static int64_t opal_pci_config_read_word_be(uint64_t phb_id,
+						 uint64_t bus_dev_func,
+						 uint64_t offset,
+						 __be32 *__data)
+{
+	uint32_t data;
+	int64_t rc;
+
+	rc = opal_pci_config_read_word(phb_id, bus_dev_func, offset, &data);
+	*__data = cpu_to_be32(data);
+
+	return rc;
+}
+
+
 opal_call(OPAL_PCI_CONFIG_READ_BYTE, opal_pci_config_read_byte, 4);
-opal_call(OPAL_PCI_CONFIG_READ_HALF_WORD, opal_pci_config_read_half_word, 4);
-opal_call(OPAL_PCI_CONFIG_READ_WORD, opal_pci_config_read_word, 4);
+opal_call(OPAL_PCI_CONFIG_READ_HALF_WORD, opal_pci_config_read_half_word_be, 4);
+opal_call(OPAL_PCI_CONFIG_READ_WORD, opal_pci_config_read_word_be, 4);
 opal_call(OPAL_PCI_CONFIG_WRITE_BYTE, opal_pci_config_write_byte, 4);
 opal_call(OPAL_PCI_CONFIG_WRITE_HALF_WORD, opal_pci_config_write_half_word, 4);
 opal_call(OPAL_PCI_CONFIG_WRITE_WORD, opal_pci_config_write_word, 4);
@@ -96,14 +116,15 @@ void opal_pci_eeh_clear_evt(uint64_t phb_id)
 
 static int64_t opal_pci_eeh_freeze_status(uint64_t phb_id, uint64_t pe_number,
 					  uint8_t *freeze_state,
-					  uint16_t *pci_error_type,
-					  uint64_t *phb_status)
+					  __be16 *__pci_error_type,
+					  __be64 *__phb_status)
 {
 	struct phb *phb = pci_get_phb(phb_id);
+	uint16_t pci_error_type;
 	int64_t rc;
 
-	if (!opal_addr_valid(freeze_state) || !opal_addr_valid(pci_error_type)
-		|| !opal_addr_valid(phb_status))
+	if (!opal_addr_valid(freeze_state) || !opal_addr_valid(__pci_error_type)
+		|| !opal_addr_valid(__phb_status))
 		return OPAL_PARAMETER;
 
 	if (!phb)
@@ -112,12 +133,13 @@ static int64_t opal_pci_eeh_freeze_status(uint64_t phb_id, uint64_t pe_number,
 		return OPAL_UNSUPPORTED;
 	phb_lock(phb);
 
-	if (phb_status)
+	if (__phb_status)
 		prlog(PR_ERR, "PHB#%04llx: %s: deprecated PHB status\n",
 				phb_id, __func__);
 
 	rc = phb->ops->eeh_freeze_status(phb, pe_number, freeze_state,
-					 pci_error_type, NULL);
+					 &pci_error_type, NULL);
+	*__pci_error_type = cpu_to_be16(pci_error_type);
 	phb_unlock(phb);
 
 	return rc;
@@ -380,12 +402,14 @@ opal_call(OPAL_PCI_SET_XIVE_PE, opal_pci_set_xive_pe, 3);
 
 static int64_t opal_get_msi_32(uint64_t phb_id, uint32_t mve_number,
 			       uint32_t xive_num, uint8_t msi_range,
-			       uint32_t *msi_address, uint32_t *message_data)
+			       __be32 *__msi_address, __be32 *__message_data)
 {
 	struct phb *phb = pci_get_phb(phb_id);
+	uint32_t msi_address;
+	uint32_t message_data;
 	int64_t rc;
 
-	if (!opal_addr_valid(msi_address) || !opal_addr_valid(message_data))
+	if (!opal_addr_valid(__msi_address) || !opal_addr_valid(__message_data))
 		return OPAL_PARAMETER;
 
 	if (!phb)
@@ -394,8 +418,11 @@ static int64_t opal_get_msi_32(uint64_t phb_id, uint32_t mve_number,
 		return OPAL_UNSUPPORTED;
 	phb_lock(phb);
 	rc = phb->ops->get_msi_32(phb, mve_number, xive_num, msi_range,
-				  msi_address, message_data);
+				  &msi_address, &message_data);
 	phb_unlock(phb);
+
+	*__msi_address = cpu_to_be32(msi_address);
+	*__message_data = cpu_to_be32(message_data);
 
 	return rc;
 }
@@ -403,12 +430,14 @@ opal_call(OPAL_GET_MSI_32, opal_get_msi_32, 6);
 
 static int64_t opal_get_msi_64(uint64_t phb_id, uint32_t mve_number,
 			       uint32_t xive_num, uint8_t msi_range,
-			       uint64_t *msi_address, uint32_t *message_data)
+			       __be64 *__msi_address, __be32 *__message_data)
 {
 	struct phb *phb = pci_get_phb(phb_id);
+	uint64_t msi_address;
+	uint32_t message_data;
 	int64_t rc;
 
-	if (!opal_addr_valid(msi_address) || !opal_addr_valid(message_data))
+	if (!opal_addr_valid(__msi_address) || !opal_addr_valid(__message_data))
 		return OPAL_PARAMETER;
 
 	if (!phb)
@@ -417,8 +446,11 @@ static int64_t opal_get_msi_64(uint64_t phb_id, uint32_t mve_number,
 		return OPAL_UNSUPPORTED;
 	phb_lock(phb);
 	rc = phb->ops->get_msi_64(phb, mve_number, xive_num, msi_range,
-				  msi_address, message_data);
+				  &msi_address, &message_data);
 	phb_unlock(phb);
+
+	*__msi_address = cpu_to_be64(msi_address);
+	*__message_data = cpu_to_be32(message_data);
 
 	return rc;
 }
@@ -469,6 +501,46 @@ static int64_t opal_pci_map_pe_dma_window_real(uint64_t phb_id,
 	return rc;
 }
 opal_call(OPAL_PCI_MAP_PE_DMA_WINDOW_REAL, opal_pci_map_pe_dma_window_real, 5);
+
+static int64_t opal_phb_set_option(uint64_t phb_id, uint64_t opt,
+				   uint64_t setting)
+{
+	struct phb *phb = pci_get_phb(phb_id);
+	int64_t rc;
+
+	if (!phb)
+		return OPAL_PARAMETER;
+
+	if (!phb->ops->set_option)
+		return OPAL_UNSUPPORTED;
+
+	phb_lock(phb);
+	rc = phb->ops->set_option(phb, opt, setting);
+	phb_unlock(phb);
+
+	return rc;
+}
+opal_call(OPAL_PHB_SET_OPTION, opal_phb_set_option, 3);
+
+static int64_t opal_phb_get_option(uint64_t phb_id, uint64_t opt,
+				   __be64 *setting)
+{
+	struct phb *phb = pci_get_phb(phb_id);
+	int64_t rc;
+
+	if (!phb || !setting)
+		return OPAL_PARAMETER;
+
+	if (!phb->ops->get_option)
+		return OPAL_UNSUPPORTED;
+
+	phb_lock(phb);
+	rc = phb->ops->get_option(phb, opt, setting);
+	phb_unlock(phb);
+
+	return rc;
+}
+opal_call(OPAL_PHB_GET_OPTION, opal_phb_get_option, 3);
 
 static int64_t opal_pci_reset(uint64_t id, uint8_t reset_scope,
                               uint8_t assert_state)
@@ -656,22 +728,148 @@ static int64_t opal_pci_get_power_state(uint64_t id, uint64_t data)
 }
 opal_call(OPAL_PCI_GET_POWER_STATE, opal_pci_get_power_state, 2);
 
+static u32 get_slot_phandle(struct pci_slot *slot)
+{
+	struct phb *phb = slot->phb;
+	struct pci_device *pd = slot->pd;
+
+	if (pd)
+		return pd->dn->phandle;
+	else
+		return phb->dt_node->phandle;
+}
+
+static void rescan_slot_devices(struct pci_slot *slot)
+{
+	struct phb *phb = slot->phb;
+	struct pci_device *pd = slot->pd;
+
+	/*
+	 * prepare_link_change() is called (if needed) by the state
+	 * machine during the slot reset or link polling
+	 */
+	if (phb->phb_type != phb_type_npu_v2_opencapi) {
+		pci_scan_bus(phb, pd->secondary_bus,
+			     pd->subordinate_bus, &pd->children, pd, true);
+		pci_add_device_nodes(phb, &pd->children, pd->dn,
+				     &phb->lstate, 0);
+	} else {
+		pci_scan_bus(phb, 0, 0xff, &phb->devices, NULL, true);
+		pci_add_device_nodes(phb, &phb->devices,
+				     phb->dt_node, &phb->lstate, 0);
+		phb->ops->phb_final_fixup(phb);
+	}
+}
+
+static void remove_slot_devices(struct pci_slot *slot)
+{
+	struct phb *phb = slot->phb;
+	struct pci_device *pd = slot->pd;
+
+	if (phb->phb_type != phb_type_npu_v2_opencapi)
+		pci_remove_bus(phb, &pd->children);
+	else
+		pci_remove_bus(phb, &phb->devices);
+}
+
+static void link_up_timer(struct timer *t, void *data,
+			  uint64_t now __unused)
+{
+	struct pci_slot *slot = data;
+	struct phb *phb = slot->phb;
+	uint8_t link;
+	int64_t rc = 0;
+
+	if (!phb_try_lock(phb)) {
+		schedule_timer(&slot->timer, msecs_to_tb(10));
+		return;
+	}
+
+	rc = slot->ops.run_sm(slot);
+	if (rc < 0)
+		goto out;
+	if (rc > 0) {
+		schedule_timer(t, rc);
+		phb_unlock(phb);
+		return;
+	}
+
+	if (slot->ops.get_link_state(slot, &link) != OPAL_SUCCESS)
+		link = 0;
+	if (!link) {
+		rc = OPAL_HARDWARE;
+		goto out;
+	}
+
+	rescan_slot_devices(slot);
+out:
+	opal_queue_msg(OPAL_MSG_ASYNC_COMP, NULL, NULL,
+		       cpu_to_be64(slot->async_token),
+		       cpu_to_be64(get_slot_phandle(slot)),
+		       cpu_to_be64(slot->power_state),
+		       rc <= 0 ? cpu_to_be64(rc) : cpu_to_be64(OPAL_BUSY));
+	phb_unlock(phb);
+}
+
+static bool training_needed(struct pci_slot *slot)
+{
+	struct phb *phb = slot->phb;
+	struct pci_device *pd = slot->pd;
+
+	/* only for opencapi slots for now */
+	if (!pd && phb->phb_type == phb_type_npu_v2_opencapi)
+		return true;
+	return false;
+}
+
+static void wait_for_link_up_and_rescan(struct pci_slot *slot)
+{
+	int64_t rc = 1;
+
+	/*
+	 * Links for PHB slots need to be retrained by triggering a
+	 * fundamental reset. Other slots also need to be tested for
+	 * readiness
+	 */
+	if (training_needed(slot)) {
+		pci_slot_set_state(slot, PCI_SLOT_STATE_NORMAL);
+		rc = slot->ops.freset(slot);
+		if (rc < 0) {
+			opal_queue_msg(OPAL_MSG_ASYNC_COMP, NULL, NULL,
+				       cpu_to_be64(slot->async_token),
+				       cpu_to_be64(get_slot_phandle(slot)),
+				       cpu_to_be64(slot->power_state),
+				       cpu_to_be64(rc))
+			return;
+		}
+	} else {
+		pci_slot_set_state(slot, PCI_SLOT_STATE_LINK_START_POLL);
+		rc = msecs_to_tb(20);
+	}
+	init_timer(&slot->timer, link_up_timer, slot);
+	schedule_timer(&slot->timer, rc);
+}
+
 static void set_power_timer(struct timer *t __unused, void *data,
 			    uint64_t now __unused)
 {
 	struct pci_slot *slot = data;
 	struct phb *phb = slot->phb;
-	struct pci_device *pd = slot->pd;
-	struct dt_node *dn = pd->dn;
-	uint8_t link;
+
+	if (!phb_try_lock(phb)) {
+		schedule_timer(&slot->timer, msecs_to_tb(10));
+		return;
+	}
 
 	switch (slot->state) {
 	case PCI_SLOT_STATE_SPOWER_START:
 		if (slot->retries-- == 0) {
 			pci_slot_set_state(slot, PCI_SLOT_STATE_NORMAL);
 			opal_queue_msg(OPAL_MSG_ASYNC_COMP, NULL, NULL,
-				       slot->async_token, dn->phandle,
-				       slot->power_state, OPAL_BUSY);
+				       cpu_to_be64(slot->async_token),
+				       cpu_to_be64(get_slot_phandle(slot)),
+				       cpu_to_be64(slot->power_state),
+				       cpu_to_be64(OPAL_BUSY));
 		} else {
 			schedule_timer(&slot->timer, msecs_to_tb(10));
 		}
@@ -679,42 +877,24 @@ static void set_power_timer(struct timer *t __unused, void *data,
 		break;
 	case PCI_SLOT_STATE_SPOWER_DONE:
 		if (slot->power_state == OPAL_PCI_SLOT_POWER_OFF) {
-			pci_remove_bus(phb, &pd->children);
+			remove_slot_devices(slot);
 			pci_slot_set_state(slot, PCI_SLOT_STATE_NORMAL);
 			opal_queue_msg(OPAL_MSG_ASYNC_COMP, NULL, NULL,
-				       slot->async_token, dn->phandle,
-				       OPAL_PCI_SLOT_POWER_OFF, OPAL_SUCCESS);
+				       cpu_to_be64(slot->async_token),
+				       cpu_to_be64(get_slot_phandle(slot)),
+				       cpu_to_be64(OPAL_PCI_SLOT_POWER_OFF),
+				       cpu_to_be64(OPAL_SUCCESS));
 			break;
 		}
 
 		/* Power on */
-		if (slot->ops.get_link_state(slot, &link) != OPAL_SUCCESS)
-			link = 0;
-		if (link) {
-			slot->ops.prepare_link_change(slot, true);
-			pci_scan_bus(phb, pd->secondary_bus,
-				     pd->subordinate_bus,
-				     &pd->children, pd, true);
-			pci_add_device_nodes(phb, &pd->children, dn,
-					     &phb->lstate, 0);
-			pci_slot_set_state(slot, PCI_SLOT_STATE_NORMAL);
-			opal_queue_msg(OPAL_MSG_ASYNC_COMP, NULL, NULL,
-				       slot->async_token, dn->phandle,
-				       OPAL_PCI_SLOT_POWER_ON, OPAL_SUCCESS);
-		} else if (slot->retries-- == 0) {
-			pci_slot_set_state(slot, PCI_SLOT_STATE_NORMAL);
-			opal_queue_msg(OPAL_MSG_ASYNC_COMP, NULL, NULL,
-				       slot->async_token, dn->phandle,
-				       OPAL_PCI_SLOT_POWER_ON, OPAL_BUSY);
-		} else {
-			schedule_timer(&slot->timer, msecs_to_tb(10));
-		}
-
+		wait_for_link_up_and_rescan(slot);
 		break;
 	default:
 		prlog(PR_ERR, "PCI SLOT %016llx: Unexpected state 0x%08x\n",
 		      slot->id, slot->state);
 	}
+	phb_unlock(phb);
 }
 
 static int64_t opal_pci_set_power_state(uint64_t async_token,
@@ -792,13 +972,10 @@ static int64_t opal_pci_set_power_state(uint64_t async_token,
 		schedule_timer(&slot->timer, msecs_to_tb(10));
 	} else if (rc == OPAL_SUCCESS) {
 		if (*state == OPAL_PCI_SLOT_POWER_OFF) {
-			pci_remove_bus(phb, &pd->children);
+			remove_slot_devices(slot);
 		} else {
-			slot->ops.prepare_link_change(slot, true);
-			pci_scan_bus(phb, pd->secondary_bus,
-				pd->subordinate_bus, &pd->children, pd, true);
-			pci_add_device_nodes(phb, &pd->children, pd->dn,
-				&phb->lstate, 0);
+			wait_for_link_up_and_rescan(slot);
+			rc = OPAL_ASYNC_COMPLETION;
 		}
 	}
 
@@ -829,14 +1006,17 @@ static int64_t opal_pci_get_phb_diag_data2(uint64_t phb_id,
 }
 opal_call(OPAL_PCI_GET_PHB_DIAG_DATA2, opal_pci_get_phb_diag_data2, 3);
 
-static int64_t opal_pci_next_error(uint64_t phb_id, uint64_t *first_frozen_pe,
-				   uint16_t *pci_error_type, uint16_t *severity)
+static int64_t opal_pci_next_error(uint64_t phb_id, __be64 *__first_frozen_pe,
+				   __be16 *__pci_error_type, __be16 *__severity)
 {
 	struct phb *phb = pci_get_phb(phb_id);
+	uint64_t first_frozen_pe;
+	uint16_t pci_error_type;
+	uint16_t severity;
 	int64_t rc;
 
-	if (!opal_addr_valid(first_frozen_pe) ||
-		!opal_addr_valid(pci_error_type) || !opal_addr_valid(severity))
+	if (!opal_addr_valid(__first_frozen_pe) ||
+		!opal_addr_valid(__pci_error_type) || !opal_addr_valid(__severity))
 		return OPAL_PARAMETER;
 
 	if (!phb)
@@ -846,9 +1026,13 @@ static int64_t opal_pci_next_error(uint64_t phb_id, uint64_t *first_frozen_pe,
 	phb_lock(phb);
 
 	opal_pci_eeh_clear_evt(phb_id);
-	rc = phb->ops->next_error(phb, first_frozen_pe, pci_error_type,
-				  severity);
+	rc = phb->ops->next_error(phb, &first_frozen_pe, &pci_error_type,
+				  &severity);
 	phb_unlock(phb);
+
+	*__first_frozen_pe = cpu_to_be64(first_frozen_pe);
+	*__pci_error_type = cpu_to_be16(pci_error_type);
+	*__severity = cpu_to_be16(severity);
 
 	return rc;
 }
@@ -910,11 +1094,12 @@ static int64_t opal_pci_set_p2p(uint64_t phbid_init, uint64_t phbid_target,
 }
 opal_call(OPAL_PCI_SET_P2P, opal_pci_set_p2p, 4);
 
-static int64_t opal_pci_get_pbcq_tunnel_bar(uint64_t phb_id, uint64_t *addr)
+static int64_t opal_pci_get_pbcq_tunnel_bar(uint64_t phb_id, __be64 *__addr)
 {
 	struct phb *phb = pci_get_phb(phb_id);
+	uint64_t addr;
 
-	if (!opal_addr_valid(addr))
+	if (!opal_addr_valid(__addr))
 		return OPAL_PARAMETER;
 
 	if (!phb)
@@ -923,8 +1108,11 @@ static int64_t opal_pci_get_pbcq_tunnel_bar(uint64_t phb_id, uint64_t *addr)
 		return OPAL_UNSUPPORTED;
 
 	phb_lock(phb);
-	phb->ops->get_tunnel_bar(phb, addr);
+	phb->ops->get_tunnel_bar(phb, &addr);
 	phb_unlock(phb);
+
+	*__addr = cpu_to_be64(addr);
+
 	return OPAL_SUCCESS;
 }
 opal_call(OPAL_PCI_GET_PBCQ_TUNNEL_BAR, opal_pci_get_pbcq_tunnel_bar, 2);

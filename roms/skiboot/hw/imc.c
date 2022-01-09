@@ -1,18 +1,11 @@
-/* Copyright 2016-2019 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * In-Memory Counters (IMC)
+ * Sometimes called IMA, but that's also a different thing.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2016-2019 IBM Corp.
  */
+
 #define pr_fmt(fmt)  "IMC: " fmt
 #include <skiboot.h>
 #include <xscom.h>
@@ -25,16 +18,31 @@
 /*
  * IMC trace scom values
  */
-#define IMC_TRACE_SAMPLESEL_VAL	1	/* select cpmc2 */
+#define IMC_TRACE_CPMC1                0       /* select cpmc1 */
+#define IMC_TRACE_CPMC2                1       /* select cpmc2 */
 #define IMC_TRACE_CPMCLOAD_VAL	0xfa	/*
 					 * Value to be loaded into cpmc2
 					 * at sampling start
 					 */
-#define IMC_TRACE_CPMC2SEL_VAL	2	/* Event: CPM_32MHZ_CYC */
+
+/* Event: CPM_32MHZ_CYC */
+#define IMC_TRACE_CPMC2SEL_VAL	2
+#define IMC_TRACE_CPMC1SEL_VAL	4
+
 #define IMC_TRACE_BUFF_SIZE	0	/*
 					 * b’000’- 4K entries * 64 per
 					 * entry = 256K buffersize
 					 */
+static uint64_t TRACE_IMC_ADDR;
+static uint64_t CORE_IMC_EVENT_MASK_ADDR;
+static uint64_t trace_scom_val;
+/*
+ * Initialise these with the pdbar and htm scom port address array
+ * at run time, based on the processor version.
+ */
+static unsigned int *pdbar_scom_index;
+static unsigned int *htm_scom_index;
+
 /*
  * Nest IMC PMU names along with their bit values as represented in the
  * imc_chip_avl_vector(in struct imc_chip_cb, look at include/imc.h).
@@ -149,17 +157,31 @@ static bool is_nest_mem_initialized(struct imc_chip_cb *ptr)
  * SCOM port addresses in the arrays below, each for Hardware Trace Macro (HTM)
  * mode and PDBAR.
  */
-static unsigned int pdbar_scom_index[] = {
+static unsigned int pdbar_scom_index_p9[] = {
 	0x1001220B,
 	0x1001230B,
 	0x1001260B,
 	0x1001270B
 };
-static unsigned int htm_scom_index[] = {
+static unsigned int htm_scom_index_p9[] = {
 	0x10012200,
 	0x10012300,
 	0x10012600,
 	0x10012700
+};
+
+static unsigned int pdbar_scom_index_p10[] = {
+	0x2001868B,
+	0x2001468B,
+	0x2001268B,
+	0x2001168B
+};
+
+static unsigned int htm_scom_index_p10[] = {
+	0x20018680,
+	0x20014680,
+	0x20012680,
+	0x20011680
 };
 
 static struct imc_chip_cb *get_imc_cb(uint32_t chip_id)
@@ -255,13 +277,23 @@ static bool is_imc_device_type_supported(struct dt_node *node)
 
 	if (val == IMC_COUNTER_TRACE) {
 		pvr = mfspr(SPR_PVR);
-		/*
-		 * Trace mode is supported in Nimbus DD2.2
-		 * and later versions.
-		 */
-		if ((chip->type == PROC_CHIP_P9_NIMBUS) &&
-			(PVR_VERS_MAJ(pvr) == 2) && (PVR_VERS_MIN(pvr) >= 2))
+
+		switch (chip->type) {
+		case PROC_CHIP_P9_NIMBUS:
+			/*
+			 * Trace mode is supported in Nimbus DD2.2
+			 * and later versions.
+			 */
+			if ((PVR_VERS_MAJ(pvr) == 2) &&
+				(PVR_VERS_MIN(pvr) >= 2))
+					return true;
+			break;
+		case PROC_CHIP_P10:
 			return true;
+		default:
+			return false;
+		}
+
 	}
 	return false;
 }
@@ -418,6 +450,20 @@ static void disable_unavailable_units(struct dt_node *dev)
 	return;
 }
 
+static void disable_imc_type_from_dt(struct dt_node *dev, int imc_type)
+{
+	struct dt_node *node;
+
+	dt_for_each_compatible(dev, node, "ibm,imc-counters") {
+		if (get_imc_device_type(node) == imc_type) {
+			dt_free(node);
+			node = NULL;
+		}
+	}
+
+	return;
+}
+
 /*
  * Function to queue the loading of imc catalog data
  * from the IMC pnor partition.
@@ -431,8 +477,8 @@ void imc_catalog_preload(void)
 	if (proc_chip_quirks & QUIRK_MAMBO_CALLOUTS)
 		return;
 
-	/* Enable only for power 9 */
-	if (proc_gen != proc_gen_p9)
+	/* Enable only for power 9/10 */
+	if (proc_gen < proc_gen_p9)
 		return;
 
 	compress_buf = malloc(MAX_COMPRESSED_IMC_DTB_SIZE);
@@ -455,18 +501,18 @@ void imc_catalog_preload(void)
 static void imc_dt_update_nest_node(struct dt_node *dev)
 {
 	struct proc_chip *chip;
-	uint64_t *base_addr = NULL;
-	uint32_t *chipids = NULL;
+	__be64 *base_addr = NULL;
+	__be32 *chipids = NULL;
 	int i=0, nr_chip = nr_chips();
 	struct dt_node *node;
 	const struct dt_property *type;
 
 	/* Add the base_addr and chip-id properties for the nest node */
-	base_addr = malloc(sizeof(uint64_t) * nr_chip);
-	chipids = malloc(sizeof(uint32_t) * nr_chip);
+	base_addr = malloc(sizeof(u64) * nr_chip);
+	chipids = malloc(sizeof(u32) * nr_chip);
 	for_each_chip(chip) {
-		base_addr[i] = chip->homer_base;
-		chipids[i] = chip->id;
+		base_addr[i] = cpu_to_be64(chip->homer_base);
+		chipids[i] = cpu_to_be32(chip->id);
 		i++;
 	}
 
@@ -523,6 +569,38 @@ void imc_decompress_catalog(void)
 	xz_start_decompress(imc_xz);
 }
 
+static int setup_imc_scoms(void)
+{
+	switch (proc_gen) {
+	case proc_gen_p9:
+		CORE_IMC_EVENT_MASK_ADDR = CORE_IMC_EVENT_MASK_ADDR_P9;
+		TRACE_IMC_ADDR = TRACE_IMC_ADDR_P9;
+		pdbar_scom_index = pdbar_scom_index_p9;
+		htm_scom_index = htm_scom_index_p9;
+		trace_scom_val = TRACE_IMC_SCOM(IMC_TRACE_CPMC2,
+						IMC_TRACE_CPMCLOAD_VAL,
+						IMC_TRACE_CPMC1SEL_VAL,
+						IMC_TRACE_CPMC2SEL_VAL,
+						IMC_TRACE_BUFF_SIZE);
+		return 0;
+	case proc_gen_p10:
+		CORE_IMC_EVENT_MASK_ADDR = CORE_IMC_EVENT_MASK_ADDR_P10;
+		TRACE_IMC_ADDR = TRACE_IMC_ADDR_P10;
+		pdbar_scom_index = pdbar_scom_index_p10;
+		htm_scom_index = htm_scom_index_p10;
+		trace_scom_val = TRACE_IMC_SCOM(IMC_TRACE_CPMC1,
+						IMC_TRACE_CPMCLOAD_VAL,
+						IMC_TRACE_CPMC1SEL_VAL,
+						IMC_TRACE_CPMC2SEL_VAL,
+						IMC_TRACE_BUFF_SIZE);
+		return 0;
+	default:
+		prerror("%s: Unknown cpu type\n", __func__);
+		break;
+	}
+	return -1;
+}
+
 /*
  * Load the IMC pnor partition and find the appropriate sub-partition
  * based on the platform's PVR.
@@ -543,16 +621,18 @@ void imc_init(void)
 		goto imc_mambo;
 	}
 
-	/* Enable only for power 9 */
-	if (proc_gen != proc_gen_p9)
+	/* Enable only for power 9/10 */
+	if (proc_gen < proc_gen_p9)
 		return;
 
 	if (!imc_xz)
 		return;
 
 	wait_xz_decompress(imc_xz);
-	if (imc_xz->status != OPAL_SUCCESS)
+	if (imc_xz->status != OPAL_SUCCESS) {
+		prerror("IMC: xz_decompress failed\n");
 		goto err;
+	}
 
 	/*
 	 * Flow of the data from PNOR to main device tree:
@@ -566,8 +646,10 @@ void imc_init(void)
 
 	/* Create a device tree entry for imc counters */
 	dev = dt_new_root("imc-counters");
-	if (!dev)
+	if (!dev) {
+		prerror("IMC: Failed to add an imc-counters root node\n");
 		goto err;
+	}
 
 	/*
 	 * Attach the new decompress_buf to the imc-counters node.
@@ -575,10 +657,16 @@ void imc_init(void)
 	 */
 	if (dt_expand_node(dev, imc_xz->dst, 0) < 0) {
 		dt_free(dev);
+		prerror("IMC: dt_expand_node failed\n");
 		goto err;
 	}
 
 imc_mambo:
+	if (setup_imc_scoms()) {
+		prerror("IMC: Failed to setup the scoms\n");
+		goto err;
+	}
+
 	/* Check and remove unsupported imc device types */
 	check_imc_device_type(dev);
 
@@ -607,8 +695,10 @@ imc_mambo:
 	 * then out to band tools will race with ucode and end up getting
 	 * undesirable values. Hence pause the ucode if it is already running.
 	 */
-	if (pause_microcode_at_boot())
-		goto err;
+	if (pause_microcode_at_boot()) {
+		prerror("IMC: Pausing ucode failed, disabling nest imc\n");
+		disable_imc_type_from_dt(dev, IMC_COUNTER_CHIP);
+	}
 
 	/*
 	 * If the dt_attach_root() fails, "imc-counters" node will not be
@@ -617,6 +707,7 @@ imc_mambo:
 	 */
 	if (!dt_attach_root(dt_root, dev)) {
 		dt_free(dev);
+		prerror("IMC: Failed to attach imc-counter node to dt root\n");
 		goto err;
 	}
 
@@ -655,6 +746,115 @@ static int stop_api_init(struct proc_chip *chip, int phys_core_id,
 	return ret;
 }
 
+/* Function to return the scom address for the specified core */
+static uint32_t get_imc_scom_addr_for_core(int core, uint64_t addr)
+{
+	uint32_t scom_addr;
+
+	switch (proc_gen) {
+	case proc_gen_p9:
+		scom_addr = XSCOM_ADDR_P9_EC(core, addr);
+		return scom_addr;
+	case proc_gen_p10:
+		scom_addr = XSCOM_ADDR_P10_EC(core, addr);
+		return scom_addr;
+	default:
+		return 0;
+	}
+}
+
+/* Function to return the scom address for the specified core in the quad */
+static uint32_t get_imc_scom_addr_for_quad(int core, uint64_t addr)
+{
+	uint32_t scom_addr;
+
+	switch (proc_gen) {
+	case proc_gen_p9:
+		scom_addr = XSCOM_ADDR_P9_EQ(core, addr);
+		return scom_addr;
+	case proc_gen_p10:
+		scom_addr = XSCOM_ADDR_P10_EQ(core, addr);
+		return scom_addr;
+	default:
+		return 0;
+	}
+}
+
+static int64_t core_imc_counters_init(uint64_t addr, int port_id,
+				int phys_core_id, struct cpu_thread *c)
+{
+	uint32_t pdbar_addr, event_mask_addr, htm_addr;
+	int ret;
+
+	/* Get the scom address for this core, based on the platform */
+	pdbar_addr = get_imc_scom_addr_for_quad(phys_core_id,
+				pdbar_scom_index[port_id]);
+	event_mask_addr = get_imc_scom_addr_for_core(phys_core_id,
+				CORE_IMC_EVENT_MASK_ADDR);
+
+	/*
+	 * Core IMC hardware mandate initing of three scoms
+	 * to enbale or disable of the Core IMC engine.
+	 *
+	 * PDBAR: Scom contains the real address to store per-core
+	 *        counter data in memory along with other bits.
+	 *
+	 * EventMask: Scom contain bits to denote event to multiplex
+	 *            at different MSR[HV PR] values, along with bits for
+	 *            sampling duration.
+	 *
+	 * HTM Scom: scom to enable counter data movement to memory.
+	 */
+
+
+	 if (xscom_write(c->chip_id, pdbar_addr,
+			(u64)(CORE_IMC_PDBAR_MASK & addr))) {
+		prerror("error in xscom_write for pdbar\n");
+		return OPAL_HARDWARE;
+	}
+
+	if (has_deep_states) {
+		if (wakeup_engine_state == WAKEUP_ENGINE_PRESENT) {
+			struct proc_chip *chip = get_chip(c->chip_id);
+
+			ret = stop_api_init(chip, phys_core_id, pdbar_addr,
+					(u64)(CORE_IMC_PDBAR_MASK & addr),
+					P9_STOP_SCOM_REPLACE,
+					P9_STOP_SECTION_EQ_SCOM,
+					"pdbar");
+			if (ret)
+				return ret;
+			ret = stop_api_init(chip, phys_core_id,
+					event_mask_addr,
+					(u64)CORE_IMC_EVENT_MASK,
+					P9_STOP_SCOM_REPLACE,
+					P9_STOP_SECTION_CORE_SCOM,
+					"event_mask");
+			if (ret)
+				return ret;
+		} else {
+			prerror("IMC: Wakeup engine not present!");
+			return OPAL_HARDWARE;
+		}
+	}
+
+	if (xscom_write(c->chip_id, event_mask_addr,
+				(u64)CORE_IMC_EVENT_MASK)) {
+		prerror("error in xscom_write for event mask\n");
+		return OPAL_HARDWARE;
+	}
+
+	/* Get the scom address for htm_mode scom based on the platform */
+	htm_addr = get_imc_scom_addr_for_quad(phys_core_id,
+			htm_scom_index[port_id]);
+	if (xscom_write(c->chip_id, htm_addr,
+			(u64)CORE_IMC_HTM_MODE_DISABLE)) {
+		prerror("error in xscom_write for htm mode\n");
+		return OPAL_HARDWARE;
+	}
+	return OPAL_SUCCESS;
+}
+
 /*
  * opal_imc_counters_init : This call initialize the IMC engine.
  *
@@ -667,11 +867,8 @@ static int64_t opal_imc_counters_init(uint32_t type, uint64_t addr, uint64_t cpu
 	struct cpu_thread *c = find_cpu_by_pir(cpu_pir);
 	int port_id, phys_core_id;
 	int ret;
-	uint32_t scoms;
-	uint64_t trace_scom_val = TRACE_IMC_SCOM(IMC_TRACE_SAMPLESEL_VAL,
-						 IMC_TRACE_CPMCLOAD_VAL, 0,
-						 IMC_TRACE_CPMC2SEL_VAL,
-						 IMC_TRACE_BUFF_SIZE);
+	uint32_t htm_addr, trace_addr;
+
 	switch (type) {
 	case OPAL_IMC_COUNTERS_NEST:
 		return OPAL_SUCCESS;
@@ -684,96 +881,51 @@ static int64_t opal_imc_counters_init(uint32_t type, uint64_t addr, uint64_t cpu
 		 * pdbar in specific scom ports. port_id are in
 		 * pdbar_scom_index[] and htm_scom_index[].
 		 */
-		phys_core_id = cpu_get_core_index(c);
+		phys_core_id = pir_to_core_id(c->pir);
 		port_id = phys_core_id % 4;
 
 		if (proc_chip_quirks & QUIRK_MAMBO_CALLOUTS)
 			return OPAL_SUCCESS;
 
+		ret = core_imc_counters_init(addr, port_id, phys_core_id, c);
+		if (ret < 0)
+			return ret;
 		/*
-		 * Core IMC hardware mandate initing of three scoms
-		 * to enbale or disable of the Core IMC engine.
-		 *
-		 * PDBAR: Scom contains the real address to store per-core
-		 *        counter data in memory along with other bits.
-		 *
-		 * EventMask: Scom contain bits to denote event to multiplex
-		 *            at different MSR[HV PR] values, along with bits for
-		 *            sampling duration.
-		 *
-		 * HTM Scom: scom to enable counter data movement to memory.
+		 * If fused core is supported, do the scoms for the
+		 * secondary core also.
 		 */
+		if (this_cpu()->is_fused_core) {
+			struct cpu_thread *c1 = find_cpu_by_pir(cpu_pir ^ 1);
 
+			phys_core_id = pir_to_core_id(c1->pir);
+			port_id = phys_core_id % 4;
 
-		 if (xscom_write(c->chip_id,
-				XSCOM_ADDR_P9_EP(phys_core_id,
-						pdbar_scom_index[port_id]),
-				(u64)(CORE_IMC_PDBAR_MASK & addr))) {
-			prerror("error in xscom_write for pdbar\n");
-			return OPAL_HARDWARE;
+			ret = core_imc_counters_init(addr, port_id, phys_core_id, c1);
+			if (ret < 0)
+				return ret;
 		}
-
-		if (has_deep_states) {
-			if (wakeup_engine_state == WAKEUP_ENGINE_PRESENT) {
-				struct proc_chip *chip = get_chip(c->chip_id);
-
-				scoms = XSCOM_ADDR_P9_EP(phys_core_id,
-						pdbar_scom_index[port_id]);
-				ret = stop_api_init(chip, phys_core_id, scoms,
-						(u64)(CORE_IMC_PDBAR_MASK & addr),
-						P9_STOP_SCOM_REPLACE,
-						P9_STOP_SECTION_EQ_SCOM,
-						"pdbar");
-				if (ret)
-					return ret;
-				scoms = XSCOM_ADDR_P9_EC(phys_core_id,
-						CORE_IMC_EVENT_MASK_ADDR);
-				ret = stop_api_init(chip, phys_core_id, scoms,
-						(u64)CORE_IMC_EVENT_MASK,
-						P9_STOP_SCOM_REPLACE,
-						P9_STOP_SECTION_CORE_SCOM,
-						"event_mask");
-				if (ret)
-					return ret;
-			} else {
-				prerror("IMC: Wakeup engine not present!");
-				return OPAL_HARDWARE;
-			}
-		}
-
-		if (xscom_write(c->chip_id,
-				XSCOM_ADDR_P9_EC(phys_core_id,
-					 CORE_IMC_EVENT_MASK_ADDR),
-				(u64)CORE_IMC_EVENT_MASK)) {
-			prerror("error in xscom_write for event mask\n");
-			return OPAL_HARDWARE;
-		}
-
-		if (xscom_write(c->chip_id,
-				XSCOM_ADDR_P9_EP(phys_core_id,
-						htm_scom_index[port_id]),
-				(u64)CORE_IMC_HTM_MODE_DISABLE)) {
-			prerror("error in xscom_write for htm mode\n");
-			return OPAL_HARDWARE;
-		}
-		return OPAL_SUCCESS;
+		return ret;
 	case OPAL_IMC_COUNTERS_TRACE:
 		if (!c)
 			return OPAL_PARAMETER;
 
-		phys_core_id = cpu_get_core_index(c);
+		phys_core_id = pir_to_core_id(c->pir);
 		port_id = phys_core_id % 4;
 
 		if (proc_chip_quirks & QUIRK_MAMBO_CALLOUTS)
 			return OPAL_SUCCESS;
 
+		trace_addr = get_imc_scom_addr_for_core(phys_core_id,
+				TRACE_IMC_ADDR);
+		htm_addr = get_imc_scom_addr_for_quad(phys_core_id,
+				htm_scom_index[port_id]);
+
 		if (has_deep_states) {
 			if (wakeup_engine_state == WAKEUP_ENGINE_PRESENT) {
 				struct proc_chip *chip = get_chip(c->chip_id);
 
-				scoms = XSCOM_ADDR_P9_EC(phys_core_id,
-							 TRACE_IMC_ADDR);
-				ret = stop_api_init(chip, phys_core_id, scoms,
+				ret = stop_api_init(chip, phys_core_id,
+						    trace_addr,
 						    trace_scom_val,
 						    P9_STOP_SCOM_REPLACE,
 						    P9_STOP_SECTION_CORE_SCOM,
@@ -785,15 +937,11 @@ static int64_t opal_imc_counters_init(uint32_t type, uint64_t addr, uint64_t cpu
 				return OPAL_HARDWARE;
 			}
 		}
-		if (xscom_write(c->chip_id,
-			XSCOM_ADDR_P9_EP(phys_core_id, htm_scom_index[port_id]),
-					(u64)CORE_IMC_HTM_MODE_DISABLE)) {
+		if (xscom_write(c->chip_id, htm_addr, (u64)CORE_IMC_HTM_MODE_DISABLE)) {
 				prerror("IMC-trace: error in xscom_write for htm mode\n");
 				return OPAL_HARDWARE;
 		}
-		if (xscom_write(c->chip_id,
-			XSCOM_ADDR_P9_EC(phys_core_id,
-					TRACE_IMC_ADDR), trace_scom_val)) {
+		if (xscom_write(c->chip_id, trace_addr, trace_scom_val)) {
 			prerror("IMC-trace: error in xscom_write for trace mode\n");
 			return OPAL_HARDWARE;
 		}
@@ -812,6 +960,7 @@ static int64_t opal_imc_counters_start(uint32_t type, uint64_t cpu_pir)
 	struct cpu_thread *c = find_cpu_by_pir(cpu_pir);
 	struct imc_chip_cb *cb;
 	int port_id, phys_core_id;
+	uint32_t htm_addr;
 
 	if (!c)
 		return OPAL_PARAMETER;
@@ -839,22 +988,21 @@ static int64_t opal_imc_counters_start(uint32_t type, uint64_t cpu_pir)
 		 * Core IMC hardware mandates setting of htm_mode in specific
 		 * scom ports (port_id are in htm_scom_index[])
 		 */
-		phys_core_id = cpu_get_core_index(c);
+		phys_core_id = pir_to_core_id(c->pir);
 		port_id = phys_core_id % 4;
 
 		if (proc_chip_quirks & QUIRK_MAMBO_CALLOUTS)
 			return OPAL_SUCCESS;
 
+		htm_addr = get_imc_scom_addr_for_quad(phys_core_id,
+					htm_scom_index[port_id]);
 		/*
 		 * Enables the core imc engine by appropriately setting
 		 * bits 4-9 of the HTM_MODE scom port. No initialization
 		 * is done in this call. This just enables the the counters
 		 * to count with the previous initialization.
 		 */
-		if (xscom_write(c->chip_id,
-				XSCOM_ADDR_P9_EP(phys_core_id,
-						htm_scom_index[port_id]),
-				(u64)CORE_IMC_HTM_MODE_ENABLE)) {
+		if (xscom_write(c->chip_id, htm_addr, (u64)CORE_IMC_HTM_MODE_ENABLE)) {
 			prerror("IMC OPAL_start: error in xscom_write for htm_mode\n");
 			return OPAL_HARDWARE;
 		}
@@ -873,6 +1021,7 @@ static int64_t opal_imc_counters_stop(uint32_t type, uint64_t cpu_pir)
 	struct imc_chip_cb *cb;
 	struct cpu_thread *c = find_cpu_by_pir(cpu_pir);
 	int port_id, phys_core_id;
+	uint32_t htm_addr;
 
 	if (!c)
 		return OPAL_PARAMETER;
@@ -901,20 +1050,19 @@ static int64_t opal_imc_counters_stop(uint32_t type, uint64_t cpu_pir)
 		 * Core IMC hardware mandates setting of htm_mode in specific
 		 * scom ports (port_id are in htm_scom_index[])
 		 */
-		phys_core_id = cpu_get_core_index(c);
+		phys_core_id = pir_to_core_id(c->pir);
 		port_id = phys_core_id % 4;
 
 		if (proc_chip_quirks & QUIRK_MAMBO_CALLOUTS)
 			return OPAL_SUCCESS;
 
+		htm_addr = get_imc_scom_addr_for_quad(phys_core_id,
+					htm_scom_index[port_id]);
 		/*
 		 * Disables the core imc engine by clearing
 		 * bits 4-9 of the HTM_MODE scom port.
 		 */
-		if (xscom_write(c->chip_id,
-				XSCOM_ADDR_P9_EP(phys_core_id,
-						htm_scom_index[port_id]),
-				(u64) CORE_IMC_HTM_MODE_DISABLE)) {
+		if (xscom_write(c->chip_id, htm_addr, (u64) CORE_IMC_HTM_MODE_DISABLE)) {
 			prerror("error in xscom_write for htm_mode\n");
 			return OPAL_HARDWARE;
 		}

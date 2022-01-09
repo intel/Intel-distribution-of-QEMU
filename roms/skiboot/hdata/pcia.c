@@ -1,18 +1,5 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
 
 #include <skiboot.h>
 #include "spira.h"
@@ -127,7 +114,7 @@ static struct dt_node *add_core_node(struct dt_node *cpus,
 
 	prlog(PR_INFO, "CORE[%i]: PIR=%.8x %s %s(%u threads)\n",
 	      pcia_index(pcia), be32_to_cpu(t->pir),
-	      ve_flags & CPU_ID_PACA_RESERVED
+	      ve_flags & CPU_ID_PCIA_RESERVED
 	      ? "**RESERVED**" : cpu_state(ve_flags),
 	      be32_to_cpu(t->pir) == boot_cpu->pir ? "[boot] " : "", threads);
 
@@ -181,7 +168,7 @@ static struct dt_node *add_core_node(struct dt_node *cpus,
 	dt_add_property(cpu, "ibm,ppc-interrupt-server#s", iserv, 4 * threads);
 
 	/* Add the ICP node for this CPU for P8 */
-	if (proc_gen <= proc_gen_p8)
+	if (proc_gen == proc_gen_p8)
 		add_xics_icp(pcia, threads, icp_compat);
 
 	return cpu;
@@ -192,7 +179,6 @@ bool pcia_parse(void)
 	const void *pcia;
 	struct dt_node *cpus;
 
-	/* Check PCIA exists... if not, maybe we are getting a PACA ? */
 	pcia = get_hdif(&spira.ntuples.pcia, "SPPCIA");
 	if (!pcia)
 		return false;

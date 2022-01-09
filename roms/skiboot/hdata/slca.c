@@ -1,19 +1,5 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2015 IBM Corp. */
 
 #include <device.h>
 #include <include/opal-internal.h>
@@ -101,6 +87,7 @@ static const struct slca_entry *slca_get_sai_entry(void)
 	int count;
 	unsigned int i;
 	struct HDIF_common_hdr *slca_hdr;
+	uint16_t sai_fru_id = SLCA_SAI_INDICATOR_ID;
 
 	slca_hdr = get_hdif(&spira.ntuples.slca, SLCA_HDIF_SIG);
 	if (!slca_hdr) {
@@ -114,6 +101,9 @@ static const struct slca_entry *slca_get_sai_entry(void)
 		return NULL;
 	}
 
+	if (proc_gen >= proc_gen_p9 && dt_find_by_path(dt_root, "fsps"))
+		sai_fru_id = SLCA_SYSTEM_VPD_ID;
+
 	for (i = 0; i < count; i++) {
 		const struct slca_entry *s_entry;
 		unsigned int entry_sz;
@@ -122,7 +112,7 @@ static const struct slca_entry *slca_get_sai_entry(void)
 					       i, &entry_sz);
 		if (s_entry &&
 		    VPD_ID(s_entry->fru_id[0],
-			   s_entry->fru_id[1]) == SLCA_SAI_INDICATOR_ID) {
+			   s_entry->fru_id[1]) == sai_fru_id) {
 			prlog(PR_TRACE, "SLCA: SAI index: 0x%x\n",
 			      s_entry->my_index);
 			prlog(PR_TRACE, "SLCA: SAI location code: %s\n",

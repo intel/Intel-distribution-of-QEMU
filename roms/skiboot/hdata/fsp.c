@@ -1,18 +1,5 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2017 IBM Corp. */
 
 #include <device.h>
 #include "spira.h"
@@ -187,7 +174,7 @@ static uint32_t fsp_create_link(const struct spss_iopath *iopath, int index,
 static void fsp_create_links(const void *spss, int index,
 			     struct dt_node *fsp_node)
 {
-	uint32_t *links = NULL;
+	__be32 *links = NULL;
 	unsigned int i, lp, lcount = 0;
 	int count;
 
@@ -219,7 +206,7 @@ static void fsp_create_links(const void *spss, int index,
 		chip = fsp_create_link(iopath, i, index);
 		lp = lcount++;
 		links = realloc(links, 4 * lcount);
-		links[lp] = chip;
+		links[lp] = cpu_to_be32(chip);
 	}
 	if (links)
 		dt_add_property(fsp_node, "ibm,psi-links", links, lcount * 4);
@@ -269,7 +256,7 @@ static void add_uart(const struct spss_iopath *iopath, struct dt_node *lpc)
 	dt_add_property_cells(serial, "clock-frequency",
 		be32_to_cpu(iopath->lpc.uart_clk));
 	dt_add_property_cells(serial, "interrupts",
-		be32_to_cpu(iopath->lpc.uart_int_number));
+			      iopath->lpc.uart_int_number);
 	dt_add_property_string(serial, "device_type", "serial");
 
 
@@ -281,7 +268,7 @@ static void add_uart(const struct spss_iopath *iopath, struct dt_node *lpc)
 		be32_to_cpu(iopath->lpc.uart_baud));
 }
 
-static void add_chip_id_to_sensors(struct dt_node *sensor_node, __be32 slca_index)
+static void add_chip_id_to_sensors(struct dt_node *sensor_node, uint32_t slca_index)
 {
 	unsigned int i;
 	const void *hdif;
@@ -310,7 +297,7 @@ static void add_chip_id_to_sensors(struct dt_node *sensor_node, __be32 slca_inde
 		}
 
 		dt_add_property_cells(sensor_node,
-				      "ibm,chip-id", be32_to_cpu(cinfo->xscom_id));
+				      "ibm,chip-id", get_xscom_id(cinfo));
 		return;
 	}
 }
@@ -360,19 +347,21 @@ static void add_ipmi_sensors(struct dt_node *bmc_node)
 		dt_add_property_cells(sensor_node, "ipmi-sensor-type",
 				      ipmi_sensors->data[i].type);
 
-		add_chip_id_to_sensors(sensor_node, ipmi_sensors->data[i].slca_index);
+		add_chip_id_to_sensors(sensor_node,
+				be32_to_cpu(ipmi_sensors->data[i].slca_index));
 	}
 }
 
 static void bmc_create_node(const struct HDIF_common_hdr *sp)
 {
 	struct dt_node *bmc_node;
-	u32 fw_bar, io_bar, mem_bar, internal_bar;
+	u32 fw_bar, io_bar, mem_bar, internal_bar, mctp_base;
 	const struct spss_iopath *iopath;
 	const struct spss_sp_impl *sp_impl;
 	struct dt_node *lpcm, *lpc, *n;
 	u64 lpcm_base, lpcm_end;
 	uint32_t chip_id;
+	uint32_t topology_idx;
 	int size;
 
 	bmc_node = dt_new(dt_root, "bmc");
@@ -382,7 +371,8 @@ static void bmc_create_node(const struct HDIF_common_hdr *sp)
 	dt_add_property_cells(bmc_node, "#size-cells", 0);
 
 	/* Add sensor info under /bmc */
-	add_ipmi_sensors(bmc_node);
+	if (proc_gen < proc_gen_p10)
+		add_ipmi_sensors(bmc_node);
 
 	sp_impl = HDIF_get_idata(sp, SPSS_IDATA_SP_IMPL, &size);
 	if (CHECK_SPPTR(sp_impl) && (size > 8)) {
@@ -410,8 +400,9 @@ static void bmc_create_node(const struct HDIF_common_hdr *sp)
 	 * phys map offset
 	 */
 	chip_id = pcid_to_chip_id(be32_to_cpu(iopath->lpc.chip_id));
+	topology_idx = pcid_to_topology_idx(be32_to_cpu(iopath->lpc.chip_id));
 
-	phys_map_get(chip_id, LPC_BUS, 0, &lpcm_base, NULL);
+	__phys_map_get(topology_idx, chip_id, LPC_BUS, 0, &lpcm_base, NULL);
 	lpcm = dt_new_addr(dt_root, "lpcm-opb", lpcm_base);
 	assert(lpcm);
 
@@ -437,12 +428,17 @@ static void bmc_create_node(const struct HDIF_common_hdr *sp)
 	mem_bar = be32_to_cpu(iopath->lpc.memory_bar);
 	io_bar = be32_to_cpu(iopath->lpc.io_bar);
 	internal_bar = be32_to_cpu(iopath->lpc.internal_bar);
+	mctp_base = be32_to_cpu(iopath->lpc.mctp_base);
 
 	prlog(PR_DEBUG, "LPC: IOPATH chip id = %x\n", chip_id);
 	prlog(PR_DEBUG, "LPC: FW BAR       = %#x\n", fw_bar);
 	prlog(PR_DEBUG, "LPC: MEM BAR      = %#x\n", mem_bar);
 	prlog(PR_DEBUG, "LPC: IO BAR       = %#x\n", io_bar);
 	prlog(PR_DEBUG, "LPC: Internal BAR = %#x\n", internal_bar);
+	if (proc_gen >= proc_gen_p10) {
+		/* MCTP is part of FW BAR */
+		prlog(PR_DEBUG, "LPC: MCTP base    = %#x\n", mctp_base);
+	}
 
 	/*
 	 * The internal address space BAR actually points to the LPC master

@@ -1,18 +1,5 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
 
 #ifndef __I2C_H
 #define __I2C_H
@@ -74,14 +61,18 @@ struct i2c_request {
 extern void i2c_add_bus(struct i2c_bus *bus);
 extern struct i2c_bus *i2c_find_bus_by_id(uint32_t opal_id);
 
-static inline int64_t i2c_queue_req(struct i2c_request *req)
-{
-	int64_t ret = req->bus->queue_req(req);
+/* not generic, but useful */
+struct i2c_bus *p8_i2c_find_bus_by_port(uint32_t chip_id, int eng, int port_id);
+struct dt_node *p8_i2c_add_master_node(struct dt_node *xscom, int eng_id);
+struct dt_node *__p8_i2c_add_port_node(struct dt_node *master, int port_id,
+					uint32_t bus_speed);
+struct dt_node *p8_i2c_add_port_node(struct dt_node *xscom, int eng_id,
+					int port_id, uint32_t bus_freq);
 
-	if (!ret)
-		req->req_state = i2c_req_queued;
-	return ret;
-}
+struct i2c_bus *p8_i2c_add_bus(uint32_t chip_id, int eng_id, int port_id,
+					uint32_t bus_speed);
+
+int64_t i2c_queue_req(struct i2c_request *req);
 
 static inline uint64_t i2c_run_req(struct i2c_request *req)
 {

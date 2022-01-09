@@ -1,18 +1,5 @@
-/* Copyright 2018 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2018-2019 IBM Corp. */
 
 #define pr_fmt(fmt) "HIOMAP: " fmt
 
@@ -223,6 +210,7 @@ static void ipmi_hiomap_cmd_cb(struct ipmi_msg *msg)
 	case HIOMAP_C_FLUSH:
 	case HIOMAP_C_ACK:
 	case HIOMAP_C_ERASE:
+	case HIOMAP_C_RESET:
 		if (msg->resp_size != 2) {
 			prerror("%u: Unexpected response size: %u\n", msg->data[0],
 				msg->resp_size);
@@ -529,6 +517,29 @@ static int hiomap_erase(struct ipmi_hiomap *ctx, uint64_t offset,
 	return 0;
 }
 
+static bool hiomap_reset(struct ipmi_hiomap *ctx)
+{
+	RESULT_INIT(res, ctx);
+	unsigned char req[2];
+	struct ipmi_msg *msg;
+
+	prlog(PR_NOTICE, "Reset\n");
+
+	req[0] = HIOMAP_C_RESET;
+	req[1] = ++ctx->seq;
+	msg = ipmi_mkmsg(IPMI_DEFAULT_INTERFACE,
+		         bmc_platform->sw->ipmi_oem_hiomap_cmd,
+			 ipmi_hiomap_cmd_cb, &res, req, sizeof(req), 2);
+	ipmi_queue_msg_sync(msg);
+
+	if (res.cc != IPMI_CC_NO_ERROR) {
+		prlog(PR_ERR, "%s failed: %d\n", __func__, res.cc);
+		return false;
+	}
+
+	return true;
+}
+
 static void hiomap_event(uint8_t events, void *context)
 {
 	struct ipmi_hiomap *ctx = context;
@@ -559,8 +570,13 @@ static int lpc_window_read(struct ipmi_hiomap *ctx, uint32_t pos,
 		/* XXX: make this read until it's aligned */
 		if (len > 3 && !(off & 3)) {
 			rc = lpc_read(OPAL_LPC_FW, off, &dat, 4);
-			if (!rc)
-				*(uint32_t *)buf = dat;
+			if (!rc) {
+				/*
+				 * lpc_read swaps to CPU endian but it's not
+				 * really a 32-bit value, so convert back.
+				 */
+				*(__be32 *)buf = cpu_to_be32(dat);
+			}
 			chunk = 4;
 		} else {
 			rc = lpc_read(OPAL_LPC_FW, off, &dat, 1);
@@ -604,12 +620,15 @@ static int lpc_window_write(struct ipmi_hiomap *ctx, uint32_t pos,
 		uint32_t chunk;
 
 		if (len > 3 && !(off & 3)) {
-			rc = lpc_write(OPAL_LPC_FW, off,
-				       *(uint32_t *)buf, 4);
+			/* endian swap: see lpc_window_write */
+			uint32_t dat = be32_to_cpu(*(__be32 *)buf);
+
+			rc = lpc_write(OPAL_LPC_FW, off, dat, 4);
 			chunk = 4;
 		} else {
-			rc = lpc_write(OPAL_LPC_FW, off,
-				       *(uint8_t *)buf, 1);
+			uint8_t dat = *(uint8_t *)buf;
+
+			rc = lpc_write(OPAL_LPC_FW, off, dat, 1);
 			chunk = 1;
 		}
 		if (rc) {
@@ -799,6 +818,15 @@ static int ipmi_hiomap_write(struct blocklevel_device *bl, uint64_t pos,
 		if (rc)
 			return rc;
 
+		/*
+		 * Unlike ipmi_hiomap_read() we don't explicitly test if the
+		 * window is still valid after completing the LPC accesses as
+		 * the following hiomap_mark_dirty() will implicitly check for
+		 * us. In the case of a read operation there's no requirement
+		 * that a command that validates window state follows, so the
+		 * read implementation explicitly performs a check.
+		 */
+
 		rc = hiomap_mark_dirty(ctx, pos, size);
 		if (rc)
 			return rc;
@@ -919,6 +947,7 @@ int ipmi_hiomap_init(struct blocklevel_device **bl)
 	ctx->bl.write = &ipmi_hiomap_write;
 	ctx->bl.erase = &ipmi_hiomap_erase;
 	ctx->bl.get_info = &ipmi_hiomap_get_flash_info;
+	ctx->bl.exit = &ipmi_hiomap_exit;
 
 	hiomap_init(ctx);
 
@@ -968,11 +997,16 @@ err:
 	return rc;
 }
 
-void ipmi_hiomap_exit(struct blocklevel_device *bl)
+bool ipmi_hiomap_exit(struct blocklevel_device *bl)
 {
+	bool status = true;
+
 	struct ipmi_hiomap *ctx;
 	if (bl) {
 		ctx = container_of(bl, struct ipmi_hiomap, bl);
+		status = hiomap_reset(ctx);
 		free(ctx);
 	}
+
+	return status;
 }

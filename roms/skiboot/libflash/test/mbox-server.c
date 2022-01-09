@@ -1,18 +1,5 @@
-/* Copyright 2017 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2017 IBM Corp. */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -113,7 +100,21 @@ int64_t lpc_read(enum OpalLPCAddressType __unused addr_type, uint32_t addr,
 	/* Let it read from a write window... Spec says it ok! */
 	if (!check_window(addr, sz) || server_state.win_type == WIN_CLOSED)
 		return 1;
-	memcpy(data, server_state.lpc_base + addr, sz);
+
+	switch (sz) {
+	case 1:
+		*(uint8_t *)data = *(uint8_t *)(server_state.lpc_base + addr);
+		break;
+	case 2:
+		*(uint16_t *)data = be16_to_cpu(*(uint16_t *)(server_state.lpc_base + addr));
+		break;
+	case 4:
+		*(uint32_t *)data = be32_to_cpu(*(uint32_t *)(server_state.lpc_base + addr));
+		break;
+	default:
+		prerror("Invalid data size %d\n", sz);
+		return 1;
+	}
 	return 0;
 }
 
@@ -124,7 +125,20 @@ int64_t lpc_write(enum OpalLPCAddressType __unused addr_type, uint32_t addr,
 {
 	if (!check_window(addr, sz) || server_state.win_type != WIN_WRITE)
 		return 1;
-	memcpy(server_state.lpc_base + addr, &data, sz);
+	switch (sz) {
+	case 1:
+		*(uint8_t *)(server_state.lpc_base + addr) = data;
+		break;
+	case 2:
+		*(uint16_t *)(server_state.lpc_base + addr) = cpu_to_be16(data);
+		break;
+	case 4:
+		*(uint32_t *)(server_state.lpc_base + addr) = cpu_to_be32(data);
+		break;
+	default:
+		prerror("Invalid data size %d\n", sz);
+		return 1;
+	}
 	return 0;
 }
 
@@ -286,6 +300,7 @@ int bmc_mbox_enqueue(struct bmc_mbox_msg *msg,
 	switch (msg->command) {
 		case MBOX_C_RESET_STATE:
 			prlog(PR_INFO, "RESET_STATE\n");
+			server_state.win_type = WIN_CLOSED;
 			rc = open_window(msg, false, 0, LPC_BLOCKS);
 			memset(msg->args, 0, sizeof(msg->args));
 			break;

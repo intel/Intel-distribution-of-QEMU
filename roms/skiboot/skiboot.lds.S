@@ -1,17 +1,6 @@
-/* Copyright 2013-2018 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Copyright 2013-2019 IBM Corp.
  */
 
 #include <config.h>
@@ -70,6 +59,11 @@ SECTIONS
 		KEEP(*(.head))
 	}
 
+	. = NACA_OFF;
+	.naca : {
+		KEEP(*(.naca.data))
+	}
+
 	. = SPIRA_OFF;
 	.spira : {
 		KEEP(*(.spira.data))
@@ -78,6 +72,19 @@ SECTIONS
 	. = SPIRAH_OFF;
 	.spirah : {
 		KEEP(*(.spirah.data))
+	}
+
+	_head_end = .;
+	. = ALIGN(PAGE_SIZE);
+
+	/*
+	 * The following sections are read-write at runtime. We need
+	 * to skip over them when checksumming the skiboot images
+	 * before a fast-reboot.
+	 */
+	. = PROC_DUMP_AREA_OFF;
+	.procdump : {
+		KEEP(*(.procdump.data))
 	}
 
 	. = PROCIN_OFF;
@@ -90,23 +97,37 @@ SECTIONS
 		KEEP(*(.mdst.data))
 	}
 
+	. = MDDT_TABLE_OFF;
+	.mddt : {
+		KEEP(*(.mddt.data))
+	}
+
 	. = CPU_CTL_OFF;
 	.cpuctrl : {
 		KEEP(*(.cpuctrl.data))
 	}
 
-	. = ALIGN(0x10);
+	/* ...and back to RO */
+	. = ALIGN(PAGE_SIZE);
 	_stext = .;
  	.text : {
 		*(.text*)
 		*(.sfpr .glink)
 	}
 	_etext = .;
+	. = ALIGN(PAGE_SIZE);
 
 	.rodata : {
 		__rodata_start = .;
 		*(.rodata .rodata.*)
 		__rodata_end = .;
+	}
+
+	. = ALIGN(0x10);
+	.trap_table : {
+		__trap_table_start = .;
+		KEEP(*(.trap_table))
+		__trap_table_end = .;
 	}
 
 	. = ALIGN(0x10);
@@ -143,10 +164,6 @@ SECTIONS
 		__platforms_end = .;
 	}
 
-	/* Do I need to keep these ? */
-	.dynsym : { *(.dynsym)	}
-	.dynstr : { *(.dynstr)	}
-
 	/* Relocations */
 	. = ALIGN(0x10);
 	.dynamic : {
@@ -161,12 +178,9 @@ SECTIONS
 		*(.rela*)
 		__rela_dyn_end = .;
 	}
-	.plt    : { *(.plt) *(.iplt) }
 
 	.hash          : { *(.hash)   }
 	.gnu.hash      : { *(.gnu.hash) }
-	.dynsym        : { *(.dynsym) }
-	.dynstr        : { *(.dynstr) }
 	.gnu.version   : { *(.gnu.version) }
 	.gnu.version_d : { *(.gnu.version_d) }
 	.gnu.version_r : { *(.gnu.version_r) }
@@ -184,44 +198,50 @@ SECTIONS
 	 */
 	_romem_end = .;
 
+	. = ALIGN(PAGE_SIZE);
+
+	_sdata = .;
 	.data : {
 		/*
 		 * A couple of things that need to be 4K aligned and
 		 * to reside in their own pages for the sake of TCE
-		 * mappings
+		 * mappings, so use PAGE_SIZE alignment.
 		 */
-		. = ALIGN(0x1000);
+		. = ALIGN(PAGE_SIZE);
 		*(.data.memcons);
-		. = ALIGN(0x10000);
+		. = ALIGN(PAGE_SIZE);
 		*(.data.boot_trace);
-		. = ALIGN(0x10000);
+		. = ALIGN(PAGE_SIZE);
 		*(.data*)
 		*(.force.data)
 		*(.toc1)
 		*(.branch_lt)
 	}
+	_edata = .;
 
-	/* We locate the BSS at 4M to leave room for the symbol map */
-	. = 0x400000;
+	/* We locate the BSS at 5M to leave room for the symbol map */
+	. = 0x500000;
 
 	_sbss = .;
 	.bss : {
 		*(.dynbss)
 		*(.bss*)
 	}
-	. = ALIGN(0x10000);
+	. = ALIGN(PAGE_SIZE);
 	_ebss = .;
 	_end = .;
 
-	DEBUG_SECTIONS
+	ASSERT((HEAP_BASE - SKIBOOT_BASE) >= _end, "Heap collision with image")
 
 	/* Optional kernel image */
-       . = ALIGN(0x10000);
+       . = ALIGN(PAGE_SIZE);
        .builtin_kernel : {
 		__builtin_kernel_start = .;
 		KEEP(*(.builtin_kernel))
 		__builtin_kernel_end = .;
 	}
+
+	DEBUG_SECTIONS
 
 	/* Discards */
 	/DISCARD/ : {
@@ -230,5 +250,9 @@ SECTIONS
 		*(.eh_frame)
 		*(.interp)
 		*(.fini_array.*)
+		*(.dynsym)
+		*(.dynstr)
+		*(.plt)
+		*(.iplt)
 	}
 }

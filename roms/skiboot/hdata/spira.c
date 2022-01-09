@@ -1,33 +1,23 @@
-/* Copyright 2013-2018 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
 
 #include <inttypes.h>
 #include <device.h>
-#include "spira.h"
 #include <cpu.h>
 #include <vpd.h>
 #include <interrupts.h>
 #include <ccan/str/str.h>
 #include <chip.h>
-#include <fsp-mdst-table.h>
+#include <opal-dump.h>
 #include <fsp-attn.h>
 #include <fsp-leds.h>
+#include <skiboot.h>
+#include <vas.h>
 
 #include "hdata.h"
 #include "hostservices.h"
+#include "naca.h"
+#include "spira.h"
 
 /* Processor Initialization structure, contains
  * the initial NIA and MSR values for the entry
@@ -39,43 +29,68 @@
 
 static int cpu_type;
 
+extern struct proc_init_data proc_init_data;
+
 __section(".procin.data") struct proc_init_data proc_init_data = {
 	.hdr = HDIF_SIMPLE_HDR("PROCIN", 1, struct proc_init_data),
 	.regs_ptr = HDIF_IDATA_PTR(offsetof(struct proc_init_data, regs), 0x10),
 	.regs = {
 		.nia = CPU_TO_BE64(0x180),
-		.msr = CPU_TO_BE64(0x9000000000000000ULL), /* SF | HV */
+		.msr = CPU_TO_BE64(MSR_SF | MSR_HV),
 	},
 };
 
-__section(".cpuctrl.data") struct sp_addr_table cpu_ctl_spat_area;
-__section(".cpuctrl.data") struct sp_attn_area cpu_ctl_sp_attn_area1;
-__section(".cpuctrl.data") struct sp_attn_area cpu_ctl_sp_attn_area2;
+extern struct cpu_ctl_init_data cpu_ctl_init_data;
+extern struct sp_addr_table cpu_ctl_spat_area;
+extern struct sp_attn_area cpu_ctl_sp_attn_area1;
+extern struct sp_attn_area cpu_ctl_sp_attn_area2;
+extern struct hsr_data_area cpu_ctl_hsr_area;
+
+/*
+ * cpuctrl.data begins at CPU_CTL_OFF	- cpu_ctl_init_data is located there.
+ * + sizeof(struct cpu_ctl_init_data)	- cpu_ctl_spat_area
+ * + sizeof(struct sp_addr_table)	- cpu_ctl_sp_attn_area1
+ * + sizeof(struct sp_attn_area)	- cpu_ctl_sp_attn_area2
+ * + sizeof(struct sp_attn_area)	- cpu_ctl_hsr_area
+ *
+ * Can't use CPU_TO_BE64 directly on the labels as a constant initialiser.
+ *
+ * CPU_CTL_INIT_DATA_OFF is offset from 0, the others are addressed from the
+ * relocated address (+SKIBOOT_BASE)
+ */
+#define CPU_CTL_INIT_DATA_OFF		(CPU_CTL_OFF)
+#define CPU_CTL_SPAT_AREA_OFF		(CPU_CTL_INIT_DATA_OFF + sizeof(struct cpu_ctl_init_data) + SKIBOOT_BASE)
+#define CPU_CTL_SP_ATTN_AREA1_OFF	(ALIGN_UP((CPU_CTL_SPAT_AREA_OFF + sizeof(struct sp_addr_table)), ATTN_AREA_SZ))
+#define CPU_CTL_SP_ATTN_AREA2_OFF	(CPU_CTL_SP_ATTN_AREA1_OFF + sizeof(struct sp_attn_area))
+#define CPU_CTL_HSR_AREA_OFF		(CPU_CTL_SP_ATTN_AREA2_OFF + sizeof(struct sp_attn_area))
+
 __section(".cpuctrl.data") struct hsr_data_area cpu_ctl_hsr_area;
+__section(".cpuctrl.data") struct sp_attn_area cpu_ctl_sp_attn_area2;
+__section(".cpuctrl.data") struct sp_attn_area cpu_ctl_sp_attn_area1;
+__section(".cpuctrl.data") struct sp_addr_table cpu_ctl_spat_area;
 
 __section(".cpuctrl.data") struct cpu_ctl_init_data cpu_ctl_init_data = {
 	.hdr = HDIF_SIMPLE_HDR(CPU_CTL_HDIF_SIG, 2, struct cpu_ctl_init_data),
-	.cpu_ctl = HDIF_IDATA_PTR(offsetof(struct cpu_ctl_init_data, cpu_ctl_lt), sizeof(struct cpu_ctl_legacy_table)),
-#if !defined(TEST)
+	.cpu_ctl = HDIF_IDATA_PTR(offsetof(struct cpu_ctl_init_data, cpu_ctl_lt),
+					sizeof(struct cpu_ctl_legacy_table)),
 	.cpu_ctl_lt = {
 		.spat = {
-			.addr = CPU_TO_BE64((unsigned long)&(cpu_ctl_spat_area) + SKIBOOT_BASE),
+			.addr = CPU_TO_BE64(CPU_CTL_SPAT_AREA_OFF),
 			.size = CPU_TO_BE64(sizeof(struct sp_addr_table)),
 		},
 		.sp_attn_area1 = {
-			.addr = CPU_TO_BE64((unsigned long)&(cpu_ctl_sp_attn_area1) + SKIBOOT_BASE),
+			.addr = CPU_TO_BE64(CPU_CTL_SP_ATTN_AREA1_OFF),
 			.size = CPU_TO_BE64(sizeof(struct sp_attn_area)),
 		},
 		.sp_attn_area2 = {
-			.addr = CPU_TO_BE64((unsigned long)&(cpu_ctl_sp_attn_area2) + SKIBOOT_BASE),
+			.addr = CPU_TO_BE64(CPU_CTL_SP_ATTN_AREA2_OFF),
 			.size = CPU_TO_BE64(sizeof(struct sp_attn_area)),
 		},
 		.hsr_area = {
-			.addr = CPU_TO_BE64((unsigned long)&(cpu_ctl_hsr_area) + SKIBOOT_BASE),
+			.addr = CPU_TO_BE64(CPU_CTL_HSR_AREA_OFF),
 			.size = CPU_TO_BE64(sizeof(struct hsr_data_area)),
 		},
 	},
-#endif
 };
 
 /* Populate MDST table
@@ -89,15 +104,19 @@ __section(".cpuctrl.data") struct cpu_ctl_init_data cpu_ctl_init_data = {
  * addresses, we set the top bit to 1 on physical addresses
  */
 
-__section(".mdst.data") struct dump_mdst_table init_mdst_table[2] = {
+extern struct mdst_table init_mdst_table[];
+
+__section(".mdst.data") struct mdst_table init_mdst_table[2] = {
 	{
 		.addr = CPU_TO_BE64(INMEM_CON_START | HRMOR_BIT),
-		.type = CPU_TO_BE32(DUMP_REGION_CONSOLE),
+		.data_region = DUMP_REGION_CONSOLE,
+		.dump_type = DUMP_TYPE_SYSDUMP,
 		.size = CPU_TO_BE32(INMEM_CON_LEN),
 	},
 	{
 		.addr = CPU_TO_BE64(HBRT_CON_START | HRMOR_BIT),
-		.type = CPU_TO_BE32(DUMP_REGION_HBRT_LOG),
+		.data_region = DUMP_REGION_HBRT_LOG,
+		.dump_type = DUMP_TYPE_SYSDUMP,
 		.size = CPU_TO_BE32(HBRT_CON_LEN),
 	},
 };
@@ -135,15 +154,12 @@ __section(".spira.data") struct spira spira = {
 			.alloc_len	=
 				CPU_TO_BE32(sizeof(init_mdst_table)),
 		},
-#if !defined(TEST)
 		.cpu_ctrl = {
-			.addr		= CPU_TO_BE64((unsigned long)&cpu_ctl_init_data),
+			.addr		= CPU_TO_BE64(CPU_CTL_INIT_DATA_OFF),
 			.alloc_cnt	= CPU_TO_BE16(1),
 			.act_cnt	= CPU_TO_BE16(1),
-			.alloc_len	=
-					CPU_TO_BE32(sizeof(cpu_ctl_init_data)),
+			.alloc_len	= CPU_TO_BE32(sizeof(cpu_ctl_init_data)),
 		},
-#endif
 	},
 };
 
@@ -174,21 +190,47 @@ __section(".spirah.data") struct spirah spirah = {
 			.alloc_len
 			= CPU_TO_BE32(sizeof(struct proc_init_data)),
 		},
-#if !defined(TEST)
 		.cpu_ctrl = {
-			.addr		= CPU_TO_BE64((unsigned long)&cpu_ctl_init_data),
+			.addr		= CPU_TO_BE64(CPU_CTL_INIT_DATA_OFF),
 			.alloc_cnt	= CPU_TO_BE16(1),
 			.act_cnt	= CPU_TO_BE16(1),
 			.alloc_len	=
 					CPU_TO_BE32(sizeof(cpu_ctl_init_data)),
 		},
-#endif
 		.mdump_src = {
 			.addr		= CPU_TO_BE64(MDST_TABLE_OFF),
-			.alloc_cnt	= CPU_TO_BE16(ARRAY_SIZE(init_mdst_table)),
+			.alloc_cnt	= CPU_TO_BE16(MDST_TABLE_SIZE / sizeof(struct mdst_table)),
 			.act_cnt	= CPU_TO_BE16(ARRAY_SIZE(init_mdst_table)),
-			.alloc_len	=
-				CPU_TO_BE32(sizeof(init_mdst_table)),
+			.alloc_len	= CPU_TO_BE32(sizeof(struct mdst_table)),
+			.act_len	= CPU_TO_BE32(sizeof(struct mdst_table)),
+		},
+		.mdump_dst = {
+			.addr		= CPU_TO_BE64(MDDT_TABLE_OFF),
+			.alloc_cnt	= CPU_TO_BE16(MDDT_TABLE_SIZE / sizeof(struct mddt_table)),
+			.act_cnt	= CPU_TO_BE16(0),
+			.alloc_len	= CPU_TO_BE32(sizeof(struct mddt_table)),
+			.act_len	= CPU_TO_BE32(sizeof(struct mddt_table)),
+		},
+		.mdump_res = {
+			.addr		= CPU_TO_BE64(MDRT_TABLE_BASE),
+			.alloc_cnt	= CPU_TO_BE16(MDRT_TABLE_SIZE / sizeof(struct mdrt_table)),
+			/*
+			 * XXX: Ideally hostboot should use allocated count and
+			 *      length. But looks like hostboot uses actual count
+			 *      and length to get MDRT table size. And post dump
+			 *      hostboot will update act_cnt. Hence update both
+			 *      alloc_cnt and act_cnt.
+			 */
+			.act_cnt        = CPU_TO_BE16(MDRT_TABLE_SIZE / sizeof(struct mdrt_table)),
+			.alloc_len      = CPU_TO_BE32(sizeof(struct mdrt_table)),
+			.act_len        = CPU_TO_BE32(sizeof(struct mdrt_table)),
+		},
+		.proc_dump_area = {
+			.addr		= CPU_TO_BE64(PROC_DUMP_AREA_OFF),
+			.alloc_cnt	= CPU_TO_BE16(1),
+			.act_cnt	= CPU_TO_BE16(1),
+			.alloc_len	= CPU_TO_BE32(sizeof(struct proc_dump_area)),
+			.act_len	= CPU_TO_BE32(sizeof(struct proc_dump_area)),
 		},
 	},
 };
@@ -247,12 +289,23 @@ struct HDIF_common_hdr *__get_hdif(struct spira_ntuple *n, const char id[],
 	return h;
 }
 
-static struct dt_node *add_xscom_node(uint64_t base, uint32_t hw_id,
-				      uint32_t proc_chip_id)
+uint32_t get_xscom_id(const struct sppcrd_chip_info *cinfo)
+{
+	if (proc_gen <= proc_gen_p9)
+		return be32_to_cpu(cinfo->xscom_id);
+
+	/* On P10 use Processor fabric topology id for chip id */
+	return (uint32_t)(cinfo->fab_topology_id);
+}
+
+static struct dt_node *add_xscom_node(uint64_t base,
+				      const struct sppcrd_chip_info *cinfo)
 {
 	struct dt_node *node;
 	uint64_t addr, size;
 	uint64_t freq;
+	uint32_t hw_id = get_xscom_id(cinfo);
+	uint32_t proc_chip_id = be32_to_cpu(cinfo->proc_chip_id);
 
 	switch (proc_gen) {
 	case proc_gen_p8:
@@ -260,11 +313,15 @@ static struct dt_node *add_xscom_node(uint64_t base, uint32_t hw_id,
 		addr = base | ((uint64_t)hw_id << PPC_BITLSHIFT(28));
 		break;
 	case proc_gen_p9:
-	default:
 		/* On P9 we need to put the chip ID in the natural powerbus
 		 * position.
 		 */
 		addr = base | (((uint64_t)hw_id) << 42);
+		break;
+	case proc_gen_p10:
+	default:
+		/* Use Primary topology table index for xscom address */
+		addr = base | (((uint64_t)cinfo->topology_id_table[cinfo->primary_topology_loc]) << 44);
 		break;
 	};
 
@@ -274,8 +331,7 @@ static struct dt_node *add_xscom_node(uint64_t base, uint32_t hw_id,
 	       hw_id, proc_chip_id, (long long)addr);
 
 	node = dt_new_addr(dt_root, "xscom", addr);
-	if (!node)
-		return NULL;
+	assert(node);
 
 	dt_add_property_cells(node, "ibm,chip-id", hw_id);
 	dt_add_property_cells(node, "ibm,proc-chip-id", proc_chip_id);
@@ -291,6 +347,10 @@ static struct dt_node *add_xscom_node(uint64_t base, uint32_t hw_id,
 	case proc_gen_p9:
 		dt_add_property_strings(node, "compatible",
 					"ibm,xscom", "ibm,power9-xscom");
+		break;
+	case proc_gen_p10:
+		dt_add_property_strings(node, "compatible",
+					"ibm,xscom", "ibm,power10-xscom");
 		break;
 	default:
 		dt_add_property_strings(node, "compatible", "ibm,xscom");
@@ -380,6 +440,11 @@ static void add_psihb_node(struct dt_node *np)
 		psi_slen = 0x100;
 		psi_comp = "ibm,power9-psihb-x";
 		break;
+	case proc_gen_p10:
+		psi_scom = 0x3011d00;
+		psi_slen = 0x100;
+		psi_comp = "ibm,power10-psihb-x";
+		break;
 	default:
 		psi_comp = NULL;
 	}
@@ -398,26 +463,50 @@ static void add_psihb_node(struct dt_node *np)
 
 static void add_xive_node(struct dt_node *np)
 {
-	struct dt_node *xive = dt_new_addr(np, "xive", 0x5013000);
+	struct dt_node *xive;
+	const char *comp;
+	u32 scom, slen;
 
-	dt_add_property_cells(xive, "reg", 0x5013000, 0x300);
-	dt_add_property_string(xive, "compatible", "ibm,power9-xive-x");
+	switch (proc_gen) {
+	case proc_gen_p9:
+		scom = 0x5013000;
+		slen = 0x300;
+		comp = "ibm,power9-xive-x";
+		break;
+	case proc_gen_p10:
+		scom = 0x2010800;
+		slen = 0x400;
+		comp = "ibm,power10-xive-x";
+		break;
+	default:
+		return;
+	}
+
+	xive = dt_new_addr(np, "xive", scom);
+	dt_add_property_cells(xive, "reg", scom, slen);
+	dt_add_property_string(xive, "compatible", comp);
 
 	/* HACK: required for simics */
 	dt_add_property(xive, "force-assign-bars", NULL, 0);
 }
 
-/*
- * SCOM Base Address from P9 SCOM Assignment spreadsheet
- */
-#define VAS_SCOM_BASE_ADDR		0x03011800
-
 static void add_vas_node(struct dt_node *np, int idx)
 {
-	struct  dt_node *vas = dt_new_addr(np, "vas", VAS_SCOM_BASE_ADDR);
+	struct  dt_node *vas;
+	const char *comp;
+	uint64_t base_addr;
 
-	dt_add_property_cells(vas, "reg", VAS_SCOM_BASE_ADDR, 0x300);
-	dt_add_property_string(vas, "compatible", "ibm,power9-vas-x");
+	if (proc_gen == proc_gen_p9) {
+		base_addr = P9_VAS_SCOM_BASE_ADDR;
+		comp = "ibm,power9-vas-x";
+	} else {
+		base_addr = VAS_SCOM_BASE_ADDR;
+		comp = "ibm,power10-vas-x";
+	}
+
+	vas = dt_new_addr(np, "vas", base_addr);
+	dt_add_property_cells(vas, "reg", base_addr, 0x300);
+	dt_add_property_string(vas, "compatible", comp);
 	dt_add_property_cells(vas, "ibm,vas-id", idx);
 }
 
@@ -536,9 +625,7 @@ static bool add_xscom_sppcrd(uint64_t xscom_base)
 			continue;
 
 		/* Create the XSCOM node */
-		np = add_xscom_node(xscom_base,
-				    be32_to_cpu(cinfo->xscom_id),
-				    be32_to_cpu(cinfo->proc_chip_id));
+		np = add_xscom_node(xscom_base, cinfo);
 		if (!np)
 			continue;
 
@@ -561,7 +648,7 @@ static bool add_xscom_sppcrd(uint64_t xscom_base)
 					   SPPCRD_IDATA_KW_VPD);
 		if (vpd_node)
 			dt_add_property_cells(vpd_node, "ibm,chip-id",
-					      be32_to_cpu(cinfo->xscom_id));
+					      get_xscom_id(cinfo));
 
 		fru_id = HDIF_get_idata(hdif, SPPCRD_IDATA_FRU_ID, NULL);
 		if (fru_id)
@@ -612,13 +699,25 @@ static bool add_xscom_sppcrd(uint64_t xscom_base)
 		if ((csize >= (offsetof(struct sppcrd_chip_info,
 					sw_xstop_fir_bitpos) + 1)) &&
 						cinfo->sw_xstop_fir_scom) {
-			__be32 fir_bit = cinfo->sw_xstop_fir_bitpos;
+			uint8_t fir_bit = cinfo->sw_xstop_fir_bitpos;
 
 			if (!dt_find_property(dt_root, "ibm,sw-checkstop-fir"))
 				dt_add_property_cells(dt_root,
 					"ibm,sw-checkstop-fir",
 					be32_to_cpu(cinfo->sw_xstop_fir_scom),
-					be32_to_cpu(fir_bit));
+					fir_bit);
+		}
+
+		if (proc_gen >= proc_gen_p10) {
+			uint8_t primary_loc = cinfo->primary_topology_loc;
+
+			if (primary_loc >= CHIP_MAX_TOPOLOGY_ENTRIES) {
+				prerror("XSCOM: Invalid primary topology index %d\n",
+					primary_loc);
+				continue;
+			}
+			dt_add_property_cells(np, "ibm,primary-topology-index",
+					cinfo->topology_id_table[primary_loc]);
 		}
 	}
 
@@ -684,6 +783,9 @@ static void add_chiptod_node(unsigned int chip_id, int flags)
 		break;
 	case proc_gen_p9:
 		compat_str = "ibm,power9-chiptod";
+		break;
+	case proc_gen_p10:
+		compat_str = "ibm,power10-chiptod";
 		break;
 	default:
 		return;
@@ -785,7 +887,7 @@ static bool add_chiptod_new(void)
 				flags |= CHIPTOD_ID_FLAGS_PRIMARY;
 		}
 
-		add_chiptod_node(be32_to_cpu(cinfo->xscom_id), flags);
+		add_chiptod_node(get_xscom_id(cinfo), flags);
 		found = true;
 	}
 	return found;
@@ -823,7 +925,8 @@ static void add_nx_node(u32 gcid)
 					"ibm,power8-nx");
 		break;
 	case proc_gen_p9:
-		/* POWER9 NX is not software compatible with P7/P8 NX */
+	case proc_gen_p10:
+		/* POWER9 NX is not software compatible with P8 NX */
 		dt_add_property_strings(nx, "compatible", "ibm,power9-nx");
 		break;
 	default:
@@ -856,22 +959,28 @@ static void add_nx(void)
 			continue;
 
 		if (cinfo->nx_state)
-			add_nx_node(be32_to_cpu(cinfo->xscom_id));
+			add_nx_node(get_xscom_id(cinfo));
 	}
 }
 
 static void add_nmmu(void)
 {
 	struct dt_node *xscom, *nmmu;
+	u32 scom;
 
-	/* Nest MMU only exists on POWER9 */
-	if (proc_gen != proc_gen_p9)
+	/* Nest MMU only exists on POWER9 or later */
+	if (proc_gen < proc_gen_p9)
 		return;
 
+	if (proc_gen == proc_gen_p9)
+		scom = 0x5012c40;
+	else
+		scom = 0x2010c40;
+
 	dt_for_each_compatible(dt_root, xscom, "ibm,xscom") {
-		nmmu = dt_new_addr(xscom, "nmmu", 0x5012c40);
+		nmmu = dt_new_addr(xscom, "nmmu", scom);
 		dt_add_property_strings(nmmu, "compatible", "ibm,power9-nest-mmu");
-		dt_add_property_cells(nmmu, "reg", 0x5012c40, 0x20);
+		dt_add_property_cells(nmmu, "reg", scom, 0x20);
 	}
 }
 
@@ -880,17 +989,29 @@ static void dt_init_secureboot_node(const struct iplparams_sysparams *sysparams)
 	struct dt_node *node;
 	u16 sys_sec_setting;
 	u16 hw_key_hash_size;
+	u16 host_fw_key_clear;
 
 	node = dt_new(dt_root, "ibm,secureboot");
 	assert(node);
 
-	dt_add_property_string(node, "compatible", "ibm,secureboot-v2");
+	dt_add_property_strings(node, "compatible",
+				"ibm,secureboot", "ibm,secureboot-v2");
 
 	sys_sec_setting = be16_to_cpu(sysparams->sys_sec_setting);
 	if (sys_sec_setting & SEC_CONTAINER_SIG_CHECKING)
 		dt_add_property(node, "secure-enabled", NULL, 0);
 	if (sys_sec_setting & SEC_HASHES_EXTENDED_TO_TPM)
 		dt_add_property(node, "trusted-enabled", NULL, 0);
+	if (sys_sec_setting & PHYSICAL_PRESENCE_ASSERTED)
+		dt_add_property(node, "physical-presence-asserted", NULL, 0);
+
+	host_fw_key_clear = be16_to_cpu(sysparams->host_fw_key_clear);
+	if (host_fw_key_clear & KEY_CLEAR_OS_KEYS)
+		dt_add_property(node, "clear-os-keys", NULL, 0);
+	if (host_fw_key_clear & KEY_CLEAR_MFG)
+		dt_add_property(node, "clear-mfg-keys", NULL, 0);
+	if (host_fw_key_clear & KEY_CLEAR_ALL)
+		dt_add_property(node, "clear-all-keys", NULL, 0);
 
 	hw_key_hash_size = be16_to_cpu(sysparams->hw_key_hash_size);
 
@@ -911,6 +1032,63 @@ static void dt_init_secureboot_node(const struct iplparams_sysparams *sysparams)
 	dt_add_property_cells(node, "hw-key-hash-size", hw_key_hash_size);
 }
 
+static void opal_dump_add_mpipl_boot(const struct iplparams_iplparams *p)
+{
+	u32 mdrt_cnt = be16_to_cpu(spira.ntuples.mdump_res.act_cnt);
+	u32 mdrt_max_cnt = MDRT_TABLE_SIZE / sizeof(struct mdrt_table);
+	struct dt_node *dump_node;
+
+	dump_node = dt_find_by_path(opal_node, "dump");
+	if (!dump_node)
+		return;
+
+	/* Check boot params to detect MPIPL boot or not */
+	if (p->cec_ipl_maj_type != IPLPARAMS_MAJ_TYPE_REIPL)
+		return;
+
+	/*
+	 * On FSP system we get minor type as post dump IPL and on BMC system
+	 * we get platform reboot. Hence lets check for both values.
+	 */
+	if (p->cec_ipl_min_type != IPLPARAMS_MIN_TYPE_POST_DUMP &&
+	    p->cec_ipl_min_type != IPLPARAMS_MIN_TYPE_PLAT_REBOOT) {
+		prlog(PR_NOTICE, "DUMP: Non MPIPL reboot "
+		      "[minor type = 0x%x]\n", p->cec_ipl_min_type);
+		return;
+	}
+
+	if (be16_to_cpu(p->cec_ipl_attrib) != IPLPARAMS_ATTRIB_MEM_PRESERVE) {
+		prlog(PR_DEBUG, "DUMP: Memory not preserved\n");
+		return;
+	}
+
+	if (mdrt_cnt == 0 || mdrt_cnt >= mdrt_max_cnt) {
+		prlog(PR_DEBUG, "DUMP: Invalid MDRT count : %x\n", mdrt_cnt);
+		return;
+	}
+
+	prlog(PR_NOTICE, "DUMP: Dump found, MDRT count = 0x%x\n", mdrt_cnt);
+
+	dt_add_property(dump_node, "mpipl-boot", NULL, 0);
+}
+
+static void add_opal_dump_node(void)
+{
+	__be64 fw_load_area[4];
+	struct dt_node *node;
+
+	opal_node = dt_new_check(dt_root, "ibm,opal");
+	node = dt_new(opal_node, "dump");
+	assert(node);
+	dt_add_property_string(node, "compatible", "ibm,opal-dump");
+
+	fw_load_area[0] = cpu_to_be64((u64)KERNEL_LOAD_BASE);
+	fw_load_area[1] = cpu_to_be64(KERNEL_LOAD_SIZE);
+	fw_load_area[2] = cpu_to_be64((u64)INITRAMFS_LOAD_BASE);
+	fw_load_area[3] = cpu_to_be64(INITRAMFS_LOAD_SIZE);
+	dt_add_property(node, "fw-load-area", fw_load_area, sizeof(fw_load_area));
+}
+
 static void add_iplparams_sys_params(const void *iplp, struct dt_node *node)
 {
 	const struct iplparams_sysparams *p;
@@ -918,6 +1096,7 @@ static void add_iplparams_sys_params(const void *iplp, struct dt_node *node)
 	u16 version = be16_to_cpu(hdif->version);
 	const char *vendor = NULL;
 	u32 sys_attributes;
+	u64 bus_speed;
 
 	p = HDIF_get_idata(iplp, IPLPARAMS_SYSPARAMS, NULL);
 	if (!CHECK_SPPTR(p)) {
@@ -985,6 +1164,16 @@ static void add_iplparams_sys_params(const void *iplp, struct dt_node *node)
 		dt_add_property_u64(dt_root, "nest-frequency", freq);
 	}
 
+	/* Grab ABC bus speed */
+	bus_speed = be32_to_cpu(p->abc_bus_speed);
+	if (bus_speed)
+		dt_add_property_u64(node, "abc-bus-freq-mhz", bus_speed);
+
+	/* Grab WXYZ bus speed */
+	bus_speed = be32_to_cpu(p->wxyz_bus_speed);
+	if (bus_speed)
+		dt_add_property_u64(node, "wxyz-bus-freq-mhz", bus_speed);
+
 	if (version >= 0x5f)
 		vendor = p->sys_vendor;
 
@@ -997,6 +1186,10 @@ static void add_iplparams_sys_params(const void *iplp, struct dt_node *node)
 	sys_attributes = be32_to_cpu(p->sys_attributes);
 	if (sys_attributes & SYS_ATTR_RISK_LEVEL)
 		dt_add_property(node, "elevated-risk-level", NULL, 0);
+
+	/* Populate OPAL dump node */
+	if (sys_attributes & SYS_ATTR_MPIPL_SUPPORTED)
+		add_opal_dump_node();
 
 	if (version >= 0x60 && proc_gen >= proc_gen_p9)
 		dt_init_secureboot_node(p);
@@ -1050,6 +1243,9 @@ static void add_iplparams_ipl_params(const void *iplp, struct dt_node *node)
 	else
 		dt_add_property_strings(led_node, DT_PROPERTY_LED_MODE,
 					LED_MODE_GUIDING_LIGHT);
+
+	/* Populate opal dump result table */
+	opal_dump_add_mpipl_boot(p);
 }
 
 static void add_iplparams_serials(const void *iplp, struct dt_node *node)
@@ -1195,10 +1391,6 @@ static void add_iplparams(void)
  * numbering used by HDAT to reference chips, which doesn't correspond
  * to the HW IDs. We want to use the HW IDs everywhere in the DT so
  * we convert using this.
- *
- * Note: On P7, the HW ID is the XSCOM "GCID" including the T bit which
- * is *different* from the chip ID portion of the interrupt server#
- * (or PIR). See the explanations in chip.h
  */
 uint32_t pcid_to_chip_id(uint32_t proc_chip_id)
 {
@@ -1217,7 +1409,7 @@ uint32_t pcid_to_chip_id(uint32_t proc_chip_id)
 			continue;
 		}
 		if (proc_chip_id == be32_to_cpu(cinfo->proc_chip_id))
-			return be32_to_cpu(cinfo->xscom_id);
+			return get_xscom_id(cinfo);
 	}
 
 	/* Not found, what to do ? Assert ? For now return a number
@@ -1226,6 +1418,34 @@ uint32_t pcid_to_chip_id(uint32_t proc_chip_id)
 	return (uint32_t)-1;
 }
 
+uint32_t pcid_to_topology_idx(uint32_t proc_chip_id)
+{
+	unsigned int i;
+	const void *hdif;
+
+	/* First, try the proc_chip ntuples for chip data */
+	for_each_ntuple_idx(&spira.ntuples.proc_chip, hdif, i,
+			    SPPCRD_HDIF_SIG) {
+		const struct sppcrd_chip_info *cinfo;
+
+		cinfo = HDIF_get_idata(hdif, SPPCRD_IDATA_CHIP_INFO, NULL);
+		if (!CHECK_SPPTR(cinfo)) {
+			prerror("XSCOM: Bad ChipID data %d\n", i);
+			continue;
+		}
+		if (proc_chip_id == be32_to_cpu(cinfo->proc_chip_id)) {
+			if (proc_gen <= proc_gen_p9)
+				return get_xscom_id(cinfo);
+			else
+				return ((u32)cinfo->topology_id_table[cinfo->primary_topology_loc]);
+		}
+	}
+
+	/* Not found, what to do ? Assert ? For now return a number
+	 * guaranteed to not exist
+	 */
+	return (uint32_t)-1;
+}
 /* Create '/ibm,opal/led' node */
 static void dt_init_led_node(void)
 {
@@ -1339,7 +1559,7 @@ static void add_stop_levels(void)
 #define NPU_INDIRECT1	0x800000000c010c3fULL
 
 static void add_npu(struct dt_node *xscom, const struct HDIF_array_hdr *links,
-			int npu_index, int phb_index)
+			int npu_index)
 {
 	const struct sppcrd_smp_link *link;
 	struct dt_node *npu;
@@ -1360,7 +1580,6 @@ static void add_npu(struct dt_node *xscom, const struct HDIF_array_hdr *links,
 	dt_add_property_cells(npu, "#address-cells", 1);
 
 	dt_add_property_strings(npu, "compatible", "ibm,power9-npu");
-	dt_add_property_cells(npu, "ibm,phb-index", phb_index);
 	dt_add_property_cells(npu, "ibm,npu-index", npu_index);
 
 	HDIF_iarray_for_each(links, i, link) {
@@ -1510,10 +1729,10 @@ static void add_npu(struct dt_node *xscom, const struct HDIF_array_hdr *links,
 static void add_npus(void)
 {
 	struct dt_node *xscom;
-	int phb_index = 7; /* Start counting from 7, for no reason */
 	int npu_index = 0;
 
-	if (proc_gen < proc_gen_p9)
+	/* Only consult HDAT for npu2 */
+	if (cpu_type != PVR_TYPE_P9)
 		return;
 
 	dt_for_each_compatible(dt_root, xscom, "ibm,xscom") {
@@ -1534,7 +1753,7 @@ static void add_npus(void)
 
 		/* some hostboots will give us an empty array */
 		if (be32_to_cpu(links->ecnt))
-			add_npu(xscom, links, npu_index++, phb_index++);
+			add_npu(xscom, links, npu_index++);
 	}
 }
 
@@ -1548,7 +1767,7 @@ static void add_npus(void)
 static void fixup_spira(void)
 {
 #if !defined(TEST)
-	spiras = (struct spiras *)CPU_TO_BE64(SPIRA_HEAP_BASE);
+	spiras = (struct spiras *)SPIRA_HEAP_BASE;
 #endif
 
 	/* Validate SPIRA-S signature */
@@ -1576,11 +1795,29 @@ static void fixup_spira(void)
 	spira.ntuples.mdump_src = spirah.ntuples.mdump_src;
 	spira.ntuples.mdump_dst = spirah.ntuples.mdump_dst;
 	spira.ntuples.mdump_res  = spirah.ntuples.mdump_res;
+	spira.ntuples.proc_dump_area = spirah.ntuples.proc_dump_area;
 	spira.ntuples.pcia = spiras->ntuples.pcia;
 	spira.ntuples.proc_chip = spiras->ntuples.proc_chip;
 	spira.ntuples.hs_data = spiras->ntuples.hs_data;
 	spira.ntuples.ipmi_sensor = spiras->ntuples.ipmi_sensor;
 	spira.ntuples.node_stb_data = spiras->ntuples.node_stb_data;
+}
+
+/*
+ * All the data structure addresses are relative to payload base. Hence adjust
+ * structures that are needed to capture OPAL dump during MPIPL.
+ */
+static void update_spirah_addr(void)
+{
+#if !defined(TEST)
+	if (proc_gen < proc_gen_p9)
+		return;
+
+	naca.spirah_addr = CPU_TO_BE64(SPIRAH_OFF);
+	naca.spira_addr = CPU_TO_BE64(SPIRA_OFF);
+	spirah.ntuples.hs_data_area.addr = CPU_TO_BE64(SPIRA_HEAP_BASE - SKIBOOT_BASE);
+	spirah.ntuples.mdump_res.addr = CPU_TO_BE64(MDRT_TABLE_BASE - SKIBOOT_BASE);
+#endif
 }
 
 int parse_hdat(bool is_opal)
@@ -1590,6 +1827,8 @@ int parse_hdat(bool is_opal)
 	prlog(PR_DEBUG, "Parsing HDAT...\n");
 
 	fixup_spira();
+
+	update_spirah_addr();
 
 	/*
 	 * Basic DT root stuff
@@ -1609,10 +1848,9 @@ int parse_hdat(bool is_opal)
 	/* Create /ibm,opal/led node */
 	dt_init_led_node();
 
-	/* Parse SPPACA and/or PCIA */
+	/* Parse PCIA */
 	if (!pcia_parse())
-		if (paca_parse() < 0)
-			return -1;
+		return -1;
 
 	/* IPL params */
 	add_iplparams();
@@ -1640,8 +1878,7 @@ int parse_hdat(bool is_opal)
 	io_parse();
 
 	/* Add NPU nodes */
-	if (proc_gen >= proc_gen_p9)
-		add_npus();
+	add_npus();
 
 	/* Parse VPD */
 	vpd_parse();

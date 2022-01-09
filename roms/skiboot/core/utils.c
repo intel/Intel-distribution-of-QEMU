@@ -1,17 +1,8 @@
-/* Copyright 2013-2014 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Misc utility functions
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2018 IBM Corp.
  */
 
 #include <skiboot.h>
@@ -22,28 +13,24 @@
 #include <cpu.h>
 #include <stack.h>
 
-void __noreturn assert_fail(const char *msg)
+void __noreturn assert_fail(const char *msg, const char *file,
+				unsigned int line, const char *function)
 {
+	static bool in_abort = false;
+
+	(void)function;
+	if (in_abort)
+		for (;;) ;
+	in_abort = true;
+
 	/**
-	 * @fwts-label FailedAssert
+	 * @fwts-label FailedAssert2
 	 * @fwts-advice OPAL hit an assert(). During normal usage (even
 	 * testing) we should never hit an assert. There are other code
 	 * paths for controlled shutdown/panic in the event of catastrophic
 	 * errors.
 	 */
-	prlog(PR_EMERG, "Assert fail: %s\n", msg);
-	_abort(msg);
-}
-
-void __noreturn _abort(const char *msg)
-{
-	static bool in_abort = false;
-
-	if (in_abort)
-		for (;;) ;
-	in_abort = true;
-
-	prlog(PR_EMERG, "Aborting!\n");
+	prlog(PR_EMERG, "assert failed at %s:%u: %s\n", file, line, msg);
 	backtrace();
 
 	if (platform.terminate)

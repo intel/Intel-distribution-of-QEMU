@@ -1,17 +1,8 @@
-/* Copyright 2013-2014 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Low Pin Count (LPC) Bus.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
 
 #define pr_fmt(fmt)	"LPC: " fmt
@@ -682,27 +673,36 @@ int64_t lpc_probe_read(enum OpalLPCAddressType addr_type, uint32_t addr,
  * existing Linux expectations
  */
 static int64_t opal_lpc_read(uint32_t chip_id, enum OpalLPCAddressType addr_type,
-			     uint32_t addr, uint32_t *data, uint32_t sz)
+			     uint32_t addr, __be32 *data, uint32_t sz)
 {
 	struct proc_chip *chip;
 	int64_t rc;
+	uint32_t tmp;
 
 	chip = get_chip(chip_id);
 	if (!chip || !chip->lpc)
 		return OPAL_PARAMETER;
 
-	if (addr_type == OPAL_LPC_FW || sz == 1)
-		return __lpc_read(chip->lpc, addr_type, addr, data, sz, false);
-	*data = 0;
-	while(sz--) {
-		uint32_t byte;
-
-		rc = __lpc_read(chip->lpc, addr_type, addr, &byte, 1, false);
+	if (addr_type == OPAL_LPC_FW) {
+		rc = __lpc_read(chip->lpc, addr_type, addr, &tmp, sz, false);
 		if (rc)
 			return rc;
-		*data = *data | (byte << (8 * sz));
-		addr++;
+
+	} else {
+		tmp = 0;
+		while (sz--) {
+			uint32_t byte;
+
+			rc = __lpc_read(chip->lpc, addr_type, addr, &byte, 1, false);
+			if (rc)
+				return rc;
+			tmp = tmp | (byte << (8 * sz));
+			addr++;
+		}
 	}
+
+	*data = cpu_to_be32(tmp);
+
 	return OPAL_SUCCESS;
 }
 
@@ -882,7 +882,7 @@ unsigned int lpc_get_irq_policy(uint32_t chip_id, uint32_t psi_idx)
 
 static void lpc_create_int_map(struct lpcm *lpc, struct dt_node *psi_node)
 {
-	uint32_t map[LPC_NUM_SERIRQ * 5], *pmap;
+	__be32 map[LPC_NUM_SERIRQ * 5], *pmap;
 	uint32_t i;
 
 	if (!psi_node)
@@ -893,9 +893,9 @@ static void lpc_create_int_map(struct lpcm *lpc, struct dt_node *psi_node)
 			continue;
 		*(pmap++) = 0;
 		*(pmap++) = 0;
-		*(pmap++) = i;
-		*(pmap++) = psi_node->phandle;
-		*(pmap++) = lpc->sirq_routes[i] + P9_PSI_IRQ_LPC_SIRQ0;
+		*(pmap++) = cpu_to_be32(i);
+		*(pmap++) = cpu_to_be32(psi_node->phandle);
+		*(pmap++) = cpu_to_be32(lpc->sirq_routes[i] + P9_PSI_IRQ_LPC_SIRQ0);
 	}
 	if (pmap == map)
 		return;
@@ -914,7 +914,9 @@ void lpc_finalize_interrupts(void)
 	for_each_chip(chip) {
 		if (chip->lpc && chip->psi &&
 		    (chip->type == PROC_CHIP_P9_NIMBUS ||
-		     chip->type == PROC_CHIP_P9_CUMULUS))
+		     chip->type == PROC_CHIP_P9_CUMULUS ||
+		     chip->type == PROC_CHIP_P9P ||
+		     chip->type == PROC_CHIP_P10))
 			lpc_create_int_map(chip->lpc, chip->psi->node);
 	}
 }
@@ -957,6 +959,8 @@ static void lpc_init_interrupts_one(struct proc_chip *chip)
 		break;
 	case PROC_CHIP_P9_NIMBUS:
 	case PROC_CHIP_P9_CUMULUS:
+	case PROC_CHIP_P9P:
+	case PROC_CHIP_P10:
 		/* On P9, we additionally setup the routing. */
 		lpc->has_serirq = true;
 		for (i = 0; i < LPC_NUM_SERIRQ; i++) {
@@ -1374,7 +1378,9 @@ void lpc_register_client(uint32_t chip_id,
 
 	has_routes =
 		chip->type == PROC_CHIP_P9_NIMBUS ||
-		chip->type == PROC_CHIP_P9_CUMULUS;
+		chip->type == PROC_CHIP_P9_CUMULUS ||
+		chip->type == PROC_CHIP_P9P ||
+		chip->type == PROC_CHIP_P10;
 
 	if (policy != IRQ_ATTR_TARGET_OPAL && !has_routes) {
 		prerror("Chip doesn't support OS interrupt policy\n");

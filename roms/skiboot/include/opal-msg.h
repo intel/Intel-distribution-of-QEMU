@@ -1,19 +1,5 @@
-/* Copyright 2013-2019 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
 
 #ifndef __OPALMSG_H
 #define __OPALMSG_H
@@ -41,8 +27,8 @@ int _opal_queue_msg(enum opal_msg_type msg_type, void *data,
 
 #define opal_queue_msg(msg_type, data, cb, ...) \
 	_opal_queue_msg(msg_type, data, cb, \
-			sizeof((u64[]) {__VA_ARGS__}), \
-			(u64[]) {__VA_ARGS__});
+			sizeof((__be64[]) {__VA_ARGS__}), \
+			(__be64[]) {__VA_ARGS__});
 
 void opal_init_msg(void);
 

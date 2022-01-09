@@ -1,18 +1,10 @@
-/* Copyright 2013-2015 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * NVLink1, supported by the NPU (POWER8)
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
+
 #include <skiboot.h>
 #include <io.h>
 #include <timebase.h>
@@ -393,8 +385,12 @@ static void npu_dev_bind_pci_dev(struct npu_dev *dev)
 		}
 	}
 
-	prlog(PR_INFO, "%s: No PCI device for NPU device %04x:00:%02x.0 to bind to. If you expect a GPU to be there, this is a problem.\n",
-	      __func__, dev->npu->phb.opal_id, dev->index);
+	prlog(PR_INFO, "%s: No PCI device for NPU device %04x:%02x:%02x.%x to bind to. If you expect a GPU to be there, this is a problem.\n",
+	      __func__, dev->npu->phb.opal_id,
+	      dev->pvd->bdfn >> 8 & 0xff,
+	      dev->pvd->bdfn >> 3 & 0x1f,
+	      dev->pvd->bdfn & 0x7);
+
 }
 
 static struct lock pci_npu_phandle_lock = LOCK_UNLOCKED;
@@ -420,7 +416,6 @@ static void npu_append_pci_phandle(struct dt_node *dn, u32 phandle)
 	prop_len = pci_npu_phandle_prop->len;
 	prop_len += sizeof(*npu_phandles);
 	dt_resize_property(&pci_npu_phandle_prop, prop_len);
-	pci_npu_phandle_prop->len = prop_len;
 
 	npu_phandles = (uint32_t *) pci_npu_phandle_prop->prop;
 	npu_phandles[prop_len/sizeof(*npu_phandles) - 1] = phandle;
@@ -792,7 +787,7 @@ static int64_t npu_set_pe(struct phb *phb,
 	 * bus number is zero.
 	 */
 	dev = bdfn_to_npu_dev(p, bdfn);
-	if ((bdfn >> 8) || !dev)
+	if (PCI_BUS_NUM(bdfn) || !dev)
 		return OPAL_PARAMETER;
 
 	link_idx = dev->index;
@@ -992,7 +987,6 @@ static const struct phb_ops npu_ops = {
 	.cfg_write8		= npu_cfg_write8,
 	.cfg_write16		= npu_cfg_write16,
 	.cfg_write32		= npu_cfg_write32,
-	.choose_bus		= NULL,
 	.get_reserved_pe_number	= NULL,
 	.device_init		= NULL,
 	.phb_final_fixup	= npu_phb_final_fixup,

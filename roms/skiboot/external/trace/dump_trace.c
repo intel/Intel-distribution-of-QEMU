@@ -1,17 +1,8 @@
-/* Copyright 2013-2014 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Dump the content of an OPAL trace
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
 
 #include <trace.h>
@@ -54,13 +45,18 @@ static void *ezalloc(size_t size)
 	return p;
 }
 
+#define TB_HZ 512000000ul
+
 static void display_header(const struct trace_hdr *h)
 {
 	static u64 prev_ts;
 	u64 ts = be64_to_cpu(h->timestamp);
 
-	printf("%16lx (+%8lx) [%03x] : ",
-	       ts, prev_ts ? (ts - prev_ts) : 0, be16_to_cpu(h->cpu));
+	printf("[%5lu.%09lu,%d] (+%8lx) [%03x] : ",
+		ts / TB_HZ, /* match the usual skiboot log header */
+		ts % TB_HZ,
+		h->type, /* hey why not */
+		prev_ts ? (ts - prev_ts) % TB_HZ : 0, be16_to_cpu(h->cpu));
 	prev_ts = ts;
 }
 
@@ -153,6 +149,36 @@ static void dump_uart(struct trace_uart *t)
 	}
 }
 
+static void dump_i2c(struct trace_i2c *t)
+{
+	uint16_t type = be16_to_cpu(t->type);
+
+	printf("I2C: bus: %d dev: %02x len: %x ",
+			be16_to_cpu(t->bus),
+			be16_to_cpu(t->i2c_addr),
+			be16_to_cpu(t->size)
+			);
+
+	switch (type & 0x3) {
+	case 0:
+		printf("read");
+		break;
+	case 1:
+		printf("write");
+		break;
+	case 2:
+		printf("smbus read from %x", be16_to_cpu(t->smbus_reg));
+		break;
+	case 3:
+		printf("smbus write to %x", be16_to_cpu(t->smbus_reg));
+		break;
+	default:
+		printf("u wot?");
+	}
+
+	printf(", rc = %hd\n", (int16_t) be16_to_cpu(t->rc));
+}
+
 static void load_traces(struct trace_reader *trs, int count)
 {
 	struct trace_entry *te;
@@ -192,6 +218,9 @@ static void print_trace(union trace *t)
 		break;
 	case TRACE_UART:
 		dump_uart(&t->uart);
+		break;
+	case TRACE_I2C:
+		dump_i2c(&t->i2c);
 		break;
 	default:
 		printf("UNKNOWN(%u) CPU %u length %u\n",
@@ -270,6 +299,7 @@ int main(int argc, char *argv[])
 {
 	struct trace_reader *trs;
 	struct trace_info *ti;
+	bool no_mmap = false;
 	struct stat sb;
 	int fd, opt, i;
 
@@ -305,11 +335,24 @@ int main(int argc, char *argv[])
 			err(1, "Stating %s", argv[1]);
 
 		ti = mmap(NULL, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-		if (ti == MAP_FAILED)
-			err(1, "Mmaping %s", argv[i]);
+		if (ti == MAP_FAILED) {
+			no_mmap = true;
+
+			ti = ezalloc(sb.st_size);
+			if (!ti)
+				err(1, "allocating memory for %s", argv[i]);
+
+			if (read(fd, ti, sb.st_size) == -1)
+				err(1, "reading from %s", argv[i]);
+		}
 
 		trs[i].tb = &ti->tb;
 		list_head_init(&trs[i].traces);
+	}
+
+	if (no_mmap) {
+		fprintf(stderr, "disabling follow mode: can't mmap() OPAL export files\n");
+		follow = 0;
 	}
 
 	do {

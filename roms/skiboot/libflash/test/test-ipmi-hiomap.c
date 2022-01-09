@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2018-2019 IBM Corp. */
+
 #include <assert.h>
 #include <ccan/container_of/container_of.h>
 #include <libflash/blocklevel.h>
@@ -476,10 +479,101 @@ static const struct scenario_event hiomap_erase_qs0l1_call = {
 	},
 };
 
+static const struct scenario_event hiomap_reset_call_seq_4 = {
+	.type = scenario_cmd,
+	.c = {
+		.req = {
+			.cmd = HIOMAP_C_RESET,
+			.seq = 4,
+		},
+		.cc = IPMI_CC_NO_ERROR,
+		.resp = {
+			.cmd = HIOMAP_C_RESET,
+			.seq = 4,
+		},
+	},
+};
+
+static const struct scenario_event hiomap_reset_call_seq_5 = {
+	.type = scenario_cmd,
+	.c = {
+		.req = {
+			.cmd = HIOMAP_C_RESET,
+			.seq = 5,
+		},
+		.cc = IPMI_CC_NO_ERROR,
+		.resp = {
+			.cmd = HIOMAP_C_RESET,
+			.seq = 5,
+		},
+	},
+};
+
+static const struct scenario_event hiomap_reset_call_seq_6 = {
+	.type = scenario_cmd,
+	.c = {
+		.req = {
+			.cmd = HIOMAP_C_RESET,
+			.seq = 6,
+		},
+		.cc = IPMI_CC_NO_ERROR,
+		.resp = {
+			.cmd = HIOMAP_C_RESET,
+			.seq = 6,
+		},
+	},
+};
+
+static const struct scenario_event hiomap_reset_call_seq_7 = {
+	.type = scenario_cmd,
+	.c = {
+		.req = {
+			.cmd = HIOMAP_C_RESET,
+			.seq = 7,
+		},
+		.cc = IPMI_CC_NO_ERROR,
+		.resp = {
+			.cmd = HIOMAP_C_RESET,
+			.seq = 7,
+		},
+	},
+};
+
+static const struct scenario_event hiomap_reset_call_seq_9 = {
+	.type = scenario_cmd,
+	.c = {
+		.req = {
+			.cmd = HIOMAP_C_RESET,
+			.seq = 9,
+		},
+		.cc = IPMI_CC_NO_ERROR,
+		.resp = {
+			.cmd = HIOMAP_C_RESET,
+			.seq = 9,
+		},
+	},
+};
+
+static const struct scenario_event hiomap_reset_call_seq_a = {
+	.type = scenario_cmd,
+	.c = {
+		.req = {
+			.cmd = HIOMAP_C_RESET,
+			.seq = 0xa,
+		},
+		.cc = IPMI_CC_NO_ERROR,
+		.resp = {
+			.cmd = HIOMAP_C_RESET,
+			.seq = 0xa,
+		},
+	},
+};
+
 static const struct scenario_event scenario_hiomap_init[] = {
 	{ .type = scenario_event_p, .p = &hiomap_ack_call, },
 	{ .type = scenario_event_p, .p = &hiomap_get_info_call, },
 	{ .type = scenario_event_p, .p = &hiomap_get_flash_info_call, },
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_4, },
 	SCENARIO_SENTINEL,
 };
 
@@ -498,6 +592,7 @@ static const struct scenario_event scenario_hiomap_event_daemon_ready[] = {
 	{ .type = scenario_event_p, .p = &hiomap_get_info_call, },
 	{ .type = scenario_event_p, .p = &hiomap_get_flash_info_call, },
 	{ .type = scenario_sel, .s = { .bmc_state = HIOMAP_E_DAEMON_READY } },
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_4, },
 	SCENARIO_SENTINEL,
 };
 
@@ -520,6 +615,7 @@ static const struct scenario_event scenario_hiomap_event_daemon_stopped[] = {
 	{ .type = scenario_event_p, .p = &hiomap_get_flash_info_call, },
 	{ .type = scenario_sel, .s = { .bmc_state = HIOMAP_E_DAEMON_READY } },
 	{ .type = scenario_sel, .s = { .bmc_state = HIOMAP_E_PROTOCOL_RESET } },
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_4, },
 	SCENARIO_SENTINEL,
 };
 
@@ -543,6 +639,7 @@ static const struct scenario_event scenario_hiomap_event_daemon_restarted[] = {
 	{ .type = scenario_sel, .s = { .bmc_state = HIOMAP_E_DAEMON_READY } },
 	{ .type = scenario_sel, .s = { .bmc_state = HIOMAP_E_PROTOCOL_RESET } },
 	{ .type = scenario_sel, .s = { .bmc_state = HIOMAP_E_DAEMON_READY } },
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_4, },
 	SCENARIO_SENTINEL,
 };
 
@@ -572,6 +669,7 @@ scenario_hiomap_event_daemon_lost_flash_control[] = {
 					| HIOMAP_E_FLASH_LOST),
 		}
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_5, },
 	SCENARIO_SENTINEL,
 };
 
@@ -677,6 +775,7 @@ scenario_hiomap_event_daemon_regained_flash_control_dirty[] = {
 			},
 		},
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_7, },
 	SCENARIO_SENTINEL,
 };
 
@@ -819,6 +918,7 @@ static const struct scenario_event scenario_hiomap_protocol_reset_recovery[] = {
 			},
 		},
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_9, },
 	SCENARIO_SENTINEL,
 };
 
@@ -851,6 +951,7 @@ scenario_hiomap_protocol_read_one_block[] = {
 		.type = scenario_event_p,
 		.p = &hiomap_create_read_window_qs0l1_rs0l1_call,
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_5, },
 	SCENARIO_SENTINEL,
 };
 
@@ -924,6 +1025,7 @@ scenario_hiomap_protocol_read_two_blocks[] = {
 			},
 		},
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_6, },
 	SCENARIO_SENTINEL,
 };
 
@@ -976,6 +1078,7 @@ scenario_hiomap_protocol_read_one_block_twice[] = {
 		.type = scenario_event_p,
 		.p = &hiomap_create_read_window_qs0l1_rs0l1_call,
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_5, },
 	SCENARIO_SENTINEL,
 };
 
@@ -1011,6 +1114,7 @@ scenario_hiomap_protocol_event_before_action[] = {
 					HIOMAP_E_FLASH_LOST,
 		}
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_5, },
 	SCENARIO_SENTINEL,
 };
 
@@ -1044,6 +1148,7 @@ scenario_hiomap_protocol_event_during_read[] = {
 					HIOMAP_E_FLASH_LOST,
 		}
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_5, },
 	SCENARIO_SENTINEL,
 };
 
@@ -1079,6 +1184,7 @@ scenario_hiomap_protocol_write_one_block[] = {
 	},
 	{ .type = scenario_event_p, .p = &hiomap_mark_dirty_qs0l1_call, },
 	{ .type = scenario_event_p, .p = &hiomap_flush_call, },
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_7, },
 	SCENARIO_SENTINEL,
 };
 
@@ -1163,6 +1269,7 @@ scenario_hiomap_protocol_write_two_blocks[] = {
 			},
 		},
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_a, },
 	SCENARIO_SENTINEL,
 };
 
@@ -1245,6 +1352,7 @@ scenario_hiomap_protocol_write_one_block_twice[] = {
 			},
 		},
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_9, },
 	SCENARIO_SENTINEL,
 };
 
@@ -1298,6 +1406,7 @@ scenario_hiomap_protocol_event_during_write[] = {
 					HIOMAP_E_FLASH_LOST,
 		}
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_6, },
 	SCENARIO_SENTINEL,
 };
 
@@ -1339,6 +1448,7 @@ scenario_hiomap_protocol_erase_one_block[] = {
 		.type = scenario_event_p,
 		.p = &hiomap_flush_call,
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_7, },
 	SCENARIO_SENTINEL,
 };
 
@@ -1387,6 +1497,7 @@ scenario_hiomap_protocol_erase_two_blocks[] = {
 			},
 		},
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_a, },
 	SCENARIO_SENTINEL,
 };
 
@@ -1446,6 +1557,7 @@ scenario_hiomap_protocol_erase_one_block_twice[] = {
 			},
 		},
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_9, },
 	SCENARIO_SENTINEL,
 };
 
@@ -1513,6 +1625,7 @@ scenario_hiomap_protocol_event_during_erase[] = {
 					HIOMAP_E_FLASH_LOST,
 		}
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_6, },
 	SCENARIO_SENTINEL,
 };
 
@@ -1617,6 +1730,7 @@ scenario_hiomap_protocol_get_flash_info[] = {
 			},
 		},
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_5, },
 	SCENARIO_SENTINEL,
 };
 
@@ -1643,6 +1757,7 @@ scenario_hiomap_protocol_persistent_error[] = {
 	{ .type = scenario_event_p, .p = &hiomap_get_info_call, },
 	{ .type = scenario_event_p, .p = &hiomap_get_flash_info_call, },
 	{ .type = scenario_sel, .s = { .bmc_state = HIOMAP_E_PROTOCOL_RESET } },
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_6, },
 	SCENARIO_SENTINEL,
 };
 
@@ -1741,6 +1856,7 @@ scenario_hiomap_create_read_window_error[] = {
 			.cc = IPMI_INVALID_COMMAND_ERR,
 		},
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_5, },
 	SCENARIO_SENTINEL,
 };
 
@@ -1782,6 +1898,7 @@ scenario_hiomap_create_write_window_error[] = {
 			.cc = IPMI_INVALID_COMMAND_ERR,
 		},
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_5, },
 	SCENARIO_SENTINEL,
 };
 
@@ -1826,6 +1943,7 @@ static const struct scenario_event scenario_hiomap_mark_dirty_error[] = {
 			.cc = IPMI_INVALID_COMMAND_ERR,
 		},
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_6, },
 	SCENARIO_SENTINEL,
 };
 
@@ -1867,6 +1985,7 @@ static const struct scenario_event scenario_hiomap_flush_error[] = {
 			.cc = IPMI_INVALID_COMMAND_ERR,
 		},
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_7, },
 	SCENARIO_SENTINEL,
 };
 
@@ -1917,6 +2036,7 @@ static const struct scenario_event scenario_hiomap_erase_error[] = {
 			.cc = IPMI_INVALID_COMMAND_ERR,
 		},
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_6, },
 	SCENARIO_SENTINEL,
 };
 
@@ -2137,6 +2257,7 @@ scenario_hiomap_create_read_window_malformed_small[] = {
 			},
 		},
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_5, },
 	SCENARIO_SENTINEL,
 };
 
@@ -2184,6 +2305,7 @@ scenario_hiomap_create_read_window_malformed_large[] = {
 			},
 		},
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_5, },
 	SCENARIO_SENTINEL,
 };
 
@@ -2230,6 +2352,7 @@ scenario_hiomap_create_write_window_malformed_small[] = {
 			},
 		},
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_5, },
 	SCENARIO_SENTINEL,
 };
 
@@ -2277,6 +2400,7 @@ scenario_hiomap_create_write_window_malformed_large[] = {
 			},
 		},
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_5, },
 	SCENARIO_SENTINEL,
 };
 
@@ -2326,6 +2450,7 @@ scenario_hiomap_mark_dirty_malformed_small[] = {
 			},
 		},
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_6, },
 	SCENARIO_SENTINEL,
 };
 
@@ -2376,6 +2501,7 @@ scenario_hiomap_mark_dirty_malformed_large[] = {
 			},
 		},
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_6, },
 	SCENARIO_SENTINEL,
 };
 
@@ -2422,6 +2548,7 @@ scenario_hiomap_flush_malformed_small[] = {
 			},
 		},
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_7, },
 	SCENARIO_SENTINEL,
 };
 
@@ -2469,6 +2596,7 @@ scenario_hiomap_flush_malformed_large[] = {
 			},
 		},
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_7, },
 	SCENARIO_SENTINEL,
 };
 
@@ -2518,6 +2646,7 @@ scenario_hiomap_erase_malformed_small[] = {
 			},
 		},
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_6, },
 	SCENARIO_SENTINEL,
 };
 
@@ -2563,6 +2692,7 @@ scenario_hiomap_erase_malformed_large[] = {
 			},
 		},
 	},
+	{ .type = scenario_event_p, .p = &hiomap_reset_call_seq_6, },
 	SCENARIO_SENTINEL,
 };
 
@@ -2768,6 +2898,20 @@ scenario_hiomap_protocol_recovery_failure_ack[] = {
 			},
 		},
 	},
+	{
+		.type = scenario_cmd,
+		.c = {
+			.req = {
+				.cmd = HIOMAP_C_RESET,
+				.seq = 14,
+			},
+			.cc = IPMI_CC_NO_ERROR,
+			.resp = {
+				.cmd = HIOMAP_C_RESET,
+				.seq = 14,
+			},
+		},
+	},
 	SCENARIO_SENTINEL,
 };
 
@@ -2938,6 +3082,20 @@ scenario_hiomap_protocol_recovery_failure_get_info[] = {
 			},
 		},
 	},
+	{
+		.type = scenario_cmd,
+		.c = {
+			.req = {
+				.cmd = HIOMAP_C_RESET,
+				.seq = 15,
+			},
+			.cc = IPMI_CC_NO_ERROR,
+			.resp = {
+				.cmd = HIOMAP_C_RESET,
+				.seq = 15,
+			},
+		},
+	},
 	SCENARIO_SENTINEL,
 };
 
@@ -3104,6 +3262,20 @@ scenario_hiomap_protocol_recovery_failure_get_flash_info[] = {
 			.resp = {
 				.cmd = HIOMAP_C_FLUSH,
 				.seq = 15,
+			},
+		},
+	},
+	{
+		.type = scenario_cmd,
+		.c = {
+			.req = {
+				.cmd = HIOMAP_C_RESET,
+				.seq = 16,
+			},
+			.cc = IPMI_CC_NO_ERROR,
+			.resp = {
+				.cmd = HIOMAP_C_RESET,
+				.seq = 16,
 			},
 		},
 	},

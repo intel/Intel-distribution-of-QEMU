@@ -1,23 +1,11 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-/* Test for our PEL record generation. Currently this doesn't actually
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Test for our PEL record generation. Currently this doesn't actually
  * test that the records we generate are correct, but it at least lets
  * us run valgrind over the generation routines to check for buffer
  * overflows, etc.
+ *
+ * Copyright 2013-2016 IBM Corp.
  */
 
 #include <skiboot.h>
@@ -113,7 +101,7 @@ int main(void)
 
 	buffer = elog->user_data_dump + elog->user_section_size;
 	tmp = (struct elog_user_data_section *)buffer;
-	tmp->tag = 0x44455343;  /* ASCII of DESC */
+	tmp->tag = OPAL_ELOG_SEC_DESC;  /* ASCII of DESC */
 	tmp->size = size + sizeof(struct elog_user_data_section) - 1;
 	strcpy(tmp->data_dump, "Hello World!");
 	elog->user_section_size += tmp->size;

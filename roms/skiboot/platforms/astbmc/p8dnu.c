@@ -1,19 +1,8 @@
-/* Copyright 2017 Supermicro and IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+// SPDX-License-Identifier: Apache-2.0
+/*
+ * Copyright 2017 Supermicro
+ * Copyright 2017-2019 IBM Corp.
  */
-
 
 #include <skiboot.h>
 #include <device.h>
@@ -317,17 +306,6 @@ static bool p8dnu_probe(void)
 
 	/* Lot of common early inits here */
 	astbmc_early_init();
-
-	/*
-	 * Override external interrupt policy -> send to Linux
-	 *
-	 * On Naples, we get LPC interrupts via the built-in LPC
-	 * controller demuxer, not an external CPLD. The external
-	 * interrupt is for other uses, such as the TPM chip, we
-	 * currently route it to Linux, but we might change that
-	 * later if we decide we need it.
-	 */
-	psi_set_external_irq_policy(EXTERNAL_IRQ_POLICY_LINUX);
 
 	/* Fixups until HB get the NPU bindings */
 	dt_create_npu();

@@ -1,18 +1,5 @@
-/* Copyright 2013-2017 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0
+/* Copyright 2013-2019 IBM Corp. */
 
 #include <skiboot.h>
 #include <vpd.h>
@@ -118,6 +105,7 @@ static const struct vpd_key_map vpd_key_table[] = {
 	{"EV", "enclosure"},
 
 	{"FM", "frame"},
+	{"FN", "fru-stocking-part-number"},
 
 	{"HB", "host-rio-pci-card"},
 	{"HD", "high-speed-card"},
@@ -180,6 +168,7 @@ static const struct vpd_key_map vpd_key_table[] = {
 	{"SD", "sas-connector"},
 	{"SI", "scsi-ide-converter"},
 	{"SL", "phb-slot"},
+	{"SN", "smp-cable-connector"},
 	{"SP", "service-processor"},
 	{"SR", "service-card"},
 	{"SS", "soft-switch"},
@@ -715,7 +704,6 @@ static void iohub_vpd_parse(void)
 			continue;
 		}
 
-		/* On P7, the keyword VPD will not be NULL */
 		if (HDIF_get_idata(iohub_hdr,
 				   CECHUB_ASCII_KEYWORD_VPD, &vpd_sz))
 			dt_add_vpd_node(iohub_hdr, CECHUB_FRU_ID_DATA,

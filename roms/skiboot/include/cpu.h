@@ -1,18 +1,5 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0
+/* Copyright 2013-2019 IBM Corp. */
 
 #ifndef __CPU_H
 #define __CPU_H
@@ -34,6 +21,7 @@ enum cpu_thread_state {
 	cpu_state_no_cpu	= 0,	/* Nothing there */
 	cpu_state_unknown,		/* In PACA, not called in yet */
 	cpu_state_unavailable,		/* Not available */
+	cpu_state_fast_reboot_entry,	/* Called back into OPAL, real mode */
 	cpu_state_present,		/* Assumed to spin in asm entry */
 	cpu_state_active,		/* Secondary called in */
 	cpu_state_os,			/* Under OS control */
@@ -54,7 +42,9 @@ struct cpu_thread {
 	uint32_t			server_no;
 	uint32_t			chip_id;
 	bool				is_secondary;
+	bool				is_fused_core;
 	struct cpu_thread		*primary;
+	struct cpu_thread		*ec_primary;
 	enum cpu_thread_state		state;
 	struct dt_node			*node;
 	struct trace_info		*trace;
@@ -116,7 +106,7 @@ struct cpu_thread {
 	 */
 	struct lock			dts_lock;
 	struct timer			dts_timer;
-	u64				*sensor_data;
+	__be64				*sensor_data;
 	u32				sensor_attr;
 	u32				token;
 	bool				dts_read_in_progress;
@@ -166,7 +156,7 @@ extern struct cpu_thread *find_cpu_by_server(u32 server_no);
 extern struct cpu_thread *find_cpu_by_pir(u32 pir);
 
 /* Used for lock internals to avoid re-entrancy */
-extern struct __nomcount cpu_thread *find_cpu_by_pir_nomcount(u32 pir);
+extern struct cpu_thread __nomcount *find_cpu_by_pir_nomcount(u32 pir);
 
 extern struct dt_node *get_cpu_node(u32 pir);
 
@@ -225,12 +215,23 @@ extern u8 get_available_nr_cores_in_chip(u32 chip_id);
 		core = next_available_core_in_chip(core, chip_id))
 
 /* Return the caller CPU (only after init_cpu_threads) */
-register struct cpu_thread *__this_cpu asm("r13");
+#ifndef __TEST__
+register struct cpu_thread *__this_cpu asm("r16");
+#else
+struct cpu_thread *__this_cpu;
+#endif
+
 static inline __nomcount struct cpu_thread *this_cpu(void)
 {
 	return __this_cpu;
 }
 
+/*
+ * Note: On POWER9 fused core, cpu_get_thread_index() and cpu_get_core_index()
+ * return respectively the thread number within a fused core (0..7) and
+ * the fused core number. If you want the EC (small core) number, you have
+ * to use the low level pir_to_core_id() and pir_to_thread_id().
+ */
 /* Get the thread # of a cpu within the core */
 static inline uint32_t cpu_get_thread_index(struct cpu_thread *cpu)
 {
@@ -249,6 +250,11 @@ static inline uint32_t cpu_get_thread0(struct cpu_thread *cpu)
 static inline bool cpu_is_thread0(struct cpu_thread *cpu)
 {
 	return cpu->primary == cpu;
+}
+
+static inline bool cpu_is_core_chiplet_primary(struct cpu_thread *cpu)
+{
+	return cpu->is_fused_core & (cpu_get_thread_index(cpu) == 1);
 }
 
 static inline bool cpu_is_sibling(struct cpu_thread *cpu1,
@@ -295,6 +301,9 @@ extern void cpu_process_local_jobs(void);
 /* Check if there's any job pending */
 bool cpu_check_jobs(struct cpu_thread *cpu);
 
+/* Set/clear HILE on all CPUs */
+void cpu_set_hile_mode(bool hile);
+
 /* OPAL sreset vector in place at 0x100 */
 void cpu_set_sreset_enable(bool sreset_enabled);
 
@@ -318,5 +327,8 @@ extern void cpu_fast_reboot_complete(void);
 int dctl_set_special_wakeup(struct cpu_thread *t);
 int dctl_clear_special_wakeup(struct cpu_thread *t);
 int dctl_core_is_gated(struct cpu_thread *t);
+
+extern void exit_uv_mode(int);
+void cpu_disable_pef(void);
 
 #endif /* __CPU_H */

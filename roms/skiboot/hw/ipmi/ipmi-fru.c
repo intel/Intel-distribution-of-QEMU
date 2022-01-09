@@ -1,17 +1,8 @@
-/* Copyright 2013-2014 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Fill out firmware related FRUs (Field Replaceable Units)
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
 
 #include <skiboot.h>
@@ -41,8 +32,6 @@ struct common_header {
 	u8 pad;
 	u8 checksum;
 } __packed;
-
-#define min(x,y) ((x) < (y) ? x : y)
 
 /* The maximum amount of FRU data we can store. */
 #define FRU_DATA_SIZE 256
@@ -88,7 +77,7 @@ static u8 fru_checksum(u8 *buf, int len)
 
 #define FRU_INSERT_STRING(x, y)						\
 	({ rc = fru_insert_string(x, y);				\
-		if (rc < 1) return OPAL_PARAMETER; rc; })
+	 { if (rc < 1) return OPAL_PARAMETER; } rc; })
 
 static int fru_fill_product_info(u8 *buf, struct product_info *info, size_t size)
 {
@@ -229,7 +218,7 @@ static int fru_write(void)
 	/* Three bytes for the actual FRU Data Command */
 	msg->data[WRITE_INDEX] = 0;
 	msg->data[REMAINING] = len;
-	msg->req_size = min(len + 3, IPMI_MAX_REQ_SIZE);
+	msg->req_size = MIN(len + 3, IPMI_MAX_REQ_SIZE);
 	return ipmi_queue_msg(msg);
 }
 

@@ -1,17 +1,8 @@
-/* Copyright 2013-2014 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Deal with exceptions when in OPAL.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2014 IBM Corp.
  */
 
 #include <skiboot.h>
@@ -19,6 +10,7 @@
 #include <opal.h>
 #include <processor.h>
 #include <cpu.h>
+#include <ras.h>
 
 #define REG		"%016llx"
 #define REG32		"%08x"
@@ -40,6 +32,54 @@ static void dump_regs(struct stack_frame *stack)
 }
 
 #define EXCEPTION_MAX_STR 320
+
+static void handle_mce(struct stack_frame *stack, uint64_t nip, uint64_t msr, bool *fatal)
+{
+	uint64_t mce_flags, mce_addr;
+	const char *mce_err;
+	const char *mce_fix = NULL;
+	char buf[EXCEPTION_MAX_STR];
+	size_t l;
+
+	decode_mce(stack->srr0, stack->srr1, stack->dsisr, stack->dar,
+			&mce_flags, &mce_err, &mce_addr);
+
+	/* Try to recover. */
+	if (mce_flags & MCE_ERAT_ERROR) {
+		/* Real-mode still uses ERAT, flush transient bitflips */
+		flush_erat();
+		mce_fix = "ERAT flush";
+
+	} else {
+		*fatal = true;
+	}
+
+	prerror("***********************************************\n");
+	l = 0;
+	l += snprintf(buf + l, EXCEPTION_MAX_STR - l,
+		"%s MCE at "REG"   ", *fatal ? "Fatal" : "Non-fatal", nip);
+	l += snprintf_symbol(buf + l, EXCEPTION_MAX_STR - l, nip);
+	l += snprintf(buf + l, EXCEPTION_MAX_STR - l, "  MSR "REG, msr);
+	prerror("%s\n", buf);
+
+	l = 0;
+	l += snprintf(buf + l, EXCEPTION_MAX_STR - l,
+		"Cause: %s", mce_err);
+	prerror("%s\n", buf);
+	if (mce_flags & MCE_INVOLVED_EA) {
+		l = 0;
+		l += snprintf(buf + l, EXCEPTION_MAX_STR - l,
+			"Effective address: 0x%016llx", mce_addr);
+		prerror("%s\n", buf);
+	}
+
+	if (!*fatal) {
+		l = 0;
+		l += snprintf(buf + l, EXCEPTION_MAX_STR - l,
+			"Attempting recovery: %s", mce_fix);
+		prerror("%s\n", buf);
+	}
+}
 
 void exception_entry(struct stack_frame *stack)
 {
@@ -74,13 +114,16 @@ void exception_entry(struct stack_frame *stack)
 		nip = stack->srr0;
 		msr = stack->srr1;
 	}
+	stack->msr = msr;
+	stack->pc = nip;
 
 	if (!(msr & MSR_RI))
 		fatal = true;
 
-	prerror("***********************************************\n");
 	l = 0;
-	if (stack->type == 0x100) {
+	switch (stack->type) {
+	case 0x100:
+		prerror("***********************************************\n");
 		if (fatal) {
 			l += snprintf(buf + l, EXCEPTION_MAX_STR - l,
 				"Fatal System Reset at "REG"   ", nip);
@@ -88,24 +131,59 @@ void exception_entry(struct stack_frame *stack)
 			l += snprintf(buf + l, EXCEPTION_MAX_STR - l,
 				"System Reset at "REG"   ", nip);
 		}
-	} else if (stack->type == 0x200) {
+		break;
+
+	case 0x200:
+		handle_mce(stack, nip, msr, &fatal);
+		goto no_symbol;
+
+	case 0x700: {
+		struct trap_table_entry *tte;
+
 		fatal = true;
+		prerror("***********************************************\n");
+		for (tte = __trap_table_start; tte < __trap_table_end; tte++) {
+			if (tte->address == nip) {
+				prerror("< %s >\n", tte->message);
+				prerror("    .\n");
+				prerror("     .\n");
+				prerror("      .\n");
+				prerror("        OO__)\n");
+				prerror("       <\"__/\n");
+				prerror("        ^ ^\n");
+				break;
+			}
+		}
 		l += snprintf(buf + l, EXCEPTION_MAX_STR - l,
-			"Fatal MCE at "REG"   ", nip);
-	} else {
+			"Fatal TRAP at "REG"   ", nip);
+		l += snprintf_symbol(buf + l, EXCEPTION_MAX_STR - l, nip);
+		l += snprintf(buf + l, EXCEPTION_MAX_STR - l, "  MSR "REG, msr);
+		prerror("%s\n", buf);
+		dump_regs(stack);
+		backtrace_r1((uint64_t)stack);
+		if (platform.terminate)
+			platform.terminate(buf);
+		for (;;) ;
+		break; }
+
+	default:
 		fatal = true;
+		prerror("***********************************************\n");
 		l += snprintf(buf + l, EXCEPTION_MAX_STR - l,
 			"Fatal Exception 0x%llx at "REG"  ", stack->type, nip);
+		break;
 	}
 	l += snprintf_symbol(buf + l, EXCEPTION_MAX_STR - l, nip);
 	l += snprintf(buf + l, EXCEPTION_MAX_STR - l, "  MSR "REG, msr);
 	prerror("%s\n", buf);
+no_symbol:
 	dump_regs(stack);
-
-	if (fatal)
-		abort();
-	else
-		backtrace();
+	backtrace_r1((uint64_t)stack);
+	if (fatal) {
+		if (platform.terminate)
+			platform.terminate(buf);
+		for (;;) ;
+	}
 
 	if (hv) {
 		/* Set up for SRR return */

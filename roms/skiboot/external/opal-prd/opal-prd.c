@@ -1,17 +1,11 @@
-/* Copyright 2014-2015 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * OPAL Processor Runtime Diagnostics (PRD)
+ * Runs Hostboot RunTime (HBRT) code in a userspace wrapper
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Firmware in userspace? Brilliant!
  *
- *	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * imitations under the License.
+ * Copyright 2014-2019 IBM Corp.
  */
 
 #define _GNU_SOURCE
@@ -33,6 +27,7 @@
 #include <stdarg.h>
 #include <time.h>
 #include <poll.h>
+#include <signal.h>
 #include <dirent.h>
 
 #include <endian.h>
@@ -128,7 +123,8 @@ static struct opal_prd_ctx *ctx;
 
 static const char *opal_prd_devnode = "/dev/opal-prd";
 static const char *opal_prd_socket = "/run/opal-prd-control";
-static const char *hbrt_code_region_name = "ibm,hbrt-code-image";
+static const char *hbrt_code_region_name = "hbrt-code-image";
+static const char *hbrt_code_region_name_ibm = "ibm,hbrt-code-image";
 static const int opal_prd_version = 1;
 static uint64_t opal_prd_ipoll = 0xf000000000000000;
 
@@ -701,13 +697,42 @@ out:
 	return rc;
 }
 
+static int memory_error_worker(const char *sysfsfile, const char *type,
+			       uint64_t i_start_addr, uint64_t i_endAddr)
+{
+	int memfd, rc, n, ret = 0;
+	char buf[ADDR_STRING_SZ];
+	uint64_t addr;
+
+	memfd = open(sysfsfile, O_WRONLY);
+	if (memfd < 0) {
+		pr_log(LOG_CRIT, "MEM: Failed to offline memory! "
+				"Unable to open sysfs node %s: %m", sysfsfile);
+		return -1;
+	}
+
+	for (addr = i_start_addr; addr <= i_endAddr; addr += ctx->page_size) {
+		n = snprintf(buf, ADDR_STRING_SZ, "0x%lx", addr);
+		rc = write(memfd, buf, n);
+		if (rc != n) {
+			pr_log(LOG_CRIT, "MEM: Failed to offline memory! "
+					"page addr: %016lx type: %s: %m",
+				addr, type);
+			ret = 1;
+		}
+	}
+	pr_log(LOG_CRIT, "MEM: Offlined %016lx,%016lx, type %s: %m\n",
+			i_start_addr, addr, type);
+
+	close(memfd);
+	return ret;
+}
+
 int hservice_memory_error(uint64_t i_start_addr, uint64_t i_endAddr,
 		enum MemoryError_t i_errorType)
 {
 	const char *sysfsfile, *typestr;
-	char buf[ADDR_STRING_SZ];
-	int memfd, rc, n, ret = 0;
-	uint64_t addr;
+	pid_t pid;
 
 	switch(i_errorType) {
 	case MEMORY_ERROR_CE:
@@ -727,26 +752,21 @@ int hservice_memory_error(uint64_t i_start_addr, uint64_t i_endAddr,
 	pr_log(LOG_ERR, "MEM: Memory error: range %016lx-%016lx, type: %s",
 			i_start_addr, i_endAddr, typestr);
 
+	/*
+	 * HBRT expects the memory offlining process to happen in the background
+	 * after the notification is delivered.
+	 */
+	pid = fork();
+	if (pid > 0)
+		exit(memory_error_worker(sysfsfile, typestr, i_start_addr, i_endAddr));
 
-	memfd = open(sysfsfile, O_WRONLY);
-	if (memfd < 0) {
-		pr_log(LOG_CRIT, "MEM: Failed to offline memory! "
-				"Unable to open sysfs node %s: %m", sysfsfile);
+	if (pid < 0) {
+		perror("MEM: unable to fork worker to offline memory!\n");
 		return -1;
 	}
 
-	for (addr = i_start_addr; addr <= i_endAddr; addr += ctx->page_size) {
-		n = snprintf(buf, ADDR_STRING_SZ, "0x%lx", addr);
-		rc = write(memfd, buf, n);
-		if (rc != n) {
-			pr_log(LOG_CRIT, "MEM: Failed to offline memory! "
-					"page addr: %016lx type: %d: %m",
-				addr, i_errorType);
-			ret = rc;
-		}
-	}
-
-	return ret;
+	pr_log(LOG_INFO, "MEM: forked off %d to handle mem error\n", pid);
+	return 0;
 }
 
 uint64_t hservice_get_interface_capabilities(uint64_t set)
@@ -953,7 +973,9 @@ static int map_hbrt_file(struct opal_prd_ctx *ctx, const char *name)
 static int map_hbrt_physmem(struct opal_prd_ctx *ctx, const char *name)
 {
 	struct prd_range *range;
+	int rc;
 	void *buf;
+	void *ro_buf;
 
 	range = find_range(name, 0);
 	if (!range) {
@@ -961,12 +983,42 @@ static int map_hbrt_physmem(struct opal_prd_ctx *ctx, const char *name)
 		return -1;
 	}
 
-	buf = mmap(NULL, range->size, PROT_READ | PROT_WRITE | PROT_EXEC,
+	ro_buf = mmap(NULL, range->size, PROT_READ,
 			MAP_PRIVATE, ctx->fd, range->physaddr);
-	if (buf == MAP_FAILED) {
+	if (ro_buf == MAP_FAILED) {
 		pr_log(LOG_ERR, "IMAGE: mmap(range:%s, "
 				"phys:0x%016lx, size:0x%016lx) failed: %m",
 				name, range->physaddr, range->size);
+		return -1;
+	}
+
+	buf = mmap(NULL, range->size, PROT_READ | PROT_WRITE,
+			MAP_SHARED | MAP_ANONYMOUS, -1 , 0);
+	if (buf == MAP_FAILED) {
+		pr_log(LOG_ERR, "IMAGE: anon mmap(size:0x%016lx) failed: %m",
+				range->size);
+		return -1;
+	}
+
+	memcpy(buf, ro_buf, range->size);
+
+	rc = munmap(ro_buf, range->size);
+	if (rc < 0) {
+		pr_log(LOG_ERR, "IMAGE: munmap("
+				"phys:0x%016lx, size:0x%016lx) failed: %m",
+				range->physaddr, range->size);
+		return -1;
+	}
+
+	/*
+	 * FIXME: We shouldn't be mapping the memory as RWX, but HBRT appears to
+	 * require the ability to write into the image at runtime.
+	 */
+	rc = mprotect(buf, range->size, PROT_READ | PROT_WRITE | PROT_EXEC);
+	if (rc < 0) {
+		pr_log(LOG_ERR, "IMAGE: mprotect(phys:%p, "
+			"size:0x%016lx, rwx) failed: %m",
+			buf, range->size);
 		return -1;
 	}
 
@@ -1456,17 +1508,23 @@ static int pm_complex_load_start(void)
 
 	range = find_range("ibm,occ-common-area", 0);
 	if (!range) {
-		pr_log(LOG_ERR, "PM: ibm,occ-common-area not found");
-		return rc;
+		range = find_range("occ-common-area", 0);
+		if (!range) {
+			pr_log(LOG_ERR, "PM: occ-common-area not found");
+			return rc;
+		}
 	}
 	occ_common = range->physaddr;
 
 	for (i = 0; i < nr_chips; i++) {
 		range = find_range("ibm,homer-image", chips[i]);
 		if (!range) {
-			pr_log(LOG_ERR, "PM: ibm,homer-image not found 0x%lx",
-			       chips[i]);
-			return -1;
+			range = find_range("homer-image", chips[i]);
+			if (!range) {
+				pr_log(LOG_ERR, "PM: homer-image not found 0x%lx",
+				       chips[i]);
+				return -1;
+			}
 		}
 		homer = range->physaddr;
 
@@ -2117,6 +2175,10 @@ static int init_control_socket(struct opal_prd_ctx *ctx)
 	return 0;
 }
 
+static struct sigaction sigchild_action = {
+	.sa_flags = SA_NOCLDWAIT | SA_RESTART,
+	.sa_handler = SIG_DFL,
+};
 
 static int run_prd_daemon(struct opal_prd_ctx *ctx)
 {
@@ -2199,9 +2261,13 @@ static int run_prd_daemon(struct opal_prd_ctx *ctx)
 	} else {
 		rc = map_hbrt_physmem(ctx, hbrt_code_region_name);
 		if (rc) {
-			pr_log(LOG_ERR, "IMAGE: Can't access hbrt "
-					"physical memory");
-			goto out_close;
+			/* Fallback to old style ibm,prd-label */
+			rc = map_hbrt_physmem(ctx, hbrt_code_region_name_ibm);
+			if (rc) {
+				pr_log(LOG_ERR, "IMAGE: Can't access hbrt "
+						"physical memory");
+				goto out_close;
+			}
 		}
 		dump_hbrt_map(ctx);
 	}
@@ -2242,6 +2308,22 @@ static int run_prd_daemon(struct opal_prd_ctx *ctx)
 		fflush(stdout);
 		hservice_scom_read(0x00, 0xf000f, &val);
 		pr_debug("SCOM:  f00f: %lx", be64toh(val));
+	}
+
+	/*
+	 * Setup the SIGCHLD handler to automatically reap the worker threads
+	 * we use for memory offlining. We can't do this earlier since the
+	 * modprobe helper spawns workers and wants to check their exit status
+	 * with waitpid(). Auto-reaping breaks that so enable it just before
+	 * entering the attn loop.
+	 *
+	 * We also setup system call restarting on SIGCHLD since opal-prd
+	 * doesn't make any real attempt to handle blocking functions exiting
+	 * due to EINTR.
+	 */
+	if (sigaction(SIGCHLD, &sigchild_action, NULL)) {
+		pr_log(LOG_ERR, "CTRL: Failed to register signal handler %m\n");
+		return -1;
 	}
 
 	run_attn_loop(ctx);

@@ -25,12 +25,12 @@ fi
 
 if [ -n "$SKIBOOT_ENABLE_MAMBO_STB" ]; then
     export SKIBOOT_ZIMAGE=$(pwd)/test/hello_world/hello_kernel/hello_kernel.stb
+    export SKIBOOT_CVC_CODE=$(pwd)/external/mambo/cvc.bin
 else
     export SKIBOOT_ZIMAGE=$(pwd)/test/hello_world/hello_kernel/hello_kernel
 fi
 
 # Currently getting some core dumps from mambo, so disable them!
-OLD_ULIMIT_C=$(ulimit -c)
 ulimit -c 0
 
 t=$(mktemp) || exit 1
@@ -58,8 +58,7 @@ if [ $r != 0 ]; then
     exit $r
 fi
 
-ulimit -c $OLD_ULIMIT_C
-
+if [ -n "$V" ] ; then cat "$t" ; fi
 rm -f -- "$t"
 trap - EXIT
 exit 0;

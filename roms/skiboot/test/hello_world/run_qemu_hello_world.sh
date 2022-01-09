@@ -1,6 +1,7 @@
 #!/bin/bash
 
-QEMU_ARGS="-M powernv -nographic -device ipmi-bmc-sim,id=bmc0 -device isa-ipmi-bt,bmc=bmc0,irq=10"
+QEMU_ARGS="-M powernv -nodefaults -device ipmi-bmc-sim,id=bmc0 -serial none"
+QEMU_ARGS+=" -device isa-serial,chardev=s1 -chardev stdio,id=s1,signal=off"
 
 if [ -z "$QEMU_BIN" ]; then
     QEMU_BIN="qemu-system-ppc64"
@@ -35,6 +36,7 @@ spawn $QEMU_BIN -bios skiboot.lid $QEMU_ARGS -kernel $SKIBOOT_ZIMAGE -nographic
 expect {
 timeout { send_user "\nTimeout waiting for hello world\n"; exit 1 }
 eof { send_user "\nUnexpected EOF\n;" exit 1 }
+"Could not load OPAL firmware" { send_user "\nSkiboot is too large for this Qemu, skipping\n"; exit 4; }
 "Machine Check Stop" { exit 1;}
 "Hello World!"
 }
@@ -45,11 +47,18 @@ EOF
 ) 2>&1 > $t
 
 r=$?
+if [ $r -eq 4 ]; then
+    echo "Qemu is too old and can't load a skiboot.lid this big"
+    rm $T
+    exit 0
+fi
+
 if [ $r != 0 ]; then
     cat $t
     exit $r
 fi
 
+if [ -n "$V" ] ; then cat "$t" ; fi
 rm -f -- "$t"
 trap - EXIT
 

@@ -1,18 +1,6 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2019 IBM Corp. */
+
 #include <skiboot.h>
 #include "spira.h"
 #include <cpu.h>
@@ -23,7 +11,7 @@
 
 struct dt_node * add_core_common(struct dt_node *cpus,
 				 const struct sppcia_cpu_cache *cache,
-				 const struct sppaca_cpu_timebase *tb,
+				 const struct sppcia_cpu_timebase *tb,
 				 uint32_t int_server, bool okay)
 {
 	const char *name;
@@ -57,6 +45,18 @@ struct dt_node * add_core_common(struct dt_node *cpus,
 	       0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, /* 40 .. 47 */
 	       0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, /* 48 .. 55 */
 	       0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, /* 56 .. 63 */
+	};
+	const uint8_t pa_features_p10[] = {
+	       66, 0,
+	       0xf6, 0x3f, 0xc7, 0xc0, 0x80, 0xd0, 0x80, 0x00, /*  0 ..  7 */
+	       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /*  8 .. 15 */
+	       0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x00, 0x00, /* 16 .. 23 */
+	       0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x00, 0x00, /* 24 .. 31 */
+	       0x80, 0x00, 0x80, 0x00, 0x00, 0x00, 0x80, 0x00, /* 32 .. 39 */
+	       0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, /* 40 .. 47 */
+	       0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, /* 48 .. 55 */
+	       0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, /* 56 .. 63 */
+	       0x80, 0x00,                                     /* 64 .. 65 */
 	};
 
 	const uint8_t *pa_features;
@@ -95,6 +95,11 @@ struct dt_node * add_core_common(struct dt_node *cpus,
 			pa_features_size = sizeof(pa_features_p9);
 		}
 		break;
+	case PVR_TYPE_P10:
+		name = "PowerPC,POWER10";
+		pa_features = pa_features_p10;
+		pa_features_size = sizeof(pa_features_p10);
+		break;
 	default:
 		name = "PowerPC,Unknown";
 		pa_features = NULL;
@@ -115,11 +120,11 @@ struct dt_node * add_core_common(struct dt_node *cpus,
 	dt_add_property_cells(cpu, "ibm,processor-page-sizes",
 			      0xc, 0x10, 0x18, 0x22);
 
-	if (proc_gen == proc_gen_p9)
+	if (proc_gen >= proc_gen_p9)
 		dt_add_property_cells(cpu, "ibm,processor-radix-AP-encodings",
 			0x0000000c, 0xa0000010, 0x20000015, 0x4000001e);
 
-	/* Page size encodings appear to be the same for P7 and P8 */
+	/* HPT segment page size encodings, common to all supported CPUs */
 	dt_add_property_cells(cpu, "ibm,segment-page-sizes",
 		0x0c, 0x000, 3, 0x0c, 0x0000,  /*  4K seg  4k pages */
 		                0x10, 0x0007,  /*  4K seg 64k pages */

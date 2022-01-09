@@ -1,17 +1,8 @@
-/* Copyright 2013-2014 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * OPAL Entry points (and related code)
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
 
 #include <asm-utils.h>
@@ -34,7 +25,7 @@
 	addi	stack_reg,stack_reg,EMERGENCY_CPU_STACKS_OFFSET@l;
 
 #define GET_CPU()							\
-	clrrdi	%r13,%r1,STACK_SHIFT
+	clrrdi	%r16,%r1,STACK_SHIFT
 
 #define SAVE_GPR(reg,sp)	std %r##reg,STACK_GPR##reg(sp)
 #define REST_GPR(reg,sp)	ld %r##reg,STACK_GPR##reg(sp)
@@ -44,12 +35,15 @@
 	. = 0
 .global __head
 __head:
+	trap
+
 	/* This entry point is used when booting with a flat device-tree
 	 * pointer in r3
 	 */
 	. = 0x10
 .global fdt_entry
 fdt_entry:
+	FIXUP_ENDIAN
 	mr	%r27,%r3
 	b	boot_entry
 
@@ -96,6 +90,7 @@ hir_trigger:
 	. = 0x100
 sreset_vector:
 	/* BML entry, load up r3 with device tree location */
+	FIXUP_ENDIAN
 	li	%r3, 0
 	oris	%r3, %r3, 0xa
 	b	fdt_entry /* hack for lab boot */
@@ -103,6 +98,7 @@ sreset_vector:
 	/* Entry point set by the FSP */
 	.= 0x180
 hdat_entry:
+	FIXUP_ENDIAN
 	li	%r27,0
 	b	boot_entry
 
@@ -118,7 +114,6 @@ hdat_entry:
 	li	%r4,0x200
 	b	_exception
 1:
-	LOAD_IMM64(%r30, SKIBOOT_BASE)
 	cmpdi	%r3,0x1
 	bne	2f		/* state loss */
 	LOAD_IMM32(%r3, reset_resume - __head)
@@ -126,7 +121,8 @@ hdat_entry:
 2:
 	LOAD_IMM32(%r3, reset_wakeup - __head)
 3:
-	add	%r3,%r30,%r3
+	LOAD_IMM64(%r5, SKIBOOT_BASE)
+	add	%r3,%r5,%r3
 	mtctr	%r3
 	li	%r3,0x200
 	bctr
@@ -180,6 +176,7 @@ _exception:
 	mfspr	%r3,SPR_SRR0
 	mfspr	%r4,SPR_SRR1
 	std	%r3,STACK_SRR0(%r1)
+	std	%r3,16(%r1)
 	std	%r4,STACK_SRR1(%r1)
 	mfspr	%r3,SPR_DSISR
 	mfspr	%r4,SPR_DAR
@@ -235,10 +232,14 @@ _exception:
 	stw	%r4,STACK_XER(%r1)
 	std	%r5,STACK_CTR(%r1)
 	std	%r6,STACK_LR(%r1)
-	mr	%r3,%r1
+	LOAD_IMM64(%r3,STACK_INT_MAGIC)
+	std	%r3,STACK_MAGIC(%r1)
 	LOAD_IMM64(%r4, SKIBOOT_BASE)
-	LOAD_IMM32(%r5, exception_entry_foo - __head)
-	add	%r4,%r4,%r5
+	LOAD_IMM32(%r5,__toc_start - __head)
+	LOAD_IMM32(%r6, exception_entry_foo - __head)
+	add	%r2,%r4,%r5
+	mr	%r3,%r1
+	add	%r4,%r4,%r6
 	mtctr	%r4
 	bctr
 exception_entry_foo:
@@ -301,13 +302,6 @@ exception_entry_foo:
 	b	.
 
 	.= EXCEPTION_VECTORS_END
-	/* This is the OPAL branch table. It's populated at boot time
-	 * with function pointers to the various OPAL functions from
-	 * the content of the .opal_table section, indexed by Token.
-	 */
-.global opal_branch_table
-opal_branch_table:
-	.space	8 * (OPAL_LAST + 1)
 
 /* Stores the offset we were started from.  Used later on if we want to
  * read any unrelocated code/data such as the built-in kernel image
@@ -330,6 +324,7 @@ boot_offset:
  *   r28 :  PVR
  *   r27 :  DTB pointer (or NULL)
  *   r26 :  PIR thread mask
+ *   r25 :  P9/10 fused core flag
  */
 .global boot_entry
 boot_entry:
@@ -344,13 +339,33 @@ boot_entry:
 	cmpwi	cr0,%r3,PVR_TYPE_P8NVL
 	beq	2f
 	cmpwi	cr0,%r3,PVR_TYPE_P9
-	beq 	1f
+	beq 	3f
 	cmpwi	cr0,%r3,PVR_TYPE_P9P
-	beq 	1f
+	beq 	3f
+	cmpwi	cr0,%r3,PVR_TYPE_P10
+	beq 	4f
 	attn		/* Unsupported CPU type... what do we do ? */
 	b 	.	/* loop here, just in case attn is disabled */
 
-	/* P8 -> 8 threads */
+	/* Check for fused core and set flag */
+3:
+	li	%r3, 0x1e0
+	mtspr   SPR_SPRC, %r3
+	mfspr	%r3, SPR_SPRD
+	andi.	%r25, %r3, 1
+	beq 1f
+	b   2f
+
+4:      /*
+	 * P10 fused core check (SPRC/SPRD method does not work).
+	 * PVR bit 12 set = normal code
+	 */
+	andi.	%r3, %r28, 0x1000
+	bne	1f
+	li	%r25, 1
+
+	/* P8 or P9 fused or P10 fused -> 8 threads */
+
 2:	li	%r26,7
 
 	/* Get our reloc offset into r30 */
@@ -369,17 +384,46 @@ boot_entry:
 	add	%r2,%r2,%r29
 
 	/* Fixup our MSR (remove TA) */
+#if HAVE_BIG_ENDIAN
 	LOAD_IMM64(%r3, (MSR_HV | MSR_SF))
+#else
+	LOAD_IMM64(%r3, (MSR_HV | MSR_SF | MSR_LE))
+#endif
 	mtmsrd	%r3,0
 
-	/* Check our PIR, avoid threads */
 	mfspr	%r31,SPR_PIR
-	and.	%r0,%r31,%r26
+
+	andi.	%r3,%r25,1
+	bne	fused
+
+	/* Apply core-mask PIR */
+	and	%r0,%r31,%r26
+
+	/* t0 is primary for small-core */
+	cmpdi	%r0,0
 	bne	secondary_wait
 
 	/* Initialize per-core SPRs */
 	bl	init_shared_sprs
+	b	go_primary
 
+fused:
+	/* Apply core-mask PIR */
+	ori	%r0,%r26,1	/* include both sub-cores in the core mask */
+	and	%r0,%r31,%r0
+
+	/* If fused, t0, t1 are primaries for sub-cores */
+	cmpdi	%r0,0
+	bne	1f
+	bl	init_shared_sprs
+	b	go_primary /* but only t0 can be a boot CPU */
+1:
+	cmpdi	%r0,1
+	bne	secondary_wait
+	bl	init_shared_sprs
+	b	secondary_wait
+
+go_primary:
 	/* Pick a boot CPU, cpu index in r31 */
 	LOAD_IMM32(%r3, boot_sem - __head)
 	add	%r3,%r3,%r30
@@ -401,7 +445,7 @@ boot_entry:
 	 * before relocation so we need to keep track of its location to wake
 	 * them up.
 	 */
-	mr	%r15,%r30
+	mr	%r18,%r30
 
 	/* Check if we need to copy ourselves up and update %r30 to
 	 * be our new offset
@@ -447,7 +491,7 @@ boot_entry:
 
 	/* Tell secondaries to move to second stage (relocated) spin loop */
 	LOAD_IMM32(%r3, boot_flag - __head)
-	add	%r3,%r3,%r15
+	add	%r3,%r3,%r18
 	li	%r0,1
 	stw	%r0,0(%r3)
 
@@ -462,18 +506,18 @@ boot_entry:
 	addi	%r3,%r3,8
 	bdnz	1b
 
-	/* Get our per-cpu pointer into r13 */
+	/* Get our per-cpu pointer into r16 */
 	GET_CPU()
 
 #ifdef STACK_CHECK_ENABLED
 	/* Initialize stack bottom mark to 0, it will be updated in C code */
 	li	%r0,0
-	std	%r0,CPUTHREAD_STACK_BOT_MARK(%r13)
+	std	%r0,CPUTHREAD_STACK_BOT_MARK(%r16)
 #endif
 	/* Initialize the stack guard */
 	LOAD_IMM64(%r3,STACK_CHECK_GUARD_BASE);
 	xor	%r3,%r3,%r31
-	std	%r3,0(%r13)
+	std	%r3,0(%r16)
 
 	/* Jump to C */
 	mr	%r3,%r27
@@ -534,7 +578,7 @@ secondary_not_found:
 	b	.
 
 call_relocate:
-	mflr	%r14
+	mflr	%r17
 	LOAD_IMM32(%r4,__dynamic_start - __head)
 	LOAD_IMM32(%r5,__rela_dyn_start - __head)
 	add	%r4,%r4,%r30
@@ -543,7 +587,7 @@ call_relocate:
 	bl	relocate
 	cmpwi	%r3,0
 	bne	1f
-	mtlr	%r14
+	mtlr	%r17
 	blr
 1:	/* Fatal relocate failure */
 	attn
@@ -565,7 +609,6 @@ reset_patch_start:
 	li	%r4,0x100
 	b	_exception + (reset_patch_start - sreset_vector)
 1:
-	LOAD_IMM64(%r30, SKIBOOT_BASE)
 	cmpdi	%r3,0x1
 	bne	2f		/* state loss */
 	LOAD_IMM32(%r3, reset_resume - __head)
@@ -573,12 +616,17 @@ reset_patch_start:
 2:
 	LOAD_IMM32(%r3, reset_wakeup - __head)
 3:
-	add	%r3,%r30,%r3
+	LOAD_IMM64(%r5, SKIBOOT_BASE)
+	add	%r3,%r5,%r3
 	mtctr	%r3
 	li	%r3,0x100
 	bctr
 .global reset_patch_end
 reset_patch_end:
+
+.if reset_patch_end - reset_patch_start > 0x100
+	.error "Reset patch overflow"
+.endif
 
 /* Wakeup vector in r3 */
 .global reset_wakeup
@@ -586,12 +634,12 @@ reset_wakeup:
 	/* Get PIR */
 	mfspr	%r31,SPR_PIR
 
-	/* Get that CPU stack base and use it to restore r13 */
+	/* Get that CPU stack base and use it to restore r16 */
 	GET_STACK(%r1,%r31)
 	GET_CPU()
 
 	/* Restore original stack pointer */
-	ld	%r1,CPUTHREAD_SAVE_R1(%r13)
+	ld	%r1,CPUTHREAD_SAVE_R1(%r16)
 
 	/* Restore more stuff */
 	lwz	%r4,STACK_CR(%r1)
@@ -649,7 +697,7 @@ reset_fast_reboot_wakeup:
 	/* Get PIR */
 	mfspr	%r31,SPR_PIR
 
-	/* Get that CPU stack base and use it to restore r13 */
+	/* Get that CPU stack base and use it to restore r16 */
 	GET_STACK(%r1,%r31)
 	GET_CPU()
 
@@ -693,6 +741,8 @@ init_shared_sprs:
 	beq	4f
 	cmpwi	cr0,%r3,PVR_TYPE_P9P
 	beq	4f
+	cmpwi	cr0,%r3,PVR_TYPE_P10
+	beq	5f
 	/* Unsupported CPU type... what do we do ? */
 	b	9f
 
@@ -703,14 +753,18 @@ init_shared_sprs:
 	mtspr	SPR_TSCR, %r3
 
 	/* HID0: Clear bit 13 (enable core recovery)
-	 *       Clear bit 19 (HILE)
+	 *       Set/clear bit 19 (HILE) depending on skiboot endian
 	 */
 	mfspr	%r3,SPR_HID0
 	li	%r0,1
 	sldi	%r4,%r0,(63-13)
-	sldi	%r5,%r0,(63-19)
-	or	%r0,%r4,%r5
-	andc	%r3,%r3,%r0
+	andc	%r3,%r3,%r4
+	sldi	%r4,%r0,(63-19)
+#if HAVE_BIG_ENDIAN
+	andc	%r3,%r3,%r4
+#else
+	or	%r3,%r3,%r4
+#endif
 	sync
 	mtspr	SPR_HID0,%r3
 	mfspr	%r3,SPR_HID0
@@ -737,17 +791,21 @@ init_shared_sprs:
 	LOAD_IMM32(%r3,0x80287880)
 	mtspr	SPR_TSCR, %r3
 	/* HID0: Clear bit 5 (enable core recovery)
-	 *       Clear bit 4 (HILE)
+	 *       Set/clear bit 4 (HILE) depending on skiboot endian
 	 *       Set bit 8 (radix)
 	 */
 	mfspr	%r3,SPR_HID0
 	li	%r0,1
+	sldi	%r4,%r0,(63-4)
+#if HAVE_BIG_ENDIAN
+	andc	%r3,%r3,%r4
+#else
+	or	%r3,%r3,%r4
+#endif
+	sldi	%r4,%r0,(63-5)
+	andc	%r3,%r3,%r4
 	sldi	%r4,%r0,(63-8)
 	or	%r3,%r3,%r4
-	sldi	%r4,%r0,(63-5)
-	sldi	%r5,%r0,(63-4)
-	or	%r0,%r4,%r5
-	andc	%r3,%r3,%r0
 	sync
 	mtspr	SPR_HID0,%r3
 	isync
@@ -761,6 +819,32 @@ init_shared_sprs:
 
 	LOAD_IMM64(%r3,0x00000103070F1F3F)
 	mtspr	SPR_RPR,%r3
+	b	9f
+
+5:	/* P10 */
+	/* TSCR: UM recommended value */
+	LOAD_IMM32(%r3,0x80287880)
+	mtspr	SPR_TSCR, %r3
+
+	/* HID0:
+	 * Boot with PPC_BIT(5) set (dis_recovery).
+	 * Leave bit 5 set to disable recovery (due to HW570622)
+	 */
+	LOAD_IMM64(%r3, PPC_BIT(5))
+	sync
+	mtspr	SPR_HID0,%r3
+	isync
+
+	LOAD_IMM64(%r4,SPR_HMEER_P10_HMI_ENABLE_MASK)
+	mfspr	%r3,SPR_HMEER
+	or	%r3,%r3,%r4
+	sync
+	mtspr	SPR_HMEER,%r3
+	isync
+
+	LOAD_IMM64(%r3,0x00000103070F1F3F)
+	mtspr	SPR_RPR,%r3
+
 9:	blr
 
 .global init_replicated_sprs
@@ -777,6 +861,8 @@ init_replicated_sprs:
 	beq	4f
 	cmpwi	cr0,%r3,PVR_TYPE_P9P
 	beq	4f
+	cmpwi	cr0,%r3,PVR_TYPE_P10
+	beq	5f
 	/* Unsupported CPU type... what do we do ? */
 	b	9f
 
@@ -800,6 +886,16 @@ init_replicated_sprs:
 	LOAD_IMM64(%r3,0x0000000000000010)
 	mtspr	SPR_DSCR,%r3
 
+5:	/* P10 */
+	/* LPCR: sane value */
+	LOAD_IMM64(%r3,0x0040000000000000)
+	mtspr	SPR_LPCR, %r3
+	sync
+	isync
+	/* DSCR: Stride-N Stream Enable */
+	LOAD_IMM64(%r3,0x0000000000000010)
+	mtspr	SPR_DSCR,%r3
+
 9:	blr
 
 	.global enter_nap
@@ -811,66 +907,6 @@ enter_nap:
 	bne	1b
 	nap
 	b	.
-/*
- *
- * NACA structure, accessed by the FPS to find the SPIRA
- *
- */
-	. = 0x4000
-.global naca
-naca:
-	.llong	spirah			/* 0x0000 : SPIRA-H  */
-	.llong	0			/* 0x0008 : Reserved */
-	.llong	0			/* 0x0010 : Reserved */
-	.llong	hv_release_data		/* 0x0018 : HV release data */
-	.llong	0			/* 0x0020 : Reserved */
-	.llong	0			/* 0x0028 : Reserved */
-	.llong	spira			/* 0x0030 : SP Interface Root */
-	.llong	hv_lid_load_table	/* 0x0038 : LID load table */
-	.llong	0			/* 0x0040 : Reserved */
-	.space	68
-	.long	0			/* 0x008c : Reserved */
-	.space	16
-	.long	SPIRA_ACTUAL_SIZE	/* 0x00a0 : Actual size of SPIRA */
-	.space	28
-	.llong	0			/* 0x00c0 : resident module loadmap */
-	.space	136
-	.llong	0			/* 0x0150 : reserved */
-	.space	40
-	.llong	0			/* 0x0180 : reserved */
-	.space	36
-	.long	0			/* 0x01ac : control flags */
-	.byte	0			/* 0x01b0 : reserved */
-	.space	4
-	.byte	0			/* 0x01b5 : default state for SW attn */
-	.space	1
-	.byte	0x01			/* 0x01b7 : PCIA format */
-	.llong	hdat_entry		/* 0x01b8 : Primary thread entry */
-	.llong	hdat_entry		/* 0x01c0 : Secondary thread entry */
-	.space	0xe38
-
-	.balign	0x10
-hv_release_data:
-	.space	58
-	.llong	0x666			/* VRM ? */
-
-	.balign	0x10
-hv_lid_load_table:
-	.long	0x10
-	.long	0x10
-	.long	0
-	.long	0
-
-
-	/* The FSP seems to ignore our primary/secondary entry
-	 * points and instead copy that bit down to 0x180 and
-	 * patch the first instruction to get our expected
-	 * boot CPU number. We ignore that patching for now and
-	 * got to the same entry we use for pHyp and FDT HB.
-	 */
-opal_boot_trampoline:
-	li	%r27,-1
-	ba	boot_entry - __head
 
 /*
  *
@@ -887,6 +923,8 @@ opal_boot_trampoline:
 	.balign	0x10
 .global opal_entry
 opal_entry:
+	OPAL_ENTRY_TO_SKIBOOT_ENDIAN /* This clobbers r11, r12 */
+
 	/* Get our per CPU pointer in r12 to check for quiesce */
 	mfspr	%r12,SPR_PIR
 	GET_STACK(%r12,%r12)
@@ -925,7 +963,7 @@ opal_entry:
 	cmpwi	%cr0,%r11,QUIESCE_REJECT
 	bne	2f
 	li	%r3,OPAL_BUSY
-	b	.Lreturn /* reject */
+	b	.Lreject
 2:	/* hold */
 	lwz	%r11,CPUTHREAD_IN_OPAL_CALL(%r12)
 	subi	%r11,%r11,1
@@ -967,18 +1005,20 @@ opal_entry:
 	std	%r9,STACK_GPR9(%r1)
 	std	%r10,STACK_GPR10(%r1)
 
-	/* Save Token (r0), LR and r13 */
+	/* Save Token (r0), LR and r16 */
 	mflr	%r12
 	std	%r0,STACK_GPR0(%r1)
-	std	%r13,STACK_GPR13(%r1)
+	std	%r16,STACK_GPR16(%r1)
 	std	%r12,STACK_LR(%r1)
 
 	/* Get the CPU thread */
 	GET_CPU()
 
 	/* Store token in CPU thread */
-	std	%r0,CPUTHREAD_CUR_TOKEN(%r13)
+	std	%r0,CPUTHREAD_CUR_TOKEN(%r16)
 
+	LOAD_IMM64(%r12,STACK_INT_MAGIC)
+	std	%r12,STACK_MAGIC(%r1)
 	/* Mark the stack frame */
 	li	%r12,STACK_ENTRY_OPAL_API
 	std	%r12,STACK_TYPE(%r1)
@@ -1019,33 +1059,47 @@ opal_entry:
 	bl	opal_exit_check /* r3 is preserved */
 
 	/*
-	 * Restore r1 and r13 before decrementing in_opal_call.
-	 * Move per-cpu pointer to volatile r12, restore lr, r1, r13.
+	 * Restore r1 and r16 before decrementing in_opal_call.
+	 * Move per-cpu pointer to volatile r12, restore lr, r1, r16.
 	 */
 .Lreturn:
 	ld	%r12,STACK_LR(%r1)
 	mtlr	%r12
-	mr	%r12,%r13
-	ld	%r13,STACK_GPR13(%r1)
+	mr	%r12,%r16
+	ld	%r16,STACK_GPR16(%r1)
 	ld	%r1,STACK_GPR1(%r1)
+.Lreject:
 	sync 	/* release barrier vs quiescing */
 	lwz	%r11,CPUTHREAD_IN_OPAL_CALL(%r12)
 	subi	%r11,%r11,1
 	stw	%r11,CPUTHREAD_IN_OPAL_CALL(%r12)
+#if HAVE_BIG_ENDIAN
 	/*
 	 * blr with BH=01b means it's not a function return, OPAL was entered
 	 * via (h)rfid not bl, so we don't have a corresponding link stack
 	 * prediction to return to here.
 	 */
 	bclr	20,0,1
+#else
+	mflr	%r12
+	mtspr	SPR_HSRR0,%r12
+	mfmsr	%r11
+	li	%r12,MSR_LE
+	andc	%r11,%r11,%r12
+	mtspr	SPR_HSRR1,%r11
+	hrfid
+#endif
 
 .global start_kernel
 start_kernel:
+	LOAD_IMM64(%r10,MSR_HV|MSR_SF)
+__start_kernel:
 	sync
 	icbi	0,%r3
 	sync
 	isync
-	mtctr	%r3
+	mtspr	SPR_HSRR0,%r3
+	mtspr	SPR_HSRR1,%r10
 	mr	%r3,%r4
 	LOAD_IMM64(%r8,SKIBOOT_BASE);
 	LOAD_IMM32(%r10, opal_entry - __head)
@@ -1054,21 +1108,19 @@ start_kernel:
 	addi	%r7,%r5,1
 	li	%r4,0
 	li	%r5,0
-	bctr
+	hrfid
 
 	.global start_kernel32
 start_kernel32:
-	mfmsr	%r10
-	clrldi	%r10,%r10,1
-	mtmsrd	%r10,0
-	sync
-	isync
-	b	start_kernel
+	LOAD_IMM64(%r10,MSR_HV)
+	b	__start_kernel
 
 .global start_kernel_secondary
 start_kernel_secondary:
 	sync
 	isync
-	mtctr	%r3
+	LOAD_IMM64(%r10,MSR_HV|MSR_SF)
+	mtspr	SPR_HSRR0,%r3
+	mtspr	SPR_HSRR1,%r10
 	mfspr	%r3,SPR_PIR
-	bctr
+	hrfid

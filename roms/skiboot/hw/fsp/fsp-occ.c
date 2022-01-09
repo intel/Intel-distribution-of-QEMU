@@ -1,17 +1,13 @@
-/* Copyright 2013-2019 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * FSP/OCC interactions
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Unlike OpenPOWER machines, FSP machines are much more tightly coupled
+ * between FSP, host, and OCC. On P8 we have to do a dance to start the
+ * OCC, but on P9 Hostboot does that, consistent with what we do on
+ * OpenPOWER.
  *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
 
 #include <skiboot.h>
@@ -171,7 +167,7 @@ static void occ_do_load(u8 scope, u32 dbob_id __unused, u32 seq_id)
 	if (err)
 		return;
 
-	if (proc_gen == proc_gen_p9) {
+	if (proc_gen >= proc_gen_p9) {
 		if (in_ipl) {
 			/* OCC is pre-loaded in P9, so send SUCCESS to FSP */
 			rsp = fsp_mkmsg(FSP_CMD_LOAD_OCC_STAT, 2, 0, seq_id);
@@ -320,6 +316,7 @@ static void occ_do_reset(u8 scope, u32 dbob_id, u32 seq_id)
 		rc = host_services_occ_stop();
 		break;
 	case proc_gen_p9:
+	case proc_gen_p10:
 		last_seq_id = seq_id;
 		chip = next_chip(NULL);
 		prd_fsp_occ_reset(chip->id);
@@ -385,8 +382,8 @@ static bool fsp_occ_msg(u32 cmd_sub_mod, struct fsp_msg *msg)
 		 * be nice and respond to OCC.
 		 */
 		scope = msg->data.bytes[3];
-		dbob_id = msg->data.words[1];
-		seq_id = msg->data.words[2];
+		dbob_id = fsp_msg_get_data_word(msg, 1);
+		seq_id = fsp_msg_get_data_word(msg, 2);
 		prlog(PR_INFO, "OCC: Got OCC Load message, scope=0x%x"
 		      " dbob=0x%x seq=0x%x\n", scope, dbob_id, seq_id);
 		occ_do_load(scope, dbob_id, seq_id);
@@ -398,8 +395,8 @@ static bool fsp_occ_msg(u32 cmd_sub_mod, struct fsp_msg *msg)
 		 * to reply something sensible or the FSP will get upset
 		 */
 		scope = msg->data.bytes[3];
-		dbob_id = msg->data.words[1];
-		seq_id = msg->data.words[2];
+		dbob_id = fsp_msg_get_data_word(msg, 1);
+		seq_id = fsp_msg_get_data_word(msg, 2);
 		prlog(PR_INFO, "OCC: Got OCC Reset message, scope=0x%x"
 		      " dbob=0x%x seq=0x%x\n", scope, dbob_id, seq_id);
 		occ_do_reset(scope, dbob_id, seq_id);
@@ -414,10 +411,6 @@ static struct fsp_client fsp_occ_client = {
 
 void occ_fsp_init(void)
 {
-	/* OCC is  supported in P8 and P9 */
-	if (proc_gen < proc_gen_p8)
-		return;
-
 	/* If we have an FSP, register for notifications */
 	if (fsp_present())
 		fsp_register_client(&fsp_occ_client, FSP_MCLASS_OCC);

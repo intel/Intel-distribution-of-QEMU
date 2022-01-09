@@ -1,18 +1,5 @@
-/* Copyright 2017-2019 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2017-2019 IBM Corp. */
 
 #include <skiboot.h>
 #include <device.h>
@@ -30,6 +17,7 @@
 #include <npu2.h>
 #include <occ.h>
 #include <i2c.h>
+#include <secvar.h>
 
 #include "astbmc.h"
 #include "ast.h"
@@ -205,6 +193,52 @@ static void witherspoon_shared_slot_fixup(void)
 	}
 }
 
+static int check_mlx_cards(struct phb *phb __unused, struct pci_device *dev,
+			   void *userdata __unused)
+{
+	uint16_t mlx_cards[] = {
+		0x1017, /* ConnectX-5 */
+		0x1019, /* ConnectX-5 Ex */
+		0x101b, /* ConnectX-6 */
+		0x101d, /* ConnectX-6 Dx */
+		0x101f, /* ConnectX-6 Lx */
+		0x1021, /* ConnectX-7 */
+	};
+
+	if (PCI_VENDOR_ID(dev->vdid) == 0x15b3) { /* Mellanox */
+		for (int i = 0; i < ARRAY_SIZE(mlx_cards); i++) {
+			if (mlx_cards[i] == PCI_DEVICE_ID(dev->vdid))
+				return 1;
+		}
+	}
+	return 0;
+}
+
+static void witherspoon_pci_probe_complete(void)
+{
+	struct pci_device *dev;
+	struct phb *phb;
+	struct phb4 *p;
+
+	/*
+	 * Reallocate dma engines between stacks in PEC2 if a Mellanox
+	 * card is found on the shared slot, as it is required to get
+	 * good GPU direct performance.
+	 */
+	for_each_phb(phb) {
+		/* skip the virtual PHBs */
+		if (phb->phb_type != phb_type_pcie_v4)
+			continue;
+		p = phb_to_phb4(phb);
+		/* Keep only the first PHB on PEC2 */
+		if (p->index != 3)
+			continue;
+		dev = pci_walk_dev(phb, NULL, check_mlx_cards, NULL);
+		if (dev)
+			phb4_pec2_dma_engine_realloc(p);
+	}
+}
+
 static void set_link_details(struct npu2 *npu, uint32_t link_index,
 			     uint32_t brick_index, enum npu2_dev_type type)
 {
@@ -338,7 +372,26 @@ i2c_failed:
 	return;
 }
 
-const struct platform_ocapi witherspoon_ocapi = {
+static const char *witherspoon_ocapi_slot_label(uint32_t chip_id,
+						uint32_t brick_index)
+{
+	const char *name = NULL;
+
+	if (chip_id == 0) {
+		if (brick_index == 3)
+			name = "OPENCAPI-GPU0";
+		else if (brick_index == 4)
+			name = "OPENCAPI-GPU1";
+	} else {
+		if (brick_index == 3)
+			name = "OPENCAPI-GPU3";
+		else if (brick_index == 4)
+			name = "OPENCAPI-GPU4";
+	}
+	return name;
+}
+
+static const struct platform_ocapi witherspoon_ocapi = {
        .i2c_engine          = 1,
        .i2c_port            = 4,
        .odl_phy_swap        = false,
@@ -361,6 +414,7 @@ const struct platform_ocapi witherspoon_ocapi = {
        .i2c_presence_brick3 = 0,
        .i2c_presence_brick4 = 0,
        .i2c_presence_brick5 = 0,
+       .ocapi_slot_label    = witherspoon_ocapi_slot_label,
 };
 
 static int gpu_slot_to_num(const char *slot)
@@ -383,8 +437,8 @@ static int gpu_slot_to_num(const char *slot)
 
 static void npu2_phb_nvlink_dt(struct phb *npuphb)
 {
-	struct dt_node *g[3] = { 0 }; /* Current maximum is 3 GPUs per 1 NPU */
-	struct dt_node *n[6] = { 0 };
+	struct dt_node *g[3] = { NULL }; /* Current maximum 3 GPUs per 1 NPU */
+	struct dt_node *n[6] = { NULL };
 	int max_gpus, i, gpuid, first, last;
 	struct npu2 *npu2_phb = phb_to_npu2_nvlink(npuphb);
 	struct pci_device *npd;
@@ -478,6 +532,7 @@ static void npu2_phb_nvlink_dt(struct phb *npuphb)
 static void witherspoon_finalise_dt(bool is_reboot)
 {
 	struct dt_node *np;
+	struct proc_chip *c;
 
 	if (is_reboot)
 		return;
@@ -492,6 +547,35 @@ static void witherspoon_finalise_dt(bool is_reboot)
 			continue;
 		npu2_phb_nvlink_dt(npphb);
 	}
+
+	/*
+	 * The I2C bus on used to talk to the GPUs has a 750K pullup
+	 * which is way too big. If there's no GPUs connected to the
+	 * chip all I2C transactions fail with an Arb loss error since
+	 * SCL/SDA don't return to the idle state fast enough. Disable
+	 * the port to squash the errors.
+	 */
+	for (c = next_chip(NULL); c; c = next_chip(c)) {
+		bool detected = false;
+		int i;
+
+		np = dt_find_by_path(c->devnode, "i2cm@a1000/i2c-bus@4");
+		if (!np)
+			continue;
+
+		for (i = 0; i < 3; i++)
+			detected |= occ_get_gpu_presence(c, i);
+
+		if (!detected) {
+			dt_check_del_prop(np, "status");
+			dt_add_property_string(np, "status", "disabled");
+		}
+	}
+}
+
+static int witherspoon_secvar_init(void)
+{
+        return secvar_main(secboot_tpm_driver, edk2_compatible_v1);
 }
 
 /* The only difference between these is the PCI slot handling */
@@ -501,6 +585,7 @@ DECLARE_PLATFORM(witherspoon) = {
 	.probe			= witherspoon_probe,
 	.init			= astbmc_init,
 	.pre_pci_fixup		= witherspoon_shared_slot_fixup,
+	.pci_probe_complete	= witherspoon_pci_probe_complete,
 	.start_preload_resource	= flash_start_preload_resource,
 	.resource_loaded	= flash_resource_loaded,
 	.bmc			= &bmc_plat_ast2500_openbmc,
@@ -515,4 +600,5 @@ DECLARE_PLATFORM(witherspoon) = {
 	.ocapi                  = &witherspoon_ocapi,
 	.npu2_device_detect	= witherspoon_npu2_device_detect,
 	.op_display		= op_display_lpc,
+	.secvar_init		= witherspoon_secvar_init,
 };

@@ -46,6 +46,9 @@ static volatile unsigned char *escc_serial_dev;
 #define Tx8             0x60    /* Tx 8 bits/character */
 #define DTR             0x80    /* DTR */
 
+/* Write Register 9 */
+#define SW_CHAN_RESET_B 0x40    /* Software reset channel B */
+
 /* Write Register 14 (Misc control bits) */
 #define BRENAB  1       /* Baud rate generator enable */
 #define BRSRC   2       /* Baud rate generator source */
@@ -78,8 +81,11 @@ static void escc_uart_port_putchar(uintptr_t port, unsigned char c)
     DATA(port) = c;
 }
 
-static void uart_init_line(volatile unsigned char *port, unsigned long baud)
+static void uart_init_line(volatile unsigned char *port, unsigned long baud, int index)
 {
+    CTRL(port) = 9; // reg 9
+    CTRL(port) = SW_CHAN_RESET_B << index;
+
     CTRL(port) = 4; // reg 4
     CTRL(port) = SB1 | X16CLK; // no parity, async, 1 stop bit, 16x
                                // clock
@@ -110,7 +116,7 @@ int escc_uart_init(phys_addr_t port, unsigned long speed)
 #else
     escc_serial_dev = (unsigned char *)(uintptr_t)port;
 #endif
-    uart_init_line(escc_serial_dev, speed);
+    uart_init_line(escc_serial_dev, speed, 1);
     return -1;
 }
 
@@ -518,7 +524,7 @@ escc_add_channel(const char *path, const char *node, phys_addr_t addr,
     fword("finish-device");
 
     uart_init_line((unsigned char*)addr + offset + reg_offsets[legacy][index][0],
-                   CONFIG_SERIAL_SPEED);
+                   CONFIG_SERIAL_SPEED, index);
 }
 
 void

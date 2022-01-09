@@ -1,19 +1,5 @@
-/* Copyright 2016 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2016-2019 IBM Corp. */
 /*
  * In-Memory Collection (IMC) Counters :
  * Power9 has IMC instrumentation support with which several
@@ -97,12 +83,12 @@
  */
 struct imc_chip_cb
 {
-	u64 imc_chip_run_status;
-	u64 imc_chip_command;
-	u64 imc_chip_collection_speed;
-	u64 imc_chip_avl_vector;
-	u64 imc_chip_run_mode;
-};
+	be64 imc_chip_run_status;
+	be64 imc_chip_command;
+	be64 imc_chip_collection_speed;
+	be64 imc_chip_avl_vector;
+	be64 imc_chip_run_mode;
+} __packed;
 
 /* Size of IMC dtb LID (256KBytes) */
 #define MAX_DECOMPRESSED_IMC_DTB_SIZE		0x40000
@@ -123,7 +109,8 @@ struct imc_chip_cb
 /*
  * Core IMC SCOMs
  */
-#define CORE_IMC_EVENT_MASK_ADDR	0x20010AA8ull
+#define CORE_IMC_EVENT_MASK_ADDR_P9	0x20010AA8ull
+#define CORE_IMC_EVENT_MASK_ADDR_P10	0x20020400ull
 #define CORE_IMC_EVENT_MASK		0x0402010000000000ull
 #define CORE_IMC_PDBAR_MASK		0x0003ffffffffe000ull
 #define CORE_IMC_HTM_MODE_ENABLE	0xE800000000000000ull
@@ -146,7 +133,8 @@ struct imc_chip_cb
  *     		|		 |	       |
  *     		*CPMC1SEL	 *CPMC2SEL     *BUFFERSIZE
  */
-#define TRACE_IMC_ADDR            0x20010AA9ull
+#define TRACE_IMC_ADDR_P9            0x20010AA9ull
+#define TRACE_IMC_ADDR_P10           0x20020401ull
 #define TRACE_IMC_SAMPLESEL(x)	((uint64_t)x << 62)
 #define TRACE_IMC_CPMC_LOAD(x)	((0xffffffff - (uint64_t)x) << 30)
 #define TRACE_IMC_CPMC1SEL(x)	((uint64_t)x << 23)

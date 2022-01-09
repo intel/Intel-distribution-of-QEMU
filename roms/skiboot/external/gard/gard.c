@@ -1,17 +1,8 @@
-/* Copyright 2013-2017 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * Manipulate GARD records in the GARD partition
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
 
 #include <fcntl.h>
@@ -162,11 +153,16 @@ static void guess_chip_gen(void)
 		return;
 
 	case 0x004e: /* nimbus */
+	case 0x004f: /* axone */
 		set_chip_gen(p9_chip_units);
 		return;
 
+	case 0x0080: /* power10 */
+		set_chip_gen(p10_chip_units);
+		return;
+
 	default:
-		fprintf(stderr, "Unsupported processor (pvr %#x)! Set the processor generation manually with -8 or -9\n", pvr);
+		fprintf(stderr, "Unsupported processor (pvr %#x)! Set the processor generation manually with -8, -9 or -0\n", pvr);
 		exit(1);
 	}
 }
@@ -579,7 +575,7 @@ static int do_clear_i(struct gard_ctx *ctx, int pos, struct gard_record *gard, v
 			return rc;
 		}
 
-		rc = blocklevel_smart_write(ctx->bl, buf_pos - sizeof(gard), buf, buf_len);
+		rc = blocklevel_smart_write(ctx->bl, buf_pos - sizeof(*gard), buf, buf_len);
 		free(buf);
 		if (rc) {
 			fprintf(stderr, "Couldn't write to flash at 0x%08x for len 0x%08x\n",
@@ -781,7 +777,8 @@ static void usage(const char *progname)
 	fprintf(stderr, "Usage: %s [-a -e -f <file> -p] <command> [<args>]\n\n",
 			progname);
 	fprintf(stderr, "-8 --p8\n");
-	fprintf(stderr, "-9 --p9\n\tSet the processor generation\n\n");
+	fprintf(stderr, "-9 --p9\n");
+	fprintf(stderr, "-0 --p10\n\tSet the processor generation\n\n");
 	fprintf(stderr, "-e --ecc\n\tForce reading/writing with ECC bytes.\n\n");
 	fprintf(stderr, "-f --file <file>\n\tDon't search for MTD device,"
 	                " read from <file>.\n\n");
@@ -810,9 +807,10 @@ static struct option global_options[] = {
 	{ "ecc", no_argument, 0, 'e' },
 	{ "p8", no_argument, 0, '8' },
 	{ "p9", no_argument, 0, '9' },
+	{ "p10", no_argument, 0, '0' },
 	{ 0 },
 };
-static const char *global_optstring = "+ef:p89";
+static const char *global_optstring = "+ef:p890";
 
 int main(int argc, char **argv)
 {
@@ -829,12 +827,6 @@ int main(int argc, char **argv)
 	ctx = &_ctx;
 	memset(ctx, 0, sizeof(*ctx));
 	memset(&blank_record, 0xff, sizeof(blank_record));
-
-	if (is_fsp()) {
-		fprintf(stderr, "This is the OpenPower gard tool which does "
-				"not support FSP systems\n");
-		return EXIT_FAILURE;
-	}
 
 	/* process global options */
 	for (;;) {
@@ -867,6 +859,9 @@ int main(int argc, char **argv)
 		case '9':
 			set_chip_gen(p9_chip_units);
 			break;
+		case '0':
+			set_chip_gen(p10_chip_units);
+			break;
 		case '?':
 			usage(progname);
 			rc = EXIT_FAILURE;
@@ -874,6 +869,12 @@ int main(int argc, char **argv)
 		}
 	}
 
+
+	if (is_fsp() && !filename) {
+		fprintf(stderr, "This is the OpenPower gard tool which does "
+				"not support FSP systems\n");
+		return EXIT_FAILURE;
+	}
 
 
 	/*

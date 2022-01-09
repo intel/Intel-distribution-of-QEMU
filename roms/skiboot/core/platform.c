@@ -1,20 +1,15 @@
-/* Copyright 2013-2016 IBM Corp.
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * OPAL Platform abstraction
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Some OPAL calls may/may not call into the struct platform that's
+ * probed during boot. There's also a bunch of platform specific init
+ * and configuration that's called.
  *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2013-2019 IBM Corp.
  */
 
-
+#include <stdlib.h>
 #include <skiboot.h>
 #include <opal.h>
 #include <console.h>
@@ -32,7 +27,7 @@ bool manufacturing_mode = false;
 struct platform	platform;
 
 DEFINE_LOG_ENTRY(OPAL_RC_ABNORMAL_REBOOT, OPAL_PLATFORM_ERR_EVT, OPAL_CEC,
-		 OPAL_CEC_HARDWARE, OPAL_PREDICTIVE_ERR_FAULT_RECTIFY_REBOOT,
+		 OPAL_CEC_HARDWARE, OPAL_ERROR_PANIC,
 		 OPAL_ABNORMAL_POWER_OFF);
 
 /*
@@ -53,22 +48,9 @@ static int64_t opal_cec_power_down(uint64_t request)
 }
 opal_call(OPAL_CEC_POWER_DOWN, opal_cec_power_down, 1);
 
-static int64_t opal_cec_reboot(void)
+static int64_t full_reboot(void)
 {
 	prlog(PR_NOTICE, "OPAL: Reboot request...\n");
-
-	opal_quiesce(QUIESCE_HOLD, -1);
-
-	if (proc_gen == proc_gen_p8 && nvram_query_eq_safe("fast-reset","1")) {
-		/*
-		 * Bugs in P8 mean fast reboot isn't 100% reliable when cores
-		 * are busy, so only attempt if explicitly *enabled*.
-		 */
-		fast_reboot();
-	} else if (!nvram_query_eq_safe("fast-reset","0")) {
-		/* Try fast-reset unless explicitly disabled */
-		fast_reboot();
-	}
 
 	console_complete_flush();
 
@@ -76,6 +58,26 @@ static int64_t opal_cec_reboot(void)
 		return platform.cec_reboot();
 
 	return OPAL_SUCCESS;
+}
+
+static int64_t opal_cec_reboot(void)
+{
+	opal_quiesce(QUIESCE_HOLD, -1);
+
+	/*
+	 * Fast-reset was enabled by default for a long time in an attempt to
+	 * make it more stable by exercising it more frequently. This resulted
+	 * in a fair amount of pain due to mis-behaving hardware and confusion
+	 * about what a "reset" is supposed to do exactly. Additionally,
+	 * secure variables require a full reboot to work at all.
+	 *
+	 * Due to all that fast-reset should only be used if it's explicitly
+	 * enabled. It started life as a debug hack and should remain one.
+	 */
+	if (nvram_query_eq_safe("fast-reset", "1"))
+		fast_reboot();
+
+	return full_reboot();
 }
 opal_call(OPAL_CEC_REBOOT, opal_cec_reboot, 0);
 
@@ -97,10 +99,10 @@ static int64_t opal_cec_reboot2(uint32_t reboot_type, char *diag)
 			  "OPAL: Reboot requested due to Platform error.");
 			if (diag) {
 				/* Add user section "DESC" */
-				log_add_section(buf, 0x44455350);
+				log_add_section(buf, OPAL_ELOG_SEC_DESC);
 				log_append_data(buf, diag, strlen(diag));
-				log_commit(buf);
 			}
+			log_commit(buf);
 		} else {
 			prerror("OPAL: failed to log an error\n");
 		}
@@ -108,8 +110,22 @@ static int64_t opal_cec_reboot2(uint32_t reboot_type, char *diag)
 		console_complete_flush();
 		return xscom_trigger_xstop();
 	case OPAL_REBOOT_FULL_IPL:
-		disable_fast_reboot("full IPL reboot requested");
-		return opal_cec_reboot();
+		prlog(PR_NOTICE, "Reboot: Full reboot requested");
+		return full_reboot();
+	case OPAL_REBOOT_MPIPL:
+		prlog(PR_NOTICE, "Reboot: OS reported error. Performing MPIPL\n");
+		console_complete_flush();
+		if (platform.terminate)
+			platform.terminate("OS reported error. Performing MPIPL\n");
+		else
+			full_reboot();
+		for (;;);
+		break;
+	case OPAL_REBOOT_FAST:
+		prlog(PR_NOTICE, "Reboot: Fast reboot requested by OS\n");
+		fast_reboot();
+		prlog(PR_NOTICE, "Reboot: Fast reboot failed\n");
+		return OPAL_UNSUPPORTED;
 	default:
 		prlog(PR_NOTICE, "OPAL: Unsupported reboot request %d\n", reboot_type);
 		return OPAL_UNSUPPORTED;
@@ -178,7 +194,7 @@ static int generic_start_preload_resource(enum resource_id id, uint32_t subid,
 }
 
 /* These values will work for a ZZ booted using BML */
-const struct platform_ocapi generic_ocapi = {
+static const struct platform_ocapi generic_ocapi = {
 	.i2c_engine          = 1,
 	.i2c_port            = 4,
 	.i2c_reset_addr      = 0x20,

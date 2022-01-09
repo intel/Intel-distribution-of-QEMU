@@ -1,18 +1,5 @@
-/* Copyright 2016-2019 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2016-2019 IBM Corp. */
 
 #include <skiboot.h>
 #include <device.h>
@@ -27,6 +14,25 @@
 
 #include "ibm-fsp.h"
 #include "lxvpd.h"
+
+static const char *zz_ocapi_slot_label(uint32_t chip_id,
+				       uint32_t brick_index)
+{
+	const char *name = NULL;
+
+	if (chip_id == 0) {
+		if (brick_index == 2)
+			name = "P1-T5";
+		else
+			name = "P1-T6";
+	} else {
+		if (brick_index == 2)
+			name = "P1-T7";
+		else
+			name = "P1-T8";
+	}
+	return name;
+}
 
 /* We don't yet create NPU device nodes on ZZ, but these values are correct */
 static const struct platform_ocapi zz_ocapi = {
@@ -43,6 +49,7 @@ static const struct platform_ocapi zz_ocapi = {
 	.i2c_presence_brick4 = 0, /* unused */
 	.i2c_presence_brick5 = 0, /* unused */
 	.odl_phy_swap        = true,
+	.ocapi_slot_label    = zz_ocapi_slot_label,
 };
 
 #define NPU_BASE 0x5011000
@@ -78,7 +85,6 @@ static void add_opencapi_dt_nodes(void)
 {
 	struct dt_node *npu, *xscom;
 	int npu_index = 0;
-	int phb_index = 7;
 
 	/*
 	 * In an ideal world, we should get all the NPU links
@@ -128,7 +134,6 @@ static void add_opencapi_dt_nodes(void)
 		dt_add_property_cells(npu, "reg", NPU_BASE, NPU_SIZE);
 		dt_add_property_strings(npu, "compatible", "ibm,power9-npu");
 		dt_add_property_cells(npu, "ibm,npu-index", npu_index++);
-		dt_add_property_cells(npu, "ibm,phb-index", phb_index++);
 		dt_add_property_cells(npu, "ibm,npu-links", 2);
 
 		create_link(npu, 1, 2);
@@ -150,6 +155,16 @@ static bool zz_probe(void)
 		add_opencapi_dt_nodes();
 		return true;
 	}
+
+	/* Add Fleetwood FSP platform and map it to ZZ */
+	if (dt_node_is_compatible(dt_root, "ibm,fleetwood-m9s")) {
+		return true;
+        }
+
+	/* Add Denali FSP platform and map it to ZZ */
+	if (dt_node_is_compatible(dt_root, "ibm,denali")) {
+		return true;
+        }
 
 	return false;
 }
@@ -179,6 +194,7 @@ DECLARE_PLATFORM(zz) = {
 	.cec_reboot		= ibm_fsp_cec_reboot,
 	.pci_setup_phb		= firenze_pci_setup_phb,
 	.pci_get_slot_info	= firenze_pci_get_slot_info,
+	.pci_add_loc_code	= firenze_pci_add_loc_code,
 	.pci_probe_complete	= firenze_pci_send_inventory,
 	.nvram_info		= fsp_nvram_info,
 	.nvram_start_read	= fsp_nvram_start_read,

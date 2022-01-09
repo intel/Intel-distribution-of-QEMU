@@ -1,3 +1,10 @@
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/*
+ * The most important part of pflash, the progress bars
+ *
+ * Copyright 2014-2017 IBM Corp.
+ */
+
 #include <inttypes.h>
 #include <limits.h>
 #include <stdint.h>

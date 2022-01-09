@@ -1,18 +1,5 @@
-/* Copyright 2013-2014 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 	http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+/* Copyright 2013-2018 IBM Corp. */
 
 #ifndef __CONSOLE_H
 #define __CONSOLE_H
@@ -27,17 +14,17 @@
  * (This is v3 of the format, the previous one sucked)
  */
 struct memcons {
-	uint64_t magic;
+	__be64 magic;
 #define MEMCONS_MAGIC	0x6630696567726173LL
-	uint64_t obuf_phys;
-	uint64_t ibuf_phys;
-	uint32_t obuf_size;
-	uint32_t ibuf_size;
-	uint32_t out_pos;
+	__be64 obuf_phys;
+	__be64 ibuf_phys;
+	__be32 obuf_size;
+	__be32 ibuf_size;
+	__be32 out_pos;
 #define MEMCONS_OUT_POS_WRAP	0x80000000u
 #define MEMCONS_OUT_POS_MASK	0x00ffffffu
-	uint32_t in_prod;
-	uint32_t in_cons;
+	__be32 in_prod;
+	__be32 in_cons;
 };
 
 extern struct memcons memcons;
@@ -60,13 +47,13 @@ struct opal_con_ops {
 	 */
 	void (*init)(void);
 
-	int64_t (*write)(int64_t term, int64_t *len, const uint8_t *buf);
-	int64_t (*read)(int64_t term, int64_t *len, uint8_t *buf);
+	int64_t (*write)(int64_t term, __be64 *__len, const uint8_t *buf);
+	int64_t (*read)(int64_t term, __be64 *__len, uint8_t *buf);
 
 	/*
 	 * returns the amount of space available in the console write buffer
 	 */
-	int64_t (*space)(int64_t term_number, int64_t *length);
+	int64_t (*space)(int64_t term_number, __be64 *__length);
 
 	/*
 	 * Forces the write buffer to be flushed by the driver
