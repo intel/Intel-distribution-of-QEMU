@@ -50,7 +50,7 @@ file pc-bios/s390-netboot.img	# pc-bios/s390-ccw/
 file pc-bios/kvmvapic.bin	# pc-bios/optionrom/
 file pc-bios/linuxboot*.bin	# ditto
 file pc-bios/multiboot.bin	# ditto
-file pc-bios/multiboot_dma.bin # ditto
+file pc-bios/multiboot_dma.bin	# ditto
 file pc-bios/pvh.bin		# ditto
 file pc-bios/skiboot.lid	# roms/skiboot/
 file pc-bios/u-boot.e500	# roms/u-boot/
@@ -106,8 +106,8 @@ case "$upstream" in
      upstream=$(echo "$upstream" | sed 's/^.\../&.0/') ;;
 esac
 
-tempdir=qemu-$upstream-tmp
 basetar=qemu-$upstream.tar$comp
+basedir=qemu-$deb
 debtar=qemu_$deb.orig.tar.xz
 
 if [ ! -f $basetar ]; then
@@ -119,20 +119,23 @@ fi
 
 if [ ! -f $debtar ]; then
 
-  echo extracting source in $tempdir and cleaning up ...
-  rm -rf $tempdir
-  mkdir $tempdir
-  cd $tempdir
+  if [ -e $basedir ]; then
+    echo "$basedir already exists, please move it away" >&2
+    exit 1
+  fi
+
+  echo extracting source in $basedir and cleaning up ...
+  mkdir $basedir
+  cd $basedir
   tar -x -f ../$basetar --strip-components=1
   clean_dfsg
 
-  echo repacking to $debtar ...
-  find . -type f -print | sort \
-    | XZ_OPT="-v6" \
-      tar -caf ../$debtar -T- --owner=root --group=root --mode=a+rX \
-         --xform "s/^\\./qemu-$upstream/"
-
   cd ..
-  rm -rf $tempdir
+  echo repacking to $debtar ...
+  XZ_OPT="-v6" \
+  tar -caf $debtar --owner=root --group=root --mode=a+rX --sort=name \
+     $basedir
+
+  rm -rf $basedir
 
 fi

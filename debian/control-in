@@ -11,7 +11,7 @@ Build-Depends: debhelper-compat (= 12),
 # to qemu's configure script, -- optional features which depend
 # on build-dependencies.
  python3:any,
- ninja-build, meson (>> 0.55.3-1~),
+ ninja-build, meson (>> 0.59.3~),
 # --enable-docs
 # for python3-sphinx:native see #995622
  texinfo, python3-sphinx:native, python3-sphinx-rtd-theme,

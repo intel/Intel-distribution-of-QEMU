@@ -1,7 +1,29 @@
+qemu (1:6.2+dfsg-2) unstable; urgency=medium
+
+  * bump meson build-dep to 0.59.3
+  * build & include multiboot_dma.bin (Closes: #1003930)
+  * libxml2 is not needed for parallels.
+    Enable parallels block image format (Closes: #1003162)
+  * acpi-validate-hotplug-selector-on-access-CVE-2021-4158.patch
+    Closes: CVE-2021-4158
+  * acpi-fix-QEMU-crash-when-started-with-SLIC-table.patch
+    (Closes: #1004017)
+  * acpi-fix-OEM_ID-padding.patch
+  * debian/get-orig-source.sh: repack dfsg archive differently
+  * mention closing of a few CVEs by 6.2.0
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 20 Jan 2022 10:52:19 +0300
+
 qemu (1:6.2+dfsg-1) unstable; urgency=medium
 
   [ Christian Ehrhardt ]
   * 6.2.0 upstream release
+    Closes: #984452, CVE-2021-20203
+     (integer overflow issue in the vmxnet3 NIC emulator)
+    Closes: #984453, CVE-2021-20196
+     (fdc: check drive block device before usage)
+    Closes: #984451, CVE-2021-20255
+     (infinite recursion / DMA reentrancy in eepro100 i8255x device emulator)
   * d/get-orig-source.sh: remove pc-bios/multiboot_dma.bin in dfsg-clean
   * Drop patches upstream in v6.2.0
   * d/p/spelling.diff: update for v6.2.0 (partially accepted)
