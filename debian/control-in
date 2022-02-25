@@ -29,6 +29,8 @@ Build-Depends: debhelper-compat (= 12),
  libasound2-dev [linux-any],
 # for virtfs (now in libc6)
 # --enable-attr
+# --enable-bpf	linux-*
+ libbpf-dev	[linux-any],
 # --enable-brlapi
  libbrlapi-dev,
 # --enable-virtfs	linux-*
@@ -92,7 +94,7 @@ Build-Depends: debhelper-compat (= 12),
 # vde is debian-only since ubuntu/vde2 is in universe
 :debian:# --enable-vde
 :debian: libvdeplug-dev,
- libxen-dev [linux-amd64 linux-i386],
+ libxen-dev [linux-amd64],
 # --enable-nettle
  nettle-dev,
 ## always enabled: --enable-uuid
@@ -556,7 +558,7 @@ Description: Guest-side qemu-system agent
 :ubuntu:# Xen will depend on this; this package and the main qemu-system-x86 are
 :ubuntu:# mutually exclusive
 :ubuntu:Package: qemu-system-x86-xen
-:ubuntu:Architecture:  amd64 i386
+:ubuntu:Architecture:  amd64
 :ubuntu:Multi-Arch: foreign
 :ubuntu:Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Version}~),
 :ubuntu: ipxe-qemu,

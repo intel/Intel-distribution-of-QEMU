@@ -18,10 +18,9 @@ ifeq ($(shell dpkg-vendor --derives-from Ubuntu && echo yes),yes)
 VENDOR := UBUNTU
 DEB_BUILD_PARALLEL = yes
 XENENABLED := --disable-xen
-XENBINPATH := $(shell pkg-config --variable libexec_bin xenlight)
 else
 VENDOR := DEBIAN
-XENENABLED := $(if $(filter $(DEB_HOST_ARCH),amd64 i386),--enable-xen,--disable-xen)
+XENENABLED := $(if $(filter $(DEB_HOST_ARCH),amd64),--enable-xen,--disable-xen)
 endif
 
 
@@ -201,10 +200,8 @@ ifneq ($(filter ${DEB_HOST_ARCH},amd64 i386),)
 	$(call inst-kvm-link,qemu-system-x86,x86_64)
 ifeq (${VENDOR},UBUNTU)
 # on ubuntu *-spice existed, may be used in libvirt xml and scripts - keep links for compatibility
-	sed 's/@KVM@/ -enable-kvm/' debian/kvm-spice > debian/qemu-system-x86/usr/bin/kvm-spice
-	sed 's/@KVM@//' debian/kvm-spice > debian/qemu-system-x86/usr/bin/qemu-system-x86_64-spice
-	touch -r debian/kvm-spice debian/qemu-system-x86/usr/bin/kvm-spice debian/qemu-system-x86/usr/bin/qemu-system-x86_64-spice
-	chmod 0755                debian/qemu-system-x86/usr/bin/kvm-spice debian/qemu-system-x86/usr/bin/qemu-system-x86_64-spice
+# The sunset for this will be when Ubuntu-Bionic goes out of support which is expected to happen in 2028
+	install -p -t debian/qemu-system-x86/usr/bin debian/kvm-spice debian/qemu-system-x86_64-spice
 	install -p -t debian/qemu-system-x86/usr/share/man/man1/ debian/kvm-spice.1
 	echo ".so man1/kvm-spice.1" > debian/qemu-system-x86/usr/share/man/man1/qemu-system-x86_64-spice.1
 endif
@@ -352,9 +349,9 @@ install-xen: b/xen/built
 	echo ".so man1/qemu-system.1" > debian/qemu-system-x86-xen/usr/share/man/man1/qemu-system-i386.1
 	dh_link -pqemu-system-x86-xen usr/share/doc/qemu-system-common usr/share/doc/qemu-system-x86-xen/common
 	# compat link to what libxen-dev reports where to find the binaries
-	dh_link -pqemu-system-x86-xen /usr/bin/qemu-system-i386 ${XENBINPATH}/qemu-system-i386
-# build xen version only on ubuntu on amd64 or i386 only if system build is enabled
-ifeq (${VENDOR}-$(filter-out $(DEB_HOST_ARCH),amd64 i386)-${enable_system},UBUNTU--enable)
+	dh_link -pqemu-system-x86-xen /usr/bin/qemu-system-i386 /usr/lib/xen/bin/qemu-system-i386
+# build xen version only on ubuntu on amd64 if system build is enabled
+ifeq (${VENDOR}-${DEB_HOST_ARCH}-${enable_system},UBUNTU-amd64-enable)
 qemu-builds += xen
 endif
 

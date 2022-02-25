@@ -28,6 +28,8 @@ Build-Depends: debhelper-compat (= 12),
  libasound2-dev [linux-any],
 # for virtfs (now in libc6)
 # --enable-attr
+# --enable-bpf	linux-*
+ libbpf-dev	[linux-any],
 # --enable-brlapi
  libbrlapi-dev,
 # --enable-virtfs	linux-*
@@ -91,7 +93,7 @@ Build-Depends: debhelper-compat (= 12),
 # vde is debian-only since ubuntu/vde2 is in universe
 # --enable-vde
  libvdeplug-dev,
- libxen-dev [linux-amd64 linux-i386],
+ libxen-dev [linux-amd64],
 # --enable-nettle
  nettle-dev,
 ## always enabled: --enable-uuid

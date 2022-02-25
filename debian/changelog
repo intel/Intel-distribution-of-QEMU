@@ -1,3 +1,18 @@
+qemu (1:6.2+dfsg-3) unstable; urgency=medium
+
+  [ Christian Ehrhardt ]
+  * d/rules: ensure xen is built on x86
+  * d/rules: xen libexec dir is no more versioned
+  * d/kvm-spice: fix when acceleration is already defined on the commandline
+
+  [ Michael Tokarev ]
+  * d/control, d/rules: do not compile xen support on i386,
+    since it is amd64-only now (since 4.16)
+  * d/control: add libbpf-dev & --enable-bpf for eBPF support
+    (Closes: #994573)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 25 Feb 2022 12:01:46 +0300
+
 qemu (1:6.2+dfsg-2) unstable; urgency=medium
 
   * bump meson build-dep to 0.59.3
