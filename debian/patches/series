@@ -11,9 +11,5 @@ seabios-hppa-use-consistent-date-and-remove-hostname.patch
 slof-remove-user-and-host-from-release-version.patch
 slof-ensure-ld-is-called-with-C-locale.patch
 spelling.diff
-parallels.diff
-acpi-fix-QEMU-crash-when-started-with-SLIC-table.patch
-acpi-fix-OEM_ID-padding.patch
 ati_2d-fix-buffer-overflow-in-ati_2d_blt-CVE-2021-3638.patch
 ignore-roms-dependency-in-qtest.patch
-acpi-validate-hotplug-selector-on-access-CVE-2021-4158.patch

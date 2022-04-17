@@ -7,10 +7,12 @@ SHELL = /bin/sh -e
 
 # get DEB_VERSION
 include /usr/share/dpkg/pkg-info.mk
-# get DEB_HOST_ARCH DEB_HOST_ARCH_OS DEB_HOST_GNU_TYPE DEB_HOST_MULTIARCH DEB_BUILD_GNU_TYPE
-include /usr/share/dpkg/architecture.mk
 # get CFLAGS LDFLAGS etc
 include /usr/share/dpkg/buildflags.mk
+# Fast version of dpkg/architecture.mk defining all vars in one go
+ifeq (${DEB_HOST_MULTIARCH},)
+   $(foreach d, $(shell dpkg-architecture | sed 's/=/?=/'), $(eval export $d))
+endif
 
 libdir = /usr/lib/${DEB_HOST_MULTIARCH}
 
@@ -39,6 +41,7 @@ enable_system = $(if $(filter qemu-system,${BUILD_PACKAGES}),enable,disable)
 enable_linux_user = $(if $(filter qemu-user,${BUILD_PACKAGES}),enable,disable)
 
 FIRMWAREPATH = /usr/share/qemu:/usr/share/seabios:/usr/lib/ipxe/qemu
+QEMU_XEN = /usr/libexec/xen-qemu-system-i386
 PKGVERSION = Debian ${DEB_VERSION}
 SAVEMODDIR = /run/qemu/$(shell echo -n "${PKGVERSION}" | tr --complement '[:alnum:]+-.~' '_')
 sysdatadir = debian/qemu-system-data/usr/share/qemu
@@ -46,6 +49,7 @@ sysdatadir = debian/qemu-system-data/usr/share/qemu
 ALPHAEV67_CROSSPFX = alpha-linux-gnu-
 PPC64_CROSSPFX = powerpc64-linux-gnu-
 RISCV64_CROSSPFX = riscv64-linux-gnu-
+ARM_CROSSPFX = arm-none-eabi-
 
 # we add another set of configure options from debian/control
 common_configure_opts = \
@@ -163,6 +167,9 @@ endef
 install-qemu: b/qemu/built
 	$(MAKE) -C b/qemu DESTDIR=$(CURDIR)/debian/tmp install \
 	  KEYMAPS= ICON_SIZES=
+
+# remove qtest "accel" modules
+	rm -f debian/tmp${libdir}/qemu/accel-qtest-*.so
 
 # save block-extra loadable modules on upgrades
 # other module types for now (5.0) can't be loaded at runtime, only at startup
@@ -313,46 +320,76 @@ qemu-builds += microvm
 endif
 
 ##############################################
-# xen build
+# xen build (amd64 arch only, i386-softmmu target only)
 configure-xen: b/xen/configured
 b/xen/configured: configure
-	# system build for qemu-system-x86-xen
+	# system build for qemu-system-xen
+	rm -rf b/xen; mkdir -p b/xen
+	cd b/xen && \
+	    ../../configure ${common_configure_opts} \
+		--disable-blobs --disable-docs --disable-tools \
+		--without-default-features \
+		--enable-avx2 --enable-avx512f \
+		--enable-xen --target-list=i386-softmmu \
+		--disable-tcg --disable-kvm \
+		--disable-slirp \
+		--disable-capstone \
+		--audio-drv-list= \
+		--enable-vnc --enable-vnc-jpeg --enable-vnc-png \
+		--enable-spice \
+		${QEMU_XEN_CONFIGURE_OPTIONS}
+	touch $@
+build-xen: b/xen/built
+b/xen/built: b/xen/configured
+	$(MAKE) -C b/xen V=${V} qemu-system-i386
+	touch $@
+install-xen: b/xen/built
+	install -D b/xen/qemu-system-i386 \
+	  debian/qemu-system-xen${QEMU_XEN}
+ifeq (${DEB_HOST_ARCH}-${enable_system},amd64-enable)
+qemu-builds += xen
+endif
+
+##############################################
+# ubuntu-xen build
+configure-ubuntu-xen: b/ubuntu-xen/configured
+b/ubuntu-xen/configured: configure
+	# system build for qemu-system-x86-xen (ubuntu package)
 	# like the normal system build, but with:
 	#  --enable-xen
 	#  --disable-linux-user (not needed for this binary)
 	#  reduced --target-list as needed for xen
-	#    xen usually only used on x86, skip other architectures
+	#    xen with qemu is only used on x86, skip other architectures
 	#    (could in theory also enable arm/aarch64)
-	rm -rf b/xen; mkdir -p b/xen
-	cd b/xen && \
+	rm -rf b/ubuntu-xen; mkdir -p b/ubuntu-xen
+	cd b/ubuntu-xen && \
 	    ../../configure ${common_configure_opts} \
+		$(shell sh debian/extract-config-opts \
+		    $(DEB_HOST_ARCH_OS)-$(DEB_HOST_ARCH) debian/control) \
 		--disable-user \
 		--disable-docs \
 		--enable-xen \
 		--target-list="i386-softmmu x86_64-softmmu" \
-		--enable-modules \
-		--enable-module-upgrades \
-		$(shell sh debian/extract-config-opts \
-		    $(DEB_HOST_ARCH_OS)-$(DEB_HOST_ARCH) debian/control) \
+		--enable-modules --enable-module-upgrades \
 		${QEMU_CONFIGURE_OPTIONS}
 	touch $@
-build-xen: b/xen/built
-b/xen/built: b/xen/configured
-	$(MAKE) -C b/xen V=${V} qemu-system-i386 qemu-system-x86_64
+build-ubuntu-xen: b/ubuntu-xen/built
+b/ubuntu-xen/built: b/ubuntu-xen/configured
+	$(MAKE) -C b/ubuntu-xen V=${V} qemu-system-i386 qemu-system-x86_64
 	touch $@
-install-xen: b/xen/built
+install-ubuntu-xen: b/ubuntu-xen/built
 	mkdir -p debian/qemu-system-x86-xen/usr/bin/
 	mkdir -p debian/qemu-system-x86-xen/usr/share/man/man1/
-	cp b/xen/x86_64-softmmu/qemu-system-x86_64 debian/qemu-system-x86-xen/usr/bin/
-	cp b/xen/i386-softmmu/qemu-system-i386     debian/qemu-system-x86-xen/usr/bin/
+	cp b/ubuntu-xen/x86_64-softmmu/qemu-system-x86_64 debian/qemu-system-x86-xen/usr/bin/
+	cp b/ubuntu-xen/i386-softmmu/qemu-system-i386     debian/qemu-system-x86-xen/usr/bin/
 	echo ".so man1/qemu-system.1" > debian/qemu-system-x86-xen/usr/share/man/man1/qemu-system-x86_64.1
 	echo ".so man1/qemu-system.1" > debian/qemu-system-x86-xen/usr/share/man/man1/qemu-system-i386.1
 	dh_link -pqemu-system-x86-xen usr/share/doc/qemu-system-common usr/share/doc/qemu-system-x86-xen/common
 	# compat link to what libxen-dev reports where to find the binaries
 	dh_link -pqemu-system-x86-xen /usr/bin/qemu-system-i386 /usr/lib/xen/bin/qemu-system-i386
-# build xen version only on ubuntu on amd64 if system build is enabled
+# build ubuntu-xen version only on ubuntu on amd64 if system build is enabled
 ifeq (${VENDOR}-${DEB_HOST_ARCH}-${enable_system},UBUNTU-amd64-enable)
-qemu-builds += xen
+qemu-builds += ubuntu-xen
 endif
 
 ##############################################
@@ -470,7 +507,7 @@ sysdata-components += openbios
 ### powernv firmware in roms/skiboot
 # skiboot's make_version.sh derives its version from the git tag
 # we do not have git repository in the source, so we have to keep it somewhere
-ifeq (${DEB_VERSION_UPSTREAM},6.2+dfsg)
+ifeq (${DEB_VERSION_UPSTREAM},7.0~rc4+dfsg)
 SKIBOOT_VERSION = v6.8-104-g820d43c0
 else
 $(error Check roms/skiboot version)
@@ -587,6 +624,16 @@ install-opensbi: build-opensbi
 	install -m 0644 b/opensbi/platform/generic/firmware/fw_dynamic.elf ${sysdatadir}/opensbi-riscv64-generic-fw_dynamic.elf
 sysdata-components += opensbi
 
+### vbootrom (npcm7xx)
+build-vbootrom: b/vbootrom/.built
+b/vbootrom/.built: | b
+	cp -pa roms/vbootrom b/
+	${MAKE} -C b/vbootrom CROSS_COMPILE=${ARM_CROSSPFX}
+	touch $@
+install-vbootrom: build-vbootrom
+	install -m 0644 b/vbootrom/npcm7xx_bootrom.bin ${sysdatadir}/
+sysdata-components += vbootrom
+
 ### misc firmware
 build-misc: b/misc/.built
 b/misc/.built:
@@ -623,12 +670,12 @@ binary-indep: b/install-indep-prep.stamp \
 # dh_install can't rename files so we do things here
 #	dh_install -i
 # qemu-system-data
-	install -Dp ui/icons/qemu.svg \
-	 debian/qemu-system-data/usr/share/icons/hicolor/scalable/apps/qemu.svg
+	install -Dp -m0644 ui/icons/qemu.svg \
+	 -t debian/qemu-system-data/usr/share/icons/hicolor/scalable/apps/
 # icon for sdl2 ui (non-sdl-image version)
-	install -Dp ui/icons/qemu_32x32.png \
-	 debian/qemu-system-data/usr/share/icons/hicolor/32x32/apps/qemu.png
-	install -Dp -t debian/qemu-system-data/usr/share/qemu/keymaps \
+	install -Dp -m0644 ui/icons/qemu_32x32.png \
+	 -t debian/qemu-system-data/usr/share/icons/hicolor/32x32/apps/
+	install -Dp -m0644 -t debian/qemu-system-data/usr/share/qemu/keymaps/ \
 	 $$(ls -1 pc-bios/keymaps/* | fgrep -v /meson.build)
 	dh_installdocs -i
 	dh_installchangelogs -i

@@ -65,10 +65,9 @@ Build-Depends: debhelper-compat (= 12),
  libpixman-1-dev,
 # --enable-rbd		amd64|arm64|armel|armhf|i386|mips64el|mipsel|ppc64el|s390x|ppc64|sparc64
  librbd-dev            [amd64 arm64 armel armhf i386 mips64el mipsel ppc64el s390x ppc64 sparc64],
-# glusterfs is debian-only since ubuntu/glusterfs is in universe (MIR LP: #1274247)
 # before buster it was glusterfs-common so keep it for now for bpo
-:debian:# --enable-glusterfs	linux-any
-:debian: libglusterfs-dev [linux-any] | glusterfs-common [linux-any],
+# --enable-glusterfs	linux-any
+ libglusterfs-dev [linux-any] | glusterfs-common [linux-any],
 # --enable-vnc-sasl
  libsasl2-dev,
 # --enable-sdl
@@ -99,8 +98,6 @@ Build-Depends: debhelper-compat (= 12),
  nettle-dev,
 ## always enabled: --enable-uuid
  uuid-dev,
-# --enable-xfsctl	linux-*
- xfslibs-dev [linux-any],
 # always needed
  zlib1g-dev,
 # other optional features we enable
@@ -126,9 +123,8 @@ Build-Depends-Indep:
 # pc-bios/*.dts => *.dtb (PPC firmware)
  device-tree-compiler,
  gcc-s390x-linux-gnu,
-# libc6.1-dev-alpha-cross isn't really needed but the code,
-# for whatever reason, #include's string.h which needs libc6.1-dev
- gcc-alpha-linux-gnu, libc6.1-dev-alpha-cross,
+# qemu-palcode/palcode-clipper
+ gcc-alpha-linux-gnu,
 # skiboot firmware, openbios
  gcc-powerpc64-linux-gnu,
 # openbios
@@ -137,6 +133,8 @@ Build-Depends-Indep:
  gcc-hppa-linux-gnu,
 # opensbi
  gcc-riscv64-linux-gnu,
+# vbootrom/npcm7xx_bootrom
+ gcc-arm-none-eabi,
 Build-Conflicts: oss4-dev
 Standards-Version: 4.5.1
 Homepage: http://www.qemu.org/
@@ -275,7 +273,7 @@ Description: QEMU full system emulation binaries (user interface and audio suppo
 Package: qemu-system-misc
 Architecture: amd64 arm arm64 armel armhf i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel mips64 mips64el powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64 x32
 Multi-Arch: foreign
-Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Version}~),
+Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
 Recommends: qemu-system-gui (= ${binary:Version}), qemu-utils,
 # alpha uses vgabios
 # alpha m68k sh4 uses bootroms
@@ -302,7 +300,7 @@ Description: QEMU full system emulation binaries (miscellaneous)
 Package: qemu-system-arm
 Architecture: amd64 arm arm64 armel armhf i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel mips64 mips64el powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64 x32
 Multi-Arch: foreign
-Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Version}~),
+Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
 Recommends: qemu-system-gui (= ${binary:Version}), qemu-utils,
 # aarch64 arm uses bootroms
  ipxe-qemu,
@@ -328,7 +326,7 @@ Description: QEMU full system emulation binaries (arm)
 Package: qemu-system-mips
 Architecture: amd64 arm arm64 armel armhf i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel mips64 mips64el powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64 x32
 Multi-Arch: foreign
-Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Version}~),
+Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
 Recommends: qemu-system-gui (= ${binary:Version}), qemu-utils,
 # all mips targets uses vgabios and bootroms
  seabios, ipxe-qemu,
@@ -351,7 +349,7 @@ Description: QEMU full system emulation binaries (mips)
 Package: qemu-system-ppc
 Architecture: amd64 arm arm64 armel armhf i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel mips64 mips64el powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64 x32
 Multi-Arch: foreign
-Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Version}~),
+Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
 Recommends: qemu-system-gui (= ${binary:Version}), qemu-utils,
 # ppc targets use vgabios-stdvga and bootroms
  seabios, ipxe-qemu,
@@ -376,7 +374,7 @@ Description: QEMU full system emulation binaries (ppc)
 Package: qemu-system-sparc
 Architecture: amd64 arm arm64 armel armhf i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel mips64 mips64el powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64 x32
 Multi-Arch: foreign
-Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Version}~),
+Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
 Recommends: qemu-system-gui (= ${binary:Version}), qemu-utils,
 # sparc64 uses vgabios-stdvga and bootroms
  seabios, ipxe-qemu,
@@ -399,7 +397,7 @@ Description: QEMU full system emulation binaries (sparc)
 Package: qemu-system-x86
 Architecture: amd64 arm arm64 armel armhf i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel mips64 mips64el powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64 x32
 Multi-Arch: foreign
-Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Version}~),
+Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
  seabios, ipxe-qemu,
 Recommends: qemu-system-gui (= ${binary:Version}), qemu-utils,
  ovmf,
@@ -424,6 +422,19 @@ Description: QEMU full system emulation binaries (x86)
  .
  On x86 host hardware this package also enables KVM kernel virtual machine
  usage on systems which supports it.
+
+Package: qemu-system-xen
+Architecture: amd64
+Multi-Arch: no
+# do we really need qemu-system-data? keymaps only?
+Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-data (>> ${source:Upstream-Version}~),
+ seabios
+Recommends: qemu-utils,
+ ovmf,
+Description: QEMU full system emulation (Xen helper package)
+ This package provides the i386 system emulation binary to work
+ together with the Xen hypervisor for some types of DomUs.
+ This package is not useful by its own.
 
 Package: qemu-user
 Architecture: amd64 arm arm64 armel armhf i386 ia64 mips mipsel mips64 mips64el powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64 x32
@@ -534,7 +545,7 @@ Description: Guest-side qemu-system agent
 :ubuntu:Package: qemu-system-s390x
 :ubuntu:Architecture: amd64 arm arm64 armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
 :ubuntu:Multi-Arch: foreign
-:ubuntu:Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Version}~),
+:ubuntu:Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
 :ubuntu:Recommends: qemu-utils,
 :ubuntu: qemu-block-extra (= ${binary:Version}),
 :ubuntu:Provides: qemu-kvm [linux-s390x], ${sysprovides:s390x}
@@ -560,7 +571,7 @@ Description: Guest-side qemu-system agent
 :ubuntu:Package: qemu-system-x86-xen
 :ubuntu:Architecture:  amd64
 :ubuntu:Multi-Arch: foreign
-:ubuntu:Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Version}~),
+:ubuntu:Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
 :ubuntu: ipxe-qemu,
 :ubuntu:Recommends: qemu-system-gui (= ${binary:Version}), qemu-utils,
 :ubuntu: seabios,

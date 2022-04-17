@@ -1,3 +1,23 @@
+qemu (1:7.0~rc4+dfsg-1) experimental; urgency=medium
+
+  * start of 7.0 series
+  * remove patches applied upstream
+  * remove new binary file, pc-bios/edk2-x86_64-microvm.fd.bz2
+  * d/control: remove libxfs-dev build dependency,
+    the ioctl is implemented inline
+  * d/control: stop build-depend-indep on libc6.1-dev-alpha-cross,
+    not needed anymore
+  * d/rules: update skiboot version check (skiboot hasn't canged since 6.1)
+  * build & install vbootrom (npcm7xx_bootrom.bin), and
+    build-depend-indep on gcc-arm-none-eabi
+  * create a new binary package, qemu-system-xen, which provides
+    /usr/libexec/xen-qemu-system-i386 binary for use by xen only.
+    Once xen switches to use this binary instead of usual qemu-system-i386,
+    xen support will be removed from the regular qemu-system-x86 build
+  * use a fast inline version of /usr/share/dpkg/architecture.mk
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 17 Apr 2022 15:08:40 +0300
+
 qemu (1:6.2+dfsg-3) unstable; urgency=medium
 
   [ Christian Ehrhardt ]

@@ -31,7 +31,7 @@
 
 #include "vgabios.h"
 
-#define SEABIOS_HPPA_VERSION 2
+#define SEABIOS_HPPA_VERSION 3
 
 /*
  * Various variables which are needed by x86 code.
@@ -41,6 +41,15 @@ int HaveRunPost;
 u8 ExtraStack[BUILD_EXTRA_STACK_SIZE+1] __aligned(8);
 u8 *StackPos;
 u8 __VISIBLE parisc_stack[32*1024] __aligned(64);
+
+volatile int num_online_cpus;
+int __VISIBLE toc_lock = 1;
+union {
+	struct pdc_toc_pim_11 pim11;
+	struct pdc_toc_pim_20 pim20;
+} pim_toc_data[HPPA_MAX_CPUS] __VISIBLE __aligned(8);
+
+#define is_64bit()	0	/* we only support 32-bit PDC for now. */
 
 u8 BiosChecksum;
 
@@ -103,6 +112,13 @@ extern unsigned long boot_args[];
 #define DEBUG_PDC       0x0001
 #define DEBUG_IODC      0x0002
 
+int pdc_console;
+/* flags for pdc_console */
+#define CONSOLE_SERIAL    0x0001
+#define CONSOLE_GRAPHICS  0x0002
+
+int sti_font;
+
 unsigned long PORT_QEMU_CFG_CTL;
 unsigned int tlb_entries = 256;
 unsigned int btlb_entries = 8;
@@ -159,6 +175,7 @@ void __VISIBLE __noreturn hlt(void)
     if (pdc_debug)
         printf("HALT initiated from %p\n",  __builtin_return_address(0));
     printf("SeaBIOS wants SYSTEM HALT.\n\n");
+    /* call qemu artificial "halt" asm instruction */
     asm volatile("\t.word 0xfffdead0": : :"memory");
     while (1);
 }
@@ -172,7 +189,7 @@ static void check_powersw_button(void)
     }
 }
 
-void __noreturn reset(void)
+void __VISIBLE __noreturn reset(void)
 {
     if (pdc_debug)
         printf("RESET initiated from %p\n",  __builtin_return_address(0));
@@ -180,6 +197,7 @@ void __noreturn reset(void)
             "***************************\n");
     check_powersw_button();
     PAGE0->imm_soft_boot = 1;
+    /* call qemu artificial "reset" asm instruction */
     asm volatile("\t.word 0xfffdead1": : :"memory");
     while (1);
 }
@@ -822,33 +840,62 @@ static int pdc_pim(unsigned int *arg)
 {
     unsigned long option = ARG1;
     unsigned long *result = (unsigned long *)ARG2;
+    unsigned long hpa;
+    int i;
+    unsigned int count, default_size;
+
+    if (is_64bit())
+	default_size = sizeof(struct pdc_toc_pim_20);
+    else
+	default_size = sizeof(struct pdc_toc_pim_11);
 
     switch (option) {
         case PDC_PIM_HPMC:
             break;
         case PDC_PIM_RETURN_SIZE:
-            *result = sizeof(struct pdc_hpmc_pim_11); // FIXME 64bit!
+            *result = default_size;
             // B160 returns only "2". Why?
             return PDC_OK;
         case PDC_PIM_LPMC:
         case PDC_PIM_SOFT_BOOT:
-            return PDC_BAD_OPTION;
-        case PDC_PIM_TOC:
             break;
+        case PDC_PIM_TOC:
+            hpa = mfctl(CPU_HPA_CR_REG); /* get CPU HPA from cr7 */
+            i = index_of_CPU_HPA(hpa);
+            if (i < 0 || i >= HPPA_MAX_CPUS) {
+                *result = PDC_INVALID_ARG;
+                return PDC_OK;
+            }
+            if (( is_64bit() && pim_toc_data[i].pim20.cpu_state.val == 0) ||
+                (!is_64bit() && pim_toc_data[i].pim11.cpu_state.val == 0)) {
+                /* PIM contents invalid */
+                *result = PDC_NE_MOD;
+                return PDC_OK;
+            }
+            count = (default_size < ARG4) ? default_size : ARG4;
+            memcpy((void *)ARG3, &pim_toc_data[i], count);
+            *result = count;
+            /* clear PIM contents */
+            if (is_64bit())
+                pim_toc_data[i].pim20.cpu_state.val = 0;
+            else
+                pim_toc_data[i].pim11.cpu_state.val = 0;
+            return PDC_OK;
     }
-    return PDC_BAD_PROC;
+    return PDC_BAD_OPTION;
 }
+
+static struct pdc_model model = { PARISC_PDC_MODEL };
 
 static int pdc_model(unsigned int *arg)
 {
-    static unsigned long model[] = { PARISC_PDC_MODEL };
     static const char model_str[] = PARISC_MODEL;
     unsigned long option = ARG1;
     unsigned long *result = (unsigned long *)ARG2;
 
     switch (option) {
         case PDC_MODEL_INFO:
-            memcpy(result, model, sizeof(model));
+            memcpy(result, &model, sizeof(model));
             return PDC_OK;
         case PDC_MODEL_VERSIONS:
             switch (ARG3) {
@@ -866,7 +913,7 @@ static int pdc_model(unsigned int *arg)
             return PDC_OK;
         case PDC_MODEL_ENSPEC:
         case PDC_MODEL_DISPEC:
-            if (ARG3 != model[7])
+            if (ARG3 != model.pot_key)
                 return -20;
             return PDC_OK;
         case PDC_MODEL_CPU_ID:
@@ -952,12 +999,14 @@ static int pdc_coproc(unsigned int *arg)
 {
     unsigned long option = ARG1;
     unsigned long *result = (unsigned long *)ARG2;
-    unsigned char mask;
+    unsigned long mask;
     switch (option) {
         case PDC_COPROC_CFG:
             memset(result, 0, 32 * sizeof(unsigned long));
-            mask = ~((1 << (8-smp_cpus))-1);
-            /* set bit per cpu in ccr_functional and ccr_present: */
+            /* Set one bit per cpu in ccr_functional and ccr_present.
+               Ignore that specification only mentions 8 bits for cr10
+               and set all FPUs functional */
+            mask = -1UL;
             mtctl(mask, 10); /* initialize cr10 */
             result[0] = mask;
             result[1] = mask;
@@ -1558,6 +1607,91 @@ int __VISIBLE parisc_pdc_entry(unsigned int *arg FUNC_MANY_ARGS)
     return PDC_BAD_PROC;
 }
 
+/********************************************************
+ * TOC HANDLER
+ ********************************************************/
+
+unsigned long __VISIBLE toc_handler(struct pdc_toc_pim_11 *pim)
+{
+        unsigned long hpa, os_toc_handler;
+        int cpu, y;
+        unsigned long *p;
+        struct pdc_toc_pim_11 *pim11;
+        struct pdc_toc_pim_20 *pim20;
+        struct pim_cpu_state_cf state = { .iqv=1, .iqf=1, .ipv=1, .grv=1, .crv=1, .srv=1, .trv=1, .td=1 };
+
+        hpa = mfctl(CPU_HPA_CR_REG); /* get CPU HPA from cr7 */
+        cpu = index_of_CPU_HPA(hpa);
+
+        pim11 = &pim_toc_data[cpu].pim11;
+        pim20 = &pim_toc_data[cpu].pim20;
+        if (is_64bit())
+                pim20->cpu_state = state;
+        else
+                pim11->cpu_state = state;
+
+        /* check that we use the same PIM entries as assembly code */
+        BUG_ON(pim11 != pim);
+
+        printf("\n");
+        printf("##### CPU %d HPA %lx: SeaBIOS TOC register dump #####\n", cpu, hpa);
+        for (y = 0; y < 32; y += 8) {
+                if (is_64bit())
+                        p = (unsigned long *)&pim20->gr[y];
+                else
+                        p = (unsigned long *)&pim11->gr[y];
+                printf("GR%02d: %lx %lx %lx %lx",  y, p[0], p[1], p[2], p[3]);
+                printf(       " %lx %lx %lx %lx\n",   p[4], p[5], p[6], p[7]);
+        }
+        printf("\n");
+        for (y = 0; y < 32; y += 8) {
+                if (is_64bit())
+                        p = (unsigned long *)&pim20->cr[y];
+                else
+                        p = (unsigned long *)&pim11->cr[y];
+                printf("CR%02d: %lx %lx %lx %lx", y, p[0], p[1], p[2], p[3]);
+                printf(       " %lx %lx %lx %lx\n",  p[4], p[5], p[6], p[7]);
+        }
+        printf("\n");
+        if (is_64bit())
+                p = (unsigned long *)&pim20->sr[0];
+        else
+                p = (unsigned long *)&pim11->sr[0];
+        printf("SR0: %lx %lx %lx %lx %lx %lx %lx %lx\n", p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]);
+        if (is_64bit()) {
+                printf("IAQ: %lx.%lx %lx.%lx\n",
+                        (unsigned long)pim20->cr[17], (unsigned long)pim20->cr[18],
+                        (unsigned long)pim20->iasq_back, (unsigned long)pim20->iaoq_back);
+                printf("RP(r2): %lx\n", (unsigned long)pim20->gr[2]);
+        } else {
+                printf("IAQ: %x.%x %x.%x\n", pim11->cr[17], pim11->cr[18],
+                        pim11->iasq_back, pim11->iaoq_back);
+                printf("RP(r2): %x\n", pim11->gr[2]);
+        }
+
+        os_toc_handler = PAGE0->vec_toc;
+        if (is_64bit())
+                os_toc_handler |= ((unsigned long long) PAGE0->vec_toc_hi << 32);
+
+        /* release lock - let other CPUs join now. */
+        toc_lock = 1;
+
+        num_online_cpus--;
+
+        if (os_toc_handler) {
+                /* will call OS handler, after all CPUs are here */
+                while (num_online_cpus)
+                        ; /* wait */
+                return os_toc_handler; /* let asm code call os handler */
+        }
+
+        /* No OS handler installed. Wait for all CPUs, then last CPU will reset. */
+        if (num_online_cpus)
+                while (1) /* this CPU will wait endless. */;
+
+        printf("SeaBIOS: Resetting machine after TOC.\n");
+        reset();
+}
 
 /********************************************************
  * BOOT MENU
@@ -1768,12 +1902,14 @@ void __VISIBLE start_parisc_firmware(void)
 {
     unsigned int i, cpu_hz;
     unsigned long iplstart, iplend;
+    char *str;
 
     unsigned long interactive = (linux_kernel_entry == 1) ? 1:0;
     char bootdrive = (char)cmdline; // c = hdd, d = CD/DVD
 
     if (smp_cpus > HPPA_MAX_CPUS)
         smp_cpus = HPPA_MAX_CPUS;
+    num_online_cpus = smp_cpus;
 
     if (ram_size >= FIRMWARE_START)
         ram_size = FIRMWARE_START;
@@ -1807,6 +1943,21 @@ void __VISIBLE start_parisc_firmware(void)
     /* use -fw_cfg opt/pdc_debug,string=255 to enable all firmware debug infos */
     pdc_debug = romfile_loadstring_to_int("opt/pdc_debug", 0);
 
+    pdc_console = 0; /* default */
+    str = romfile_loadfile("opt/console", NULL);
+    if (str) {
+	if (strcmp(str, "serial") == 0)
+		pdc_console = CONSOLE_SERIAL;
+	if (strcmp(str, "graphics") == 0)
+		pdc_console = CONSOLE_GRAPHICS;
+    }
+
+    /* 0,1 = default 8x16 font, 2 = 16x32 font */
+    sti_font = romfile_loadstring_to_int("opt/font", 0);
+
+    model.sw_id = romfile_loadstring_to_int("opt/hostid", model.sw_id);
+    dprintf(0, "fw_cfg: machine hostid %lu\n", model.sw_id);
+
     /* Initialize PAGE0 */
     memset((void*)PAGE0, 0, sizeof(*PAGE0));
 
@@ -1825,6 +1976,7 @@ void __VISIBLE start_parisc_firmware(void)
 
     BUG_ON(PAGE0->mem_free <= MEM_PDC_ENTRY);
     BUG_ON(smp_cpus < 1 || smp_cpus > HPPA_MAX_CPUS);
+    BUG_ON(sizeof(pim_toc_data[0]) != PIM_STORAGE_SIZE);
 
     /* Put QEMU/SeaBIOS marker in PAGE0.
      * The Linux kernel will search for it. */
@@ -1837,18 +1989,23 @@ void __VISIBLE start_parisc_firmware(void)
     PAGE0->imm_spa_size = ram_size;
     PAGE0->imm_max_mem = ram_size;
 
-    // Initialize boot paths (disc, display & keyboard)
+    /* initialize graphics (if available) */
     if (artist_present()) {
         sti_rom_init();
         sti_console_init(&sti_proc_rom);
-        ps2port_setup();
-        prepare_boot_path(&(PAGE0->mem_cons), &mem_cons_sti_boot, 0x60);
-        prepare_boot_path(&(PAGE0->mem_kbd),  &mem_kbd_sti_boot, 0xa0);
         PAGE0->proc_sti = (u32)&sti_proc_rom;
+        ps2port_setup();
     } else {
         remove_from_keep_list(LASI_GFX_HPA);
         remove_from_keep_list(LASI_PS2KBD_HPA);
         remove_from_keep_list(LASI_PS2MOU_HPA);
+    }
+
+    // Initialize boot paths (graphics & keyboard)
+    if (artist_present() && (pdc_console != CONSOLE_SERIAL)) {
+        prepare_boot_path(&(PAGE0->mem_cons), &mem_cons_sti_boot, 0x60);
+        prepare_boot_path(&(PAGE0->mem_kbd),  &mem_kbd_sti_boot, 0xa0);
+    } else {
         prepare_boot_path(&(PAGE0->mem_cons), &mem_cons_boot, 0x60);
         prepare_boot_path(&(PAGE0->mem_kbd),  &mem_kbd_boot, 0xa0);
     }

@@ -49,10 +49,6 @@ ifeq ($(V),0)
 Q		:= @
 MAKEFLAGS	+= --silent
 MAKE		+= -s
-else
-CURDIR=$(shell pwd)
-%.o: %.c
-	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ -c $(CURDIR)/$<
 endif
 
 ifeq ($(V),1)
@@ -80,6 +76,7 @@ WARNFLAGS = -Wall -Wmissing-prototypes -Wstrict-prototypes -Wformat-security -We
 CFLAGS ?= -g -O2 -fno-builtin -ffreestanding -nostdinc -msoft-float \
 	  -fno-strict-aliasing -mno-altivec -mabi=no-altivec \
 	  -fno-stack-protector -fno-asynchronous-unwind-tables $(WARNFLAGS) \
-	  -fshort-wchar
+	  -fshort-wchar -mcpu=power5
 
 export CC AS LD CLEAN OBJCOPY OBJDUMP STRIP AR RANLIB CFLAGS
+

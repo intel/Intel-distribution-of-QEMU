@@ -4,4 +4,3 @@ docs/qdev-device-use.txt
 docs/qemupciserial.inf
 docs/config/
 docs/specs/
-docs/virtio-balloon-stats.txt
