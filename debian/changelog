@@ -1,3 +1,9 @@
+qemu (1:7.0+dfsg-1) unstable; urgency=medium
+
+  * update to 7.0 release
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 21 Apr 2022 14:19:51 +0300
+
 qemu (1:7.0~rc4+dfsg-1) experimental; urgency=medium
 
   * start of 7.0 series
