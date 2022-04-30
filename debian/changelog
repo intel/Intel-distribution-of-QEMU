@@ -1,3 +1,28 @@
+qemu (1:7.0+dfsg-2) unstable; urgency=medium
+
+  * d/control: add Rules-Requires-Root: no
+  * d/control: switch to debhelper-compat=13
+  * d/control: drop "qemu" empty/dummy pseudopackage
+  * d/control: do not build linux-user* on ia64 and powerpc
+    (not supported by upstream anymore)
+  * d/control: add Breaks for qemu-system-data for other packages from which
+    it borrowed files in the past (Closes: #1008095)
+  * d/rules: switch to the dh sequence (but keep build-{arch,indep}),
+    rearrange some rules.
+    This brings us dh_dwz (very slow) and dh_strip_nondeterminism.
+  * d/rules: do not explicitly turn off slirp & capstone (now properly
+    controlled by --with[out]-default-features option)
+  * d/rules: do not try to enable tcg-interpreter on the unsupported
+    targets, it does not help to build tools anymore
+  * d/rules: do not chown -w d/control, it breaks dpkg-source
+  * d/rules: clean up the clean target
+  * d/not-installed: list many documentation files and qemu-plugin.h
+  * configure-make-fortify_source-yes-by-default.patch: enable
+    fortify-source for minimal builds too
+  * d/changelog: mention #990562 (CVE-2021-3611) closed by 7.0
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 30 Apr 2022 13:38:12 +0300
+
 qemu (1:7.0+dfsg-1) unstable; urgency=medium
 
   * update to 7.0 release
@@ -6,7 +31,8 @@ qemu (1:7.0+dfsg-1) unstable; urgency=medium
 
 qemu (1:7.0~rc4+dfsg-1) experimental; urgency=medium
 
-  * start of 7.0 series
+  * New upstream 7.0 (rc)
+    Closes: #990562, CVE-2021-3611
   * remove patches applied upstream
   * remove new binary file, pc-bios/edk2-x86_64-microvm.fd.bz2
   * d/control: remove libxfs-dev build dependency,

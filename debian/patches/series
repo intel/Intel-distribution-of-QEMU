@@ -13,3 +13,4 @@ slof-ensure-ld-is-called-with-C-locale.patch
 spelling.diff
 ati_2d-fix-buffer-overflow-in-ati_2d_blt-CVE-2021-3638.patch
 ignore-roms-dependency-in-qtest.patch
+configure-make-fortify_source-yes-by-default.patch

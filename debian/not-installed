@@ -1,6 +1,12 @@
+usr/include/qemu-plugin.h
+usr/share/doc/qemu/_static
+usr/share/doc/qemu/about
+usr/share/doc/qemu/devel
 usr/share/doc/qemu/interop
 usr/share/doc/qemu/specs
 usr/share/doc/qemu/tools
+usr/share/doc/qemu/*.*
+usr/share/doc/qemu/.buildinfo
 usr/share/icons
 usr/share/applications/qemu.desktop
 usr/bin/elf2dmp
