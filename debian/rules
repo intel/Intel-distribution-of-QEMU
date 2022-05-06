@@ -23,11 +23,8 @@ VENDOR := DEBIAN
 XENENABLED := $(if $(filter $(DEB_HOST_ARCH),amd64),--enable-xen,--disable-xen)
 endif
 
-
-# support parallel build using DEB_BUILD_OPTIONS=parallel=N
-ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
-  MAKEFLAGS += -j$(patsubst parallel=%,%,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
-endif
+# DEB_BUILD_OPTIONS=parallel=N
+MAKEFLAGS += $(subst parallel=,-j,$(filter parallel=%,${DEB_BUILD_OPTIONS}))
 
 # verbose build
 V ?= 1

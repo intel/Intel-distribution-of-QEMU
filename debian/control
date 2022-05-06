@@ -3,8 +3,7 @@ Source: qemu
 Section: otherosfs
 Priority: optional
 Maintainer: Debian QEMU Team <pkg-qemu-devel@lists.alioth.debian.org>
-Uploaders: Riku Voipio <riku.voipio@iki.fi>,
-	Michael Tokarev <mjt@tls.msk.ru>
+Uploaders: Michael Tokarev <mjt@tls.msk.ru>
 Build-Depends: debhelper-compat (= 13),
 # In comments below we also specify (system-specific) arguments
 # to qemu's configure script, -- optional features which depend
@@ -432,7 +431,7 @@ Architecture: amd64 arm arm64 armel armhf i386 mips mipsel mips64 mips64el ppc64
 Built-Using: ${built-using}
 Multi-Arch: foreign
 Depends: ${misc:Depends}
-Recommends: binfmt-support
+Recommends: systemd | binfmt-support
 Breaks: binfmt-support (<< 2.1.7~)
 Provides: qemu-user-binfmt
 Conflicts: qemu-user-binfmt
@@ -454,7 +453,7 @@ Description: QEMU user mode emulation binaries (static version)
 Package: qemu-user-binfmt
 Architecture: amd64 arm arm64 armel armhf i386 mips mipsel mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64 x32
 Multi-Arch: foreign
-Depends: ${misc:Depends}, qemu-user (= ${binary:Version}), binfmt-support
+Depends: ${misc:Depends}, qemu-user (= ${binary:Version}), systemd | binfmt-support
 Breaks: binfmt-support (<< 2.1.7~)
 Conflicts: qemu-user-static
 Description: QEMU user mode binfmt registration for qemu-user

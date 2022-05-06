@@ -1,3 +1,18 @@
+qemu (1:7.0+dfsg-3) unstable; urgency=medium
+
+  [ Michael Tokarev ]
+  * d/binfmt-install: also generate binfmt.d/ entries for systemd
+  * d/control: use systemd as preferred alternative to binfmt-support
+    hopefully Closes: #789011 (Minimal dependencies to register binfmt)
+    Closes: #985889 (make binfmt setup configurable)
+  * d/control: remove Riku Voipio from Uploaders. Thank you Riku!
+  * d/rules: simplify DEB_BUILD_OPTIONS=parallel=N parsing
+
+  [ Guido Günther ]
+  * Add minimal autopkgtest (Closes: #832982)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 07 May 2022 00:03:24 +0300
+
 qemu (1:7.0+dfsg-2) unstable; urgency=medium
 
   * d/control: add Rules-Requires-Root: no

@@ -1,6 +1,12 @@
 #!/bin/sh
+set -e
 
 PACKAGE="$1"
+case "$#$PACKAGE" in
+  1qemu-user-static) SUFFIX=-static; FIX_BINARY=yes; FIXB=F ;;
+  1qemu-user-binfmt) SUFFIX=; FIX_BINARY=no; FIXB= ;;
+  *) echo "usage: $0 <qemu-user-binfmt|qemu-user-static>"; exit 1 ;;
+esac
 
 fmts="aarch64 alpha arm armeb cris hexagon hppa i386 m68k microblaze mips mipsel mipsn32 mipsn32el mips64 mips64el ppc ppc64 ppc64le riscv32 riscv64 s390x sh4 sh4eb sparc sparc32plus sparc64 x86_64 xtensa xtensaeb"
 removed_fmts="ppc64abi32"
@@ -71,7 +77,7 @@ sparc32plus_magic='\x7f\x45\x4c\x46\x01\x02\x01\x00\x00\x00\x00\x00\x00\x00\x00\
    xtensaeb_magic='\x7f\x45\x4c\x46\x01\x02\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x5e'
     xtensaeb_mask='\xff\xff\xff\xff\xff\xff\xff\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff'
 
-DEB_HOST_ARCH=$(dpkg-architecture -qDEB_HOST_ARCH)
+: ${DEB_HOST_ARCH:=$(dpkg-architecture -qDEB_HOST_ARCH)}
 
 # find which fmts needs to be filtered out, which is arch-dependent.
 # Drop support for emulating amd64 on i386, http://bugs.debian.org/604712
@@ -86,14 +92,9 @@ case "$DEB_HOST_ARCH" in
   *) omit="$DEB_HOST_ARCH" ;;
 esac
 
-case "$PACKAGE" in
-  qemu-user-static) SUFFIX=-static; FIX_BINARY=yes ;;
-  qemu-user-binfmt) SUFFIX=; FIX_BINARY=no ;;
-  *) echo "usage: $0 <qemu-user-binfmt|qemu-user-static>"; exit 1 ;;
-esac
-
 mkdir -p debian/$PACKAGE/usr/share/binfmts
 mkdir -p debian/$PACKAGE/usr/libexec/qemu-binfmt
+mkdir -p debian/$PACKAGE/usr/lib/binfmt.d
 installed_fmts=
 for fmt in $fmts ; do
     eval "case $fmt in $omit) magic= ;; *) magic=\"\$${fmt}_magic\" mask=\"\$${fmt}_mask\" ;; esac"
@@ -101,8 +102,8 @@ for fmt in $fmts ; do
     installed_fmts="$installed_fmts $fmt"
     # use a special name ending with -binfmt-P so qemu-user
     # knows it is run by kernel binfmt with P (preserve) flag
-    ln -s ../../bin/qemu-$fmt$SUFFIX debian/$PACKAGE/usr/libexec/qemu-binfmt/$fmt-binfmt-P
-    cat >>debian/$PACKAGE/usr/share/binfmts/qemu-$fmt <<EOF
+    ln -sf ../../bin/qemu-$fmt$SUFFIX debian/$PACKAGE/usr/libexec/qemu-binfmt/$fmt-binfmt-P
+    cat >debian/$PACKAGE/usr/share/binfmts/qemu-$fmt <<EOF
 package $PACKAGE
 interpreter /usr/libexec/qemu-binfmt/$fmt-binfmt-P
 magic $magic
@@ -112,6 +113,9 @@ credentials yes
 fix_binary $FIX_BINARY
 preserve yes
 EOF
+    echo ":qemu-$fmt:M::$magic:$mask:/usr/libexec/qemu-binfmt/$fmt-binfmt-P:OCP${FIXB}" \
+	>debian/$PACKAGE/usr/lib/binfmt.d/qemu-$fmt
+
 done
 
 # generate postinst and prerm fragments
