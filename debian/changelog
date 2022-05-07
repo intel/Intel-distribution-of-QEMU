@@ -1,3 +1,9 @@
+qemu (1:7.0+dfsg-5) unstable; urgency=medium
+
+  * d/tests/test-qemu-user.sh: more arch-specific debugging/updates
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 07 May 2022 12:22:26 +0300
+
 qemu (1:7.0+dfsg-4) unstable; urgency=medium
 
   * d/tests/: fix failing tests.
