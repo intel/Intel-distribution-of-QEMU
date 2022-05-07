@@ -7,5 +7,5 @@ Depends: qemu-system-x86
 Restrictions: superficial
 
 Tests: test-qemu-user.sh
-Depends: qemu-user
+Depends: qemu-user, gcc
 Restrictions: superficial

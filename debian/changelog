@@ -1,3 +1,12 @@
+qemu (1:7.0+dfsg-4) unstable; urgency=medium
+
+  * d/tests/: fix failing tests.
+    - test-qemu-user: depend on gcc for dpkg-architecture to work,
+      and print debugging info for future switch to uname -m
+    - test-qemu-img: switch from using file to qemu-img info
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 07 May 2022 11:33:23 +0300
+
 qemu (1:7.0+dfsg-3) unstable; urgency=medium
 
   [ Michael Tokarev ]

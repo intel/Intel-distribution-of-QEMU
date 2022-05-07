@@ -9,7 +9,7 @@ doit() {
   shift
   echo "$1"
   if [ -n "$2" ]; then
-    out=$($1)
+    out="$($1)"
     eval "case \"\$out\" in ( $2 ) echo \"\$out\";; (*) echo \"unexpected output:\"; echo \" want $2\"; echo \"  got \$out\"; return 1;; esac"
   else
     $1
@@ -30,6 +30,6 @@ doit "Testing if conversion to a qcow2 image works" \
 	"qemu-img convert -f raw -O qcow2 q.raw q.qcow2"
 
 doit "Checking if image is qcow2" \
-	'file q.qcow2' '*QEMU\ QCOW2\ Image\ *\ 12884901888\ *'
+	'qemu-img info q.qcow2' "*'file format: qcow2'*'size: 12 GiB (12884901888 bytes)'*"
 
 rm -f q.raw q.qcow2
