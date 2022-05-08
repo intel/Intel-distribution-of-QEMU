@@ -305,6 +305,7 @@ b/xen/configured: configure
 		--without-default-features \
 		--enable-avx2 --enable-avx512f \
 		--enable-xen --target-list=i386-softmmu \
+		--enable-xen-pci-passthrough \
 		--disable-tcg --disable-kvm \
 		--audio-drv-list= \
 		--enable-vnc --enable-vnc-jpeg --enable-vnc-png \
