@@ -1,3 +1,18 @@
+qemu (1:7.0+dfsg-7) unstable; urgency=medium
+
+  Starting with this version of qemu-system-x86 on x86 architecture, xen
+  support is moved out to a separate package named qemu-system-xen.  Xen
+  release since 4.16.1-1 already uses qemu binary from this package.  In
+  order to support transition from old xen and xen-supporting qemu-system-x86
+  to separate xen build of qemu, the qemu-system-i386 binary is temporarily
+  replaced by a shell wrapper which detects xen usage and if found, redirects
+  the call to xen-enabled qemu binary if found (with a warning), or suggests
+  to install qemu-system-xen package.  If you used qemu-system-x86 (or
+  qemu-system-x86-xen on Ubuntu) to run xen, please install qemu-system-xen.
+  qemu-system-x86 is not used by xen anymore since 4.16.1-1.
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 15 May 2022 15:15:58 +0300
+
 qemu (1:5.0-9) unstable; urgency=medium
 
   With this version, kvm wrapper (initially from the separate kvm

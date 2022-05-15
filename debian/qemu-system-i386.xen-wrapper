@@ -1,0 +1,29 @@
+#! /bin/sh
+# This is a temporarily wrapper for qemu-system-i386 to redirect xen-specific
+# invocations of qemu-system-i386 into xen-specific package if installed.
+#
+xenredir=/usr/libexec/xen-qemu-system-i386
+exe=/usr/libexec/qemu-system-i386
+
+for opt in "$@"; do
+  case "$opt" in
+    -xen-* | --xen-*)
+      if [ -x $xenredir ]; then
+	exe=$xenredir
+	cat <<EOF >&2
+W: $0 binary is not compiled with xen support anymore
+W: redirecting the call to $exe
+W: please update your configs
+EOF
+      else
+	cat <<EOF >&2
+E: $0 binary is not compiled with xen support anymore
+E: please install qemu-system-xen package and update your configs
+EOF
+      fi
+      break
+      ;;
+  esac
+done
+
+exec "$exe" "$@"

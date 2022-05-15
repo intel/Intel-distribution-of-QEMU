@@ -114,7 +114,7 @@ fix_binary $FIX_BINARY
 preserve yes
 EOF
     echo ":qemu-$fmt:M::$magic:$mask:/usr/libexec/qemu-binfmt/$fmt-binfmt-P:OCP${FIXB}" \
-	>debian/$PACKAGE/usr/lib/binfmt.d/qemu-$fmt
+	>debian/$PACKAGE/usr/lib/binfmt.d/qemu-$fmt.conf
 
 done
 

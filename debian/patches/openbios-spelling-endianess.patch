@@ -1,0 +1,24 @@
+diff --git a/roms/openbios/kernel/bootstrap.c b/roms/openbios/kernel/bootstrap.c
+index b7658ab..fb4506e 100644
+--- a/roms/openbios/kernel/bootstrap.c
++++ b/roms/openbios/kernel/bootstrap.c
+@@ -174 +174 @@ static void write_dictionary(const char *filename)
+-		.endianess	= -1,
++		.endianness	= -1,
+@@ -176 +176 @@ static void write_dictionary(const char *filename)
+-		.endianess	= 0,
++		.endianness	= 0,
+diff --git a/roms/openbios/kernel/dict.c b/roms/openbios/kernel/dict.c
+index 0986cb1..51afc67 100644
+--- a/roms/openbios/kernel/dict.c
++++ b/roms/openbios/kernel/dict.c
+@@ -255 +255 @@ void dump_header(dictionary_header_t *header)
+-	printk("  endianess:   %s\n", header->endianess?"big":"little");
++	printk("  endianness:  %s\n", header->endianness?"big":"little");
+diff --git a/roms/openbios/kernel/include/dict.h b/roms/openbios/kernel/include/dict.h
+index 749fd6f..1e735fa 100644
+--- a/roms/openbios/kernel/include/dict.h
++++ b/roms/openbios/kernel/include/dict.h
+@@ -30 +30 @@ typedef struct dictionary_header {
+-	u8 	endianess;
++	u8 	endianness;

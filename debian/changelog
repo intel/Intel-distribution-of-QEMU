@@ -1,3 +1,32 @@
+qemu (1:7.0+dfsg-7) unstable; urgency=medium
+
+  * d/tests/test-qemu-user: rework ls/glob test a bit
+  * d/tests/test-qemu-user: fix ppc64le qemu architecture name
+  * d/binfmt-install: use proper name for binfmt.d (*.conf)
+    Hopefully closes: #1011003
+  * two virtio-scsi bugfixes from upstream:
+    virtio-scsi-fix-ctrl-and-event-handler-functions-in-dataplane.patch
+    virtio-scsi-don-t-waste-CPU-polling-the-event-virtqueue.patch
+  * 3 patches from upstream to fix possible coroutine crashes:
+    coroutine-use-QEMU_DEFINE_STATIC_CO_TLS.patch
+    coroutine-rename-qemu_coroutine_inc-dec_pool_size.patch
+    coroutine-revert-to-constant-batch-size.patch
+  * target-i386-do-not-consult-nonexistent-host-leaves.patch
+  * d/control: stop suggesting sudo for qemu-user-static
+  * Revert "d/rules: do not try to enable tcg-interpreter on unsupported
+    targets, it does not help anymore" - it does help but it needs a bit
+    more work
+  * disable xen support for qemu-system-x86 build and create a wrapper
+    for -i386 to redirect xen-related usage to xen-specific binary
+    with a warning (for bookworm only)
+  * common-user-no-user.patch: fix one of FTBFS on unsupported architectures
+  * d/rules: use regular variable assignment for BUILD_PACKAGES
+  * two trivial patches to fix spelling in roms:
+    openbios-spelling-endianess.patch
+    slof-spelling-seperator.patch
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 15 May 2022 15:49:12 +0300
+
 qemu (1:7.0+dfsg-6) unstable; urgency=medium
 
   * d/rules: the forgotten --enable-xen-pci-passthrough for the xen build

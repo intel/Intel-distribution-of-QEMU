@@ -1,0 +1,18 @@
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: common-user: do not process directory if user emulation is not requested
+Sun, 15 May 2022 14:05:55 +0300
+
+This fixes build failure on an unsupported architecture (one of anyway)
+
+diff --git a/common-user/meson.build b/common-user/meson.build
+index 26212dda5c..0b7d629eed 100644
+--- a/common-user/meson.build
++++ b/common-user/meson.build
+@@ -1,3 +1,7 @@
++if not have_bsd_user and not have_linux_user
++   subdir_done()
++endif
++
+ common_user_inc += include_directories('host/' / host_arch)
+ 
+ user_ss.add(files(

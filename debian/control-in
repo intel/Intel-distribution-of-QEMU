@@ -450,7 +450,6 @@ Recommends: systemd | binfmt-support
 Breaks: binfmt-support (<< 2.1.7~)
 Provides: qemu-user-binfmt
 Conflicts: qemu-user-binfmt
-Suggests: sudo
 Description: QEMU user mode emulation binaries (static version)
  QEMU is a fast processor emulator: currently the package supports
  ARM, CRIS, i386, M68k (ColdFire), MicroBlaze, MIPS, PowerPC, SH4,

@@ -1,0 +1,7 @@
+diff --git a/roms/SLOF/lib/libnet/tftp.c b/roms/SLOF/lib/libnet/tftp.c
+index 9a5817a..71ea6ae 100644
+--- a/roms/SLOF/lib/libnet/tftp.c
++++ b/roms/SLOF/lib/libnet/tftp.c
+@@ -660 +660 @@ int parse_tftp_args(char buffer[], char *server_ip, char filename[], int fd,
+-			printf("\n missing . seperator in %s\n", raw);
++			printf("\n missing . separator in %s\n", raw);
