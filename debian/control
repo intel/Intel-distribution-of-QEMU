@@ -16,7 +16,7 @@ Build-Depends: debhelper-compat (= 13),
 # iasl (from acpica-tools) is used only in a single test these days, not for building
 # acpica-tools,
 # libcapstone is in universe in ubuntu
-# --enable-capstone=system
+# --enable-capstone
  libcapstone-dev (>> 4.0.2~),
 # --enable-linux-aio	linux-*
  libaio-dev [linux-any],
@@ -52,6 +52,8 @@ Build-Depends: debhelper-compat (= 13),
  libncurses-dev,
 # --enable-virglrenderer	linux-*
  libvirglrenderer-dev [linux-any],
+# libvirglrenderer-dev bug #1019485: libva-dev build-dep is only a temp workaround
+ libva-dev [linux-any],
 # --enable-opengl	linux-*
  libepoxy-dev [linux-any], libdrm-dev [linux-any], libgbm-dev [linux-any],
 # --enable-libnfs
@@ -105,7 +107,7 @@ Build-Depends: debhelper-compat (= 13),
 # --enable-vnc
 # --enable-vnc-jpeg
  libjpeg-dev,
-# --enable-vnc-png
+# --enable-png
  libpng-dev,
 # --enable-libpmem	linux-amd64|linux-arm64
  libpmem-dev [linux-amd64 linux-arm64],
@@ -122,7 +124,8 @@ Build-Depends-Indep:
  device-tree-compiler,
  gcc-s390x-linux-gnu,
 # qemu-palcode/palcode-clipper
- gcc-alpha-linux-gnu,
+# gcc-12 is broken due to #1019011. Temporarily switch to previous gcc-11
+ gcc-11-alpha-linux-gnu,
 # skiboot firmware, openbios
  gcc-powerpc64-linux-gnu,
 # openbios

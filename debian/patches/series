@@ -1,4 +1,3 @@
-use-fixed-data-path.patch
 microvm-default-machine-type.patch
 skip-meson-pc-bios.diff
 linux-user-binfmt-P.diff
@@ -6,20 +5,14 @@ note-missing-module-pkg-name.diff
 #
 openbios-address-of-packet-member.patch
 openbios-array-bounds.diff
+openbios-array-bounds-gcc12.patch
 openbios-use-source_date_epoch-in-makefile.patch
 seabios-hppa-use-consistent-date-and-remove-hostname.patch
 slof-remove-user-and-host-from-release-version.patch
 slof-ensure-ld-is-called-with-C-locale.patch
+opensbi-fix-build-with-binutils-2.38.patch
 spelling.diff
 openbios-spelling-endianess.patch
 slof-spelling-seperator.patch
 ati_2d-fix-buffer-overflow-in-ati_2d_blt-CVE-2021-3638.patch
 ignore-roms-dependency-in-qtest.patch
-configure-make-fortify_source-yes-by-default.patch
-virtio-scsi-fix-ctrl-and-event-handler-functions-in-dataplane.patch
-virtio-scsi-don-t-waste-CPU-polling-the-event-virtqueue.patch
-coroutine-use-QEMU_DEFINE_STATIC_CO_TLS.patch
-coroutine-rename-qemu_coroutine_inc-dec_pool_size.patch
-coroutine-revert-to-constant-batch-size.patch
-target-i386-do-not-consult-nonexistent-host-leaves.patch
-common-user-no-user.patch

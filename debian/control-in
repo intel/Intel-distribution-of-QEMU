@@ -17,7 +17,7 @@ Build-Depends: debhelper-compat (= 13),
 # iasl (from acpica-tools) is used only in a single test these days, not for building
 # acpica-tools,
 # libcapstone is in universe in ubuntu
-:debian:# --enable-capstone=system
+:debian:# --enable-capstone
 :debian: libcapstone-dev (>> 4.0.2~),
 # --enable-linux-aio	linux-*
  libaio-dev [linux-any],
@@ -53,6 +53,8 @@ Build-Depends: debhelper-compat (= 13),
  libncurses-dev,
 # --enable-virglrenderer	linux-*
  libvirglrenderer-dev [linux-any],
+# libvirglrenderer-dev bug #1019485: libva-dev build-dep is only a temp workaround
+ libva-dev [linux-any],
 # --enable-opengl	linux-*
  libepoxy-dev [linux-any], libdrm-dev [linux-any], libgbm-dev [linux-any],
 :debian:# --enable-libnfs
@@ -106,7 +108,7 @@ Build-Depends: debhelper-compat (= 13),
 # --enable-vnc
 # --enable-vnc-jpeg
  libjpeg-dev,
-# --enable-vnc-png
+# --enable-png
  libpng-dev,
 # --enable-libpmem	linux-amd64|linux-arm64
  libpmem-dev [linux-amd64 linux-arm64],
@@ -123,7 +125,8 @@ Build-Depends-Indep:
  device-tree-compiler,
  gcc-s390x-linux-gnu,
 # qemu-palcode/palcode-clipper
- gcc-alpha-linux-gnu,
+# gcc-12 is broken due to #1019011. Temporarily switch to previous gcc-11
+ gcc-11-alpha-linux-gnu,
 # skiboot firmware, openbios
  gcc-powerpc64-linux-gnu,
 # openbios
@@ -171,7 +174,6 @@ Architecture: amd64 arm arm64 armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd
 Multi-Arch: no
 Depends: ${misc:Depends}, ${shlibs:Depends},
          qemu-system-x86 (= ${binary:Version})
-:ubuntu: |qemu-system-x86-xen (= ${binary:Version})
 	|qemu-system-arm (= ${binary:Version})
 	|qemu-system-mips (= ${binary:Version})
 	|qemu-system-ppc (= ${binary:Version})
@@ -181,7 +183,6 @@ Depends: ${misc:Depends}, ${shlibs:Depends},
 	|qemu-utils (= ${binary:Version}),
 Enhances: qemu-utils, qemu-system-misc,
  qemu-system-arm, qemu-system-mips, qemu-system-sparc, qemu-system-x86,
-:ubuntu: qemu-system-x86-xen
 Description: extra block backend modules for qemu-system and qemu-utils
  QEMU is a fast processor emulator: currently the package supports
  ARM, CRIS, i386, M68k (ColdFire), MicroBlaze, MIPS, PowerPC, SH4,
@@ -236,7 +237,6 @@ Architecture: amd64 arm arm64 armel armhf i386 ia64 kfreebsd-amd64 kfreebsd-i386
 #Multi-Arch: same
 Depends: ${misc:Depends}, ${shlibs:Depends},
          qemu-system-x86 (= ${binary:Version})
-:ubuntu: |qemu-system-x86-xen (= ${binary:Version})
 	|qemu-system-arm (= ${binary:Version})
 	|qemu-system-mips (= ${binary:Version})
 	|qemu-system-ppc (= ${binary:Version})
@@ -415,6 +415,10 @@ Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-data (>> ${source:Upstr
  seabios
 Recommends: qemu-utils,
  ovmf,
+:ubuntu:# For the transition from the former qemu-system-x86-xen name
+:ubuntu:Breaks: qemu-system-x86-xen (<<1:7.0+dfsg-7ubuntu1)
+:ubuntu:Replaces: qemu-system-x86-xen (<<1:7.0+dfsg-7ubuntu1)
+:ubuntu:Provides: qemu-system-x86-xen
 Description: QEMU full system emulation (Xen helper package)
  This package provides the i386 system emulation binary to work
  together with the Xen hypervisor for some types of DomUs.
@@ -547,30 +551,16 @@ Description: Guest-side qemu-system agent
 :ubuntu: code.  It can also be used to provide virtual hosting of several virtual
 :ubuntu: machines on a single server.
 
-:ubuntu:# xen support generally is disabled on ubuntu, this is an extra build with xen enabled
-:ubuntu:# as needed by xen-utils-4.11 [amd64 arm64 armhf i386]
-:ubuntu:# Xen will depend on this; this package and the main qemu-system-x86 are
-:ubuntu:# mutually exclusive
+:ubuntu:# xen support generally is disabled on ubuntu, for a while we used
+:ubuntu:# an extra build with xen enabled. In the meantime Debian followed that
+:ubuntu:# approach but with a different name, so add a transitional until
+:ubuntu:# after 24.04
 :ubuntu:Package: qemu-system-x86-xen
 :ubuntu:Architecture:  amd64
 :ubuntu:Multi-Arch: foreign
-:ubuntu:Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
-:ubuntu: ipxe-qemu,
-:ubuntu:Recommends: qemu-system-gui (= ${binary:Version}), qemu-utils,
-:ubuntu: seabios,
-:ubuntu: qemu-block-extra (= ${binary:Version}),
-:ubuntu:Suggests:
-:ubuntu: ovmf,
-:ubuntu:Conflicts: qemu-system-x86
+:ubuntu:Section: oldlibs
+:ubuntu:Depends: qemu-system-xen (>= 1:7.0+dfsg-7ubuntu1), ${misc:Depends}
 :ubuntu:Description: QEMU full system emulation binaries (x86)
-:ubuntu: QEMU is a fast processor emulator: currently the package supports
-:ubuntu: i386 and x86-64 emulation. By using dynamic translation it achieves
-:ubuntu: reasonable speed while being easy to port on new host CPUs.
+:ubuntu: The former qemu-system-x86-xen binaries are now in qemu-system-xen.
 :ubuntu: .
-:ubuntu: This package provides the full system emulation binaries to emulate
-:ubuntu: the following x86 hardware: ${sysarch:x86-xen}.
-:ubuntu: .
-:ubuntu: In comparison to the main qemu-system-x86 this package has xen support
-:ubuntu: enabled, but is only maintained as universe package. Qemu with xen support
-:ubuntu: is needed to run Xen in HVM mode. For any other use case you should install
-:ubuntu: and use qemu-system-x86 instead.
+:ubuntu: This is a transitional package. You can safely remove it.

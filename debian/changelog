@@ -1,3 +1,37 @@
+qemu (1:7.1+dfsg-1) unstable; urgency=medium
+
+  * new upstream release (7.1)
+    Closes: #1014958, CVE-2022-35414
+    Closes: #1014590, CVE-2022-0216
+    Closes: #988333
+  * d/copyright:
+   - remove mentions of slirp (packaged separately)
+   - blindly convert to dep-5 (it needs a complete rewrite)
+   - add Files-Excluded from d/get-orig-source.sh
+  * d/gbp.conf: remove filter= (and whole [import-orig])
+  * d/watch: verify upstream tarballs
+  * d/rules: stop faking skiboot version, it is now properly included in
+    roms/skiboot/.version file. Add a dependency on this file too
+  * d/patches:
+   - remove use-fixed-data-path.patch: not needed anymore
+   - linux-user-binfmt-P.diff: refresh
+   - remove patches applied upstream
+  * d/control:
+   - it is --enable-capstone now, not --enable-capstone=system
+   - it is --enable-png now, not --enable-vnc-png
+  * d/rules: fix --enable-vhost-* options
+  * d/rules: remove vnc-png for xen too
+  * openbios-array-bounds-gcc12.patch
+  * opensbi-fix-build-with-binutils-2.38.patch
+  * d/rules: adopt vof build changes
+  * d/qemu-system-data.docs: omit ccid.txt (removed)
+  * temporary workaround for gcc-12 bug #1019011: use gcc-11-alpha-linux-gnu
+    instead of gcc-alpha-linux-gnu (another option is to use -Os)
+  * d/control: temporarily build-depend on libva-dev till #1019485 is fixed
+  * add loongarch64 qemu-user and qemu-user arch
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 12 Sep 2022 11:50:53 +0300
+
 qemu (1:7.0+dfsg-7) unstable; urgency=medium
 
   * d/tests/test-qemu-user: rework ls/glob test a bit
