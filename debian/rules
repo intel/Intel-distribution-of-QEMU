@@ -45,10 +45,13 @@ PPC64_CROSSPFX = powerpc64-linux-gnu-
 RISCV64_CROSSPFX = riscv64-linux-gnu-
 ARM_CROSSPFX = arm-none-eabi-
 
+extra-cflags = ${CFLAGS} ${CPPFLAGS}
+extra-ldflags = ${LDFLAGS} -Wl,--as-needed
 # we add another set of configure options from debian/control
 common_configure_opts = \
 	--with-pkgversion="$(PKGVERSION)" \
-	--extra-cflags="$(CFLAGS) $(CPPFLAGS)" --extra-ldflags="$(LDFLAGS) -Wl,--as-needed" \
+	--extra-cflags="${extra-cflags}" \
+	--extra-ldflags="${extra-ldflags}" \
 	--prefix=/usr \
 	--sysconfdir=/etc \
 	--libdir=${libdir} \
@@ -278,7 +281,7 @@ b/microvm/configured: configure debian/microvm-devices.mak
 	cp -up debian/microvm-devices.mak configs/devices/x86_64-softmmu/microvm.mak
 	cd b/microvm && \
 		../../configure ${common_configure_opts} \
-		--extra-cflags="$(CFLAGS) $(CPPFLAGS) -DCONFIG_MICROVM_DEFAULT=1" \
+		--extra-cflags="${extra-cflags} -DCONFIG_MICROVM_DEFAULT=1" \
 		--disable-docs \
 		--without-default-features \
 		--disable-user \
@@ -345,9 +348,12 @@ b/user-static/configured: configure
 # by default this would detect linker option --static-pie, but that
 # breaks some use cases of qemu-static builds (LP: #1908331), therefore
 # add --disable-pie to get "real static" builds.
+# With gcc-12, compiler is unable to build static qemu-aarch64 anymore with no extra options,
+# see https://sourceware.org/bugzilla/show_bug.cgi?id=29514 , so we add -no-pie there.
 	rm -rf b/user-static; mkdir b/user-static
 	cd b/user-static && \
 	    ../../configure ${common_configure_opts} \
+		--extra-cflags="${extra-cflags}$(if $(filter ${DEB_HOST_ARCH},arm64), -fno-pie -no-pie,)" \
 		--static --disable-pie --disable-system --disable-xen \
 		--target-list="$(addsuffix -linux-user,${user_targets})"
 	touch $@

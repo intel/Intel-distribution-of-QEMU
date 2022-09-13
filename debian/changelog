@@ -1,8 +1,25 @@
+qemu (1:7.1+dfsg-2) unstable; urgency=medium
+
+  * tulip-restrict-DMA-engine-to-memories-CVE-2022-2962.patch
+    fix possible stack or heap overflow (tulip: DMA reentrancy issue)
+    Closes: #1018055, CVE-2022-2962
+  * hw-pvrdma-protect-against-guest-driver-CVE-2022-1050.patch
+    fix possible use-after-free in paravirtual RDMA device.
+    Closes: #1014589, CVE-2022-1050
+  * mention closing of #979677 (CVE-2020-14394) by 7.1
+  * d/rules: parametrify extra-cflags & extra-ldflags
+  * d/rules: explicitly disable pie on arm64 due to
+    https://sourceware.org/bugzilla/show_bug.cgi?id=29514
+    Fixes FTBFS.
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 13 Sep 2022 20:08:43 +0300
+
 qemu (1:7.1+dfsg-1) unstable; urgency=medium
 
   * new upstream release (7.1)
     Closes: #1014958, CVE-2022-35414
     Closes: #1014590, CVE-2022-0216
+    Closes: #979677, CVE-2020-14394
     Closes: #988333
   * d/copyright:
    - remove mentions of slirp (packaged separately)
