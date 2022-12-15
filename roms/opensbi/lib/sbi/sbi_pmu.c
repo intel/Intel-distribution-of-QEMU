@@ -181,6 +181,9 @@ static int pmu_add_hw_event_map(u32 eidx_start, u32 eidx_end, u32 cmap,
 	int i = 0;
 	bool is_overlap;
 	struct sbi_pmu_hw_event *event = &hw_event_map[num_hw_events];
+	struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
+	int hw_ctr_avail = sbi_hart_mhpm_count(scratch);
+	uint32_t ctr_avail_mask = ((uint32_t)(~0) >> (32 - (hw_ctr_avail + 3)));
 
 	/* The first two counters are reserved by priv spec */
 	if (eidx_start > SBI_PMU_HW_INSTRUCTIONS && (cmap & SBI_PMU_FIXED_CTR_MASK))
@@ -208,7 +211,8 @@ static int pmu_add_hw_event_map(u32 eidx_start, u32 eidx_end, u32 cmap,
 	}
 
 	event->select_mask = select_mask;
-	event->counters = cmap;
+	/* Map the only the counters that are available in the hardware */
+	event->counters = cmap & ctr_avail_mask;
 	event->select = select;
 	num_hw_events++;
 
@@ -252,7 +256,7 @@ static int pmu_ctr_enable_irq_hw(int ctr_idx)
 
 #if __riscv_xlen == 32
 	mhpmevent_csr = CSR_MHPMEVENT3H  + ctr_idx - 3;
-	of_mask = ~MHPMEVENTH_OF;
+	of_mask = (uint32_t)~MHPMEVENTH_OF;
 #else
 	mhpmevent_csr = CSR_MHPMEVENT3 + ctr_idx - 3;
 	of_mask = ~MHPMEVENT_OF;
@@ -293,10 +297,10 @@ static int pmu_ctr_start_hw(uint32_t cidx, uint64_t ival, bool ival_update)
 	unsigned long mctr_inhbt;
 
 	/* Make sure the counter index lies within the range and is not TM bit */
-	if (cidx > num_hw_ctrs || cidx == 1)
+	if (cidx >= num_hw_ctrs || cidx == 1)
 		return SBI_EINVAL;
 
-	if (!sbi_hart_has_feature(scratch, SBI_HART_HAS_MCOUNTINHIBIT))
+	if (sbi_hart_priv_version(scratch) < SBI_HART_PRIV_VER_1_11)
 		goto skip_inhibit_update;
 
 	/*
@@ -309,7 +313,7 @@ static int pmu_ctr_start_hw(uint32_t cidx, uint64_t ival, bool ival_update)
 
 	__clear_bit(cidx, &mctr_inhbt);
 
-	if (sbi_hart_has_feature(scratch, SBI_HART_HAS_SSCOFPMF))
+	if (sbi_hart_has_extension(scratch, SBI_HART_EXT_SSCOFPMF))
 		pmu_ctr_enable_irq_hw(cidx);
 	csr_write(CSR_MCOUNTINHIBIT, mctr_inhbt);
 
@@ -343,7 +347,7 @@ int sbi_pmu_ctr_start(unsigned long cbase, unsigned long cmask,
 	int ret = SBI_EINVAL;
 	bool bUpdate = FALSE;
 
-	if (__fls(ctr_mask) >= total_ctrs)
+	if (sbi_fls(ctr_mask) >= total_ctrs)
 		return ret;
 
 	if (flags & SBI_PMU_START_FLAG_SET_INIT_VALUE)
@@ -368,13 +372,13 @@ static int pmu_ctr_stop_hw(uint32_t cidx)
 	struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
 	unsigned long mctr_inhbt;
 
-	if (!sbi_hart_has_feature(scratch, SBI_HART_HAS_MCOUNTINHIBIT))
+	if (sbi_hart_priv_version(scratch) < SBI_HART_PRIV_VER_1_11)
 		return 0;
 
 	mctr_inhbt = csr_read(CSR_MCOUNTINHIBIT);
 
 	/* Make sure the counter index lies within the range and is not TM bit */
-	if (cidx > num_hw_ctrs || cidx == 1)
+	if (cidx >= num_hw_ctrs || cidx == 1)
 		return SBI_EINVAL;
 
 	if (!__test_bit(cidx, &mctr_inhbt)) {
@@ -400,7 +404,9 @@ static int pmu_reset_hw_mhpmevent(int ctr_idx)
 		return SBI_EFAIL;
 #if __riscv_xlen == 32
 	csr_write_num(CSR_MHPMEVENT3 + ctr_idx - 3, 0);
-	csr_write_num(CSR_MHPMEVENT3H + ctr_idx - 3, 0);
+	if (sbi_hart_has_extension(sbi_scratch_thishart_ptr(),
+				   SBI_HART_EXT_SSCOFPMF))
+		csr_write_num(CSR_MHPMEVENT3H + ctr_idx - 3, 0);
 #else
 	csr_write_num(CSR_MHPMEVENT3 + ctr_idx - 3, 0);
 #endif
@@ -417,7 +423,7 @@ int sbi_pmu_ctr_stop(unsigned long cbase, unsigned long cmask,
 	uint32_t event_code;
 	unsigned long ctr_mask = cmask << cbase;
 
-	if (__fls(ctr_mask) >= total_ctrs)
+	if (sbi_fls(ctr_mask) >= total_ctrs)
 		return SBI_EINVAL;
 
 	for_each_set_bit_from(cbase, &ctr_mask, total_ctrs) {
@@ -466,16 +472,22 @@ static int pmu_update_hw_mhpmevent(struct sbi_pmu_hw_event *hw_evt, int ctr_idx,
 	if (!mhpmevent_val || ctr_idx < 3 || ctr_idx >= SBI_PMU_HW_CTR_MAX)
 		return SBI_EFAIL;
 
-	/* Always clear the OVF bit and inhibit countin of events in M-mode */
-	if (sbi_hart_has_feature(scratch, SBI_HART_HAS_SSCOFPMF))
-		mhpmevent_val = (mhpmevent_val & ~MHPMEVENT_SSCOF_MASK) | MHPMEVENT_MINH;
+	/**
+	 * Always set the OVF bit(disable interrupts) and inhibit counting of
+	 * events in M-mode. The OVF bit should be enabled during the start call.
+	 */
+	if (sbi_hart_has_extension(scratch, SBI_HART_EXT_SSCOFPMF))
+		mhpmevent_val = (mhpmevent_val & ~MHPMEVENT_SSCOF_MASK) |
+				 MHPMEVENT_MINH | MHPMEVENT_OF;
 
 	/* Update the inhibit flags based on inhibit flags received from supervisor */
 	pmu_update_inhibit_flags(flags, &mhpmevent_val);
 
 #if __riscv_xlen == 32
 	csr_write_num(CSR_MHPMEVENT3 + ctr_idx - 3, mhpmevent_val & 0xFFFFFFFF);
-	csr_write_num(CSR_MHPMEVENT3H + ctr_idx - 3, mhpmevent_val >> BITS_PER_LONG);
+	if (sbi_hart_has_extension(scratch, SBI_HART_EXT_SSCOFPMF))
+		csr_write_num(CSR_MHPMEVENT3H + ctr_idx - 3,
+			      mhpmevent_val >> BITS_PER_LONG);
 #else
 	csr_write_num(CSR_MHPMEVENT3 + ctr_idx - 3, mhpmevent_val);
 #endif
@@ -504,7 +516,7 @@ static int pmu_ctr_find_hw(unsigned long cbase, unsigned long cmask, unsigned lo
 	u32 hartid = current_hartid();
 	struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
 
-	if (cbase > num_hw_ctrs)
+	if (cbase >= num_hw_ctrs)
 		return SBI_EINVAL;
 
 	/**
@@ -513,10 +525,10 @@ static int pmu_ctr_find_hw(unsigned long cbase, unsigned long cmask, unsigned lo
 	 */
 	fixed_ctr = pmu_ctr_find_fixed_fw(event_idx);
 	if (fixed_ctr >= 0 &&
-	    !sbi_hart_has_feature(scratch, SBI_HART_HAS_SSCOFPMF))
+	    !sbi_hart_has_extension(scratch, SBI_HART_EXT_SSCOFPMF))
 		return fixed_ctr;
 
-	if (sbi_hart_has_feature(scratch, SBI_HART_HAS_MCOUNTINHIBIT))
+	if (sbi_hart_priv_version(scratch) >= SBI_HART_PRIV_VER_1_11)
 		mctr_inhbt = csr_read(CSR_MCOUNTINHIBIT);
 	for (i = 0; i < num_hw_events; i++) {
 		temp = &hw_event_map[i];
@@ -543,7 +555,7 @@ static int pmu_ctr_find_hw(unsigned long cbase, unsigned long cmask, unsigned lo
 			if (active_events[hartid][cbase] != SBI_PMU_EVENT_IDX_INVALID)
 				continue;
 			/* If mcountinhibit is supported, the bit must be enabled */
-			if ((sbi_hart_has_feature(scratch, SBI_HART_HAS_MCOUNTINHIBIT)) &&
+			if ((sbi_hart_priv_version(scratch) >= SBI_HART_PRIV_VER_1_11) &&
 			    !__test_bit(cbase, &mctr_inhbt))
 				continue;
 			/* We found a valid counter that is not started yet */
@@ -581,8 +593,8 @@ static int pmu_ctr_find_fw(unsigned long cbase, unsigned long cmask, u32 hartid)
 	int fw_base;
 	unsigned long ctr_mask = cmask << cbase;
 
-	if (cbase <= num_hw_ctrs)
-		fw_base = num_hw_ctrs + 1;
+	if (cbase < num_hw_ctrs)
+		fw_base = num_hw_ctrs;
 	else
 		fw_base = cbase;
 
@@ -606,7 +618,7 @@ int sbi_pmu_ctr_cfg_match(unsigned long cidx_base, unsigned long cidx_mask,
 	unsigned long tmp = cidx_mask << cidx_base;
 
 	/* Do a basic sanity check of counter base & mask */
-	if (__fls(tmp) >= total_ctrs || event_type >= SBI_PMU_EVENT_TYPE_MAX)
+	if (sbi_fls(tmp) >= total_ctrs || event_type >= SBI_PMU_EVENT_TYPE_MAX)
 		return SBI_EINVAL;
 
 	if (flags & SBI_PMU_CFG_FLAG_SKIP_MATCH) {
@@ -682,7 +694,7 @@ int sbi_pmu_ctr_get_info(uint32_t cidx, unsigned long *ctr_info)
 		return SBI_EINVAL;
 
 	/* We have 31 HW counters with 31 being the last index(MHPMCOUNTER31) */
-	if (cidx <= num_hw_ctrs) {
+	if (cidx < num_hw_ctrs) {
 		cinfo.type = SBI_PMU_CTR_TYPE_HW;
 		cinfo.csr = CSR_CYCLE + cidx;
 		/* mcycle & minstret are always 64 bit */
@@ -718,10 +730,11 @@ void sbi_pmu_exit(struct sbi_scratch *scratch)
 {
 	u32 hartid = current_hartid();
 
-	if (sbi_hart_has_feature(scratch, SBI_HART_HAS_MCOUNTINHIBIT))
+	if (sbi_hart_priv_version(scratch) >= SBI_HART_PRIV_VER_1_11)
 		csr_write(CSR_MCOUNTINHIBIT, 0xFFFFFFF8);
 
-	csr_write(CSR_MCOUNTEREN, -1);
+	if (sbi_hart_priv_version(scratch) >= SBI_HART_PRIV_VER_1_10)
+		csr_write(CSR_MCOUNTEREN, -1);
 	pmu_reset_event_map(hartid);
 }
 
@@ -736,7 +749,7 @@ int sbi_pmu_init(struct sbi_scratch *scratch, bool cold_boot)
 		sbi_platform_pmu_init(plat);
 
 		/* mcycle & minstret is available always */
-		num_hw_ctrs = sbi_hart_mhpm_count(scratch) + 2;
+		num_hw_ctrs = sbi_hart_mhpm_count(scratch) + 3;
 		total_ctrs = num_hw_ctrs + SBI_PMU_FW_CTR_MAX;
 	}
 

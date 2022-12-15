@@ -15,7 +15,7 @@
 
 struct fdt_match {
 	const char *compatible;
-	void *data;
+	const void *data;
 };
 
 #define FDT_MAX_PHANDLE_ARGS 16
@@ -31,6 +31,7 @@ struct platform_uart_data {
 	unsigned long baud;
 	unsigned long reg_shift;
 	unsigned long reg_io_width;
+	unsigned long reg_offset;
 };
 
 const struct fdt_match *fdt_match_node(void *fdt, int nodeoff,
@@ -47,9 +48,11 @@ int fdt_parse_phandle_with_args(void *fdt, int nodeoff,
 int fdt_get_node_addr_size(void *fdt, int node, int index,
 			   uint64_t *addr, uint64_t *size);
 
+bool fdt_node_is_enabled(void *fdt, int nodeoff);
+
 int fdt_parse_hart_id(void *fdt, int cpu_offset, u32 *hartid);
 
-int fdt_parse_max_hart_id(void *fdt, u32 *max_hartid);
+int fdt_parse_max_enabled_hart_id(void *fdt, u32 *max_hartid);
 
 int fdt_parse_timebase_frequency(void *fdt, unsigned long *freq);
 
@@ -67,6 +70,19 @@ int fdt_parse_uart8250_node(void *fdt, int nodeoffset,
 
 int fdt_parse_uart8250(void *fdt, struct platform_uart_data *uart,
 		       const char *compatible);
+
+int fdt_parse_xlnx_uartlite_node(void *fdt, int nodeoffset,
+			       struct platform_uart_data *uart);
+
+struct aplic_data;
+
+int fdt_parse_aplic_node(void *fdt, int nodeoff, struct aplic_data *aplic);
+
+struct imsic_data;
+
+bool fdt_check_imsic_mlevel(void *fdt);
+
+int fdt_parse_imsic_node(void *fdt, int nodeoff, struct imsic_data *imsic);
 
 struct plic_data;
 

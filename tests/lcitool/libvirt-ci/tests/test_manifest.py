@@ -95,6 +95,7 @@ def test_generate(monkeypatch):
         assert_mkdir(Path("ci", "gitlab"))
         assert_mkdir(Path("ci", "containers"))
         assert_mkdir(Path("ci", "cirrus"))
+        assert_mkdir(Path("ci", "buildenv"))
 
         # Verify which files we expect to be deleted
         assert_unlink(Path("ci", "cirrus", "freebsd-9.vars"))
@@ -108,19 +109,25 @@ def test_generate(monkeypatch):
         assert_write(Path("ci", "gitlab", "builds.yml"))
         assert_write(Path("ci", "gitlab", "sanity-checks.yml"))
         assert_write(Path("ci", "cirrus", "freebsd-current.vars"))
-        assert_write(Path("ci", "cirrus", "macos-11.vars"))
         assert_write(Path("ci", "cirrus", "macos-12.vars"))
+        assert_write(Path("ci", "cirrus", "macos-13.vars"))
         assert_write(Path("ci", "containers", "centos-stream-9.Dockerfile"))
         assert_write(Path("ci", "containers", "fedora-rawhide.Dockerfile"))
         assert_write(Path("ci", "containers", "fedora-rawhide-cross-mingw32.Dockerfile"))
         assert_write(Path("ci", "containers", "debian-10.Dockerfile"))
         assert_write(Path("ci", "containers", "debian-sid-cross-ppc64le.Dockerfile"))
         assert_write(Path("ci", "containers", "debian-sid-cross-i686.Dockerfile"))
+        assert_write(Path("ci", "buildenv", "centos-stream-9.sh"))
+        assert_write(Path("ci", "buildenv", "fedora-rawhide.sh"))
+        assert_write(Path("ci", "buildenv", "fedora-rawhide-cross-mingw32.sh"))
+        assert_write(Path("ci", "buildenv", "debian-10.sh"))
+        assert_write(Path("ci", "buildenv", "debian-sid-cross-ppc64le.sh"))
+        assert_write(Path("ci", "buildenv", "debian-sid-cross-i686.sh"))
 
         # Verify nothing else unexpected was created/deleted/written
-        assert(len(mkdirs) == 0)
-        assert(len(unlinks) == 0)
-        assert(len(writes) == 0)
+        assert len(mkdirs) == 0
+        assert len(unlinks) == 0
+        assert len(writes) == 0
 
     try:
         assert_operations()

@@ -1,0 +1,5 @@
+# probably a false positive
+qemu-system-common: shared-library-lacks-prerequisites [usr/lib/*/qemu/*.so]
+qemu-system-common: spare-manual-page [usr/share/man/man1/qemu-system.1.gz]
+qemu-system-common: spare-manual-page [usr/share/man/man1/virtfs-proxy-helper.1.gz]
+qemu-system-common: spare-manual-page [usr/share/man/man1/virtiofsd.1.gz]

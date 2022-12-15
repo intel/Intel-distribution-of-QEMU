@@ -15,6 +15,7 @@
 #include <sbi/sbi_hart.h>
 #include <sbi/sbi_illegal_insn.h>
 #include <sbi/sbi_ipi.h>
+#include <sbi/sbi_irqchip.h>
 #include <sbi/sbi_misaligned_ldst.h>
 #include <sbi/sbi_pmu.h>
 #include <sbi/sbi_scratch.h>
@@ -98,17 +99,14 @@ int sbi_trap_redirect(struct sbi_trap_regs *regs,
 	if (prev_mode != PRV_S && prev_mode != PRV_U)
 		return SBI_ENOTSUPP;
 
-	/* For certain exceptions from VS/VU-mode we redirect to VS-mode */
+	/* If exceptions came from VS/VU-mode, redirect to VS-mode if
+	 * delegated in hedeleg
+	 */
 	if (misa_extension('H') && prev_virt) {
-		switch (trap->cause) {
-		case CAUSE_FETCH_PAGE_FAULT:
-		case CAUSE_LOAD_PAGE_FAULT:
-		case CAUSE_STORE_PAGE_FAULT:
+		if ((trap->cause < __riscv_xlen) &&
+		    (csr_read(CSR_HEDELEG) & BIT(trap->cause))) {
 			next_virt = TRUE;
-			break;
-		default:
-			break;
-		};
+		}
 	}
 
 	/* Update MSTATUS MPV bits */
@@ -195,6 +193,52 @@ int sbi_trap_redirect(struct sbi_trap_regs *regs,
 	return 0;
 }
 
+static int sbi_trap_nonaia_irq(struct sbi_trap_regs *regs, ulong mcause)
+{
+	mcause &= ~(1UL << (__riscv_xlen - 1));
+	switch (mcause) {
+	case IRQ_M_TIMER:
+		sbi_timer_process();
+		break;
+	case IRQ_M_SOFT:
+		sbi_ipi_process();
+		break;
+	case IRQ_M_EXT:
+		return sbi_irqchip_process(regs);
+	default:
+		return SBI_ENOENT;
+	};
+
+	return 0;
+}
+
+static int sbi_trap_aia_irq(struct sbi_trap_regs *regs, ulong mcause)
+{
+	int rc;
+	unsigned long mtopi;
+
+	while ((mtopi = csr_read(CSR_MTOPI))) {
+		mtopi = mtopi >> TOPI_IID_SHIFT;
+		switch (mtopi) {
+		case IRQ_M_TIMER:
+			sbi_timer_process();
+			break;
+		case IRQ_M_SOFT:
+			sbi_ipi_process();
+			break;
+		case IRQ_M_EXT:
+			rc = sbi_irqchip_process(regs);
+			if (rc)
+				return rc;
+			break;
+		default:
+			return SBI_ENOENT;
+		}
+	}
+
+	return 0;
+}
+
 /**
  * Handle trap/interrupt
  *
@@ -225,18 +269,15 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 	}
 
 	if (mcause & (1UL << (__riscv_xlen - 1))) {
-		mcause &= ~(1UL << (__riscv_xlen - 1));
-		switch (mcause) {
-		case IRQ_M_TIMER:
-			sbi_timer_process();
-			break;
-		case IRQ_M_SOFT:
-			sbi_ipi_process();
-			break;
-		default:
-			msg = "unhandled external interrupt";
+		if (sbi_hart_has_extension(sbi_scratch_thishart_ptr(),
+					   SBI_HART_EXT_AIA))
+			rc = sbi_trap_aia_irq(regs, mcause);
+		else
+			rc = sbi_trap_nonaia_irq(regs, mcause);
+		if (rc) {
+			msg = "unhandled local interrupt";
 			goto trap_error;
-		};
+		}
 		return regs;
 	}
 

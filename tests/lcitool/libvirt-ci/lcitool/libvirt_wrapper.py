@@ -8,14 +8,16 @@ import libvirt
 import logging
 import textwrap
 
-import xml.etree.ElementTree as xmlparser
+import xml.etree.ElementTree as ET
+
+from lcitool import LcitoolError
 
 log = logging.getLogger(__name__)
 
 LCITOOL_XMLNS = "http://libvirt.org/schemas/lcitool/1.0"
 
 
-class LibvirtWrapperError(Exception):
+class LibvirtWrapperError(LcitoolError):
     """
     Global exception type for this module.
 
@@ -24,10 +26,7 @@ class LibvirtWrapperError(Exception):
     """
 
     def __init__(self, message):
-        self.message = message
-
-    def __str__(self):
-        return f"LibvirtWrapper error: {self.message}"
+        super().__init__(message, "LibvirtWrapper")
 
 
 class LibvirtWrapper():
@@ -62,7 +61,7 @@ class LibvirtWrapper():
                     f"Failed to query metadata for '{dom.name}': " + str(e)
                 )
 
-            xmltree = xmlparser.fromstring(xml)
+            xmltree = ET.fromstring(xml)
             target = xmltree.find("target")
             if xmltree.tag != "host" or target is None or target.text is None:
                 continue

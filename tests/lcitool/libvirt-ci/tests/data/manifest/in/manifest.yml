@@ -1,11 +1,11 @@
 
 projects:
-  - libvirt-go-xml
-  - libvirt-go
+  - libvirt-go-xml-module
+  - libvirt-go-module
 
 gitlab:
   namespace: test-group
-  project: libvirt-go-xml
+  project: libvirt-go-xml-module
   jobs:
      cargo-fmt: true
      clang-format: true
@@ -44,9 +44,9 @@ targets:
 
   freebsd-current: x86_64
 
-  macos-11: x86_64
-
   macos-12:
     jobs:
-      - arch: x86_64
+      - arch: aarch64
         builds: false
+
+  macos-13: aarch64

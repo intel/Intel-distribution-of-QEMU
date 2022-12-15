@@ -25,7 +25,7 @@ endif
 MAKEFLAGS += $(subst parallel=,-j,$(filter parallel=%,${DEB_BUILD_OPTIONS}))
 
 # verbose build
-V ?= 1
+V = $(if $(filter terse, ${DEB_BUILD_OPTIONS}),,1)
 
 # list of packages we're supposed to build
 BUILD_PACKAGES := $(shell dh_listpackages)
@@ -504,7 +504,9 @@ sysdata-components += qboot
 build-palcode-clipper: b/qemu-palcode/palcode-clipper
 b/qemu-palcode/palcode-clipper: | b
 	cp -al roms/qemu-palcode b/
-	${MAKE} -C ${CURDIR}/b/qemu-palcode CROSS=${ALPHAEV67_CROSSPFX} CC=${ALPHAEV67_CROSSPFX}gcc-11
+#XXX #1019011 (remove OPT= alternative when fixed)
+	${MAKE} -C b/qemu-palcode CROSS=${ALPHAEV67_CROSSPFX} -k || \
+	${MAKE} -C b/qemu-palcode CROSS=${ALPHAEV67_CROSSPFX} OPT=-O1
 	${ALPHAEV67_CROSSPFX}strip b/qemu-palcode/palcode-clipper
 install-palcode-clipper: b/qemu-palcode/palcode-clipper
 	install -m 0644 $< ${sysdataidir}/palcode-clipper

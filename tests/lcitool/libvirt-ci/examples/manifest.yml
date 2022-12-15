@@ -4,7 +4,7 @@
 # needed projects that are build dependencies
 projects:
   - libvirt
-  - libvirt-go
+  - libvirt-go-module
 
 
 # Whether to generate dockerfiles by default for hosts
@@ -26,7 +26,7 @@ gitlab:
   namespace: libvirt
 
   # The GitLab repo within the namespace, must be set
-  project: libvirt-go
+  project: libvirt-go-module
 
 #  enabled: true
 #
@@ -151,9 +151,9 @@ targets:
 
   freebsd-current: x86_64
 
-  macos-11: x86_64
+  macos-12: aarch64
 
-  macos-12: x86_64
+  macos-13: aarch64
 
   opensuse-leap-153:
     jobs:

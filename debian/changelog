@@ -1,3 +1,27 @@
+qemu (1:7.2+dfsg-1) unstable; urgency=medium
+
+  * new upstream release
+    Closes: #1025123 CVE-2022-4172
+    (erst: undefined behavior in memcpy in write_erst_record)
+    Closes: #1021981 qemu-user: faccessat2 is not implemented
+    Closes: #1021019 CVE-2022-3165 (VNC: integer underflow in
+    vnc_client_cut_text_ext leads to CPU exhaustion)
+  * remove patches applied upstream
+  * refresh note-missing-module-pkg-name.diff
+  * slirp is always external package now, not a submodule anymore
+  * d/control: require meson >> 0.61.5~ for build
+  * spelling.diff: update with more spelling error
+  * add some lintian-overrides
+  * fix minor spelling errors in patches
+  * d/control: Bump Standards-Version to 4.6.1
+  * debian shell programs use "which" instead of the "command -v",
+    fix that (Closes: #1018254)
+  * Better fix for #1019011 (gcc ICE building palcode-clipper), use -O1
+    instead of -O2 for the failing compile when it actually fails
+    (no need to depend on gcc-11, Closes: #1011003)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 15 Dec 2022 17:17:28 +0300
+
 qemu (1:7.1+dfsg-2) unstable; urgency=medium
 
   * tulip-restrict-DMA-engine-to-memories-CVE-2022-2962.patch
@@ -20,7 +44,8 @@ qemu (1:7.1+dfsg-1) unstable; urgency=medium
     Closes: #1014958, CVE-2022-35414
     Closes: #1014590, CVE-2022-0216
     Closes: #979677, CVE-2020-14394
-    Closes: #988333
+    Closes: #987410, CVE-2021-3507
+    Closes: #988333, #1018913
   * d/copyright:
    - remove mentions of slirp (packaged separately)
    - blindly convert to dep-5 (it needs a complete rewrite)

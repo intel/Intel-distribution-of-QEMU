@@ -26,6 +26,7 @@ native:
 - bash-completion
 - bc
 - bison
+- busybox
 - bzip2
 - bzip2-dev
 - ca-certificates
@@ -48,7 +49,9 @@ native:
 - diffutils
 - dnsmasq
 - dtc-dev
+- e2fsprogs
 - eudev-dev
+- expect
 - findutils
 - flex
 - fuse-dev
@@ -111,6 +114,7 @@ native:
 - libtasn1-dev
 - libtirpc-dev
 - libtool
+- libtorrent
 - liburing-dev
 - libusb-dev
 - libvirt-dev
@@ -123,6 +127,7 @@ native:
 - llvm11
 - lsof
 - lttng-ust-dev
+- lua5.4
 - lvm2
 - lvm2-dev
 - lzo-dev
@@ -202,12 +207,16 @@ native:
 - ruby-dev
 - ruby-rake
 - rust
+- rust-clippy
 - samurai
 - screen
 - sdl2-dev
 - sdl2_image-dev
 - sed
+- sfdisk
 - snappy-dev
+- sndio-dev
+- socat
 - sparse
 - spice-dev
 - spice-gtk-dev
@@ -215,6 +224,7 @@ native:
 - strace
 - sudo
 - tar
+- tcl
 - tcpdump
 - tesseract-ocr
 - texinfo
@@ -239,4 +249,7 @@ native:
 - zip
 - zlib-dev
 - zlib-static
+- zstd
 - zstd-dev
+pypi:
+- boto3

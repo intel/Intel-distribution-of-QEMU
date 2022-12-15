@@ -9,7 +9,7 @@ Build-Depends: debhelper-compat (= 13),
 # to qemu's configure script, -- optional features which depend
 # on build-dependencies.
  python3:any,
- ninja-build, meson (>> 0.59.3~),
+ ninja-build, meson (>> 0.61.5~),
 # --enable-docs
 # for python3-sphinx:native see #995622
  texinfo, python3-sphinx:native, python3-sphinx-rtd-theme,
@@ -74,7 +74,7 @@ Build-Depends: debhelper-compat (= 13),
  libsdl2-dev,
 # --enable-seccomp	amd64|arm64|armel|armhf|i386|mips64el|mipsel|ppc64el|s390x|hppa|powerpc|ppc64|riscv64|x32
  libseccomp-dev        [amd64 arm64 armel armhf i386 mips64el mipsel ppc64el s390x hppa powerpc ppc64 riscv64 x32],
-# --enable-slirp=system
+# --enable-slirp
  libslirp-dev,
 # --enable-spice	 linux-amd64|linux-i386|linux-arm64|linux-armel|linux-armhf|linux-mips64el|linux-mipsel|ppc64el|sh4|x32
  libspice-server-dev	[linux-amd64 linux-i386 linux-arm64 linux-armel linux-armhf linux-mips64el linux-mipsel ppc64el sh4 x32],
@@ -124,8 +124,7 @@ Build-Depends-Indep:
  device-tree-compiler,
  gcc-s390x-linux-gnu,
 # qemu-palcode/palcode-clipper
-# gcc-12 is broken due to #1019011. Temporarily switch to previous gcc-11
- gcc-11-alpha-linux-gnu,
+ gcc-alpha-linux-gnu,
 # skiboot firmware, openbios
  gcc-powerpc64-linux-gnu,
 # openbios
@@ -137,7 +136,7 @@ Build-Depends-Indep:
 # vbootrom/npcm7xx_bootrom
  gcc-arm-none-eabi,
 Build-Conflicts: oss4-dev
-Standards-Version: 4.5.1
+Standards-Version: 4.6.1
 Homepage: http://www.qemu.org/
 Rules-Requires-Root: no
 Vcs-Browser: https://salsa.debian.org/qemu-team/qemu

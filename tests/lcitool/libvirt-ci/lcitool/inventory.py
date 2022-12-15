@@ -59,6 +59,7 @@ class Inventory(metaclass=Singleton):
 
     @staticmethod
     def _read_facts_from_file(yaml_path):
+        log.debug(f"Loading facts from '{yaml_path}'")
         with open(yaml_path, "r") as infile:
             return yaml.safe_load(infile)
 
@@ -81,6 +82,7 @@ class Inventory(metaclass=Singleton):
         try:
             inventory = ansible_runner.get_inventory()
         except AnsibleWrapperError as ex:
+            log.debug("Failed to load Ansible inventory")
             raise InventoryError(f"Failed to load Ansible inventory: {ex}")
 
         return inventory
@@ -98,36 +100,53 @@ class Inventory(metaclass=Singleton):
 
         return inventory
 
-    def _load_facts_from(self, facts_dir):
-        facts = {}
-        for entry in sorted(facts_dir.iterdir()):
-            if not entry.is_file() or entry.suffix != ".yml":
-                continue
+    @staticmethod
+    def _validate_target_facts(target_facts, target):
+        fname = target + ".yml"
 
-            log.debug(f"Loading facts from '{entry}'")
-            facts.update(self._read_facts_from_file(entry))
+        actual_osname = target_facts["os"]["name"].lower()
+        if not target.startswith(actual_osname + "-"):
+            raise InventoryError(f'OS name "{target_facts["os"]["name"]}" does not match file name {fname}')
+        target = target[len(actual_osname) + 1:]
 
-        return facts
+        actual_version = target_facts["os"]["version"].lower()
+        expected_version = target.replace("-", "")
+        if expected_version != actual_version:
+            raise InventoryError(f'OS version "{target_facts["os"]["version"]}" does not match version in file name {fname} ({expected_version})')
 
     def _load_target_facts(self):
-        facts = {}
-        group_vars_path = Path(resource_filename(__name__, "ansible/group_vars/"))
-        group_vars_all_path = Path(group_vars_path, "all")
+        def merge_dict(source, dest):
+            for key in source.keys():
+                if key not in dest:
+                    dest[key] = copy.deepcopy(source[key])
+                    continue
 
-        # first load the shared facts from group_vars/all
-        shared_facts = self._load_facts_from(group_vars_all_path)
+                if isinstance(source[key], list) or isinstance(dest[key], list):
+                    raise InventoryError("cannot merge lists")
+                if isinstance(source[key], dict) != isinstance(dest[key], dict):
+                    raise InventoryError("cannot merge dictionaries with non-dictionaries")
+                if isinstance(source[key], dict):
+                    merge_dict(source[key], dest[key])
+
+        facts = {}
+        targets_path = Path(resource_filename(__name__, "facts/targets/"))
+        targets_all_path = Path(targets_path, "all.yml")
+
+        # first load the shared facts from targets/all.yml
+        shared_facts = self._read_facts_from_file(targets_all_path)
 
         # then load the rest of the facts
-        for entry in group_vars_path.iterdir():
-            if not entry.is_dir() or entry.name == "all":
+        for entry in targets_path.iterdir():
+            if not entry.is_file() or entry.suffix != ".yml" or entry.name == "all.yml":
                 continue
 
-            tmp = self._load_facts_from(entry)
+            target = entry.stem
+            facts[target] = self._read_facts_from_file(entry)
+            self._validate_target_facts(facts[target], target)
+            facts[target]["target"] = target
 
-            # override shared facts with per-distro facts
-            target = entry.name
-            facts[target] = copy.deepcopy(shared_facts)
-            facts[target].update(tmp)
+            # missing per-distro facts fall back to shared facts
+            merge_dict(shared_facts, facts[target])
 
         return facts
 
@@ -188,4 +207,5 @@ class Inventory(metaclass=Singleton):
         except InventoryError as ex:
             raise ex
         except Exception as ex:
+            log.debug(f"Failed to load expand '{pattern}'")
             raise InventoryError(f"Failed to expand '{pattern}': {ex}")

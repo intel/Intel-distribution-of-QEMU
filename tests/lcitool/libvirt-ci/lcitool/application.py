@@ -5,7 +5,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 import logging
-import subprocess
 import sys
 
 from pathlib import Path
@@ -16,7 +15,7 @@ from lcitool.config import Config
 from lcitool.inventory import Inventory
 from lcitool.package import package_names_by_type
 from lcitool.projects import Projects
-from lcitool.formatters import DockerfileFormatter, ShellVariablesFormatter, JSONVariablesFormatter
+from lcitool.formatters import DockerfileFormatter, ShellVariablesFormatter, JSONVariablesFormatter, ShellBuildEnvFormatter
 from lcitool.singleton import Singleton
 from lcitool.manifest import Manifest
 
@@ -60,7 +59,7 @@ class Application(metaclass=Singleton):
         log.debug(f"Cmdline args={cli_args}")
 
     def _execute_playbook(self, playbook, hosts_pattern, projects_pattern,
-                          git_revision):
+                          git_revision, verbosity=0):
         from lcitool.ansible_wrapper import AnsibleWrapper, AnsibleWrapperError
 
         log.debug(f"Executing playbook '{playbook}': "
@@ -89,7 +88,7 @@ class Application(metaclass=Singleton):
             git_branch = "master"
 
         playbook_base = Path(base, "playbooks", playbook)
-        group_vars = inventory.target_facts
+        group_vars = dict()
 
         extra_vars = config.values
         extra_vars.update({
@@ -109,7 +108,7 @@ class Application(metaclass=Singleton):
             # packages are evaluated on a target level and since the
             # host->target mapping is N-1, we can skip hosts belonging to a
             # target group for which we already evaluated the package list
-            if group_vars[target].get("packages"):
+            if target in group_vars:
                 continue
 
             # resolve the package mappings to actual package names
@@ -126,11 +125,15 @@ class Application(metaclass=Singleton):
             package_names_early_install = package_names_by_type(pkgs_early_install)
 
             # merge the package lists to the Ansible group vars
-            group_vars[target]["packages"] = package_names["native"]
-            group_vars[target]["pypi_packages"] = package_names["pypi"]
-            group_vars[target]["cpan_packages"] = package_names["cpan"]
-            group_vars[target]["unwanted_packages"] = package_names_remove["native"]
-            group_vars[target]["early_install_packages"] = package_names_early_install["native"]
+            packages = {}
+            packages["packages"] = package_names["native"]
+            packages["pypi_packages"] = package_names["pypi"]
+            packages["cpan_packages"] = package_names["cpan"]
+            packages["unwanted_packages"] = package_names_remove["native"]
+            packages["early_install_packages"] = package_names_early_install["native"]
+
+            group_vars[target] = packages
+            group_vars[target].update(inventory.target_facts[target])
 
         ansible_runner.prepare_env(playbookdir=playbook_base,
                                    inventories=[inventory.ansible_inventory],
@@ -138,7 +141,7 @@ class Application(metaclass=Singleton):
                                    extravars=extra_vars)
         log.debug(f"Running Ansible with playbook '{playbook_base.name}'")
         try:
-            ansible_runner.run_playbook(limit=hosts_expanded)
+            ansible_runner.run_playbook(limit=hosts_expanded, verbosity=verbosity)
         except AnsibleWrapperError as ex:
             raise ApplicationError(ex.message)
 
@@ -172,13 +175,12 @@ class Application(metaclass=Singleton):
 
     @required_deps('libvirt')
     def _action_install(self, args):
-        from lcitool.libvirt_wrapper import LibvirtWrapper
+        from lcitool.install import VirtInstall
 
         self._entrypoint_debug(args)
 
         facts = {}
         inventory = Inventory()
-        config = Config()
         host = args.host
         target = args.target
 
@@ -206,114 +208,16 @@ class Application(metaclass=Singleton):
                     f"fully_managed=True not set for {host}, refusing to proceed"
                 )
 
-        # Both memory size and disk size are stored as GiB in the
-        # inventory, but virt-install expects the disk size in GiB
-        # and the memory size in *MiB*, so perform conversion here
-        memory_arg = str(config.values["install"]["memory_size"] * 1024)
-
-        vcpus_arg = str(config.values["install"]["vcpus"])
-
-        conf_size = config.values["install"]["disk_size"]
-        conf_pool = config.values["install"]["storage_pool"]
-        disk_arg = f"size={conf_size},pool={conf_pool},bus=virtio"
-
-        conf_network = config.values["install"]["network"]
-        network_arg = f"network={conf_network},model=virtio"
-
-        # Different operating systems require different configuration
-        # files for unattended installation to work, but some operating
-        # systems simply don't support unattended installation at all
-        if facts["os"]["name"] in ["Debian", "Ubuntu"]:
-            install_config = "preseed.cfg"
-        elif facts["os"]["name"] in ["AlmaLinux", "CentOS", "Fedora"]:
-            install_config = "kickstart.cfg"
-        elif facts["os"]["name"] == "OpenSUSE":
-            install_config = "autoinst.xml"
-        else:
-            print(f"Host {host} doesn't support installation",
-                  file=sys.stderr)
-            sys.exit(1)
-
-        try:
-            unattended_options = {
-                "install.url": facts["install"]["url"],
-            }
-        except KeyError:
-            raise ApplicationError(
-                f"Host {host} doesn't support installation"
-            )
-
-        # Unattended install scripts are being generated on the fly, based
-        # on the templates present in lcitool/configs/
-        filename = resource_filename(__name__,
-                                     f"configs/install/{install_config}")
-        with open(filename, "r") as template:
-            content = template.read()
-            for option in unattended_options:
-                content = content.replace(
-                    "{{ " + option + " }}",
-                    unattended_options[option],
-                )
-
-        initrd_inject = Path(util.get_temp_dir(), install_config).as_posix()
-
-        with open(initrd_inject, "w") as inject:
-            inject.write(content)
-
-        # preseed files must use a well-known name to be picked up by
-        # d-i; for kickstart files, we can use whatever name we please
-        # but we need to point anaconda in the right direction through
-        # the 'inst.ks' kernel parameter. We can use 'inst.ks'
-        # unconditionally for simplicity's sake, because distributions that
-        # don't use kickstart for unattended installation will simply
-        # ignore it. We do the same with the 'install' argument in order
-        # to workaround a bug which causes old virt-install versions to not
-        # pass the URL correctly when installing openSUSE guests
-        conf_url = facts["install"]["url"]
-        ks = install_config
-        extra_arg = f"console=ttyS0 inst.ks=file:/{ks} install={conf_url}"
-
-        cmd = [
-            "virt-install",
-            "--os-variant", "unknown",
-            "--name", host,
-            "--location", facts["install"]["url"],
-            "--virt-type", config.values["install"]["virt_type"],
-            "--arch", config.values["install"]["arch"],
-            "--machine", config.values["install"]["machine"],
-            "--cpu", config.values["install"]["cpu_model"],
-            "--vcpus", vcpus_arg,
-            "--memory", memory_arg,
-            "--disk", disk_arg,
-            "--network", network_arg,
-            "--graphics", "none",
-            "--console", "pty",
-            "--sound", "none",
-            "--rng", "device=/dev/urandom,model=virtio",
-            "--initrd-inject", initrd_inject,
-            "--extra-args", extra_arg,
-        ]
-
-        if not args.wait:
-            cmd.append("--noautoconsole")
-
-        log.debug(f"Running {cmd}")
-        try:
-            subprocess.check_call(cmd)
-
-            # mark the host XML using XML metadata
-            LibvirtWrapper().set_target(host, facts["target"])
-        except Exception as ex:
-            raise ApplicationError(
-                f"Failed to install host '{host}': {ex}"
-            )
+        virt_install = VirtInstall.from_url(name=host,
+                                            facts=facts)
+        virt_install(wait=args.wait)
 
     @required_deps('ansible_runner', 'libvirt')
     def _action_update(self, args):
         self._entrypoint_debug(args)
 
         self._execute_playbook("update", args.hosts, args.projects,
-                               args.git_revision)
+                               args.git_revision, args.verbose)
 
     def _action_build(self, args):
         self._entrypoint_debug(args)
@@ -327,7 +231,7 @@ class Application(metaclass=Singleton):
             )
 
         self._execute_playbook("build", args.hosts, args.projects,
-                               args.git_revision)
+                               args.git_revision, args.verbose)
 
     def _action_variables(self, args):
         self._entrypoint_debug(args)
@@ -375,6 +279,23 @@ class Application(metaclass=Singleton):
         header = util.generate_file_header(cliargv)
 
         print(header + dockerfile)
+
+    def _action_buildenvscript(self, args):
+        self._entrypoint_debug(args)
+
+        projects_expanded = Projects().expand_names(args.projects)
+
+        buildenvscript = ShellBuildEnvFormatter().format(args.target,
+                                                         projects_expanded,
+                                                         args.cross_arch)
+
+        cliargv = [args.action]
+        if args.cross_arch:
+            cliargv.extend(["--cross", args.cross_arch])
+        cliargv.extend([args.target, args.projects])
+        header = util.generate_file_header(cliargv)
+
+        print(header + buildenvscript)
 
     def _action_manifest(self, args):
         base_path = None

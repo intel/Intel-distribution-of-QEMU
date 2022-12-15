@@ -5,13 +5,13 @@
 
 # in order to be able to find brctl
 PATH=$PATH:/sbin:/usr/sbin
-ip=$(which ip)
+ip=$(command -v ip)
 
 if [ -n "$ip" ]; then
    ip link set "$1" up
 else
-   brctl=$(which brctl)
-   if [ ! "$ip" -o ! "$brctl" ]; then
+   brctl=$(command -v brctl)
+   if [ -z "$ip$brctl" ]; then
      echo "W: $0: not doing any bridge processing: neither ip nor brctl utility not found" >&2
      exit 0
    fi
@@ -31,11 +31,10 @@ switch=$(ip route ls | \
 for br in $switch; do
     if [ -d /sys/class/net/$br/bridge/. ]; then
         if [ -n "$ip" ]; then
-          ip link set "$1" master "$br"
+          exec ip link set "$1" master "$br"
         else
-          brctl addif $br "$1"
+          exec brctl addif $br "$1"
         fi
-        exit	# exit with status of the previous command
     fi
 done
 

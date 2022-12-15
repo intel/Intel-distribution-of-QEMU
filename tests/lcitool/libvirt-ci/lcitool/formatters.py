@@ -40,6 +40,11 @@ class VariablesError(FormatterError):
         super().__init__(message, "Variables formatter")
 
 
+class ShellBuildEnvError(FormatterError):
+    def __init__(self, message):
+        super().__init__(message, "Shell build env formatter")
+
+
 class Formatter(metaclass=abc.ABCMeta):
     """
     This an abstract base class that each formatter must subclass.
@@ -134,51 +139,55 @@ class Formatter(metaclass=abc.ABCMeta):
         return facts, cross_arch, varmap
 
 
-class DockerfileFormatter(Formatter):
+class BuildEnvFormatter(Formatter):
 
-    def __init__(self, base=None, layers="all"):
-        self._base = base
-        self._layers = layers
+    def __init__(self, indent=0, pkgcleanup=False, nosync=False):
+        self._indent = indent
+        self._pkgcleanup = pkgcleanup
+        self._nosync = nosync
 
-    @staticmethod
-    def _align(command, strings):
+    def _align(self, command, strings):
         if len(strings) == 1:
             return strings[0]
 
-        align = " \\\n" + (" " * len("RUN " + command + " "))
+        align = " \\\n" + (" " * (self._indent + len(command + " ")))
         return align[1:] + align.join(strings)
 
     def _generator_build_varmap(self,
                                 facts,
                                 selected_projects,
                                 cross_arch):
-        varmap = super(DockerfileFormatter,
-                       self)._generator_build_varmap(facts,
-                                                     selected_projects,
-                                                     cross_arch)
-
-        varmap["pkgs"] = self._align(facts["packaging"]["command"], varmap["pkgs"])
-
-        if varmap["cross_pkgs"]:
-            varmap["cross_pkgs"] = self._align(facts["packaging"]["command"],
-                                               varmap["cross_pkgs"])
-        if varmap["pypi_pkgs"]:
-            varmap["pypi_pkgs"] = self._align("pip3", varmap["pypi_pkgs"])
-        if varmap["cpan_pkgs"]:
-            varmap["cpan_pkgs"] = self._align("cpanm", varmap["cpan_pkgs"])
+        varmap = super()._generator_build_varmap(facts,
+                                                 selected_projects,
+                                                 cross_arch)
 
         varmap["nosync"] = ""
-        if facts["packaging"]["format"] == "deb":
-            varmap["nosync"] = "eatmydata "
-        elif facts["packaging"]["format"] == "rpm" and facts["os"]["name"] == "Fedora":
-            varmap["nosync"] = "nosync "
-        elif facts["packaging"]["format"] == "apk":
-            # TODO: 'libeatmydata' package is present in 'testing' repo
-            # for Alpine Edge. Once it graduates to 'main' repo we
-            # should use it here, and see later comment about adding
-            # the package too
-            # varmap["nosync"] = "eatmydata "
-            pass
+        if self._nosync:
+            if facts["packaging"]["format"] == "deb":
+                varmap["nosync"] = "eatmydata "
+            elif facts["packaging"]["format"] == "rpm" and facts["os"]["name"] == "Fedora":
+                varmap["nosync"] = "nosync "
+            elif facts["packaging"]["format"] == "apk":
+                # TODO: 'libeatmydata' package is present in 'testing' repo
+                # for Alpine Edge. Once it graduates to 'main' repo we
+                # should use it here, and see later comment about adding
+                # the package too
+                # varmap["nosync"] = "eatmydata "
+                pass
+
+        nosync = varmap["nosync"]
+        varmap["pkgs"] = self._align(nosync + facts["packaging"]["command"],
+                                     varmap["pkgs"])
+
+        if varmap["cross_pkgs"]:
+            varmap["cross_pkgs"] = self._align(nosync + facts["packaging"]["command"],
+                                               varmap["cross_pkgs"])
+        if varmap["pypi_pkgs"]:
+            varmap["pypi_pkgs"] = self._align(nosync + facts["paths"]["pip3"],
+                                              varmap["pypi_pkgs"])
+        if varmap["cpan_pkgs"]:
+            varmap["cpan_pkgs"] = self._align(nosync + "cpanm",
+                                              varmap["cpan_pkgs"])
 
         return varmap
 
@@ -223,16 +232,7 @@ class DockerfileFormatter(Formatter):
             commands.extend(["rpm -qa | sort > /packages.txt"])
         return commands
 
-    def _format_section_base(self, facts):
-        strings = []
-        if self._base:
-            base = self._base
-        else:
-            base = facts["containers"]["base"]
-        strings.append(f"FROM {base}")
-        return strings
-
-    def _format_section_native(self, facts, cross_arch, varmap):
+    def _format_commands_native(self, facts, cross_arch, varmap):
         commands = []
         osname = facts["os"]["name"]
         osversion = facts["os"]["version"]
@@ -250,14 +250,18 @@ class DockerfileFormatter(Formatter):
         elif facts["packaging"]["format"] == "deb":
             commands.extend([
                 "export DEBIAN_FRONTEND=noninteractive",
-                "{packaging_command} update",
-                "{packaging_command} install -y eatmydata",
-                "{nosync}{packaging_command} dist-upgrade -y"])
-
+                "{packaging_command} update"])
+            if varmap["nosync"] != "":
+                commands.extend(["{packaging_command} install -y eatmydata"])
             commands.extend([
-                "{nosync}{packaging_command} install --no-install-recommends -y {pkgs}",
-                "{nosync}{packaging_command} autoremove -y",
-                "{nosync}{packaging_command} autoclean -y",
+                "{nosync}{packaging_command} dist-upgrade -y",
+                "{nosync}{packaging_command} install --no-install-recommends -y {pkgs}"])
+            if self._pkgcleanup:
+                commands.extend([
+                    "{nosync}{packaging_command} autoremove -y",
+                    "{nosync}{packaging_command} autoclean -y",
+                ])
+            commands.extend([
                 "sed -Ei 's,^# (en_US\\.UTF-8 .*)$,\\1,' /etc/locale.gen",
                 "dpkg-reconfigure locales",
             ])
@@ -269,7 +273,7 @@ class DockerfileFormatter(Formatter):
                     "{packaging_command} update -y --nogpgcheck fedora-gpg-keys",
                 ])
 
-            if osname == "Fedora":
+            if osname == "Fedora" and varmap["nosync"] != "":
                 nosyncsh = [
                     "#!/bin/sh",
                     "if test -d /usr/lib64",
@@ -339,46 +343,50 @@ class DockerfileFormatter(Formatter):
 
             commands.extend(["{nosync}{packaging_command} install -y {pkgs}"])
 
-            # openSUSE doesn't seem to have a convenient way to remove all
-            # unnecessary packages, but CentOS and Fedora do
-            if osname == "OpenSUSE":
-                commands.extend([
-                    "{nosync}{packaging_command} clean --all",
-                ])
-            else:
-                commands.extend([
-                    "{nosync}{packaging_command} autoremove -y",
-                    "{nosync}{packaging_command} clean all -y",
-                ])
+            if self._pkgcleanup:
+                # openSUSE doesn't seem to have a convenient way to remove all
+                # unnecessary packages, but CentOS and Fedora do
+                if osname == "OpenSUSE":
+                    commands.extend([
+                        "{nosync}{packaging_command} clean --all",
+                    ])
+                else:
+                    commands.extend([
+                        "{nosync}{packaging_command} autoremove -y",
+                        "{nosync}{packaging_command} clean all -y",
+                    ])
 
         if not cross_arch:
             commands.extend(self._format_commands_pkglist(facts))
             commands.extend(self._format_commands_ccache(None, varmap))
-        script = "\nRUN " + (" && \\\n    ".join(commands))
 
-        strings = [script.format(**varmap)]
+        commands = [c.format(**varmap) for c in commands]
 
+        groups = [commands]
         if varmap["pypi_pkgs"]:
-            strings.append("\nRUN pip3 install {pypi_pkgs}".format(**varmap))
+            groups.append(["{paths_pip3} install {pypi_pkgs}".format(**varmap)])
 
         if varmap["cpan_pkgs"]:
-            strings.append("\nRUN cpanm --notest {cpan_pkgs}".format(**varmap))
+            groups.append(["cpanm --notest {cpan_pkgs}".format(**varmap)])
 
-        common_vars = ["ENV LANG \"en_US.UTF-8\""]
+        return groups
+
+    def _format_env_native(self, varmap):
+        env = {}
+
+        env["LANG"] = "en_US.UTF-8"
         if "make" in varmap["mappings"]:
-            common_vars += ["ENV MAKE \"{paths_make}\""]
+            env["MAKE"] = varmap["paths_make"]
         if "meson" in varmap["mappings"]:
-            common_vars += ["ENV NINJA \"{paths_ninja}\""]
+            env["NINJA"] = varmap["paths_ninja"]
         if "python3" in varmap["mappings"]:
-            common_vars += ["ENV PYTHON \"{paths_python}\""]
+            env["PYTHON"] = varmap["paths_python"]
         if "ccache" in varmap["mappings"]:
-            common_vars += ["ENV CCACHE_WRAPPERSDIR \"/usr/libexec/ccache-wrappers\""]
+            env["CCACHE_WRAPPERSDIR"] = "/usr/libexec/ccache-wrappers"
 
-        common_env = "\n" + "\n".join(common_vars)
-        strings.append(common_env.format(**varmap))
-        return strings
+        return env
 
-    def _format_section_foreign(self, facts, cross_arch, varmap):
+    def _format_commands_foreign(self, facts, cross_arch, varmap):
         cross_commands = []
 
         if facts["packaging"]["format"] == "deb":
@@ -397,14 +405,20 @@ class DockerfileFormatter(Formatter):
                 "{nosync}{packaging_command} dist-upgrade -y",
                 "{nosync}{packaging_command} install --no-install-recommends -y dpkg-dev",
                 "{nosync}{packaging_command} install --no-install-recommends -y {cross_pkgs}",
-                "{nosync}{packaging_command} autoremove -y",
-                "{nosync}{packaging_command} autoclean -y",
             ])
+            if self._pkgcleanup:
+                cross_commands.extend([
+                    "{nosync}{packaging_command} autoremove -y",
+                    "{nosync}{packaging_command} autoclean -y",
+                ])
         elif facts["packaging"]["format"] == "rpm":
             cross_commands.extend([
                 "{nosync}{packaging_command} install -y {cross_pkgs}",
-                "{nosync}{packaging_command} clean all -y",
             ])
+            if self._pkgcleanup:
+                cross_commands.extend([
+                    "{nosync}{packaging_command} clean all -y",
+                ])
 
         if not cross_arch.startswith("mingw"):
             cross_commands.extend([
@@ -417,25 +431,71 @@ class DockerfileFormatter(Formatter):
 
         cross_commands.extend(self._format_commands_pkglist(facts))
         cross_commands.extend(self._format_commands_ccache(cross_arch, varmap))
-        cross_script = "\nRUN " + (" && \\\n    ".join(cross_commands))
-        strings = [cross_script.format(**varmap)]
 
-        cross_vars = ["ENV ABI \"{cross_abi}\""]
+        cross_commands = [c.format(**varmap) for c in cross_commands]
+
+        return cross_commands
+
+    def _format_env_foreign(self, cross_arch, varmap):
+        env = {}
+        env["ABI"] = varmap["cross_abi"]
+
         if "autoconf" in varmap["mappings"]:
-            cross_vars.append("ENV CONFIGURE_OPTS \"--host={cross_abi}\"")
+            env["CONFIGURE_OPTS"] = "--host=" + varmap["cross_abi"]
 
         if "meson" in varmap["mappings"]:
             if cross_arch.startswith("mingw"):
-                cross_vars.append(
-                    "ENV MESON_OPTS \"--cross-file=/usr/share/mingw/toolchain-{cross_arch}.meson\""
-                )
+                env["MESON_OPTS"] = "--cross-file=/usr/share/mingw/toolchain-" + varmap["cross_arch"] + ".meson"
             else:
-                cross_vars.append(
-                    "ENV MESON_OPTS \"--cross-file={cross_abi}\"",
-                )
+                env["MESON_OPTS"] = "--cross-file=" + varmap["cross_abi"]
 
-        cross_env = "\n" + "\n".join(cross_vars)
-        strings.append(cross_env.format(**varmap))
+        return env
+
+
+class DockerfileFormatter(BuildEnvFormatter):
+
+    def __init__(self, base=None, layers="all"):
+        super().__init__(indent=len("RUN "),
+                         pkgcleanup=True,
+                         nosync=True)
+        self._base = base
+        self._layers = layers
+
+    @staticmethod
+    def _format_env(env):
+        lines = []
+        for key in sorted(env.keys()):
+            val = env[key]
+            lines.append(f"\nENV {key} \"{val}\"")
+        return "".join(lines)
+
+    def _format_section_base(self, facts):
+        strings = []
+        if self._base:
+            base = self._base
+        else:
+            base = facts["containers"]["base"]
+        strings.append(f"FROM {base}")
+        return strings
+
+    def _format_section_native(self, facts, cross_arch, varmap):
+        groups = self._format_commands_native(facts, cross_arch, varmap)
+
+        strings = []
+        for commands in groups:
+            strings.append("\nRUN " + " && \\\n    ".join(commands))
+
+        env = self._format_env_native(varmap)
+        strings.append(self._format_env(env))
+        return strings
+
+    def _format_section_foreign(self, facts, cross_arch, varmap):
+        commands = self._format_commands_foreign(facts, cross_arch, varmap)
+
+        strings = ["\nRUN " + " && \\\n    ".join(commands)]
+
+        env = self._format_env_foreign(cross_arch, varmap)
+        strings.append(self._format_env(env))
         return strings
 
     def _format_dockerfile(self, target, project, facts, cross_arch, varmap):
@@ -544,3 +604,63 @@ class JSONVariablesFormatter(VariablesFormatter):
     @staticmethod
     def _format_variables(varmap):
         return json.dumps(varmap, indent="  ", sort_keys=True)
+
+
+class ShellBuildEnvFormatter(BuildEnvFormatter):
+
+    def __init__(self, base=None, layers="all"):
+        super().__init__(indent=len("    "),
+                         pkgcleanup=False,
+                         nosync=False)
+
+    @staticmethod
+    def _format_env(env):
+        exp = []
+        for key in sorted(env.keys()):
+            val = env[key]
+            exp.append(f"export {key}=\"{val}\"")
+        return "\n" + "\n".join(exp)
+
+    def _format_buildenv(self, target, project, facts, cross_arch, varmap):
+        strings = [
+            "function install_buildenv() {",
+        ]
+        groups = self._format_commands_native(facts, cross_arch, varmap)
+        for commands in groups:
+            strings.extend(["    " + c for c in commands])
+        if cross_arch:
+            for command in self._format_commands_foreign(facts, cross_arch, varmap):
+                strings.append("    " + command)
+        strings.append("}")
+
+        strings.append(self._format_env(self._format_env_native(varmap)))
+        if cross_arch:
+            strings.append(self._format_env(
+                self._format_env_foreign(cross_arch, varmap)))
+        return strings
+
+    def format(self, target, selected_projects, cross_arch):
+        """
+        Generates and formats a Shell script for preparing a build env.
+
+        Given the application commandline arguments, this function will take
+        the projects and inventory attributes and generate a shell script
+        that prepares a environment for doing a project build on a given
+        inventory platform.
+
+        :param args: Application class' command line arguments
+        :returns: String represented shell script
+        """
+
+        log.debug(f"Generating Shell Build Env for projects '{selected_projects}' "
+                  f"on target '{target}' (cross_arch={cross_arch})")
+
+        try:
+            facts, cross_arch, varmap = self._generator_prepare(target,
+                                                                selected_projects,
+                                                                cross_arch)
+        except FormatterError as ex:
+            raise ShellBuildEnvError(str(ex))
+
+        return '\n'.join(self._format_buildenv(target, selected_projects,
+                                               facts, cross_arch, varmap))

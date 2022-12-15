@@ -153,6 +153,9 @@ OPENSBI_LD_PIE := $(shell $(CC) $(CLANG_TARGET) $(RELAX_FLAG) $(USE_LD_FLAG) -fP
 # Check whether the compiler supports -m(no-)save-restore
 CC_SUPPORT_SAVE_RESTORE := $(shell $(CC) $(CLANG_TARGET) $(RELAX_FLAG) -nostdlib -mno-save-restore -x c /dev/null -o /dev/null 2>&1 | grep "\-save\-restore" >/dev/null && echo n || echo y)
 
+# Check whether the assembler and the compiler support the Zicsr and Zifencei extensions
+CC_SUPPORT_ZICSR_ZIFENCEI := $(shell $(CC) $(CLANG_TARGET) $(RELAX_FLAG) -nostdlib -march=rv$(OPENSBI_CC_XLEN)imafd_zicsr_zifencei -x c /dev/null -o /dev/null 2>&1 | grep "zicsr\|zifencei" > /dev/null && echo n || echo y)
+
 # Build Info:
 # OPENSBI_BUILD_TIME_STAMP -- the compilation time stamp
 # OPENSBI_BUILD_COMPILER_VERSION -- the compiler version info
@@ -223,7 +226,11 @@ ifndef PLATFORM_RISCV_ABI
 endif
 ifndef PLATFORM_RISCV_ISA
   ifneq ($(PLATFORM_RISCV_TOOLCHAIN_DEFAULT), 1)
-    PLATFORM_RISCV_ISA = rv$(PLATFORM_RISCV_XLEN)imafdc
+    ifeq ($(CC_SUPPORT_ZICSR_ZIFENCEI), y)
+      PLATFORM_RISCV_ISA = rv$(PLATFORM_RISCV_XLEN)imafdc_zicsr_zifencei
+    else
+      PLATFORM_RISCV_ISA = rv$(PLATFORM_RISCV_XLEN)imafdc
+    endif
   else
     PLATFORM_RISCV_ISA = $(OPENSBI_CC_ISA)
   endif
@@ -397,6 +404,10 @@ compile_d2c = $(CMD_PREFIX)mkdir -p `dirname $(1)`; \
 	     $(if $($(2)-varprefix-$(3)),$(eval D2C_NAME_PREFIX := $($(2)-varprefix-$(3))),$(eval D2C_NAME_PREFIX := $(5))) \
 	     $(if $($(2)-padding-$(3)),$(eval D2C_PADDING_BYTES := $($(2)-padding-$(3))),$(eval D2C_PADDING_BYTES := 0)) \
 	     $(src_dir)/scripts/d2c.sh -i $(6) -a $(D2C_ALIGN_BYTES) -p $(D2C_NAME_PREFIX) -t $(D2C_PADDING_BYTES) > $(1)
+compile_carray = $(CMD_PREFIX)mkdir -p `dirname $(1)`; \
+	     echo " CARRAY    $(subst $(build_dir)/,,$(1))"; \
+	     $(eval CARRAY_VAR_LIST := $(carray-$(subst .c,,$(shell basename $(1)))-y)) \
+	     $(src_dir)/scripts/carray.sh -i $(2) -l "$(CARRAY_VAR_LIST)" > $(1)
 compile_gen_dep = $(CMD_PREFIX)mkdir -p `dirname $(1)`; \
 	     echo " GEN-DEP   $(subst $(build_dir)/,,$(1))"; \
 	     echo "$(1:.dep=$(2)): $(3)" >> $(1)
@@ -430,6 +441,9 @@ $(build_dir)/%.dep: $(src_dir)/%.c
 $(build_dir)/%.o: $(src_dir)/%.c
 	$(call compile_cc,$@,$<)
 
+$(build_dir)/%.o: $(build_dir)/%.c
+	$(call compile_cc,$@,$<)
+
 ifeq ($(BUILD_INFO),y)
 $(build_dir)/lib/sbi/sbi_init.o: $(libsbi_dir)/sbi_init.c FORCE
 	$(call compile_cc,$@,$<)
@@ -440,6 +454,13 @@ $(build_dir)/%.dep: $(src_dir)/%.S
 
 $(build_dir)/%.o: $(src_dir)/%.S
 	$(call compile_as,$@,$<)
+
+$(build_dir)/%.dep: $(src_dir)/%.carray
+	$(call compile_gen_dep,$@,.c,$<)
+	$(call compile_gen_dep,$@,.o,$(@:.dep=.c))
+
+$(build_dir)/%.c: $(src_dir)/%.carray
+	$(call compile_carray,$@,$<)
 
 $(platform_build_dir)/%.bin: $(platform_build_dir)/%.elf
 	$(call compile_objcopy,$@,$<)
@@ -454,9 +475,6 @@ $(platform_build_dir)/%.dep: $(platform_src_dir)/%.c
 	$(call compile_cc_dep,$@,$<)
 
 $(platform_build_dir)/%.o: $(platform_src_dir)/%.c
-	$(call compile_cc,$@,$<)
-
-$(platform_build_dir)/%.o: $(platform_build_dir)/%.c
 	$(call compile_cc,$@,$<)
 
 $(platform_build_dir)/%.dep: $(platform_src_dir)/%.S

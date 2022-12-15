@@ -37,7 +37,9 @@ RUN dnf distro-sync -y && \
         device-mapper-multipath-devel \
         diffutils \
         dwarves \
+        e2fsprogs \
         ebtables \
+        expect \
         findutils \
         firewalld-filesystem \
         flex \
@@ -96,7 +98,9 @@ RUN dnf distro-sync -y && \
         libfdt-devel \
         libffi-devel \
         libgcrypt-devel \
+        libguestfs-devel \
         libjpeg-devel \
+        libnbd-devel \
         libnl3-devel \
         libpcap-devel \
         libpciaccess-devel \
@@ -111,6 +115,7 @@ RUN dnf distro-sync -y && \
         libtasn1-devel \
         libtirpc-devel \
         libtool \
+        libtorrent-devel \
         libubsan \
         libusbx-devel \
         libuuid-devel \
@@ -123,6 +128,7 @@ RUN dnf distro-sync -y && \
         libzstd-devel \
         llvm \
         lttng-ust-devel \
+        lua-devel \
         lvm2 \
         lzo-devel \
         make \
@@ -151,6 +157,7 @@ RUN dnf distro-sync -y && \
         perl-Digest \
         perl-Digest-MD5 \
         perl-ExtUtils-CBuilder \
+        perl-ExtUtils-Embed \
         perl-File-Slurp \
         perl-IO-Compress-Bzip2 \
         perl-IO-Interface \
@@ -172,6 +179,7 @@ RUN dnf distro-sync -y && \
         perl-XML-XPath \
         perl-YAML \
         perl-base \
+        perl-devel \
         perl-generators \
         perl-podlators \
         php-devel \
@@ -181,10 +189,12 @@ RUN dnf distro-sync -y && \
         pulseaudio-libs-devel \
         python3 \
         python3-PyYAML \
+        python3-boto3 \
         python3-dbus \
         python3-devel \
         python3-docutils \
         python3-gobject \
+        python3-libnbd \
         python3-libxml2 \
         python3-lxml \
         python3-numpy \
@@ -209,10 +219,13 @@ RUN dnf distro-sync -y && \
         scrub \
         sed \
         snappy-devel \
+        socat \
         spice-protocol \
         systemd-devel \
+        systemd-rpm-macros \
         systemtap-sdt-devel \
         tar \
+        tcl-devel \
         tcpdump \
         texinfo \
         unzip \
@@ -225,6 +238,7 @@ RUN dnf distro-sync -y && \
         which \
         wireshark-devel \
         xfsprogs-devel \
+        xorriso \
         xz \
         xz-devel \
         yajl-devel \
@@ -241,7 +255,9 @@ RUN dnf distro-sync -y && \
     ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/g++ && \
     ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/gcc
 
-RUN pip3 install pillow
+RUN /usr/bin/pip3 install \
+                  flake8 \
+                  pillow
 
 RUN cpanm --notest \
           LWP::UserAgent \
@@ -251,8 +267,8 @@ RUN cpanm --notest \
           TAP::Harness::Archive \
           accessors
 
+ENV CCACHE_WRAPPERSDIR "/usr/libexec/ccache-wrappers"
 ENV LANG "en_US.UTF-8"
 ENV MAKE "/usr/bin/make"
 ENV NINJA "/usr/bin/ninja"
 ENV PYTHON "/usr/bin/python3"
-ENV CCACHE_WRAPPERSDIR "/usr/libexec/ccache-wrappers"

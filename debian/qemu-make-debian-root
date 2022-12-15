@@ -7,15 +7,15 @@
 
 set -e
 
-which debootstrap >/dev/null || {
+command -v debootstrap >/dev/null || {
     echo "error: missing debootstrap package" >&2
     exit 1
 }
-which sfdisk >/dev/null || {
+command -v sfdisk >/dev/null || {
     echo "error: missing fdisk package" >&2
     exit 1
 }
-which mke2fs >/dev/null || {
+command -v mke2fs >/dev/null || {
     echo "error: missing e2fsprogs package" >&2
     exit 1
 }

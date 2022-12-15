@@ -32,7 +32,9 @@ RUN zypper update -y && \
            device-mapper-devel \
            diffutils \
            dwarves \
+           e2fsprogs \
            ebtables \
+           expect \
            findutils \
            flex \
            fuse-devel \
@@ -97,9 +99,11 @@ RUN zypper update -y && \
            libgcrypt-devel \
            libgnutls-devel \
            libgovirt-devel \
+           libguestfs-devel \
            libiscsi-devel \
            libjpeg8-devel \
            libjson-c-devel \
+           libnbd-devel \
            libndctl-devel \
            libnettle-devel \
            libnfs-devel \
@@ -115,6 +119,7 @@ RUN zypper update -y && \
            librest-devel \
            libseccomp-devel \
            libselinux-devel \
+           libslirp-devel \
            libsoup-devel \
            libspice-server-devel \
            libssh-devel \
@@ -122,6 +127,7 @@ RUN zypper update -y && \
            libtasn1-devel \
            libtirpc-devel \
            libtool \
+           libtorrent-devel \
            libubsan1 \
            libudev-devel \
            liburing-devel \
@@ -138,6 +144,7 @@ RUN zypper update -y && \
            libzstd-devel \
            llvm \
            lttng-ust-devel \
+           lua-devel \
            lvm2 \
            lzo-devel \
            make \
@@ -193,6 +200,7 @@ RUN zypper update -y && \
            python3-PyYAML \
            python3-Sphinx \
            python3-base \
+           python3-boto3 \
            python3-dbus-python \
            python3-devel \
            python3-docutils \
@@ -222,12 +230,15 @@ RUN zypper update -y && \
            scrub \
            sed \
            snappy-devel \
+           socat \
            sparse \
            spice-gtk-devel \
            spice-protocol-devel \
            systemd-devel \
+           systemd-rpm-macros \
            systemtap-sdt-devel \
            tar \
+           tcl-devel \
            tcpdump \
            tesseract-ocr \
            tesseract-ocr-traineddata-english \
@@ -244,6 +255,7 @@ RUN zypper update -y && \
            wireshark-devel \
            xen-devel \
            xfsprogs-devel \
+           xorriso \
            xz \
            xz-devel \
            xz-static-devel \
@@ -259,7 +271,7 @@ RUN zypper update -y && \
     ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/g++ && \
     ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/gcc
 
-RUN pip3 install meson==0.56.0
+RUN /usr/bin/pip3 install meson==0.56.0
 
 RUN cpanm --notest \
           IO::Compress::Bzip2 \
@@ -270,8 +282,8 @@ RUN cpanm --notest \
           TAP::Harness::Archive \
           accessors
 
+ENV CCACHE_WRAPPERSDIR "/usr/libexec/ccache-wrappers"
 ENV LANG "en_US.UTF-8"
 ENV MAKE "/usr/bin/make"
 ENV NINJA "/usr/bin/ninja"
 ENV PYTHON "/usr/bin/python3"
-ENV CCACHE_WRAPPERSDIR "/usr/libexec/ccache-wrappers"

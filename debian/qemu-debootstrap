@@ -5,7 +5,7 @@
 # so regular debootstrap can be used just fine without --foreign, since all
 # commands inside the chroot will just run using qemu from binfmt-misc subsystem.
 
-if ! which debootstrap >/dev/null 2>/dev/null; then
+if ! command -v debootstrap >/dev/null; then
   echo "E: debootstrap isn't found in \$PATH, is debootstrap package installed?" >&2
   exit 1
 fi

@@ -13,21 +13,21 @@ exec "$@"' > /usr/bin/nosync && \
     chmod +x /usr/bin/nosync && \
     nosync dnf distro-sync -y && \
     nosync dnf install -y \
-        ca-certificates \
-        ccache \
-        git \
-        glibc-langpack-en \
-        golang && \
+               ca-certificates \
+               ccache \
+               git \
+               glibc-langpack-en \
+               golang && \
     nosync dnf autoremove -y && \
     nosync dnf clean all -y
 
-ENV LANG "en_US.UTF-8"
 ENV CCACHE_WRAPPERSDIR "/usr/libexec/ccache-wrappers"
+ENV LANG "en_US.UTF-8"
 
 RUN nosync dnf install -y \
-        mingw32-gcc \
-        mingw32-headers \
-        mingw32-pkg-config && \
+               mingw32-gcc \
+               mingw32-headers \
+               mingw32-pkg-config && \
     nosync dnf clean all -y && \
     rpm -qa | sort > /packages.txt && \
     mkdir -p /usr/libexec/ccache-wrappers && \
