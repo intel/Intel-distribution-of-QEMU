@@ -1,0 +1,53 @@
+From: Klaus Jensen <k.jensen@samsung.com>
+Date: Thu, 8 Dec 2022 09:12:45 +0100
+Subject: hw/nvme: fix missing cq eventidx update
+
+Prior to reading the shadow doorbell cq head, we have to update the
+eventidx. Otherwise, we risk that the driver will skip an mmio doorbell
+write. This happens on riscv64, as reported by Guenter.
+
+Adding the missing update to the cq eventidx fixes the issue.
+
+Fixes: 3f7fe8de3d49 ("hw/nvme: Implement shadow doorbell buffer support")
+Cc: qemu-stable@nongnu.org
+Cc: qemu-riscv@nongnu.org
+Reported-by: Guenter Roeck <linux@roeck-us.net>
+Reviewed-by: Keith Busch <kbusch@kernel.org>
+Signed-off-by: Klaus Jensen <k.jensen@samsung.com>
+(cherry picked from commit fa5db2aa168bdc0f15c269b6212ef47632fab8ba)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+---
+ hw/nvme/ctrl.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/hw/nvme/ctrl.c b/hw/nvme/ctrl.c
+index 98d8e34109..5d2a28261e 100644
+--- a/hw/nvme/ctrl.c
++++ b/hw/nvme/ctrl.c
+@@ -1331,6 +1331,15 @@ static inline void nvme_blk_write(BlockBackend *blk, int64_t offset,
+     }
+ }
+ 
++static void nvme_update_cq_eventidx(const NvmeCQueue *cq)
++{
++    uint32_t v = cpu_to_le32(cq->head);
++
++    //not in 7.2: trace_pci_nvme_update_cq_eventidx(cq->cqid, cq->head);
++
++    pci_dma_write(PCI_DEVICE(cq->ctrl), cq->ei_addr, &v, sizeof(v));
++}
++
+ static void nvme_update_cq_head(NvmeCQueue *cq)
+ {
+     uint32_t v;
+@@ -1355,6 +1364,7 @@ static void nvme_post_cqes(void *opaque)
+         hwaddr addr;
+ 
+         if (n->dbbuf_enabled) {
++            nvme_update_cq_eventidx(cq);
+             nvme_update_cq_head(cq);
+         }
+ 
+-- 
+2.30.2
+

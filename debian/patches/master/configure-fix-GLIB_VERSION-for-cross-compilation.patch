@@ -1,0 +1,37 @@
+From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Sat, 7 Jan 2023 14:32:41 +0100
+Subject: configure: fix GLIB_VERSION for cross-compilation
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+configure uses "pkg-config" directly so that GLIB_VERSION is always based
+on host glib version.   To correctly handle cross-compilation it should use
+"$pkg_config" and take GLIB_VERSION from the cross-compiled glib.
+
+Reported-by: Валентин <val15032008@mail.ru>
+Resolves: https://gitlab.com/qemu-project/qemu/-/issues/1414
+Cc: qemu-stable@nongnu.org
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit acedc9a660f83b362a1dec4b699e85d5dd82a067)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+---
+ configure | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/configure b/configure
+index 26c7bc5154..5f1828f1ec 100755
+--- a/configure
++++ b/configure
+@@ -2416,7 +2416,7 @@ echo "QEMU_OBJCFLAGS=$QEMU_OBJCFLAGS" >> $config_host_mak
+ echo "GLIB_CFLAGS=$glib_cflags" >> $config_host_mak
+ echo "GLIB_LIBS=$glib_libs" >> $config_host_mak
+ echo "GLIB_BINDIR=$glib_bindir" >> $config_host_mak
+-echo "GLIB_VERSION=$(pkg-config --modversion glib-2.0)" >> $config_host_mak
++echo "GLIB_VERSION=$($pkg_config --modversion glib-2.0)" >> $config_host_mak
+ echo "QEMU_LDFLAGS=$QEMU_LDFLAGS" >> $config_host_mak
+ echo "EXESUF=$EXESUF" >> $config_host_mak
+ 
+-- 
+2.30.2
+

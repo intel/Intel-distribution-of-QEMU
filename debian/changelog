@@ -1,3 +1,29 @@
+qemu (1:7.2+dfsg-2) unstable; urgency=medium
+
+  * d/rules: add -ffile-prefix-map when building skiboot
+  * d/control: provide qemu-kvm in qemu-system-misc on s390x
+    (Closes: #1029309)
+  * d/control: drop dependency of qemu-guest-agent on lsb-base
+  * Picked patches from qemu master branch tagged for qemu-stable
+    up to commit deabea6e88 (2023-02-02):
+    target-sh4-Mask-restore-of-env-flags-from-tb-flags.patch
+    vhost-fix-vq-dirty-bitmap-syncing-when-vIOMMU-is-ena.patch
+    virtio-mem-Fix-the-bitmap-index-of-the-section-offse.patch
+    virtio-mem-Fix-the-iterator-variable-in-a-vmem-rdl_l.patch
+    target-arm-fix-handling-of-HLT-semihosting-in-system.patch
+    meson-accept-relative-symlinks-in-meson-introspect-i.patch
+    target-riscv-Set-pc_succ_insn-for-rvc-illegal-insn.patch
+    acpi-cpuhp-fix-guest-visible-maximum-access-size-to-.patch
+    hw-nvme-fix-missing-endian-conversions-for-doorbell-.patch
+    hw-nvme-fix-missing-cq-eventidx-update.patch
+    configure-fix-GLIB_VERSION-for-cross-compilation.patch
+    target-arm-Fix-sve_probe_page.patch
+    target-arm-allow-writes-to-SCR_EL3.HXEn-bit-when-FEA.patch
+    target-arm-Fix-in_debug-path-in-S1_ptw_translate.patch
+  * Also: target-arm-Fix-physical-address-resolution-for-Stage.patch
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 02 Feb 2023 21:17:10 +0300
+
 qemu (1:7.2+dfsg-1) unstable; urgency=medium
 
   * new upstream release

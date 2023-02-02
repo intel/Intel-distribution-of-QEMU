@@ -1,0 +1,39 @@
+From: Evgeny Iakovlev <eiakovlev@linux.microsoft.com>
+Date: Thu, 5 Jan 2023 23:12:51 +0100
+Subject: target/arm: allow writes to SCR_EL3.HXEn bit when FEAT_HCX is enabled
+
+ARM trusted firmware, when built with FEAT_HCX support, sets SCR_EL3.HXEn bit
+to allow EL2 to modify HCRX_EL2 register without trapping it in EL3. Qemu
+uses a valid mask to clear unsupported SCR_EL3 bits when emulating SCR_EL3
+write, and that mask doesn't include SCR_EL3.HXEn bit even if FEAT_HCX is
+enabled and exposed to the guest. As a result EL3 writes of that bit are
+ignored.
+
+Cc: qemu-stable@nongnu.org
+Signed-off-by: Evgeny Iakovlev <eiakovlev@linux.microsoft.com>
+Message-id: 20230105221251.17896-4-eiakovlev@linux.microsoft.com
+Reviewed-by: Peter Maydell <peter.maydell@linaro.org>
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+(cherry picked from commit 08899b5c68a55a3780d707e2464073c8f2670d31)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+---
+ target/arm/helper.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/target/arm/helper.c b/target/arm/helper.c
+index d8c8223ec3..22bc935242 100644
+--- a/target/arm/helper.c
++++ b/target/arm/helper.c
+@@ -1820,6 +1820,9 @@ static void scr_write(CPUARMState *env, const ARMCPRegInfo *ri, uint64_t value)
+         if (cpu_isar_feature(aa64_sme, cpu)) {
+             valid_mask |= SCR_ENTP2;
+         }
++        if (cpu_isar_feature(aa64_hcx, cpu)) {
++            valid_mask |= SCR_HXEN;
++        }
+     } else {
+         valid_mask &= ~(SCR_RW | SCR_ST);
+         if (cpu_isar_feature(aa32_ras, cpu)) {
+-- 
+2.30.2
+

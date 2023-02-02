@@ -263,7 +263,8 @@ Recommends: qemu-system-gui (= ${binary:Version}), qemu-utils,
  seabios, ipxe-qemu,
  qemu-block-extra (= ${binary:Version}),
 Suggests: samba, vde2,
-Provides: ${sysprovides:misc}
+Provides: ${sysprovides:misc},
+:debian: qemu-kvm [s390x],
 Description: QEMU full system emulation binaries (miscellaneous)
  QEMU is a fast processor emulator: currently the package supports
  ARM, CRIS, M68k (ColdFire), MicroBlaze, and SH4
@@ -506,7 +507,7 @@ Description: QEMU utilities
 Package: qemu-guest-agent
 Architecture: any
 Multi-Arch: foreign
-Depends: ${shlibs:Depends}, ${misc:Depends}, lsb-base (>= 3.0-6)
+Depends: ${shlibs:Depends}, ${misc:Depends}
 Pre-Depends: ${misc:Pre-Depends}
 Description: Guest-side qemu-system agent
  QEMU is a fast processor emulator: currently the package supports

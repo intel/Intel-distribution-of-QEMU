@@ -445,8 +445,13 @@ sysdata-components += openbios
 build-skiboot: b/skiboot/skiboot.lid
 b/skiboot/skiboot.lid: | roms/skiboot/.version
 	mkdir -p b/skiboot
+# skiboot makefiles makes it difficult to *add* an option to CFLAGS.
+# Abuse OPTS= for this, with the default being -Os.
+	grep -q '^OPTS=-Os$$' roms/skiboot/Makefile.main || \
+	  { echo "review OPTS= in skiboot/Makefile.main"; false; }
 	${MAKE} -C b/skiboot -f ${CURDIR}/roms/skiboot/Makefile \
 	  SRC=${CURDIR}/roms/skiboot \
+	  OPTS='-Os -ffile-prefix-map="${CURDIR}/roms/skiboot/"=' \
 	  CROSS_COMPILE=${PPC64_CROSSPFX} V=${V}
 install-skiboot: b/skiboot/skiboot.lid
 	install -m 0644 -t ${sysdataidir} $<

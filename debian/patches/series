@@ -15,3 +15,19 @@ openbios-spelling-endianess.patch
 slof-spelling-seperator.patch
 ignore-roms-dependency-in-qtest.patch
 hw-pvrdma-protect-against-guest-driver-CVE-2022-1050.patch
+# patches from qemu master branch which are for -stable:
+master/target-sh4-Mask-restore-of-env-flags-from-tb-flags.patch
+master/vhost-fix-vq-dirty-bitmap-syncing-when-vIOMMU-is-ena.patch
+master/virtio-mem-Fix-the-bitmap-index-of-the-section-offse.patch
+master/virtio-mem-Fix-the-iterator-variable-in-a-vmem-rdl_l.patch
+master/target-arm-fix-handling-of-HLT-semihosting-in-system.patch
+master/meson-accept-relative-symlinks-in-meson-introspect-i.patch
+master/target-riscv-Set-pc_succ_insn-for-rvc-illegal-insn.patch
+master/acpi-cpuhp-fix-guest-visible-maximum-access-size-to-.patch
+master/hw-nvme-fix-missing-endian-conversions-for-doorbell-.patch
+master/hw-nvme-fix-missing-cq-eventidx-update.patch
+master/configure-fix-GLIB_VERSION-for-cross-compilation.patch
+master/target-arm-Fix-sve_probe_page.patch
+master/target-arm-allow-writes-to-SCR_EL3.HXEn-bit-when-FEA.patch
+master/target-arm-Fix-in_debug-path-in-S1_ptw_translate.patch
+target-arm-Fix-physical-address-resolution-for-Stage.patch

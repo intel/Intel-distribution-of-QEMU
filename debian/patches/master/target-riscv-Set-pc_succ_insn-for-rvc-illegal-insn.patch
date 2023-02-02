@@ -1,0 +1,121 @@
+From: Richard Henderson <richard.henderson@linaro.org>
+Date: Sat, 3 Dec 2022 11:57:44 -0600
+Subject: target/riscv: Set pc_succ_insn for !rvc illegal insn
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Failure to set pc_succ_insn may result in a TB covering zero bytes,
+which triggers an assert within the code generator.
+
+Cc: qemu-stable@nongnu.org
+Resolves: https://gitlab.com/qemu-project/qemu/-/issues/1224
+Signed-off-by: Richard Henderson <richard.henderson@linaro.org>
+Reviewed-by: Alistair Francis <alistair.francis@wdc.com>
+Reviewed-by: Philippe Mathieu-Daudé <philmd@linaro.org>
+Message-Id: <20221203175744.151365-1-richard.henderson@linaro.org>
+[ Changes by AF:
+ - Add missing run-plugin-test-noc-% line
+]
+Signed-off-by: Alistair Francis <alistair.francis@wdc.com>
+(cherry picked from commit ec2918b467228e7634f1dd5f35033ad3021b6ef7)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+---
+ target/riscv/translate.c          | 12 ++++--------
+ tests/tcg/Makefile.target         |  2 ++
+ tests/tcg/riscv64/Makefile.target |  6 ++++++
+ tests/tcg/riscv64/test-noc.S      | 32 +++++++++++++++++++++++++++++++
+ 4 files changed, 44 insertions(+), 8 deletions(-)
+ create mode 100644 tests/tcg/riscv64/test-noc.S
+
+diff --git a/target/riscv/translate.c b/target/riscv/translate.c
+index db123da5ec..1ed4bb5ec3 100644
+--- a/target/riscv/translate.c
++++ b/target/riscv/translate.c
+@@ -1064,14 +1064,10 @@ static void decode_opc(CPURISCVState *env, DisasContext *ctx, uint16_t opcode)
+ 
+     /* Check for compressed insn */
+     if (insn_len(opcode) == 2) {
+-        if (!has_ext(ctx, RVC)) {
+-            gen_exception_illegal(ctx);
+-        } else {
+-            ctx->opcode = opcode;
+-            ctx->pc_succ_insn = ctx->base.pc_next + 2;
+-            if (decode_insn16(ctx, opcode)) {
+-                return;
+-            }
++        ctx->opcode = opcode;
++        ctx->pc_succ_insn = ctx->base.pc_next + 2;
++        if (has_ext(ctx, RVC) && decode_insn16(ctx, opcode)) {
++            return;
+         }
+     } else {
+         uint32_t opcode32 = opcode;
+diff --git a/tests/tcg/Makefile.target b/tests/tcg/Makefile.target
+index 75257f2b29..14bc013181 100644
+--- a/tests/tcg/Makefile.target
++++ b/tests/tcg/Makefile.target
+@@ -117,6 +117,8 @@ endif
+ 
+ %: %.c
+ 	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $< -o $@ $(LDFLAGS)
++%: %.S
++	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $< -o $@ $(LDFLAGS)
+ else
+ # For softmmu targets we include a different Makefile fragement as the
+ # build options for bare programs are usually pretty different. They
+diff --git a/tests/tcg/riscv64/Makefile.target b/tests/tcg/riscv64/Makefile.target
+index b5b89dfb0e..cc3ed65ffd 100644
+--- a/tests/tcg/riscv64/Makefile.target
++++ b/tests/tcg/riscv64/Makefile.target
+@@ -4,3 +4,9 @@
+ VPATH += $(SRC_PATH)/tests/tcg/riscv64
+ TESTS += test-div
+ TESTS += noexec
++
++# Disable compressed instructions for test-noc
++TESTS += test-noc
++test-noc: LDFLAGS = -nostdlib -static
++run-test-noc: QEMU_OPTS += -cpu rv64,c=false
++run-plugin-test-noc-%: QEMU_OPTS += -cpu rv64,c=false
+diff --git a/tests/tcg/riscv64/test-noc.S b/tests/tcg/riscv64/test-noc.S
+new file mode 100644
+index 0000000000..e29d60c8b3
+--- /dev/null
++++ b/tests/tcg/riscv64/test-noc.S
+@@ -0,0 +1,32 @@
++#include <asm/unistd.h>
++
++	.text
++	.globl _start
++_start:
++	.option	norvc
++	li	a0, 4		/* SIGILL */
++	la	a1, sa
++	li	a2, 0
++	li	a3, 8
++	li	a7, __NR_rt_sigaction
++	scall
++
++	.option	rvc
++	li	a0, 1
++	j	exit
++	.option	norvc
++
++pass:
++	li	a0, 0
++exit:
++	li	a7, __NR_exit
++	scall
++
++	.data
++	/* struct kernel_sigaction sa = { .sa_handler = pass }; */
++	.type	sa, @object
++	.size	sa, 32
++sa:
++	.dword	pass
++	.zero	24
++
+-- 
+2.30.2
+

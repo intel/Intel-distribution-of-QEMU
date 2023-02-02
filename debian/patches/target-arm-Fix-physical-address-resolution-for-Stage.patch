@@ -1,0 +1,30 @@
+From: Richard Henderson <richard.henderson@linaro.org>
+Date: Mon, 30 Jan 2023 10:59:08 -1000
+Subject: target/arm: Fix physical address resolution for Stage2
+
+Conversion to probe_access_full missed applying the page offset.
+
+Cc: qemu-stable@nongnu.org
+Reported-by: Sid Manning <sidneym@quicinc.com>
+Fixes: f3639a64f602 ("target/arm: Use softmmu tlbs for page table walking")
+Signed-off-by: Richard Henderson <richard.henderson@linaro.org>
+---
+ target/arm/ptw.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/target/arm/ptw.c b/target/arm/ptw.c
+index f812734bfb..8fefa534e8 100644
+--- a/target/arm/ptw.c
++++ b/target/arm/ptw.c
+@@ -266,7 +266,7 @@ static bool S1_ptw_translate(CPUARMState *env, S1Translate *ptw,
+         if (unlikely(flags & TLB_INVALID_MASK)) {
+             goto fail;
+         }
+-        ptw->out_phys = full->phys_addr;
++        ptw->out_phys = full->phys_addr | (addr & ~TARGET_PAGE_MASK);
+         ptw->out_rw = full->prot & PAGE_WRITE;
+         pte_attrs = full->pte_attrs;
+         pte_secure = full->attrs.secure;
+-- 
+2.30.2
+
