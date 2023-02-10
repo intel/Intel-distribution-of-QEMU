@@ -1,3 +1,27 @@
+qemu (1:7.2+dfsg-3) unstable; urgency=medium
+
+  [ Paride Legovini ]
+  * Disable LTO on non-amd64 builds (LP: #1921664)
+
+  [ Michael Tokarev ]
+  * target-arm-Fix-physical-address-resolution-for-Stage2.patch:
+    re-fetch now from master branch
+  * 4 more patches picked from master:
+    x86-don-t-let-decompressed-kernel-image-clobber-setu.patch
+    migration-ram-Fix-error-handling-in-ram_write_tracki.patch
+    migration-ram-Fix-populate_read_range.patch
+    qcow2-Fix-theoretical-corruption-in-store_bitmap-err.patch
+  * 5 fixes picked from current pullreqs:
+    block-fix-detect-zeroes-with-BDRV_REQ_REGISTERED_BUF.patch
+    tests_tcg_i386-introduce-and-use-reg_t-consistently.patch
+    target_i386-fix-BEXTR-instruction.patch
+    target_i386-fix-C-flag-for-BLSI-BLSMSK-BLSR.patch
+    target_i386-fix-ADOX-followed-by-ADCX.patch
+  * disable dwz on certain architectures for older dwz
+    (FTBFS on bullseye, #968670)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 10 Feb 2023 14:29:12 +0300
+
 qemu (1:7.2+dfsg-2) unstable; urgency=medium
 
   * d/rules: add -ffile-prefix-map when building skiboot

@@ -1,0 +1,43 @@
+From 5f19a4491941fdc5c5b50ce4ade6ffffe0f591b4 Mon Sep 17 00:00:00 2001
+From: David Hildenbrand <david@redhat.com>
+Date: Thu, 5 Jan 2023 13:45:24 +0100
+Subject: migration/ram: Fix populate_read_range()
+
+Unfortunately, commit f7b9dcfbcf44 broke populate_read_range(): the loop
+end condition is very wrong, resulting in that function not populating the
+full range. Lets' fix that.
+
+Fixes: f7b9dcfbcf44 ("migration/ram: Factor out populating pages readable in ram_block_populate_pages()")
+Cc: qemu-stable@nongnu.org
+Reviewed-by: Peter Xu <peterx@redhat.com>
+Reviewed-by: Juan Quintela <quintela@redhat.com>
+Signed-off-by: David Hildenbrand <david@redhat.com>
+Signed-off-by: Juan Quintela <quintela@redhat.com>
+---
+ migration/ram.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/migration/ram.c b/migration/ram.c
+index 885d7dbf23..ba228eead4 100644
+--- a/migration/ram.c
++++ b/migration/ram.c
+@@ -1774,13 +1774,15 @@ out:
+ static inline void populate_read_range(RAMBlock *block, ram_addr_t offset,
+                                        ram_addr_t size)
+ {
++    const ram_addr_t end = offset + size;
++
+     /*
+      * We read one byte of each page; this will preallocate page tables if
+      * required and populate the shared zeropage on MAP_PRIVATE anonymous memory
+      * where no page was populated yet. This might require adaption when
+      * supporting other mappings, like shmem.
+      */
+-    for (; offset < size; offset += block->page_size) {
++    for (; offset < end; offset += block->page_size) {
+         char tmp = *((char *)block->host + offset);
+ 
+         /* Don't optimize the read out */
+-- 
+2.30.2
+

@@ -14,6 +14,13 @@ ifeq (${DEB_HOST_MULTIARCH},)
    $(foreach d, $(shell dpkg-architecture | sed 's/=/?=/'), $(eval export $d))
 endif
 
+# Disable LTO on non-amd64 builds, see:
+# https://bugs.launchpad.net/ubuntu/+source/qemu/+bug/1921664
+# https://bugzilla.redhat.com/show_bug.cgi?id=1952483
+ifneq ($(DEB_HOST_ARCH),amd64)
+  export DEB_BUILD_MAINT_OPTIONS += optimize=-lto
+endif
+
 ifeq ($(shell dpkg-vendor --derives-from Ubuntu && echo yes),yes)
 VENDOR := UBUNTU
 DEB_BUILD_PARALLEL = yes
@@ -419,6 +426,16 @@ endif
 
 # we do not need these (just a tiny build speedup):
 override_dh_makeshlibs:
+
+override_dh_dwz: #968670: skip dwz << 0.14 on these arches, remove in bookworm+1
+ifneq (,$(filter ${DEB_HOST_ARCH},arm64 ppc64el s390x))
+	v="$$(dwz --version 2>&1 | sed -n 's/^dwz version //p')"; case "$$v" in \
+	  (0.1[0123]) echo "Skipping dwz version $$v on ${DEB_HOST_ARCH}: #968670" ;; \
+	  (*) dh_dwz ;; \
+	esac
+else
+	dh_dwz
+endif
 
 ##############################################
 ### firmware, qemu-user-data package

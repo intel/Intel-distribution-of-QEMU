@@ -1,0 +1,56 @@
+From b03dd9613bcf8fe948581b2b3585510cb525c382 Mon Sep 17 00:00:00 2001
+From: Kevin Wolf <kwolf@redhat.com>
+Date: Thu, 12 Jan 2023 20:14:51 +0100
+Subject: qcow2: Fix theoretical corruption in store_bitmap() error path
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+In order to write the bitmap table to the image file, it is converted to
+big endian. If the write fails, it is passed to clear_bitmap_table() to
+free all of the clusters it had allocated before. However, if we don't
+convert it back to native endianness first, we'll free things at a wrong
+offset.
+
+In practical terms, the offsets will be so high that we won't actually
+free any allocated clusters, but just run into an error, but in theory
+this can cause image corruption.
+
+Cc: qemu-stable@nongnu.org
+Signed-off-by: Kevin Wolf <kwolf@redhat.com>
+Message-Id: <20230112191454.169353-2-kwolf@redhat.com>
+Reviewed-by: Hanna Czenczek <hreitz@redhat.com>
+Reviewed-by: Philippe Mathieu-Daudé <philmd@linaro.org>
+Signed-off-by: Kevin Wolf <kwolf@redhat.com>
+---
+ block/qcow2-bitmap.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/block/qcow2-bitmap.c b/block/qcow2-bitmap.c
+index 385260a1b5..5f456a2785 100644
+--- a/block/qcow2-bitmap.c
++++ b/block/qcow2-bitmap.c
+@@ -117,7 +117,7 @@ static int update_header_sync(BlockDriverState *bs)
+     return bdrv_flush(bs->file->bs);
+ }
+ 
+-static inline void bitmap_table_to_be(uint64_t *bitmap_table, size_t size)
++static inline void bitmap_table_bswap_be(uint64_t *bitmap_table, size_t size)
+ {
+     size_t i;
+ 
+@@ -1403,9 +1403,10 @@ static int store_bitmap(BlockDriverState *bs, Qcow2Bitmap *bm, Error **errp)
+         goto fail;
+     }
+ 
+-    bitmap_table_to_be(tb, tb_size);
++    bitmap_table_bswap_be(tb, tb_size);
+     ret = bdrv_pwrite(bs->file, tb_offset, tb_size * sizeof(tb[0]), tb, 0);
+     if (ret < 0) {
++        bitmap_table_bswap_be(tb, tb_size);
+         error_setg_errno(errp, -ret, "Failed to write bitmap '%s' to file",
+                          bm_name);
+         goto fail;
+-- 
+2.30.2
+

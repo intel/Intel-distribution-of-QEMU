@@ -1,0 +1,46 @@
+From 72ef3a370836aa07261ad7aaeea27ed5cbcee342 Mon Sep 17 00:00:00 2001
+From: David Hildenbrand <david@redhat.com>
+Date: Thu, 5 Jan 2023 13:45:25 +0100
+Subject: migration/ram: Fix error handling in ram_write_tracking_start()
+
+If something goes wrong during uffd_change_protection(), we would miss
+to unregister uffd-wp and not release our reference. Fix it by
+performing the uffd_change_protection(true) last.
+
+Note that a uffd_change_protection(false) on the recovery path without a
+prior uffd_change_protection(false) is fine.
+
+Fixes: 278e2f551a09 ("migration: support UFFD write fault processing in ram_save_iterate()")
+Cc: qemu-stable@nongnu.org
+Reviewed-by: Peter Xu <peterx@redhat.com>
+Reviewed-by: Juan Quintela <quintela@redhat.com>
+Signed-off-by: David Hildenbrand <david@redhat.com>
+Signed-off-by: Juan Quintela <quintela@redhat.com>
+---
+ migration/ram.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/migration/ram.c b/migration/ram.c
+index ba228eead4..73e5ca93e5 100644
+--- a/migration/ram.c
++++ b/migration/ram.c
+@@ -1896,13 +1896,14 @@ int ram_write_tracking_start(void)
+                 block->max_length, UFFDIO_REGISTER_MODE_WP, NULL)) {
+             goto fail;
+         }
++        block->flags |= RAM_UF_WRITEPROTECT;
++        memory_region_ref(block->mr);
++
+         /* Apply UFFD write protection to the block memory range */
+         if (uffd_change_protection(rs->uffdio_fd, block->host,
+                 block->max_length, true, false)) {
+             goto fail;
+         }
+-        block->flags |= RAM_UF_WRITEPROTECT;
+-        memory_region_ref(block->mr);
+ 
+         trace_ram_write_tracking_ramblock_start(block->idstr, block->page_size,
+                 block->host, block->max_length);
+-- 
+2.30.2
+
