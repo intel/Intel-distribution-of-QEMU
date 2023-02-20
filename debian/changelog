@@ -1,3 +1,14 @@
+qemu (1:7.2+dfsg-4) unstable; urgency=medium
+
+  * block-fix-detect-zeroes-with-BDRV_REQ_REGISTERED_BUF.patch:
+    re-pick now from master (the same patch, moved to master/).
+  * revert x86-don-t-let-decompressed-kernel-image-clobber-setu.patch
+    Closes: ##1031682 .
+    This turned out to be wrong move, breaking more stuff than fixing.
+    Upstream is going to revert it too.
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 20 Feb 2023 21:00:18 +0300
+
 qemu (1:7.2+dfsg-3) unstable; urgency=medium
 
   [ Paride Legovini ]

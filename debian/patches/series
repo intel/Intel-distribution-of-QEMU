@@ -30,14 +30,11 @@ master/configure-fix-GLIB_VERSION-for-cross-compilation.patch
 master/target-arm-Fix-sve_probe_page.patch
 master/target-arm-allow-writes-to-SCR_EL3.HXEn-bit-when-FEA.patch
 master/target-arm-Fix-in_debug-path-in-S1_ptw_translate.patch
-# see https://lists.gnu.org/archive/html/qemu-devel/2023-02/msg02333.html :
-master/x86-don-t-let-decompressed-kernel-image-clobber-setu.patch
 master/target-arm-Fix-physical-address-resolution-for-Stage2.patch
 master/migration-ram-Fix-error-handling-in-ram_write_tracki.patch
 master/migration-ram-Fix-populate_read_range.patch
 master/qcow2-Fix-theoretical-corruption-in-store_bitmap-err.patch
-# from stefanha pullreq "Block patches":
-block-fix-detect-zeroes-with-BDRV_REQ_REGISTERED_BUF.patch
+master/block-fix-detect-zeroes-with-BDRV_REQ_REGISTERED_BUF.patch
 # bonzini pullreq "Misc patches for 2022-02-08"
 tests_tcg_i386-introduce-and-use-reg_t-consistently.patch
 target_i386-fix-BEXTR-instruction.patch
