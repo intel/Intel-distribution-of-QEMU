@@ -1,7 +1,7 @@
+From b14c0098975264ed03144f145bca0179a6763a07 Mon Sep 17 00:00:00 2001
 From: Richard Henderson <richard.henderson@linaro.org>
+Date: Sat, 14 Jan 2023 13:05:42 -1000
 Subject: target/i386: Fix BEXTR instruction
-Date: Wed,  8 Feb 2023 18:19:20 +0100
-Message-Id: <20230208171922.95048-10-pbonzini@redhat.com>
 
 There were two problems here: not limiting the input to operand bits,
 and not correctly handling large extraction length.
@@ -18,7 +18,7 @@ Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
  2 files changed, 23 insertions(+), 11 deletions(-)
 
 diff --git a/target/i386/tcg/emit.c.inc b/target/i386/tcg/emit.c.inc
-index 7037ff91c612..99f6ba6e19a2 100644
+index 7037ff91c6..99f6ba6e19 100644
 --- a/target/i386/tcg/emit.c.inc
 +++ b/target/i386/tcg/emit.c.inc
 @@ -1078,30 +1078,30 @@ static void gen_ANDN(DisasContext *s, CPUX86State *env, X86DecodedInsn *decode)
@@ -64,7 +64,7 @@ index 7037ff91c612..99f6ba6e19a2 100644
      gen_op_update1_cc(s);
      set_cc_op(s, CC_OP_LOGICB + ot);
 diff --git a/tests/tcg/i386/test-i386-bmi2.c b/tests/tcg/i386/test-i386-bmi2.c
-index 3c3ef85513e1..982d4abda455 100644
+index 3c3ef85513..982d4abda4 100644
 --- a/tests/tcg/i386/test-i386-bmi2.c
 +++ b/tests/tcg/i386/test-i386-bmi2.c
 @@ -99,6 +99,9 @@ int main(int argc, char *argv[]) {
@@ -94,6 +94,5 @@ index 3c3ef85513e1..982d4abda455 100644
      assert(result == 1);
  
 -- 
-2.39.1
-
+2.30.2
 

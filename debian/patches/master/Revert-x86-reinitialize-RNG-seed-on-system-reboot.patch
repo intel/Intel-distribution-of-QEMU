@@ -1,0 +1,49 @@
+From fdc27ced04160904af1f290b561eded73abb8f1d Mon Sep 17 00:00:00 2001
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Wed, 8 Feb 2023 15:55:40 -0500
+Subject: Revert "x86: reinitialize RNG seed on system reboot"
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This reverts commit 763a2828bf313ed55878b09759dc435355035f2e.
+
+Fixes: 763a2828bf ("x86: reinitialize RNG seed on system reboot")
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Tested-by: Nathan Chancellor <nathan@kernel.org>
+Tested-by: Dov Murik <dovmurik@linux.ibm.com>
+Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Reviewed-by: Daniel P. Berrangé <berrange@redhat.com>
+---
+ hw/i386/x86.c | 7 -------
+ 1 file changed, 7 deletions(-)
+
+diff --git a/hw/i386/x86.c b/hw/i386/x86.c
+index ec9c343cdb..278dd54830 100644
+--- a/hw/i386/x86.c
++++ b/hw/i386/x86.c
+@@ -788,12 +788,6 @@ static void reset_setup_data(void *opaque)
+     stq_p(fixup->pos, fixup->orig_val);
+ }
+ 
+-static void reset_rng_seed(void *opaque)
+-{
+-    SetupData *setup_data = opaque;
+-    qemu_guest_getrandom_nofail(setup_data->data, le32_to_cpu(setup_data->len));
+-}
+-
+ void x86_load_linux(X86MachineState *x86ms,
+                     FWCfgState *fw_cfg,
+                     int acpi_data_size,
+@@ -1116,7 +1110,6 @@ void x86_load_linux(X86MachineState *x86ms,
+         setup_data->type = cpu_to_le32(SETUP_RNG_SEED);
+         setup_data->len = cpu_to_le32(RNG_SEED_LENGTH);
+         qemu_guest_getrandom_nofail(setup_data->data, RNG_SEED_LENGTH);
+-        qemu_register_reset(reset_rng_seed, setup_data);
+     }
+ 
+     fw_cfg_add_i32(fw_cfg, FW_CFG_KERNEL_ADDR, prot_addr);
+-- 
+2.30.2
+

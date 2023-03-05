@@ -1,0 +1,44 @@
+From b4bfa0a31d86caf89223e10e701c5b00df369b37 Mon Sep 17 00:00:00 2001
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Wed, 8 Feb 2023 15:55:39 -0500
+Subject: Revert "x86: re-initialize RNG seed when selecting kernel"
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This reverts commit cc63374a5a7c240b7d3be734ef589dabbefc7527.
+
+Fixes: cc63374a5a ("x86: re-initialize RNG seed when selecting kernel")
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Tested-by: Nathan Chancellor <nathan@kernel.org>
+Tested-by: Dov Murik <dovmurik@linux.ibm.com>
+Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Reviewed-by: Daniel P. Berrangé <berrange@redhat.com>
+---
+ hw/i386/x86.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/hw/i386/x86.c b/hw/i386/x86.c
+index 7a128a2899..ec9c343cdb 100644
+--- a/hw/i386/x86.c
++++ b/hw/i386/x86.c
+@@ -1117,14 +1117,11 @@ void x86_load_linux(X86MachineState *x86ms,
+         setup_data->len = cpu_to_le32(RNG_SEED_LENGTH);
+         qemu_guest_getrandom_nofail(setup_data->data, RNG_SEED_LENGTH);
+         qemu_register_reset(reset_rng_seed, setup_data);
+-        fw_cfg_add_bytes_callback(fw_cfg, FW_CFG_KERNEL_DATA, reset_rng_seed, NULL,
+-                                  setup_data, kernel, kernel_size, true);
+-    } else {
+-        fw_cfg_add_bytes(fw_cfg, FW_CFG_KERNEL_DATA, kernel, kernel_size);
+     }
+ 
+     fw_cfg_add_i32(fw_cfg, FW_CFG_KERNEL_ADDR, prot_addr);
+     fw_cfg_add_i32(fw_cfg, FW_CFG_KERNEL_SIZE, kernel_size);
++    fw_cfg_add_bytes(fw_cfg, FW_CFG_KERNEL_DATA, kernel, kernel_size);
+     sev_load_ctx.kernel_data = (char *)kernel;
+     sev_load_ctx.kernel_size = kernel_size;
+ 
+-- 
+2.30.2
+

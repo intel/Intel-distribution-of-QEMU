@@ -1,7 +1,7 @@
+From 60c7dd22e1383754d5f150bc9f7c2785c662a7b6 Mon Sep 17 00:00:00 2001
 From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Tue, 31 Jan 2023 09:48:03 +0100
 Subject: target/i386: fix ADOX followed by ADCX
-Date: Wed,  8 Feb 2023 18:19:22 +0100
-Message-Id: <20230208171922.95048-12-pbonzini@redhat.com>
 
 When ADCX is followed by ADOX or vice versa, the second instruction's
 carry comes from EFLAGS and the condition codes use the CC_OP_ADCOX
@@ -39,7 +39,7 @@ Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
  create mode 100644 tests/tcg/i386/test-i386-adcox.c
 
 diff --git a/target/i386/tcg/emit.c.inc b/target/i386/tcg/emit.c.inc
-index 4d7702c106bf..0d7c6e80ae87 100644
+index 4d7702c106..0d7c6e80ae 100644
 --- a/target/i386/tcg/emit.c.inc
 +++ b/target/i386/tcg/emit.c.inc
 @@ -1015,6 +1015,7 @@ VSIB_AVX(VPGATHERQ, vpgatherq)
@@ -84,7 +84,7 @@ index 4d7702c106bf..0d7c6e80ae87 100644
  
  static void gen_ADCX(DisasContext *s, CPUX86State *env, X86DecodedInsn *decode)
 diff --git a/tests/tcg/i386/Makefile.target b/tests/tcg/i386/Makefile.target
-index 81831cafbce4..bafd8c2180fc 100644
+index 81831cafbc..bafd8c2180 100644
 --- a/tests/tcg/i386/Makefile.target
 +++ b/tests/tcg/i386/Makefile.target
 @@ -14,7 +14,7 @@ config-cc.mak: Makefile
@@ -109,7 +109,7 @@ index 81831cafbce4..bafd8c2180fc 100644
  #
 diff --git a/tests/tcg/i386/test-i386-adcox.c b/tests/tcg/i386/test-i386-adcox.c
 new file mode 100644
-index 000000000000..16169efff823
+index 0000000000..16169efff8
 --- /dev/null
 +++ b/tests/tcg/i386/test-i386-adcox.c
 @@ -0,0 +1,75 @@
@@ -189,6 +189,5 @@ index 000000000000..16169efff823
 +}
 +
 -- 
-2.39.1
-
+2.30.2
 

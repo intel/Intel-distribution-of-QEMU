@@ -1,0 +1,88 @@
+From daae36c13abc73cf1055abc2d33cb71cc5d34310 Mon Sep 17 00:00:00 2001
+From: Akihiko Odaki <akihiko.odaki@daynix.com>
+Date: Mon, 30 Jan 2023 23:03:20 +0900
+Subject: vhost-user-gpio: Configure vhost_dev when connecting
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+vhost_dev_cleanup(), called from vu_gpio_disconnect(), clears vhost_dev
+so vhost-user-gpio must set the members of vhost_dev each time
+connecting.
+
+do_vhost_user_cleanup() should also acquire the pointer to vqs directly
+from VHostUserGPIO instead of referring to vhost_dev as it can be called
+after vhost_dev_cleanup().
+
+Fixes: 27ba7b027f ("hw/virtio: add boilerplate for vhost-user-gpio device")
+Signed-off-by: Akihiko Odaki <akihiko.odaki@daynix.com>
+Message-Id: <20230130140320.77999-1-akihiko.odaki@daynix.com>
+Reviewed-by: Viresh Kumar <viresh.kumar@linaro.org>
+Reviewed-by: Alex Bennée <alex.bennee@linaro.org>
+Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ hw/virtio/vhost-user-gpio.c         | 10 ++++++----
+ include/hw/virtio/vhost-user-gpio.h |  2 +-
+ 2 files changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/hw/virtio/vhost-user-gpio.c b/hw/virtio/vhost-user-gpio.c
+index fe3da32c74..d6927b610a 100644
+--- a/hw/virtio/vhost-user-gpio.c
++++ b/hw/virtio/vhost-user-gpio.c
+@@ -16,6 +16,7 @@
+ #include "trace.h"
+ 
+ #define REALIZE_CONNECTION_RETRIES 3
++#define VHOST_NVQS 2
+ 
+ /* Features required from VirtIO */
+ static const int feature_bits[] = {
+@@ -208,8 +209,7 @@ static void do_vhost_user_cleanup(VirtIODevice *vdev, VHostUserGPIO *gpio)
+ {
+     virtio_delete_queue(gpio->command_vq);
+     virtio_delete_queue(gpio->interrupt_vq);
+-    g_free(gpio->vhost_dev.vqs);
+-    gpio->vhost_dev.vqs = NULL;
++    g_free(gpio->vhost_vqs);
+     virtio_cleanup(vdev);
+     vhost_user_cleanup(&gpio->vhost_user);
+ }
+@@ -229,6 +229,9 @@ static int vu_gpio_connect(DeviceState *dev, Error **errp)
+     vhost_dev_set_config_notifier(vhost_dev, &gpio_ops);
+     gpio->vhost_user.supports_config = true;
+ 
++    gpio->vhost_dev.nvqs = VHOST_NVQS;
++    gpio->vhost_dev.vqs = gpio->vhost_vqs;
++
+     ret = vhost_dev_init(vhost_dev, &gpio->vhost_user,
+                          VHOST_BACKEND_TYPE_USER, 0, errp);
+     if (ret < 0) {
+@@ -347,10 +350,9 @@ static void vu_gpio_device_realize(DeviceState *dev, Error **errp)
+ 
+     virtio_init(vdev, VIRTIO_ID_GPIO, sizeof(gpio->config));
+ 
+-    gpio->vhost_dev.nvqs = 2;
+     gpio->command_vq = virtio_add_queue(vdev, 256, vu_gpio_handle_output);
+     gpio->interrupt_vq = virtio_add_queue(vdev, 256, vu_gpio_handle_output);
+-    gpio->vhost_dev.vqs = g_new0(struct vhost_virtqueue, gpio->vhost_dev.nvqs);
++    gpio->vhost_vqs = g_new0(struct vhost_virtqueue, VHOST_NVQS);
+ 
+     gpio->connected = false;
+ 
+diff --git a/include/hw/virtio/vhost-user-gpio.h b/include/hw/virtio/vhost-user-gpio.h
+index a9305c5e6c..a9d3f9b049 100644
+--- a/include/hw/virtio/vhost-user-gpio.h
++++ b/include/hw/virtio/vhost-user-gpio.h
+@@ -23,7 +23,7 @@ struct VHostUserGPIO {
+     VirtIODevice parent_obj;
+     CharBackend chardev;
+     struct virtio_gpio_config config;
+-    struct vhost_virtqueue *vhost_vq;
++    struct vhost_virtqueue *vhost_vqs;
+     struct vhost_dev vhost_dev;
+     VhostUserState vhost_user;
+     VirtQueue *command_vq;
+-- 
+2.30.2
+

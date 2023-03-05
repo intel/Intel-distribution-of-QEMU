@@ -1,0 +1,73 @@
+From 9c1916057a8b14411116106e5a5c0c33d551cfeb Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Carlos=20L=C3=B3pez?= <clopez@suse.de>
+Date: Fri, 10 Feb 2023 12:25:15 +0100
+Subject: libvhost-user: check for NULL when allocating a virtqueue element
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Check the return value for malloc(), avoiding a NULL pointer
+dereference, and propagate error in function callers.
+
+Found with GCC 13 and -fanalyzer:
+
+../subprojects/libvhost-user/libvhost-user.c: In function ‘virtqueue_alloc_element’:
+../subprojects/libvhost-user/libvhost-user.c:2556:19: error: dereference of possibly-NULL ‘elem’ [CWE-690] [-Werror=analyzer-possible-null-dereference]
+ 2556 |     elem->out_num = out_num;
+      |     ~~~~~~~~~~~~~~^~~~~~~~~
+  ‘virtqueue_alloc_element’: event 1
+    |
+    | 2554 |     assert(sz >= sizeof(VuVirtqElement));
+    |      |     ^~~~~~
+    |      |     |
+    |      |     (1) following ‘true’ branch (when ‘sz > 31’)...
+    |
+  ‘virtqueue_alloc_element’: events 2-4
+    |
+    | 2555 |     elem = malloc(out_sg_end);
+    |      |     ^~~~   ~~~~~~~~~~~~~~~~~~
+    |      |     |      |
+    |      |     |      (3) this call could return NULL
+    |      |     (2) ...to here
+    | 2556 |     elem->out_num = out_num;
+    |      |     ~~~~~~~~~~~~~~~~~~~~~~~
+    |      |                   |
+    |      |                   (4) ‘elem’ could be NULL: unchecked value from (3)
+    |
+
+Signed-off-by: Carlos López <clopez@suse.de>
+Message-Id: <20230210112514.16858-1-clopez@suse.de>
+Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ subprojects/libvhost-user/libvhost-user.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/subprojects/libvhost-user/libvhost-user.c b/subprojects/libvhost-user/libvhost-user.c
+index f661af7c85..0200b78e8e 100644
+--- a/subprojects/libvhost-user/libvhost-user.c
++++ b/subprojects/libvhost-user/libvhost-user.c
+@@ -2553,6 +2553,10 @@ virtqueue_alloc_element(size_t sz,
+ 
+     assert(sz >= sizeof(VuVirtqElement));
+     elem = malloc(out_sg_end);
++    if (!elem) {
++        DPRINT("%s: failed to malloc virtqueue element\n", __func__);
++        return NULL;
++    }
+     elem->out_num = out_num;
+     elem->in_num = in_num;
+     elem->in_sg = (void *)elem + in_sg_ofs;
+@@ -2639,6 +2643,9 @@ vu_queue_map_desc(VuDev *dev, VuVirtq *vq, unsigned int idx, size_t sz)
+ 
+     /* Now copy what we have collected and mapped */
+     elem = virtqueue_alloc_element(sz, out_num, in_num);
++    if (!elem) {
++        return NULL;
++    }
+     elem->index = idx;
+     for (i = 0; i < out_num; i++) {
+         elem->out_sg[i] = iov[i];
+-- 
+2.30.2
+

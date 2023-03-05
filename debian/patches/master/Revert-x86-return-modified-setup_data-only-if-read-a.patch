@@ -1,0 +1,162 @@
+From ae80d81cfa865cbe443543679e013e7fa5fcd12c Mon Sep 17 00:00:00 2001
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Wed, 8 Feb 2023 16:04:40 -0500
+Subject: Revert "x86: return modified setup_data only if read as memory, not as file"
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This reverts commit e935b735085dfa61d8e6d276b6f9e7687796a3c7.
+
+Fixes: e935b73508 ("x86: return modified setup_data only if read as memory, not as file")
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Tested-by: Nathan Chancellor <nathan@kernel.org>
+Tested-by: Dov Murik <dovmurik@linux.ibm.com>
+Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Reviewed-by: Daniel P. Berrangé <berrange@redhat.com>
+---
+ hw/i386/x86.c             | 46 +++++++++------------------------------
+ hw/nvram/fw_cfg.c         | 12 +++++-----
+ include/hw/nvram/fw_cfg.h | 22 -------------------
+ 3 files changed, 16 insertions(+), 64 deletions(-)
+
+diff --git a/hw/i386/x86.c b/hw/i386/x86.c
+index 66cf171ace..ed161a3409 100644
+--- a/hw/i386/x86.c
++++ b/hw/i386/x86.c
+@@ -36,7 +36,6 @@
+ #include "sysemu/whpx.h"
+ #include "sysemu/numa.h"
+ #include "sysemu/replay.h"
+-#include "sysemu/reset.h"
+ #include "sysemu/sysemu.h"
+ #include "sysemu/cpu-timers.h"
+ #include "sysemu/xen.h"
+@@ -770,24 +769,6 @@ static bool load_elfboot(const char *kernel_filename,
+     return true;
+ }
+ 
+-typedef struct SetupDataFixup {
+-    void *pos;
+-    hwaddr orig_val, new_val;
+-    uint32_t addr;
+-} SetupDataFixup;
+-
+-static void fixup_setup_data(void *opaque)
+-{
+-    SetupDataFixup *fixup = opaque;
+-    stq_p(fixup->pos, fixup->new_val);
+-}
+-
+-static void reset_setup_data(void *opaque)
+-{
+-    SetupDataFixup *fixup = opaque;
+-    stq_p(fixup->pos, fixup->orig_val);
+-}
+-
+ void x86_load_linux(X86MachineState *x86ms,
+                     FWCfgState *fw_cfg,
+                     int acpi_data_size,
+@@ -1112,11 +1093,8 @@ void x86_load_linux(X86MachineState *x86ms,
+         qemu_guest_getrandom_nofail(setup_data->data, RNG_SEED_LENGTH);
+     }
+ 
+-    fw_cfg_add_i32(fw_cfg, FW_CFG_KERNEL_ADDR, prot_addr);
+-    fw_cfg_add_i32(fw_cfg, FW_CFG_KERNEL_SIZE, kernel_size);
+-    fw_cfg_add_bytes(fw_cfg, FW_CFG_KERNEL_DATA, kernel, kernel_size);
+-    sev_load_ctx.kernel_data = (char *)kernel;
+-    sev_load_ctx.kernel_size = kernel_size;
++    /* Offset 0x250 is a pointer to the first setup_data link. */
++    stq_p(header + 0x250, first_setup_data);
+ 
+     /*
+      * If we're starting an encrypted VM, it will be OVMF based, which uses the
+@@ -1126,20 +1104,16 @@ void x86_load_linux(X86MachineState *x86ms,
+      * file the user passed in.
+      */
+     if (!sev_enabled()) {
+-        SetupDataFixup *fixup = g_malloc(sizeof(*fixup));
+-
+         memcpy(setup, header, MIN(sizeof(header), setup_size));
+-        /* Offset 0x250 is a pointer to the first setup_data link. */
+-        fixup->pos = setup + 0x250;
+-        fixup->orig_val = ldq_p(fixup->pos);
+-        fixup->new_val = first_setup_data;
+-        fixup->addr = cpu_to_le32(real_addr);
+-        fw_cfg_add_bytes_callback(fw_cfg, FW_CFG_SETUP_ADDR, fixup_setup_data, NULL,
+-                                  fixup, &fixup->addr, sizeof(fixup->addr), true);
+-        qemu_register_reset(reset_setup_data, fixup);
+-    } else {
+-        fw_cfg_add_i32(fw_cfg, FW_CFG_SETUP_ADDR, real_addr);
+     }
++
++    fw_cfg_add_i32(fw_cfg, FW_CFG_KERNEL_ADDR, prot_addr);
++    fw_cfg_add_i32(fw_cfg, FW_CFG_KERNEL_SIZE, kernel_size);
++    fw_cfg_add_bytes(fw_cfg, FW_CFG_KERNEL_DATA, kernel, kernel_size);
++    sev_load_ctx.kernel_data = (char *)kernel;
++    sev_load_ctx.kernel_size = kernel_size;
++
++    fw_cfg_add_i32(fw_cfg, FW_CFG_SETUP_ADDR, real_addr);
+     fw_cfg_add_i32(fw_cfg, FW_CFG_SETUP_SIZE, setup_size);
+     fw_cfg_add_bytes(fw_cfg, FW_CFG_SETUP_DATA, setup, setup_size);
+     sev_load_ctx.setup_data = (char *)setup;
+diff --git a/hw/nvram/fw_cfg.c b/hw/nvram/fw_cfg.c
+index a00881bc64..29a5bef1d5 100644
+--- a/hw/nvram/fw_cfg.c
++++ b/hw/nvram/fw_cfg.c
+@@ -693,12 +693,12 @@ static const VMStateDescription vmstate_fw_cfg = {
+     }
+ };
+ 
+-void fw_cfg_add_bytes_callback(FWCfgState *s, uint16_t key,
+-                               FWCfgCallback select_cb,
+-                               FWCfgWriteCallback write_cb,
+-                               void *callback_opaque,
+-                               void *data, size_t len,
+-                               bool read_only)
++static void fw_cfg_add_bytes_callback(FWCfgState *s, uint16_t key,
++                                      FWCfgCallback select_cb,
++                                      FWCfgWriteCallback write_cb,
++                                      void *callback_opaque,
++                                      void *data, size_t len,
++                                      bool read_only)
+ {
+     int arch = !!(key & FW_CFG_ARCH_LOCAL);
+ 
+diff --git a/include/hw/nvram/fw_cfg.h b/include/hw/nvram/fw_cfg.h
+index 2e503904dc..c1f81a5f13 100644
+--- a/include/hw/nvram/fw_cfg.h
++++ b/include/hw/nvram/fw_cfg.h
+@@ -117,28 +117,6 @@ struct FWCfgMemState {
+  */
+ void fw_cfg_add_bytes(FWCfgState *s, uint16_t key, void *data, size_t len);
+ 
+-/**
+- * fw_cfg_add_bytes_callback:
+- * @s: fw_cfg device being modified
+- * @key: selector key value for new fw_cfg item
+- * @select_cb: callback function when selecting
+- * @write_cb: callback function after a write
+- * @callback_opaque: argument to be passed into callback function
+- * @data: pointer to start of item data
+- * @len: size of item data
+- * @read_only: is file read only
+- *
+- * Add a new fw_cfg item, available by selecting the given key, as a raw
+- * "blob" of the given size. The data referenced by the starting pointer
+- * is only linked, NOT copied, into the data structure of the fw_cfg device.
+- */
+-void fw_cfg_add_bytes_callback(FWCfgState *s, uint16_t key,
+-                               FWCfgCallback select_cb,
+-                               FWCfgWriteCallback write_cb,
+-                               void *callback_opaque,
+-                               void *data, size_t len,
+-                               bool read_only);
+-
+ /**
+  * fw_cfg_add_string:
+  * @s: fw_cfg device being modified
+-- 
+2.30.2
+

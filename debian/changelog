@@ -1,3 +1,42 @@
+qemu (1:7.2+dfsg-5) unstable; urgency=medium
+
+  * d/qemu-guest-agent.udev: fix missing comma
+    (Christian Schneider <debian@c-schneider.net>, Closes: #1031838)
+  * remove qemu-make-debian-root.
+    Ths script debian/qemu-make-debian-root has been broken for ages.
+    In 2023, it creates /etc/fstab with a reference to /dev/hda1, and
+    edits /etc/inittab which does not exist. And no one noticed, - so
+    it's safe to assume it is not used anymore.  Just remove it.
+  * re-pick qemu-stable patches from master (the same patch contents):
+    master/tests-tcg-i386-Introduce-and-use-reg_t-consistently.patch
+    master/target-i386-Fix-BEXTR-instruction.patch
+    master/target-i386-Fix-C-flag-for-BLSI-BLSMSK-BLSR.patch
+    master/target-i386-fix-ADOX-followed-by-ADCX.patch
+  * 20 more changes picked from upstream/master:
+    master/target-i386-Fix-BZHI-instruction.patch
+    master/block-iscsi-fix-double-free-on-BUSY-or-similar-status.patch
+    master/hw-smbios-fix-field-corruption-in-type-4-table.patch
+    master/Revert-x86-do-not-re-randomize-RNG-seed-on-snapshot-.patch
+    master/Revert-x86-re-initialize-RNG-seed-when-selecting-ker.patch
+    master/Revert-x86-reinitialize-RNG-seed-on-system-reboot.patch
+    master/Revert-x86-use-typedef-for-SetupData-struct.patch
+    master/Revert-x86-return-modified-setup_data-only-if-read-a.patch
+    master/Revert-hw-i386-pass-RNG-seed-via-setup_data-entry.patch
+    master/vhost-user-gpio-Configure-vhost_dev-when-connecting.patch
+    master/vhost-user-i2c-Back-up-vqs-before-cleaning-up-vhost_.patch
+    master/vhost-user-rng-Back-up-vqs-before-cleaning-up-vhost_.patch
+    master/virtio-rng-pci-fix-migration-compat-for-vectors.patch
+    master/virtio-rng-pci-fix-transitional-migration-compat-for.patch
+    master/hw-timer-hpet-Fix-expiration-time-overflow.patch
+    master/vdpa-stop-all-svq-on-device-deletion.patch
+    master/vhost-avoid-a-potential-use-of-an-uninitialized-vari.patch
+    master/libvhost-user-check-for-NULL-when-allocating-a-virtq.patch
+    master/chardev-char-socket-set-s-listener-NULL-in-char_sock.patch
+    master/intel-iommu-fail-MAP-notifier-without-caching-mode.patch
+    master/intel-iommu-fail-DEVIOTLB_UNMAP-without-dt-mode.patch
+ 
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 05 Mar 2023 20:09:04 +0300
+
 qemu (1:7.2+dfsg-4) unstable; urgency=medium
 
   * block-fix-detect-zeroes-with-BDRV_REQ_REGISTERED_BUF.patch:

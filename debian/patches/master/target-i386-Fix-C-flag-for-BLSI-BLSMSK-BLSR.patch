@@ -1,6 +1,7 @@
+From 99282098dc74c2055bde5652bde6cf0067d0c370 Mon Sep 17 00:00:00 2001
 From: Richard Henderson <richard.henderson@linaro.org>
+Date: Sat, 14 Jan 2023 08:06:01 -1000
 Subject: target/i386: Fix C flag for BLSI, BLSMSK, BLSR
-Date: Wed,  8 Feb 2023 18:19:21 +0100
 
 We forgot to set cc_src, which is used for computing C.
 
@@ -15,7 +16,7 @@ Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
  1 file changed, 3 insertions(+)
 
 diff --git a/target/i386/tcg/emit.c.inc b/target/i386/tcg/emit.c.inc
-index 99f6ba6e19a2..4d7702c106bf 100644
+index 99f6ba6e19..4d7702c106 100644
 --- a/target/i386/tcg/emit.c.inc
 +++ b/target/i386/tcg/emit.c.inc
 @@ -1111,6 +1111,7 @@ static void gen_BLSI(DisasContext *s, CPUX86State *env, X86DecodedInsn *decode)
@@ -43,6 +44,5 @@ index 99f6ba6e19a2..4d7702c106bf 100644
      tcg_gen_and_tl(s->T0, s->T0, s->T1);
      tcg_gen_mov_tl(cpu_cc_dst, s->T0);
 -- 
-2.39.1
-
+2.30.2
 

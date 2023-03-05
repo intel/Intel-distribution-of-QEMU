@@ -492,7 +492,6 @@ Breaks: qemu-system-common (<< 1:3.1+dfsg-3~)
 Depends: ${shlibs:Depends}, ${misc:Depends},
 Recommends:
  qemu-block-extra (= ${binary:Version}),
-Suggests: debootstrap,
 Description: QEMU utilities
  QEMU is a fast processor emulator: currently the package supports
  ARM, CRIS, i386, M68k (ColdFire), MicroBlaze, MIPS, PowerPC, SH4,

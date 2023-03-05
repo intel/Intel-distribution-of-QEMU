@@ -1,0 +1,47 @@
+From f0dac71596d4b87a1a77d1f4efb6a6adb4730d7b Mon Sep 17 00:00:00 2001
+From: Akihiko Odaki <akihiko.odaki@daynix.com>
+Date: Mon, 30 Jan 2023 23:05:16 +0900
+Subject: vhost-user-rng: Back up vqs before cleaning up vhost_dev
+
+vhost_dev_cleanup() clears vhost_dev so back up its vqs member to free
+the memory pointed by the member.
+
+Fixes: 821d28b88f ("vhost-user-rng: Add vhost-user-rng implementation")
+Signed-off-by: Akihiko Odaki <akihiko.odaki@daynix.com>
+Message-Id: <20230130140516.78078-1-akihiko.odaki@daynix.com>
+Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ hw/virtio/vhost-user-rng.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/hw/virtio/vhost-user-rng.c b/hw/virtio/vhost-user-rng.c
+index 201a39e220..efc54cd3fb 100644
+--- a/hw/virtio/vhost-user-rng.c
++++ b/hw/virtio/vhost-user-rng.c
+@@ -229,6 +229,7 @@ static void vu_rng_device_realize(DeviceState *dev, Error **errp)
+     return;
+ 
+ vhost_dev_init_failed:
++    g_free(rng->vhost_dev.vqs);
+     virtio_delete_queue(rng->req_vq);
+ virtio_add_queue_failed:
+     virtio_cleanup(vdev);
+@@ -239,12 +240,12 @@ static void vu_rng_device_unrealize(DeviceState *dev)
+ {
+     VirtIODevice *vdev = VIRTIO_DEVICE(dev);
+     VHostUserRNG *rng = VHOST_USER_RNG(dev);
++    struct vhost_virtqueue *vhost_vqs = rng->vhost_dev.vqs;
+ 
+     vu_rng_set_status(vdev, 0);
+ 
+     vhost_dev_cleanup(&rng->vhost_dev);
+-    g_free(rng->vhost_dev.vqs);
+-    rng->vhost_dev.vqs = NULL;
++    g_free(vhost_vqs);
+     virtio_delete_queue(rng->req_vq);
+     virtio_cleanup(vdev);
+     vhost_user_cleanup(&rng->vhost_user);
+-- 
+2.30.2
+

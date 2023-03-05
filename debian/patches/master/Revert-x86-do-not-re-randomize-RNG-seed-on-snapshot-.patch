@@ -1,0 +1,37 @@
+From ef82d893de6d5bc0023026e636eae0f9a3e319dd Mon Sep 17 00:00:00 2001
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Wed, 8 Feb 2023 15:55:38 -0500
+Subject: Revert "x86: do not re-randomize RNG seed on snapshot load"
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This reverts commit 14b29fea742034186403914b4d013d0e83f19e78.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Fixes: 14b29fea74 ("x86: do not re-randomize RNG seed on snapshot load")
+Tested-by: Nathan Chancellor <nathan@kernel.org>
+Tested-by: Dov Murik <dovmurik@linux.ibm.com>
+Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Reviewed-by: Daniel P. Berrangé <berrange@redhat.com>
+---
+ hw/i386/x86.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/hw/i386/x86.c b/hw/i386/x86.c
+index 9b7476158c..7a128a2899 100644
+--- a/hw/i386/x86.c
++++ b/hw/i386/x86.c
+@@ -1116,7 +1116,7 @@ void x86_load_linux(X86MachineState *x86ms,
+         setup_data->type = cpu_to_le32(SETUP_RNG_SEED);
+         setup_data->len = cpu_to_le32(RNG_SEED_LENGTH);
+         qemu_guest_getrandom_nofail(setup_data->data, RNG_SEED_LENGTH);
+-        qemu_register_reset_nosnapshotload(reset_rng_seed, setup_data);
++        qemu_register_reset(reset_rng_seed, setup_data);
+         fw_cfg_add_bytes_callback(fw_cfg, FW_CFG_KERNEL_DATA, reset_rng_seed, NULL,
+                                   setup_data, kernel, kernel_size, true);
+     } else {
+-- 
+2.30.2
+
