@@ -175,10 +175,24 @@ int sbi_domain_register(struct sbi_domain *dom,
  * @param reg pointer to the memory region to be added
  *
  * @return 0 on success
- * @return SBI_EALREADY if memory region conflicts with existing
+ * @return SBI_EALREADY if memory region conflicts with the existing one
  * @return SBI_EINVAL otherwise
  */
 int sbi_domain_root_add_memregion(const struct sbi_domain_memregion *reg);
+
+/**
+ * Add a memory range with its flags to the root domain
+ * @param addr start physical address of memory range
+ * @param size physical size of memory range
+ * @param align alignment of memory region
+ * @param region_flags memory range flags
+ *
+ * @return 0 on success
+ * @return SBI_EALREADY if memory region conflicts with the existing one
+ * @return SBI_EINVAL otherwise
+ */
+int sbi_domain_root_add_memrange(unsigned long addr, unsigned long size,
+			   unsigned long align, unsigned long region_flags);
 
 /** Finalize domain tables and startup non-root domains */
 int sbi_domain_finalize(struct sbi_scratch *scratch, u32 cold_hartid);

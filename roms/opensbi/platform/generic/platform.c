@@ -23,6 +23,7 @@
 #include <sbi_utils/timer/fdt_timer.h>
 #include <sbi_utils/ipi/fdt_ipi.h>
 #include <sbi_utils/reset/fdt_reset.h>
+#include <sbi_utils/serial/semihosting.h>
 
 /* List of platform override modules generated at compile time */
 extern const struct platform_override *platform_override_modules[];
@@ -33,17 +34,17 @@ static const struct fdt_match *generic_plat_match = NULL;
 
 static void fw_platform_lookup_special(void *fdt, int root_offset)
 {
-	int pos, noff;
 	const struct platform_override *plat;
 	const struct fdt_match *match;
+	int pos;
 
 	for (pos = 0; pos < platform_override_modules_size; pos++) {
 		plat = platform_override_modules[pos];
 		if (!plat->match_table)
 			continue;
 
-		noff = fdt_find_match(fdt, -1, plat->match_table, &match);
-		if (noff < 0)
+		match = fdt_match_node(fdt, root_offset, plat->match_table);
+		if (!match)
 			continue;
 
 		generic_plat = plat;
@@ -203,6 +204,15 @@ static void generic_final_exit(void)
 		generic_plat->final_exit(generic_plat_match);
 }
 
+static int generic_extensions_init(struct sbi_hart_features *hfeatures)
+{
+	if (generic_plat && generic_plat->extensions_init)
+		return generic_plat->extensions_init(generic_plat_match,
+						     hfeatures);
+
+	return 0;
+}
+
 static int generic_domains_init(void)
 {
 	return fdt_domains_populate(fdt_get_address());
@@ -242,14 +252,23 @@ static uint64_t generic_pmu_xlate_to_mhpmevent(uint32_t event_idx,
 	return evt_val;
 }
 
+static int generic_console_init(void)
+{
+	if (semihosting_enabled())
+		return semihosting_init();
+	else
+		return fdt_serial_init();
+}
+
 const struct sbi_platform_operations platform_ops = {
 	.nascent_init		= generic_nascent_init,
 	.early_init		= generic_early_init,
 	.final_init		= generic_final_init,
 	.early_exit		= generic_early_exit,
 	.final_exit		= generic_final_exit,
+	.extensions_init	= generic_extensions_init,
 	.domains_init		= generic_domains_init,
-	.console_init		= fdt_serial_init,
+	.console_init		= generic_console_init,
 	.irqchip_init		= fdt_irqchip_init,
 	.irqchip_exit		= fdt_irqchip_exit,
 	.ipi_init		= fdt_ipi_init,
@@ -265,8 +284,10 @@ const struct sbi_platform_operations platform_ops = {
 
 struct sbi_platform platform = {
 	.opensbi_version	= OPENSBI_VERSION,
-	.platform_version	= SBI_PLATFORM_VERSION(0x0, 0x01),
-	.name			= "Generic",
+	.platform_version	=
+		SBI_PLATFORM_VERSION(CONFIG_PLATFORM_GENERIC_MAJOR_VER,
+				     CONFIG_PLATFORM_GENERIC_MINOR_VER),
+	.name			= CONFIG_PLATFORM_GENERIC_NAME,
 	.features		= SBI_PLATFORM_DEFAULT_FEATURES,
 	.hart_count		= SBI_HARTMASK_MAX_BITS,
 	.hart_index2id		= generic_hart_index2id,

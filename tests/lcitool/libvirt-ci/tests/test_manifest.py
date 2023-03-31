@@ -14,7 +14,7 @@ from lcitool import util
 from lcitool.manifest import Manifest
 
 
-def test_generate(monkeypatch):
+def test_generate(targets, packages, projects, monkeypatch):
     manifest_path = Path(test_utils.test_data_indir(__file__), "manifest.yml")
 
     # Squish the header that contains argv with paths we don't
@@ -55,6 +55,9 @@ def test_generate(monkeypatch):
 
         return filter(lambda f: fnmatch(f.as_posix(), pattern), files)
 
+    # Force loading the facts before monkeypatching is enabled
+    test_utils.force_load(packages=packages, projects=projects, targets=targets)
+
     monkeypatch.setattr(util, 'generate_file_header', fake_header)
 
     with monkeypatch.context() as m:
@@ -67,7 +70,7 @@ def test_generate(monkeypatch):
         m.setattr(Path, 'glob', fake_glob)
 
         with open(manifest_path, "r") as fp:
-            manifest = Manifest(fp, quiet=True)
+            manifest = Manifest(targets, packages, projects, fp, quiet=True)
 
         manifest.generate()
 
@@ -134,7 +137,7 @@ def test_generate(monkeypatch):
     finally:
         if pytest.custom_args["regenerate_output"]:
             with open(manifest_path, "r") as fp:
-                manifest = Manifest(fp, quiet=True,
+                manifest = Manifest(targets, packages, projects, fp, quiet=True,
                                     basedir=Path(test_utils.test_data_outdir(__file__)))
 
             manifest.generate()

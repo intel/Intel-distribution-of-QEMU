@@ -9,8 +9,7 @@ import pytest
 import test_utils.utils as test_utils
 from pathlib import Path
 
-from lcitool.inventory import Inventory
-from lcitool.projects import Projects
+from lcitool.targets import BuildTarget
 from lcitool.formatters import ShellVariablesFormatter, JSONVariablesFormatter, DockerfileFormatter, ShellBuildEnvFormatter
 
 
@@ -41,56 +40,62 @@ layer_scenarios = [
 
 
 @pytest.mark.parametrize("project,target,arch", scenarios)
-def test_dockerfiles(project, target, arch, request):
-    gen = DockerfileFormatter()
-    actual = gen.format(target, [project], arch)
+def test_dockerfiles(packages, projects, targets, project, target, arch, request):
+    gen = DockerfileFormatter(projects)
+    target_obj = BuildTarget(targets, packages, target, arch)
+    actual = gen.format(target_obj, [project])
     expected_path = Path(test_utils.test_data_outdir(__file__), request.node.callspec.id + ".Dockerfile")
     test_utils.assert_matches_file(actual, expected_path)
 
 
 @pytest.mark.parametrize("project,target,arch,base,layers", layer_scenarios)
-def test_dockerfile_layers(project, target, arch, base, layers, request):
-    gen = DockerfileFormatter(base, layers)
-    actual = gen.format(target, [project], arch)
+def test_dockerfile_layers(packages, projects, targets, project, target, arch, base, layers, request):
+    gen = DockerfileFormatter(projects, base, layers)
+    target_obj = BuildTarget(targets, packages, target, arch)
+    actual = gen.format(target_obj, [project])
     expected_path = Path(test_utils.test_data_outdir(__file__), request.node.callspec.id + ".Dockerfile")
     test_utils.assert_matches_file(actual, expected_path)
 
 
 @pytest.mark.parametrize("project,target,arch", scenarios)
-def test_variables_shell(project, target, arch, request):
-    gen = ShellVariablesFormatter()
-    actual = gen.format(target, [project], arch)
+def test_variables_shell(packages, projects, targets, project, target, arch, request):
+    gen = ShellVariablesFormatter(projects)
+    target_obj = BuildTarget(targets, packages, target, arch)
+    actual = gen.format(target_obj, [project])
     expected_path = Path(test_utils.test_data_outdir(__file__), request.node.callspec.id + ".vars")
     test_utils.assert_matches_file(actual, expected_path)
 
 
 @pytest.mark.parametrize("project,target,arch", scenarios)
-def test_variables_json(project, target, arch, request):
-    gen = JSONVariablesFormatter()
-    actual = gen.format(target, [project], arch)
+def test_variables_json(packages, projects, targets, project, target, arch, request):
+    gen = JSONVariablesFormatter(projects)
+    target_obj = BuildTarget(targets, packages, target, arch)
+    actual = gen.format(target_obj, [project])
     expected_path = Path(test_utils.test_data_outdir(__file__), request.node.callspec.id + ".json")
     test_utils.assert_matches_file(actual, expected_path)
 
 
 @pytest.mark.parametrize("project,target,arch", scenarios)
-def test_prepbuildenv(project, target, arch, request):
-    gen = ShellBuildEnvFormatter()
-    actual = gen.format(target, [project], arch)
+def test_prepbuildenv(packages, projects, targets, project, target, arch, request):
+    gen = ShellBuildEnvFormatter(projects)
+    target_obj = BuildTarget(targets, packages, target, arch)
+    actual = gen.format(target_obj, [project])
     expected_path = Path(test_utils.test_data_outdir(__file__), request.node.callspec.id + ".sh")
     test_utils.assert_matches_file(actual, expected_path)
 
 
-def test_all_projects_dockerfiles():
-    inventory = Inventory()
-    all_projects = Projects().names
+def test_all_projects_dockerfiles(packages, projects, targets):
+    all_projects = projects.names
 
-    for target in sorted(inventory.targets):
-        facts = inventory.target_facts[target]
+    for target in sorted(targets.targets):
+        target_obj = BuildTarget(targets, packages, target)
+
+        facts = target_obj.facts
 
         if facts["packaging"]["format"] not in ["apk", "deb", "rpm"]:
             continue
 
-        gen = DockerfileFormatter()
-        actual = gen.format(target, all_projects, None)
+        gen = DockerfileFormatter(projects)
+        actual = gen.format(target_obj, all_projects)
         expected_path = Path(test_utils.test_data_outdir(__file__), f"{target}-all-projects.Dockerfile")
         test_utils.assert_matches_file(actual, expected_path)

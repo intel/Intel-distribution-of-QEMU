@@ -2,7 +2,7 @@
 # the upstream repo default branch. To force a run when pushing
 # to a feature branch use
 #
-#  git push -o ci.variable=LIBVIRT_CI=1 ...
+#  git push -o ci.variable=RUN_PIPELINEI=1 ...
 
 stages:
   - containers
@@ -17,7 +17,7 @@ stages:
   when: on_success
 
 .job_rules_opt_in: &job_rules_opt_in
-  if: '$LIBVIRT_CI == "1"'
+  if: '$RUN_PIPELINE == "1"'
   when: on_success
 
 .job_rules_container_changes: &job_rules_container_changes
@@ -42,11 +42,11 @@ stages:
     - docker info
     - docker login registry.gitlab.com -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD}
   script:
-    - docker build --tag ${CI_REGISTRY_IMAGE}/${NAME}:${CI_COMMIT_REF_SLUG} containers/${NAME}
+    - docker build --tag ${CI_REGISTRY_IMAGE}/${NAME}:latest containers/${NAME}
     - if test "${CI_PIPELINE_SOURCE}" = "push" &&
          test "${CI_COMMIT_REF_NAME}" = "${CI_DEFAULT_BRANCH}";
       then
-          docker push ${CI_REGISTRY_IMAGE}/${NAME}:${CI_COMMIT_REF_SLUG};
+          docker push ${CI_REGISTRY_IMAGE}/${NAME}:latest;
       fi
   after_script:
     - docker logout
@@ -109,6 +109,16 @@ clang-format-container:
   variables:
     NAME: clang-format
 
+black-container:
+  extends: .build_container_template
+  variables:
+    NAME: black
+
+flake8-container:
+  extends: .build_container_template
+  variables:
+    NAME: flake8
+
 cirrus-run-container:
   extends: .build_container_template
   variables:
@@ -148,10 +158,19 @@ unittests:
   needs: []
   before_script:
     - apk update
-    - apk add git
+    - apk add git ansible
   script:
-    - pip3 install setuptools pytest pyyaml
+    - pip3 install setuptools pytest
+    - pip3 install -r requirements.txt ansible-runner
     - python3 -m pytest --verbose
+
+package_install:
+  extends: unittests
+  script:
+    - python3 -m venv _venv_
+    - _venv_/bin/pip3 install setuptools pytest
+    - _venv_/bin/pip3 install -r requirements.txt pytest .
+    - _venv_/bin/python3 -m pytest --verbose tests/test_commands.py -k 'test_commands_installed'
 
 x86_64-check-almalinux-8:
   extends: .check_container_template
@@ -201,15 +220,15 @@ x86_64-check-debian-sid:
   variables:
     NAME: debian-sid
 
-x86_64-check-fedora-35:
-  extends: .check_container_template
-  variables:
-    NAME: fedora-35
-
 x86_64-check-fedora-36:
   extends: .check_container_template
   variables:
     NAME: fedora-36
+
+x86_64-check-fedora-37:
+  extends: .check_container_template
+  variables:
+    NAME: fedora-37
 
 x86_64-check-fedora-rawhide:
   extends: .check_container_template

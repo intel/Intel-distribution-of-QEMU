@@ -107,7 +107,7 @@ RUN apk update && \
         libxslt \
         libxslt-dev \
         linux-pam-dev \
-        llvm11 \
+        llvm \
         lttng-ust-dev \
         lua5.4 \
         lvm2 \
@@ -147,7 +147,6 @@ RUN apk update && \
         perl-net-snmp \
         perl-sub-uplevel \
         perl-test-exception \
-        perl-test-harness \
         perl-test-pod \
         perl-test-pod-coverage \
         perl-time-hires \
@@ -156,11 +155,11 @@ RUN apk update && \
         perl-xml-xpath \
         perl-yaml \
         php8-dev \
-        php8-pecl-imagick \
         pixman-dev \
         pkgconf \
         polkit \
         pulseaudio-dev \
+        py3-boto3 \
         py3-dbus \
         py3-docutils \
         py3-flake8 \
@@ -175,7 +174,6 @@ RUN apk update && \
         py3-setuptools \
         py3-sphinx \
         py3-sphinx_rtd_theme \
-        py3-wheel \
         py3-yaml \
         python3 \
         python3-dev \
@@ -232,8 +230,6 @@ RUN apk update && \
     ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/clang && \
     ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/g++ && \
     ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/gcc
-
-RUN /usr/bin/pip3 install boto3
 
 RUN cpanm --notest \
           Archive::Tar \

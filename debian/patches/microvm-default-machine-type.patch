@@ -7,7 +7,7 @@ diff --git a/hw/i386/microvm.c b/hw/i386/microvm.c
 index def37e60f79..35b948ffb11 100644
 --- a/hw/i386/microvm.c
 +++ b/hw/i386/microvm.c
-@@ -495,6 +495,9 @@ static void microvm_class_init(ObjectClass *oc, void *data)
+@@ -643,6 +643,9 @@ static void microvm_class_init(ObjectClass *oc, void *data)
  
      mc->family = "microvm_i386";
      mc->desc = "microvm (i386)";
@@ -18,14 +18,14 @@ index def37e60f79..35b948ffb11 100644
      mc->no_floppy = 1;
      mc->max_cpus = 288;
 diff --git a/hw/i386/pc_piix.c b/hw/i386/pc_piix.c
-index 22dee0e76c6..8115ff855d9 100644
+index 30eedd62a3..20f0d590af 100644
 --- a/hw/i386/pc_piix.c
 +++ b/hw/i386/pc_piix.c
-@@ -427,2 +427,7 @@ static void pc_i440fx_5_0_machine_options(MachineClass *m)
-     m->is_default = true;
+@@ -460,3 +460,7 @@ static void pc_i440fx_8_0_machine_options(MachineClass *m)
+     m->alias = "pc";
 +#ifdef CONFIG_MICROVM_DEFAULT
 +    m->is_default = false;
 +#else
-+    m->is_default = true;
+     m->is_default = true;
 +#endif
-     pcmc->default_cpu_version = 1;
+ }

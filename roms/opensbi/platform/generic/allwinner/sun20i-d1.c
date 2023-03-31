@@ -5,11 +5,13 @@
  */
 
 #include <platform_override.h>
+#include <thead_c9xx.h>
 #include <sbi/riscv_io.h>
 #include <sbi/sbi_bitops.h>
 #include <sbi/sbi_ecall_interface.h>
 #include <sbi/sbi_error.h>
 #include <sbi/sbi_hsm.h>
+#include <sbi/sbi_pmu.h>
 #include <sbi_utils/fdt/fdt_helper.h>
 #include <sbi_utils/irqchip/fdt_irqchip_plic.h>
 
@@ -76,15 +78,16 @@ static u32 plic_threshold;
 
 static void sun20i_d1_plic_save(void)
 {
-	fdt_plic_context_save(true, plic_sie, &plic_threshold);
-	fdt_plic_priority_save(plic_priority);
+	fdt_plic_context_save(true, plic_sie, &plic_threshold, PLIC_IE_WORDS);
+	fdt_plic_priority_save(plic_priority, PLIC_SOURCES);
 }
 
 static void sun20i_d1_plic_restore(void)
 {
 	thead_plic_restore();
-	fdt_plic_priority_restore(plic_priority);
-	fdt_plic_context_restore(true, plic_sie, plic_threshold);
+	fdt_plic_priority_restore(plic_priority, PLIC_SOURCES);
+	fdt_plic_context_restore(true, plic_sie, plic_threshold,
+				 PLIC_IE_WORDS);
 }
 
 /*
@@ -144,14 +147,14 @@ static void sun20i_d1_riscv_cfg_restore(void)
 
 static void sun20i_d1_riscv_cfg_init(void)
 {
-	unsigned long entry = sbi_hartid_to_scratch(0)->warmboot_addr;
+	u64 entry = sbi_hartid_to_scratch(0)->warmboot_addr;
 
 	/* Enable MMIO access. */
 	writel_relaxed(CCU_BGR_ENABLE, SUN20I_D1_CCU_BASE + RISCV_CFG_BGR_REG);
 
 	/* Program the reset entry address. */
-	writel_relaxed((u32)entry, SUN20I_D1_RISCV_CFG_BASE + RESET_ENTRY_LO_REG);
-	writel_relaxed((u64)entry >> 32, SUN20I_D1_RISCV_CFG_BASE + RESET_ENTRY_HI_REG);
+	writel_relaxed(entry, SUN20I_D1_RISCV_CFG_BASE + RESET_ENTRY_LO_REG);
+	writel_relaxed(entry >> 32, SUN20I_D1_RISCV_CFG_BASE + RESET_ENTRY_HI_REG);
 }
 
 static int sun20i_d1_hart_suspend(u32 suspend_type)
@@ -199,6 +202,61 @@ static int sun20i_d1_final_init(bool cold_boot, const struct fdt_match *match)
 	return 0;
 }
 
+static void thead_c9xx_pmu_ctr_enable_irq(uint32_t ctr_idx)
+{
+	unsigned long mip_val;
+
+	if (ctr_idx >= SBI_PMU_HW_CTR_MAX)
+		return;
+
+	mip_val = csr_read(CSR_MIP);
+	/**
+	 * Clear out the OF bit so that next interrupt can be enabled.
+	 * This should be done only when the corresponding overflow interrupt
+	 * bit is cleared. That indicates that software has already handled the
+	 * previous interrupts or the hardware yet to set an overflow interrupt.
+	 * Otherwise, there will be race conditions where we may clear the bit
+	 * the software is yet to handle the interrupt.
+	 */
+	if (!(mip_val & THEAD_C9XX_MIP_MOIP))
+		csr_clear(THEAD_C9XX_CSR_MCOUNTEROF, BIT(ctr_idx));
+
+	/**
+	 * SSCOFPMF uses the OF bit for enabling/disabling the interrupt,
+	 * while the C9XX has designated enable bits.
+	 * So enable per-counter interrupt on C9xx here.
+	 */
+	csr_set(THEAD_C9XX_CSR_MCOUNTERINTEN, BIT(ctr_idx));
+}
+
+static void thead_c9xx_pmu_ctr_disable_irq(uint32_t ctr_idx)
+{
+	csr_clear(THEAD_C9XX_CSR_MCOUNTERINTEN, BIT(ctr_idx));
+}
+
+static int thead_c9xx_pmu_irq_bit(void)
+{
+	return THEAD_C9XX_MIP_MOIP;
+}
+
+const struct sbi_pmu_device thead_c9xx_pmu_device = {
+	.hw_counter_enable_irq = thead_c9xx_pmu_ctr_enable_irq,
+	.hw_counter_disable_irq = thead_c9xx_pmu_ctr_disable_irq,
+	.hw_counter_irq_bit = thead_c9xx_pmu_irq_bit,
+};
+
+static int sun20i_d1_extensions_init(const struct fdt_match *match,
+				     struct sbi_hart_features *hfeatures)
+{
+	sbi_pmu_set_device(&thead_c9xx_pmu_device);
+
+	/* auto-detection doesn't work on t-head c9xx cores */
+	hfeatures->mhpm_count = 29;
+	hfeatures->mhpm_bits = 64;
+
+	return 0;
+}
+
 static const struct fdt_match sun20i_d1_match[] = {
 	{ .compatible = "allwinner,sun20i-d1" },
 	{ },
@@ -207,4 +265,5 @@ static const struct fdt_match sun20i_d1_match[] = {
 const struct platform_override sun20i_d1 = {
 	.match_table	= sun20i_d1_match,
 	.final_init	= sun20i_d1_final_init,
+	.extensions_init = sun20i_d1_extensions_init,
 };

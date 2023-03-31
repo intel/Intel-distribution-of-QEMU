@@ -13,12 +13,12 @@ from functools import total_ordering
 
 from pathlib import Path
 from lcitool import util
-from lcitool.inventory import Inventory
-from lcitool.projects import Project, Projects, ProjectError
-from lcitool.package import NativePackage, CrossPackage, PyPIPackage, CPANPackage
+from lcitool.projects import Project, ProjectError
+from lcitool.packages import NativePackage, CrossPackage, PyPIPackage, CPANPackage, Packages
+from lcitool.targets import BuildTarget
+from lcitool.util import DataDir
 
-
-ALL_TARGETS = sorted(Inventory().targets)
+from conftest import ALL_TARGETS
 
 
 def get_non_cross_targets():
@@ -43,14 +43,14 @@ def packages_as_dict(raw_pkgs):
 
 
 @pytest.fixture
-def test_project():
-    return Project("packages",
+def test_project(projects):
+    return Project(projects, "packages",
                    Path(test_utils.test_data_indir(__file__), "packages.yml"))
 
 
-def test_verify_all_mappings_and_packages():
+def test_verify_all_mappings_and_packages(packages):
     expected_path = Path(test_utils.test_data_indir(__file__), "packages.yml")
-    actual = {"packages": sorted(Projects().mappings["mappings"].keys())}
+    actual = {"packages": sorted(packages.mappings.keys())}
 
     test_utils.assert_yaml_matches_file(actual, expected_path)
 
@@ -66,27 +66,39 @@ cross_params = [
 
 
 @pytest.mark.parametrize("target,arch", native_params + cross_params)
-def test_package_resolution(test_project, target, arch):
+def test_package_resolution(targets, packages, test_project, target, arch):
     if arch is None:
         outfile = f"{target}.yml"
     else:
         outfile = f"{target}-cross-{arch}.yml"
     expected_path = Path(test_utils.test_data_outdir(__file__), outfile)
-    pkgs = test_project.get_packages(Inventory().target_facts[target],
-                                     cross_arch=arch)
+    target_obj = BuildTarget(targets, packages, target, arch)
+    pkgs = test_project.get_packages(target_obj)
     actual = packages_as_dict(pkgs)
 
     test_utils.assert_yaml_matches_file(actual, expected_path)
+
+
+def test_resolution_override(targets, test_project):
+    datadir = DataDir(Path(test_utils.test_data_dir(__file__), 'override'))
+    packages = Packages(datadir)
+    target_obj = BuildTarget(targets, packages, "centos-stream-8")
+    pkgs = test_project.get_packages(target_obj)
+    assert isinstance(pkgs['meson'], PyPIPackage)
+
+    actual = packages_as_dict(pkgs)
+    assert 'meson==0.63.2' in actual['pypi']
+    assert 'python38' in actual['native']
 
 
 @pytest.mark.parametrize(
     "target",
     [pytest.param(target, id=target) for target in get_non_cross_targets()],
 )
-def test_unsupported_cross_platform(test_project, target):
+def test_unsupported_cross_platform(targets, packages, test_project, target):
     with pytest.raises(ProjectError):
-        test_project.get_packages(Inventory().target_facts[target],
-                                  cross_arch="s390x")
+        target_obj = BuildTarget(targets, packages, target, "s390x")
+        test_project.get_packages(target_obj)
 
 
 @pytest.mark.parametrize(
@@ -96,10 +108,10 @@ def test_unsupported_cross_platform(test_project, target):
         pytest.param("fedora-rawhide", "s390x", id="fedora-rawhide-cross-s390x"),
     ],
 )
-def test_cross_platform_arch_mismatch(test_project, target, arch):
+def test_cross_platform_arch_mismatch(targets, packages, test_project, target, arch):
     with pytest.raises(ProjectError):
-        test_project.get_packages(Inventory().target_facts[target],
-                                  cross_arch=arch)
+        target_obj = BuildTarget(targets, packages, target, arch)
+        test_project.get_packages(target_obj)
 
 
 @total_ordering
@@ -124,11 +136,11 @@ class MappingKey(namedtuple('MappingKey', ['components', 'priority'])):
         return self.components < other.components
 
 
-def mapping_keys_product():
+def mapping_keys_product(targets):
     basekeys = set()
 
     basekeys.add(MappingKey(("default", ), 0))
-    for target, facts in Inventory().target_facts.items():
+    for target, facts in targets.target_facts.items():
         fmt = facts["packaging"]["format"]
         name = facts["os"]["name"]
         ver = facts["os"]["version"]
@@ -148,10 +160,11 @@ def mapping_keys_product():
     return basekeys + archkeys + crossarchkeys + crosspolicykeys
 
 
-def test_project_mappings_sorting():
-    mappings = Projects().mappings["mappings"]
+@pytest.mark.parametrize("key", ["mappings", "pypi_mappings", "cpan_mappings"])
+def test_project_mappings_sorting(targets, packages, key):
+    mappings = getattr(packages, key)
 
-    all_expect_keys = mapping_keys_product()
+    all_expect_keys = mapping_keys_product(targets)
     for package, entries in mappings.items():
         got_keys = list(entries.keys())
         expect_keys = list(filter(lambda k: k in got_keys, all_expect_keys))

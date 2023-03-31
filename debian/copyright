@@ -7,7 +7,6 @@ Files-Excluded:
 	roms/ipxe
 	roms/seabios
 	roms/u-boot
-	slirp
 #
 	roms/SLOF/board-js2x/rtas/i2c_bmc.oco
 	roms/SLOF/board-js2x/rtas/ipmi_oem.oco
@@ -33,12 +32,13 @@ Files-Excluded:
 	pc-bios/openbios-sparc64
 	pc-bios/opensbi-*.bin
 	pc-bios/palcode-clipper
+	pc-bios/petalogix-ml605.dtb
+	pc-bios/petalogix-s3adsp1800.dtb
 	pc-bios/pvh.bin
 	pc-bios/qboot.rom
 	pc-bios/qemu_vga.ndrv
 	pc-bios/s390-ccw.img
 	pc-bios/s390-netboot.img
-	pc-bios/sgabios.bin
 	pc-bios/skiboot.lid
 	pc-bios/slof.bin
 	pc-bios/u-boot-sam460-20100605.bin

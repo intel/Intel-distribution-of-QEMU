@@ -12,7 +12,6 @@ from pathlib import Path
 from pkg_resources import resource_filename
 
 from lcitool import util, LcitoolError
-from lcitool.singleton import Singleton
 
 log = logging.getLogger(__name__)
 
@@ -47,7 +46,7 @@ class ValidationError(ConfigError):
         super().__init__(message)
 
 
-class Config(metaclass=Singleton):
+class Config:
 
     @property
     def values(self):
@@ -60,10 +59,14 @@ class Config(metaclass=Singleton):
 
     def __init__(self):
         self._values = None
+        self._config_file_dir = util.get_config_dir()
         self._config_file_paths = [
-            Path(util.get_config_dir(), fname) for fname in
+            self.get_config_path(fname) for fname in
             ["config.yml", "config.yaml"]
         ]
+
+    def get_config_path(self, *args):
+        return Path(self._config_file_dir, *args)
 
     def _load_config(self):
         # Load the template config containing the defaults first, this must
@@ -149,7 +152,7 @@ class Config(metaclass=Singleton):
 
     def _validate(self):
         if self._values is None:
-            paths = ", ".join([str(p) for p in self._config_file_paths()])
+            paths = ", ".join([str(p) for p in self._config_file_paths])
             raise ValidationError(f"Missing or empty configuration file, tried {paths}")
 
         self._validate_section("install", ["root_password"])

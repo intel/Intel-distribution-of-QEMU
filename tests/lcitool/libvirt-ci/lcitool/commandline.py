@@ -4,11 +4,27 @@
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
 
+import sys
+import logging
 import argparse
 
 from pathlib import Path
 
 from lcitool.application import Application
+from lcitool.util import DataDir
+
+
+log = logging.getLogger(__name__)
+
+
+class DataDirAction(argparse.Action):
+    def __init__(self, option_strings, dest, default=DataDir(), nargs=None, **kwargs):
+        if nargs is not None:
+            raise ValueError("nargs not allowed")
+        super().__init__(option_strings, dest, default=default, nargs=1, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        setattr(namespace, self.dest, DataDir(values[0]))
 
 
 class CommandLine:
@@ -28,6 +44,55 @@ class CommandLine:
             help="target to operate on",
         )
 
+        engineopt = argparse.ArgumentParser(add_help=False)
+        engineopt.add_argument(
+            "--engine",
+            choices=["podman", "docker"],
+            default="podman",
+            help="container engine to use (default=podman)",
+        )
+
+        workload_diropt = argparse.ArgumentParser(add_help=False)
+        workload_diropt.add_argument(
+            "--workload-dir",
+            help="absolute path of data/scratch directory to be \
+                  mounted in the container",
+        )
+
+        scriptopt = argparse.ArgumentParser(add_help=False)
+        scriptopt.add_argument(
+            "--script",
+            help="absolute path to the script which will run the workload",
+        )
+
+        containeropt = argparse.ArgumentParser(add_help=False)
+        containeropt.add_argument(
+            "--env",
+            action="append",
+            help="environment variables to set in the container \
+                  (option can be passed multiple times e.g --env FOO=bar \
+                  --env BAR=baz)",
+        )
+        containeropt.add_argument(
+            "--user",
+            default="root",
+            help="user to run in the container—accepts \
+                  id or username (default=root)",
+        )
+
+        imageopt = argparse.ArgumentParser(add_help=False)
+        imageopt.add_argument(
+            "image",
+            help="Image to use (accepts plain names, image IDs, \
+                  full registry paths and tags)",
+        )
+
+        container_projectopt = argparse.ArgumentParser(add_help=False)
+        container_projectopt.add_argument(
+            "-p", "--projects",
+            help="list of projects (accepts globs)",
+        )
+
         installtargetopt = argparse.ArgumentParser(add_help=False)
         installtargetopt.add_argument(
             "-t", "--target",
@@ -40,8 +105,8 @@ class CommandLine:
             help="name of the host (taken from inventory OR a new name)",
         )
 
-        projectsopt = argparse.ArgumentParser(add_help=False)
-        projectsopt.add_argument(
+        update_projectopt = argparse.ArgumentParser(add_help=False)
+        update_projectopt.add_argument(
             "projects",
             help="list of projects to consider (accepts globs)",
         )
@@ -151,6 +216,7 @@ class CommandLine:
         )
         self._parser.add_argument(
             "-d", "--data-dir",
+            action=DataDirAction,
             help="extra directory for loading data files from")
 
         subparsers = self._parser.add_subparsers(metavar="ACTION",
@@ -168,7 +234,7 @@ class CommandLine:
         updateparser = subparsers.add_parser(
             "update",
             help="prepare hosts and keep them updated",
-            parents=[verbosityopt, hostsopt, projectsopt, gitrevopt],
+            parents=[verbosityopt, hostsopt, update_projectopt, gitrevopt],
         )
         updateparser.set_defaults(func=Application._action_update)
 
@@ -205,14 +271,14 @@ class CommandLine:
         variablesparser = subparsers.add_parser(
             "variables",
             help="generate variables",
-            parents=[formatopt, targetopt, projectsopt, crossarchopt],
+            parents=[formatopt, targetopt, update_projectopt, crossarchopt],
         )
         variablesparser.set_defaults(func=Application._action_variables)
 
         dockerfileparser = subparsers.add_parser(
             "dockerfile",
             help="generate Dockerfile",
-            parents=[targetopt, projectsopt, crossarchopt,
+            parents=[targetopt, update_projectopt, crossarchopt,
                      baseopt, layersopt],
         )
         dockerfileparser.set_defaults(func=Application._action_dockerfile)
@@ -220,7 +286,7 @@ class CommandLine:
         buildenvscriptparser = subparsers.add_parser(
             "buildenvscript",
             help="generate shell script for build environment setup",
-            parents=[targetopt, projectsopt, crossarchopt],
+            parents=[targetopt, update_projectopt, crossarchopt],
         )
         buildenvscriptparser.set_defaults(func=Application._action_buildenvscript)
 
@@ -230,5 +296,73 @@ class CommandLine:
             parents=[manifestopt, dryrunopt, quietopt, basediropt, cidiropt])
         manifestparser.set_defaults(func=Application._action_manifest)
 
+        container_parser = subparsers.add_parser(
+            "container",
+            help="Container related functionality"
+        )
+
+        containersubparser = container_parser.add_subparsers(metavar="COMMAND",
+                                                             dest='container')
+        containersubparser.required = True
+
+        container_engineparser = containersubparser.add_parser(
+            "engines",
+            help="List available container engines",
+        )
+        container_engineparser.set_defaults(func=Application._action_list_engines)
+
+        build_containerparser = containersubparser.add_parser(
+            "build",
+            help="Build container image",
+            parents=[installtargetopt, container_projectopt, engineopt,
+                     crossarchopt],
+        )
+        build_containerparser.set_defaults(func=Application._action_container_build)
+
+        run_containerparser = containersubparser.add_parser(
+            "run",
+            help="run container action",
+            parents=[imageopt, containeropt, engineopt, workload_diropt, scriptopt]
+        )
+        run_containerparser.set_defaults(func=Application._action_container_run)
+
+        shell_containerparser = containersubparser.add_parser(
+            "shell",
+            help="Access to an interactive shell",
+            parents=[imageopt, containeropt, engineopt, workload_diropt, scriptopt]
+        )
+        shell_containerparser.set_defaults(func=Application._action_container_run)
+
+    # Validate "container" args
+    def _validate(self, args):
+        """
+        Validate command line arguments.
+        :param args: argparse.Namespace object which contains
+                     all the CLI arguments.
+
+        :return: args.
+        """
+
+        if vars(args).get("container") \
+                and args.container in ["build", "run", "shell"]:
+
+            # Ensure that (--target & --projects) argument are passed with
+            # "build" subcommand.
+            if args.container == "build":
+                if args.projects and args.target:
+                    return args
+                else:
+                    log.error("--target and --projects are required")
+                    sys.exit(1)
+
+            if args.container == "run":
+                # "run" subcommand only requires "--script" argument;
+                # it works with or without "--workload-dir" argument
+                if not args.script:
+                    log.error("--script is required")
+                    sys.exit(1)
+
+        return args
+
     def parse(self):
-        return self._parser.parse_args()
+        return self._validate(self._parser.parse_args())

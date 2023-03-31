@@ -183,7 +183,6 @@ RUN zypper dist-upgrade -y && \
            perl-Pod-Simple \
            perl-Sub-Uplevel \
            perl-Test-Exception \
-           perl-Test-Harness \
            perl-Test-Pod \
            perl-Test-Pod-Coverage \
            perl-Test-Simple \
@@ -194,7 +193,6 @@ RUN zypper dist-upgrade -y && \
            perl-YAML \
            perl-base \
            php-devel \
-           php-imagick \
            pkgconfig \
            polkit \
            python3-Pillow \
@@ -258,7 +256,6 @@ RUN zypper dist-upgrade -y && \
            xorriso \
            xz \
            xz-devel \
-           xz-static-devel \
            zip \
            zlib-devel \
            zlib-devel-static && \

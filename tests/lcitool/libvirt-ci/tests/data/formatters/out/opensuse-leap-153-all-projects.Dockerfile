@@ -182,7 +182,6 @@ RUN zypper update -y && \
            perl-Pod-Simple \
            perl-Sub-Uplevel \
            perl-Test-Exception \
-           perl-Test-Harness \
            perl-Test-Pod \
            perl-Test-Pod-Coverage \
            perl-Test-Simple \
@@ -193,7 +192,6 @@ RUN zypper update -y && \
            perl-YAML \
            perl-base \
            php-devel \
-           php-imagick \
            pkgconfig \
            polkit \
            python3-Pillow \

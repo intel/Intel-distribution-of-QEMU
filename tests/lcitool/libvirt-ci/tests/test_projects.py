@@ -6,37 +6,25 @@
 
 import pytest
 
-from lcitool.projects import Projects
-from lcitool.inventory import Inventory
+from lcitool.targets import BuildTarget
+
+from conftest import ALL_PROJECTS
 
 
-projects = Projects()
-ALL_PROJECTS = sorted(projects.names + list(projects.internal_projects.keys()))
-
-
-@pytest.mark.parametrize(
-    "name",
-    ALL_PROJECTS
-)
-def test_project_packages(name):
+@pytest.fixture(params=ALL_PROJECTS)
+def project(request, projects):
     try:
-        project = projects.projects[name]
+        return projects.public[request.param]
     except KeyError:
-        project = projects.internal_projects[name]
-    target = Inventory().targets[0]
-    facts = Inventory().target_facts[target]
-    project.get_packages(facts)
+        return projects.internal[request.param]
 
 
-@pytest.mark.parametrize(
-    "name",
-    ALL_PROJECTS
-)
-def test_project_package_sorting(name):
-    try:
-        project = projects.projects[name]
-    except KeyError:
-        project = projects.internal_projects[name]
+def test_project_packages(targets, packages, project):
+    target = BuildTarget(targets, packages, targets.targets[0])
+    project.get_packages(target)
+
+
+def test_project_package_sorting(project):
     pkgs = project._load_generic_packages()
 
     otherpkgs = sorted(pkgs)

@@ -245,18 +245,6 @@ endif
 	  mv debian/tmp/$$f debian/qemu-system-common/$$f ; \
 	done
 
-ifneq (${DEB_HOST_ARCH},sparc64)
-# virtiofsd needs libseccomp which is not ported to sparc (not even the kernel part),
-# so install it only on non-sparc
-	for f in usr/lib/qemu/virtiofsd \
-		 usr/share/man/man1/virtiofsd.1 \
-		 usr/share/qemu/vhost-user/50-qemu-virtiofsd.json \
-	; do \
-	  mkdir -p debian/qemu-system-common/$${f%/*} ; \
-	  mv debian/tmp/$$f debian/qemu-system-common/$$f ; \
-	done
-endif
-
 # for --enable-module-upgrades to work in more environments
 	install -D -m 0644 debian/run-qemu.mount debian/qemu-block-extra/lib/systemd/system/run-qemu.mount
 
@@ -324,9 +312,9 @@ b/xen/configured: configure
 	rm -rf b/xen; mkdir -p b/xen
 	cd b/xen && \
 	    ../../configure ${common_configure_opts} \
-		--disable-blobs --disable-docs --disable-tools \
+		--disable-install-blobs --disable-docs --disable-tools \
 		--without-default-features \
-		--enable-avx2 --enable-avx512f \
+		--enable-avx2 \
 		--enable-xen --target-list=i386-softmmu \
 		--enable-xen-pci-passthrough \
 		--disable-tcg --disable-kvm \
@@ -428,14 +416,10 @@ endif
 override_dh_makeshlibs:
 
 override_dh_dwz: #968670: skip dwz << 0.14 on these arches, remove in bookworm+1
-ifneq (,$(filter ${DEB_HOST_ARCH},arm64 ppc64el s390x))
 	v="$$(dwz --version 2>&1 | sed -n 's/^dwz version //p')"; case "$$v" in \
 	  (0.1[0123]) echo "Skipping dwz version $$v on ${DEB_HOST_ARCH}: #968670" ;; \
 	  (*) dh_dwz ;; \
 	esac
-else
-	dh_dwz
-endif
 
 ##############################################
 ### firmware, qemu-user-data package
@@ -492,23 +476,6 @@ b/optionrom/built:
 install-x86-optionrom: build-x86-optionrom | ${sysdataidir}
 	${MAKE} -f ${CURDIR}/debian/optionrom.mak -C b/optionrom SRC_PATH="${CURDIR}" install DESTDIR="${CURDIR}/${sysdataidir}"
 sysdata-components += x86-optionrom
-
-### sgabios.
-# The Makefile is too complex and forces current date to be embedded to binary
-build-sgabios: b/sgabios/sgabios.bin
-b/sgabios/sgabios.bin:
-	mkdir -p b/sgabios
-	cc -c -o b/sgabios/sgabios.o roms/sgabios/sgabios.S -Wall -Os -m32 -nostdlib \
-	  -DBUILD_DATE="\"$$(LC_ALL=C date -u -r roms/sgabios/sgabios.S)\"" \
-	  -DBUILD_SHORT_DATE="\"$$(date -u +%D -r roms/sgabios/sgabios.S)\"" \
-	  -DBUILD_HOST=\"debian\" -DBUILD_USER=\"build\"
-	ld -T roms/sgabios/rom16.ld -nostdlib b/sgabios/sgabios.o -o b/sgabios/sgabios.elf
-	objcopy -O binary b/sgabios/sgabios.elf b/sgabios/sgabios.bin
-	cc -Wall -O2 -o b/sgabios/csum8 roms/sgabios/csum8.c
-	b/sgabios/csum8 b/sgabios/sgabios.bin
-install-sgabios: b/sgabios/sgabios.bin
-	install -m 0644 $< ${sysdataidir}/sgabios.bin
-sysdata-components += sgabios
 
 ### qboot, aka bios-microvm
 build-qboot: b/qboot/bios.bin
@@ -594,10 +561,14 @@ b/misc/.built:
 	mkdir -p b/misc
 	dtc -o b/misc/bamboo.dtb pc-bios/bamboo.dts
 	dtc -o b/misc/canyonlands.dtb pc-bios/canyonlands.dts
+	dtc -o b/misc/petalogix-ml605.dtb pc-bios/petalogix-ml605.dts
+	dtc -o b/misc/petalogix-s3adsp1800.dtb pc-bios/petalogix-s3adsp1800.dts
 	touch $@
 install-misc: build-misc
 	install -m 0644 b/misc/bamboo.dtb b/misc/canyonlands.dtb \
-		${sysdataidir}
+		-D -t ${sysdataidir}
+	install -m 0644 b/misc/petalogix-ml605.dtb b/misc/petalogix-s3adsp1800.dtb \
+		-D -t debian/qemu-system-misc/usr/share/qemu/
 sysdata-components += misc
 
 ${sysdataidir}:
@@ -617,7 +588,7 @@ override_dh_auto_install-indep: $(addprefix install-, ${sysdata-components})
 	install -Dp -m0644 ui/icons/qemu.svg \
 	 -t debian/qemu-system-data/usr/share/icons/hicolor/scalable/apps/
 # icon for sdl2 ui (non-sdl-image version)
-	install -Dp -m0644 ui/icons/qemu_32x32.png \
+	install -Dp -m0644 ui/icons/qemu_32x32.bmp \
 	 -t debian/qemu-system-data/usr/share/icons/hicolor/32x32/apps/
 	install -Dp -m0644 -t debian/qemu-system-data/usr/share/qemu/keymaps/ \
 	 $$(ls -1 pc-bios/keymaps/* | fgrep -v /meson.build)

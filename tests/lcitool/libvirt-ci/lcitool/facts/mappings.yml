@@ -200,6 +200,15 @@ mappings:
     rpm: capstone-devel
     MacOS: capstone
     OpenSUSE:
+    # EPEL9 retired capstone as soon as it was added to c9s for
+    # the future RHEL-9.2 release. This dooms anyone still using
+    # RHEL < 9.2 who still needs capstone from EPEL, so we
+    # workaround by manually picking the most recent version
+    AlmaLinux9:
+    aarch64-AlmaLinux9: https://kojipkgs.fedoraproject.org/packages/capstone/4.0.2/9.el9/aarch64/capstone-4.0.2-9.el9.aarch64.rpm
+    ppc64le-AlmaLinux9: https://kojipkgs.fedoraproject.org/packages/capstone/4.0.2/9.el9/ppc64le/capstone-4.0.2-9.el9.ppc64le.rpm
+    s390x-AlmaLinux9: https://kojipkgs.fedoraproject.org/packages/capstone/4.0.2/9.el9/s390x/capstone-4.0.2-9.el9.s390x.rpm
+    x86_64-AlmaLinux9: https://kojipkgs.fedoraproject.org/packages/capstone/4.0.2/9.el9/x86_64/capstone-4.0.2-9.el9.x86_64.rpm
     cross-policy-default: foreign
 
   cargo:
@@ -786,6 +795,8 @@ mappings:
     apk: libepoxy-dev
     deb: libepoxy-dev
     rpm: libepoxy-devel
+    cross-mingw32-rpm: mingw32-libepoxy
+    cross-mingw64-rpm: mingw64-libepoxy
     cross-policy-default: foreign
 
   libev:
@@ -884,7 +895,9 @@ mappings:
   liblzma-static:
     deb: liblzma-dev
     Fedora: xz-static
-    OpenSUSE: xz-static-devel
+    OpenSUSE:
+    OpenSUSELeap153: xz-static-devel
+    OpenSUSELeap154: xz-static-devel
     cross-policy-default: foreign
 
   libnfs:
@@ -1156,7 +1169,6 @@ mappings:
 
   llvm:
     default: llvm
-    apk: llvm11
 
   locales:
     deb: locales
@@ -1291,7 +1303,6 @@ mappings:
     CentOSStream8: netcf-devel
     Debian10: libnetcf-dev
     Debian11: libnetcf-dev
-    Fedora35: netcf-devel
     Ubuntu1804: libnetcf-dev
     Ubuntu2004: libnetcf-dev
     cross-policy-default: skip
@@ -1597,17 +1608,19 @@ mappings:
     OpenSUSE:
 
   php:
-    apk: php8-dev
+    apk: php81-dev
     deb: php-dev
     pkg: php74
     rpm: php-devel
+    Alpine315: php8-dev
 
   php-imagick:
-    apk: php8-pecl-imagick
+    apk: php81-pecl-imagick
     deb: php-imagick
     pkg: php74-pecl-imagick
     Fedora: php-pecl-imagick
     OpenSUSE: php-imagick
+    Alpine315: php8-pecl-imagick
 
   pixman:
     default: pixman
@@ -1639,7 +1652,6 @@ mappings:
 
   publican:
     deb: publican
-    Fedora35: publican
     Fedora36: publican
 
   pulseaudio:
@@ -1668,7 +1680,7 @@ mappings:
 
   python3-boto3:
     default: python3-boto3
-    apk:
+    apk: py3-boto3
     pkg: py39-boto3
 
   python3-devel:
@@ -2163,6 +2175,9 @@ mappings:
     default: zstd
     deb: libzstd-dev
     rpm: libzstd-devel
+
+  zstdtools:
+    default: zstd
 
 # PyPi mappings are used to map the generic packages name used to define
 # projects to the specific package name and version which will be used when

@@ -4,14 +4,17 @@
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
 
+import copy
 import fnmatch
 import logging
 import os
 import platform
 import tempfile
 import textwrap
+import yaml
 
 from pathlib import Path
+from pkg_resources import resource_filename
 
 _tempdir = None
 
@@ -202,17 +205,61 @@ def get_config_dir():
     return Path(config_dir, "lcitool")
 
 
-extra_data_dir = None
+def merge_dict(source, dest):
+    for key in source.keys():
+        if key not in dest:
+            dest[key] = copy.deepcopy(source[key])
+            continue
+
+        if isinstance(source[key], list) or isinstance(dest[key], list):
+            raise ValueError("cannot merge lists")
+        if isinstance(source[key], dict) != isinstance(dest[key], dict):
+            raise ValueError("cannot merge dictionaries with non-dictionaries")
+        if isinstance(source[key], dict):
+            merge_dict(source[key], dest[key])
 
 
-def get_extra_data_dir():
-    global extra_data_dir
-    return extra_data_dir
+class DataDir:
+    """A class that looks for files both under the lcitool sources and in
+       an externally specified data directory.  Used to implement the
+       -d option."""
 
+    def __init__(self, extra_data_dir=None):
+        self._extra_data_dir = extra_data_dir
 
-def set_extra_data_dir(path):
-    global extra_data_dir
-    extra_data_dir = path
+    def __repr__(self):
+        return f'DataDir({str(self._extra_data_dir)})'
+
+    def _search(self, resource_path, *names, internal=False):
+        if not internal and self._extra_data_dir:
+            # The first part of the path is used to keep data files out of
+            # the source directory, for example "facts" or "etc".  Remove it
+            # when using an external data directory.
+            if "/" in resource_path:
+                user_path = resource_path[resource_path.index("/") + 1:]
+            else:
+                user_path = ""
+            p = Path(self._extra_data_dir, user_path, *names)
+            if p.exists():
+                yield p
+
+        p = Path(resource_filename(__name__, resource_path), *names)
+        if p.exists():
+            yield p
+
+    def list_files(self, resource_path, suffix=None, internal=False):
+        for p in self._search(resource_path, internal=internal):
+            for file in p.iterdir():
+                if file.is_file() and (suffix is None or file.suffix == suffix):
+                    yield file
+
+    def merge_facts(self, resource_path, name):
+        result = {}
+        for file in self._search(resource_path, name + ".yml"):
+            log.debug(f"Loading facts from '{file}'")
+            with open(file, "r") as infile:
+                merge_dict(yaml.safe_load(infile), result)
+        return result
 
 
 def validate_cross_platform(cross_arch, osname):

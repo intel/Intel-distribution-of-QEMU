@@ -105,7 +105,7 @@ bool sbi_domain_check_addr(const struct sbi_domain *dom,
 			   unsigned long addr, unsigned long mode,
 			   unsigned long access_flags)
 {
-	bool mmio = FALSE;
+	bool rmmio, mmio = FALSE;
 	struct sbi_domain_memregion *reg;
 	unsigned long rstart, rend, rflags, rwx = 0;
 
@@ -130,8 +130,8 @@ bool sbi_domain_check_addr(const struct sbi_domain *dom,
 		rend = (reg->order < __riscv_xlen) ?
 			rstart + ((1UL << reg->order) - 1) : -1UL;
 		if (rstart <= addr && addr <= rend) {
-			if ((mmio && !(rflags & SBI_DOMAIN_MEMREGION_MMIO)) ||
-			    (!mmio && (rflags & SBI_DOMAIN_MEMREGION_MMIO)))
+			rmmio = (rflags & SBI_DOMAIN_MEMREGION_MMIO) ? TRUE : FALSE;
+			if (mmio != rmmio)
 				return FALSE;
 			return ((rflags & rwx) == rwx) ? TRUE : FALSE;
 		}
@@ -146,7 +146,10 @@ static bool is_region_valid(const struct sbi_domain_memregion *reg)
 	if (reg->order < 3 || __riscv_xlen < reg->order)
 		return FALSE;
 
-	if (reg->base & (BIT(reg->order) - 1))
+	if (reg->order == __riscv_xlen && reg->base != 0)
+		return FALSE;
+
+	if (reg->order < __riscv_xlen && (reg->base & (BIT(reg->order) - 1)))
 		return FALSE;
 
 	return TRUE;
@@ -518,6 +521,33 @@ int sbi_domain_root_add_memregion(const struct sbi_domain_memregion *reg)
 			}
 		}
 	} while (reg_merged);
+
+	return 0;
+}
+
+int sbi_domain_root_add_memrange(unsigned long addr, unsigned long size,
+			   unsigned long align, unsigned long region_flags)
+{
+	int rc;
+	unsigned long pos, end, rsize;
+	struct sbi_domain_memregion reg;
+
+	pos = addr;
+	end = addr + size;
+	while (pos < end) {
+		rsize = pos & (align - 1);
+		if (rsize)
+			rsize = 1UL << sbi_ffs(pos);
+		else
+			rsize = ((end - pos) < align) ?
+				(end - pos) : align;
+
+		sbi_domain_memregion_init(pos, rsize, region_flags, &reg);
+		rc = sbi_domain_root_add_memregion(&reg);
+		if (rc)
+			return rc;
+		pos += rsize;
+	}
 
 	return 0;
 }

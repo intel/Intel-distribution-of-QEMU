@@ -95,19 +95,15 @@ case "$DEB_HOST_ARCH" in
 esac
 
 mkdir -p debian/$PACKAGE/usr/share/binfmts
-mkdir -p debian/$PACKAGE/usr/libexec/qemu-binfmt
 mkdir -p debian/$PACKAGE/usr/lib/binfmt.d
 installed_fmts=
 for fmt in $fmts ; do
     eval "case $fmt in $omit) magic= ;; *) magic=\"\$${fmt}_magic\" mask=\"\$${fmt}_mask\" ;; esac"
     [ -z "$magic" ] && continue
     installed_fmts="$installed_fmts $fmt"
-    # use a special name ending with -binfmt-P so qemu-user
-    # knows it is run by kernel binfmt with P (preserve) flag
-    ln -sf ../../bin/qemu-$fmt$SUFFIX debian/$PACKAGE/usr/libexec/qemu-binfmt/$fmt-binfmt-P
     cat >debian/$PACKAGE/usr/share/binfmts/qemu-$fmt <<EOF
 package $PACKAGE
-interpreter /usr/libexec/qemu-binfmt/$fmt-binfmt-P
+interpreter /usr/bin/qemu-$fmt
 magic $magic
 offset 0
 mask $mask

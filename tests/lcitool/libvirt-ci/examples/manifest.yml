@@ -46,6 +46,8 @@ gitlab:
 #    cargo-fmt: false
 #    go-fmt: false
 #    clang-format: false
+#    black: false
+#    flake8: false
 #
 #  templates:
 #    native-build: .native_build_job
@@ -135,7 +137,7 @@ targets:
       - arch: ppc64le
       - arch: s390x
 
-  fedora-35: x86_64
+  fedora-37: x86_64
 
   fedora-rawhide:
     jobs:

@@ -6,18 +6,22 @@
 
 import logging
 import sys
+import textwrap
 
 from pathlib import Path
 from pkg_resources import resource_filename
+from tempfile import TemporaryDirectory, NamedTemporaryFile
 
 from lcitool import util, LcitoolError
 from lcitool.config import Config
 from lcitool.inventory import Inventory
-from lcitool.package import package_names_by_type
+from lcitool.packages import Packages
 from lcitool.projects import Projects
+from lcitool.targets import Targets, BuildTarget
 from lcitool.formatters import DockerfileFormatter, ShellVariablesFormatter, JSONVariablesFormatter, ShellBuildEnvFormatter
-from lcitool.singleton import Singleton
 from lcitool.manifest import Manifest
+from lcitool.containers import Docker, Podman, ContainerError
+
 
 log = logging.getLogger(__name__)
 
@@ -44,7 +48,7 @@ class ApplicationError(LcitoolError):
         super().__init__(message, "Application")
 
 
-class Application(metaclass=Singleton):
+class Application:
     def __init__(self):
         # make sure the lcitool cache dir exists
         cache_dir_path = util.get_cache_dir()
@@ -59,7 +63,7 @@ class Application(metaclass=Singleton):
         log.debug(f"Cmdline args={cli_args}")
 
     def _execute_playbook(self, playbook, hosts_pattern, projects_pattern,
-                          git_revision, verbosity=0):
+                          git_revision, data_dir, verbosity=0):
         from lcitool.ansible_wrapper import AnsibleWrapper, AnsibleWrapperError
 
         log.debug(f"Executing playbook '{playbook}': "
@@ -68,11 +72,13 @@ class Application(metaclass=Singleton):
 
         base = resource_filename(__name__, "ansible")
         config = Config()
-        inventory = Inventory()
-        projects = Projects()
+        targets = Targets(data_dir)
+        inventory = Inventory(targets, config)
+        packages = Packages(data_dir)
+        projects = Projects(data_dir)
 
         hosts_expanded = inventory.expand_hosts(hosts_pattern)
-        projects_expanded = Projects().expand_names(projects_pattern)
+        projects_expanded = projects.expand_names(projects_pattern)
 
         if git_revision is not None:
             tokens = git_revision.split("/")
@@ -102,38 +108,16 @@ class Application(metaclass=Singleton):
         ansible_runner = AnsibleWrapper()
 
         for host in hosts_expanded:
-            facts = inventory.host_facts[host]
-            target = facts["target"]
-
             # packages are evaluated on a target level and since the
             # host->target mapping is N-1, we can skip hosts belonging to a
             # target group for which we already evaluated the package list
-            if target in group_vars:
+            target_name = inventory.get_host_target_name(host)
+            if target_name in group_vars:
                 continue
 
-            # resolve the package mappings to actual package names
-            internal_wanted_projects = ["base", "developer", "vm"]
-            if config.values["install"]["cloud_init"]:
-                internal_wanted_projects.append("cloud-init")
-
-            selected_projects = internal_wanted_projects + projects_expanded
-            pkgs_install = projects.get_packages(selected_projects, facts)
-            pkgs_early_install = projects.get_packages(["early_install"], facts)
-            pkgs_remove = projects.get_packages(["unwanted"], facts)
-            package_names = package_names_by_type(pkgs_install)
-            package_names_remove = package_names_by_type(pkgs_remove)
-            package_names_early_install = package_names_by_type(pkgs_early_install)
-
-            # merge the package lists to the Ansible group vars
-            packages = {}
-            packages["packages"] = package_names["native"]
-            packages["pypi_packages"] = package_names["pypi"]
-            packages["cpan_packages"] = package_names["cpan"]
-            packages["unwanted_packages"] = package_names_remove["native"]
-            packages["early_install_packages"] = package_names_early_install["native"]
-
-            group_vars[target] = packages
-            group_vars[target].update(inventory.target_facts[target])
+            target = BuildTarget(targets, packages, target_name)
+            group_vars[target_name] = inventory.get_group_vars(target, projects,
+                                                               projects_expanded)
 
         ansible_runner.prepare_env(playbookdir=playbook_base,
                                    inventories=[inventory.ansible_inventory],
@@ -149,17 +133,19 @@ class Application(metaclass=Singleton):
     def _action_hosts(self, args):
         self._entrypoint_debug(args)
 
-        inventory = Inventory()
+        config = Config()
+        targets = Targets(args.data_dir)
+        inventory = Inventory(targets, config)
         for host in sorted(inventory.hosts):
             print(host)
 
     def _action_targets(self, args):
         self._entrypoint_debug(args)
 
-        inventory = Inventory()
-        for target in sorted(inventory.targets):
+        targets = Targets(args.data_dir)
+        for target in sorted(targets.targets):
             if args.containerized:
-                facts = inventory.target_facts[target]
+                facts = targets.target_facts[target]
 
                 if facts["packaging"]["format"] not in ["apk", "deb", "rpm"]:
                     continue
@@ -169,7 +155,7 @@ class Application(metaclass=Singleton):
     def _action_projects(self, args):
         self._entrypoint_debug(args)
 
-        projects = Projects()
+        projects = Projects(args.data_dir)
         for project in sorted(projects.names):
             print(project)
 
@@ -180,7 +166,9 @@ class Application(metaclass=Singleton):
         self._entrypoint_debug(args)
 
         facts = {}
-        inventory = Inventory()
+        config = Config()
+        targets = Targets(args.data_dir)
+        inventory = Inventory(targets, config)
         host = args.host
         target = args.target
 
@@ -193,10 +181,10 @@ class Application(metaclass=Singleton):
                     "to your inventory or use '--target <target>'"
                 )
 
-            if target not in inventory.targets:
+            if target not in targets.targets:
                 raise ApplicationError(f"Unsupported target OS '{target}'")
 
-            facts = inventory.target_facts[target]
+            facts = targets.target_facts[target]
         else:
             if target is not None:
                 raise ApplicationError(
@@ -217,7 +205,7 @@ class Application(metaclass=Singleton):
         self._entrypoint_debug(args)
 
         self._execute_playbook("update", args.hosts, args.projects,
-                               args.git_revision, args.verbose)
+                               args.git_revision, args.data_dir, args.verbose)
 
     def _action_build(self, args):
         self._entrypoint_debug(args)
@@ -231,21 +219,24 @@ class Application(metaclass=Singleton):
             )
 
         self._execute_playbook("build", args.hosts, args.projects,
-                               args.git_revision, args.verbose)
+                               args.git_revision, args.data_dir, args.verbose)
 
     def _action_variables(self, args):
         self._entrypoint_debug(args)
 
-        projects_expanded = Projects().expand_names(args.projects)
+        targets = Targets(args.data_dir)
+        packages = Packages(args.data_dir)
+        projects = Projects(args.data_dir)
+        projects_expanded = projects.expand_names(args.projects)
 
         if args.format == "shell":
-            formatter = ShellVariablesFormatter()
+            formatter = ShellVariablesFormatter(projects)
         else:
-            formatter = JSONVariablesFormatter()
+            formatter = JSONVariablesFormatter(projects)
 
-        variables = formatter.format(args.target,
-                                     projects_expanded,
-                                     args.cross_arch)
+        target = BuildTarget(targets, packages, args.target, args.cross_arch)
+        variables = formatter.format(target,
+                                     projects_expanded)
 
         # No comments in json !
         if args.format != "json":
@@ -262,12 +253,16 @@ class Application(metaclass=Singleton):
     def _action_dockerfile(self, args):
         self._entrypoint_debug(args)
 
-        projects_expanded = Projects().expand_names(args.projects)
+        targets = Targets(args.data_dir)
+        packages = Packages(args.data_dir)
+        projects = Projects(args.data_dir)
+        projects_expanded = projects.expand_names(args.projects)
+        target = BuildTarget(targets, packages, args.target, args.cross_arch)
 
-        dockerfile = DockerfileFormatter(args.base,
-                                         args.layers).format(args.target,
-                                                             projects_expanded,
-                                                             args.cross_arch)
+        dockerfile = DockerfileFormatter(projects,
+                                         args.base,
+                                         args.layers).format(target,
+                                                             projects_expanded)
 
         cliargv = [args.action]
         if args.base is not None:
@@ -283,11 +278,14 @@ class Application(metaclass=Singleton):
     def _action_buildenvscript(self, args):
         self._entrypoint_debug(args)
 
-        projects_expanded = Projects().expand_names(args.projects)
+        targets = Targets(args.data_dir)
+        packages = Packages(args.data_dir)
+        projects = Projects(args.data_dir)
+        projects_expanded = projects.expand_names(args.projects)
+        target = BuildTarget(targets, packages, args.target, args.cross_arch)
 
-        buildenvscript = ShellBuildEnvFormatter().format(args.target,
-                                                         projects_expanded,
-                                                         args.cross_arch)
+        buildenvscript = ShellBuildEnvFormatter(projects).format(target,
+                                                                 projects_expanded)
 
         cliargv = [args.action]
         if args.cross_arch:
@@ -302,12 +300,121 @@ class Application(metaclass=Singleton):
         if args.base_dir is not None:
             base_path = Path(args.base_dir)
         ci_path = Path(args.ci_dir)
-        manifest = Manifest(args.manifest, args.quiet, ci_path, base_path)
+        targets = Targets(args.data_dir)
+        packages = Packages(args.data_dir)
+        projects = Projects(args.data_dir)
+        manifest = Manifest(targets, packages, projects, args.manifest, args.quiet, ci_path, base_path)
         manifest.generate(args.dry_run)
+
+    @staticmethod
+    def _get_client(engine):
+        client = Podman()
+        if engine == "docker":
+            client = Docker()
+
+        if client.available is None:
+            raise ApplicationError(f"{client.engine} engine not available")
+
+        return client
+
+    def _action_list_engines(self, args):
+        engines = []
+        for engine in [Podman(), Docker()]:
+            if engine.available:
+                engines.append(engine.engine)
+
+        if engines:
+            print("\n".join(engines))
+        else:
+            print("No engine available")
+
+    def _action_container_build(self, args):
+        self._entrypoint_debug(args)
+
+        params = {}
+        client = self._get_client(args.engine)
+
+        container_tempdir = TemporaryDirectory(prefix="container",
+                                               dir=util.get_temp_dir())
+        params["tempdir"] = container_tempdir.name
+
+        tag = f"lcitool.{args.target}"
+
+        # remove image and prepare to build a new one.
+        client.rmi(tag)
+
+        targets = Targets()
+        packages = Packages()
+        projects = Projects(args.data_dir)
+        projects_expanded = projects.expand_names(args.projects)
+        target = BuildTarget(targets, packages, args.target, args.cross_arch)
+
+        _file = None
+        file_content = DockerfileFormatter(projects).format(
+            target,
+            projects_expanded
+        )
+        with NamedTemporaryFile("w",
+                                delete=False,
+                                dir=params["tempdir"]) as fd:
+            fd.write(textwrap.dedent(file_content))
+            _file = fd.name
+
+        log.debug(f"Generated dockerfile copied to {_file}")
+
+        try:
+            client.build(tag=tag, filepath=_file, **params)
+        except ContainerError as ex:
+            raise ApplicationError(ex.message)
+
+        log.debug(f"Generated image tag --> {tag}")
+        print(f"Image '{tag}' successfully built.")
+
+    def _action_container_run(self, args):
+        self._entrypoint_debug(args)
+
+        params = {}
+        client = self._get_client(args.engine)
+
+        container_tempdir = TemporaryDirectory(prefix="container",
+                                               dir=util.get_temp_dir())
+        params["tempdir"] = container_tempdir.name
+
+        if not client.image_exists(args.image):
+            print(f"Image '{args.image}' not found in local cache. Build it or pull from registry first.")
+            return
+
+        params["image"] = args.image
+        params["user"] = args.user
+        if args.user.isdecimal():
+            params["user"] = int(args.user)
+
+        if args.env:
+            params["env"] = args.env
+
+        if args.workload_dir:
+            workload_dir = Path(args.workload_dir)
+            if not workload_dir.is_dir():
+                raise ApplicationError(f"'{workload_dir}' is not a directory")
+            params["datadir"] = workload_dir.resolve()
+
+        if args.script:
+            script = Path(args.script)
+            if not script.is_file():
+                raise ApplicationError(f"'{script}' is not a file")
+            params["script"] = script.resolve()
+
+        params["container_cmd"] = "/bin/sh"
+        if args.container == "run":
+            params["container_cmd"] = "./script"
+
+        try:
+            client.run(**params)
+        except ContainerError as ex:
+            raise ApplicationError(ex.message)
 
     def run(self, args):
         try:
-            util.set_extra_data_dir(args.data_dir)
             args.func(self, args)
         except LcitoolError as ex:
             print(f"{ex.module_prefix} error:", ex, file=sys.stderr)

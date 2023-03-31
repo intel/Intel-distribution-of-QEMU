@@ -1,0 +1,21 @@
+From 2401281d60491cf071e27c60079b7e6a61aa2378 Mon Sep 17 00:00:00 2001
+From: Michael Tokarev <mjt@tls.msk.ru>
+Date: Sat, 5 Nov 2022 14:45:24 +0300
+Subject: hw/virtio/virtio-qmp.c: spelling: suppoted
+
+Fixes: f3034ad71fcd0a6a58bc37830f182b307f089159
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+Reviewed-by: Stefan Weil <sw@weilnetz.de>
+---
+ hw/virtio/virtio-qmp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/hw/virtio/virtio-qmp.c b/hw/virtio/virtio-qmp.c
+index 808446b4c9..e76218bdd5 100644
+--- a/hw/virtio/virtio-qmp.c
++++ b/hw/virtio/virtio-qmp.c
+@@ -343 +343 @@ qmp_virtio_feature_map_t virtio_scsi_feature_map[] = {
+-            "buffers suppoted"),
++            "buffers supported"),
+-- 
+2.30.2

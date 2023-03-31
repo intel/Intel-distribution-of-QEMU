@@ -1,3 +1,36 @@
+qemu (1:8.0~rc2+dfsg-1) experimental; urgency=medium
+
+  [ Michael Tokarev ]
+  * new upstream 8.0 (rc2)
+  Packaging changes:
+  * d/rules, d/qemu-system-common.lintian-overrides:
+    do not try to install virtiofsd, it is removed in qemu 8.0
+  * d/rules: do not build sgabios, it is removed upstream in 8.0
+  * spelling.diff: remove hunks which has been applied,
+    adopt virtio.c=>virtio-hmp.c for remaining
+  * patches: remove all patches from d/patches/master/ (picked from upstream)
+  * hw-pvrdma-protect-against-guest-driver-CVE-2022-1050.patch:
+    remove, also applied upstream
+  * microvm-default-machine-type.patch: adjust for 8.0
+  * openbios-address-of-packet-member.patch: remove, not needed anymore
+  * d/control: build-depend on flex & bison
+  * d/rules: it is --disable-install-blobs, not --disable-blobs for xen too
+  * build microblaze firmware (petalogic-*.dtb) instead of using shipped one
+  * remove microblaze firmware (petalogic-*.dtb) for -dfsg
+  * remove previously deprecated qemu-debootstrap
+  * stop using custom $argv[0] for binfmt
+  * d/rules: always disable dwz if <<0.14
+  * stop enabling avx512f for xen build (it is disabled by default)
+  * d/rules: install .bmp icon, not .png
+
+
+  [ Christian Ehrhardt ]
+  * d/control-in: libsndio is in universe in ubuntu
+  * d/control-in: libnfs is in main since focal,
+    enable direct nfs storage support (LP: #1988704)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 31 Mar 2023 15:44:21 +0300
+
 qemu (1:7.2+dfsg-5) unstable; urgency=medium
 
   * d/qemu-guest-agent.udev: fix missing comma

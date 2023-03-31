@@ -10,6 +10,7 @@ Build-Depends: debhelper-compat (= 13),
 # on build-dependencies.
  python3:any,
  ninja-build, meson (>> 0.61.5~),
+ flex, bison,
 # --enable-docs
 # for python3-sphinx:native see #995622
  texinfo, python3-sphinx:native, python3-sphinx-rtd-theme,
@@ -18,6 +19,7 @@ Build-Depends: debhelper-compat (= 13),
 # libcapstone is in universe in ubuntu
 # --enable-capstone
  libcapstone-dev (>> 4.0.2~),
+# libsndio is in universe in ubuntu
 # --enable-linux-aio	linux-*
  libaio-dev [linux-any],
  libjack-dev [linux-any],

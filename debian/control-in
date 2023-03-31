@@ -11,6 +11,7 @@ Build-Depends: debhelper-compat (= 13),
 # on build-dependencies.
  python3:any,
  ninja-build, meson (>> 0.61.5~),
+ flex, bison,
 # --enable-docs
 # for python3-sphinx:native see #995622
  texinfo, python3-sphinx:native, python3-sphinx-rtd-theme,
@@ -19,6 +20,8 @@ Build-Depends: debhelper-compat (= 13),
 # libcapstone is in universe in ubuntu
 :debian:# --enable-capstone
 :debian: libcapstone-dev (>> 4.0.2~),
+# libsndio is in universe in ubuntu
+:ubuntu:# --disable-sndio
 # --enable-linux-aio	linux-*
  libaio-dev [linux-any],
  libjack-dev [linux-any],
@@ -57,8 +60,8 @@ Build-Depends: debhelper-compat (= 13),
  libva-dev [linux-any],
 # --enable-opengl	linux-*
  libepoxy-dev [linux-any], libdrm-dev [linux-any], libgbm-dev [linux-any],
-:debian:# --enable-libnfs
-:debian: libnfs-dev,
+# --enable-libnfs
+ libnfs-dev,
 # --enable-numa	i386|amd64|ia64|mips|mipsel|powerpc|powerpcspe|x32|ppc64|ppc64el|arm64|sparc|s390x|riscv64
  libnuma-dev   [i386 amd64 ia64 mips mipsel mips64 mips64el powerpc powerpcspe x32 ppc64 ppc64el arm64 sparc s390x riscv64],
 # --enable-smartcard

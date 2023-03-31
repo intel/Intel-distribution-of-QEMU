@@ -9,8 +9,8 @@ import yaml
 from pathlib import Path
 
 from lcitool.formatters import DockerfileFormatter, ShellVariablesFormatter, ShellBuildEnvFormatter
-from lcitool.inventory import Inventory
 from lcitool import gitlab, util, LcitoolError
+from lcitool.targets import BuildTarget
 
 log = logging.getLogger(__name__)
 
@@ -24,7 +24,10 @@ class ManifestError(LcitoolError):
 
 class Manifest:
 
-    def __init__(self, configfp, quiet=False, cidir=Path("ci"), basedir=None):
+    def __init__(self, targets, packages, projects, configfp, quiet=False, cidir=Path("ci"), basedir=None):
+        self._targets = targets
+        self._packages = packages
+        self._projects = projects
         self.configpath = configfp.name
         self.values = yaml.safe_load(configfp)
         self.quiet = quiet
@@ -78,6 +81,8 @@ class Manifest:
         jobinfo.setdefault("cargo-fmt", False)
         jobinfo.setdefault("go-fmt", False)
         jobinfo.setdefault("clang-format", False)
+        jobinfo.setdefault("black", False)
+        jobinfo.setdefault("flake8", False)
 
         templateinfo = gitlabinfo["templates"]
         templateinfo.setdefault("native-build", ".native_build_job")
@@ -88,7 +93,6 @@ class Manifest:
             targets = self.values["targets"] = {}
         have_containers = False
         have_cirrus = False
-        inventory = Inventory()
         for target, targetinfo in targets.items():
             if type(targetinfo) == str:
                 targets[target] = {"jobs": [{"arch": targetinfo}]}
@@ -99,7 +103,7 @@ class Manifest:
             jobsinfo = targetinfo["jobs"]
 
             try:
-                facts = inventory.target_facts[target]
+                facts = self._targets.target_facts[target]
             except KeyError:
                 raise ValueError(f"Invalid target '{target}'")
 
@@ -205,27 +209,26 @@ class Manifest:
                 if not dryrun:
                     header = util.generate_file_header(["manifest",
                                                         self.configpath])
-                    payload = formatter.format(target,
-                                               wantprojects,
-                                               arch)
+                    payload = formatter.format(BuildTarget(self._targets, self._packages, target, arch),
+                                               wantprojects)
                     util.atomic_write(filename, header + payload + "\n")
 
         return generated
 
     def _generate_containers(self, dryrun):
-        formatter = DockerfileFormatter()
+        formatter = DockerfileFormatter(self._projects)
         return self._generate_formatter(dryrun,
                                         "containers", "Dockerfile",
                                         formatter, "containers")
 
     def _generate_cirrus(self, dryrun):
-        formatter = ShellVariablesFormatter()
+        formatter = ShellVariablesFormatter(self._projects)
         return self._generate_formatter(dryrun,
                                         "cirrus", "vars",
                                         formatter, "cirrus")
 
     def _generate_buildenv(self, dryrun):
-        formatter = ShellBuildEnvFormatter()
+        formatter = ShellBuildEnvFormatter(self._projects)
         return self._generate_formatter(dryrun,
                                         "buildenv", "sh",
                                         formatter, "containers")
@@ -319,6 +322,10 @@ class Manifest:
             fmtcontent.append(gitlab.go_fmt_job())
         if jobinfo["clang-format"]:
             fmtcontent.append(gitlab.clang_format_job())
+        if jobinfo["black"]:
+            fmtcontent.append(gitlab.black_job())
+        if jobinfo["flake8"]:
+            fmtcontent.append(gitlab.flake8_job())
 
         testcontent = []
         if jobinfo["check-dco"]:
@@ -416,7 +423,6 @@ class Manifest:
 
     def _generate_build_jobs(self, targettype, cross, jobfunc):
         jobs = []
-        inventory = Inventory()
         for target, targetinfo in self.values["targets"].items():
             if not targetinfo["enabled"]:
                 continue
@@ -424,7 +430,7 @@ class Manifest:
                 continue
 
             try:
-                facts = inventory.target_facts[target]
+                facts = self._targets.target_facts[target]
             except KeyError:
                 raise ManifestError(f"Invalid target '{target}'")
 
