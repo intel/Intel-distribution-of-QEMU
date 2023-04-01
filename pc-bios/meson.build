@@ -1,5 +1,5 @@
 roms = []
-if unpack_edk2_blobs
+if unpack_edk2_blobs and false
   fds = [
     'edk2-aarch64-code.fd',
     'edk2-arm-code.fd',
