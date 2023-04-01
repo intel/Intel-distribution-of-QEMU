@@ -5,7 +5,7 @@ extern void *DoVesa(int argc, char *argv[]);
 extern void *set_vesa_mode(int mode);
 extern void *old_set_vesa_mode(int mode);
 
-struct FrameBufferInfo
+extern struct FrameBufferInfo
 {
         void *BaseAddress;
         unsigned long XSize;
