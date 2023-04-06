@@ -1,3 +1,21 @@
+qemu (1:8.0~rc3+dfsg-1) experimental; urgency=medium
+
+  * new upstream release candidate (8.0.0-rc3)
+  * d/control: build-depend on gcc-powerpc-linux-gnu (for u-boot code)
+  * d/rules: build u-boot-sam460 ppc firmware (u-boot-sam460-20100605.bin)
+  * +u-boot-sam460ex-fdi.patch
+  * +u-boot-sam460ex-mstring.patch
+  * d/copyright: stop stripping roms/u-boot/, we need it for u-boot.e500
+  * d/rules: build u-boot.e500 binary (Closes: #756833)
+  * d/rules: install all png icons too (for gtk display)
+  * d/rules: remove old compat qboot symlink
+  * remove skip-meson-pc-bios.diff (and skip-unpack-edk2-blobs.patch),
+    fix pc-bios/meson.build instead
+  * remove d/get-orig-source.sh now when d/copyright is set up
+  * d/source/options: stop diff-ignoring submodules
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 06 Apr 2023 09:50:41 +0300
+
 qemu (1:8.0~rc2+dfsg-1) experimental; urgency=medium
 
   [ Michael Tokarev ]

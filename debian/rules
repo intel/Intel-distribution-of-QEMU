@@ -48,6 +48,7 @@ libdir = /usr/lib/${DEB_HOST_MULTIARCH}
 FIRMWAREPATH = /usr/share/qemu:/usr/share/seabios:/usr/lib/ipxe/qemu
 
 ALPHAEV67_CROSSPFX = alpha-linux-gnu-
+PPC_CROSSPFX = powerpc-linux-gnu-
 PPC64_CROSSPFX = powerpc64-linux-gnu-
 RISCV64_CROSSPFX = riscv64-linux-gnu-
 ARM_CROSSPFX = arm-none-eabi-
@@ -467,6 +468,29 @@ install-vof: b/vof/vof.bin
 	install -m 0644 -t ${sysdataidir} $<
 sysdata-components += vof
 
+### u-boot-e500 (u-boot.e500)
+build-u-boot-e500: b/u-boot/build-e500/u-boot
+b/u-boot/build-e500/u-boot: | b
+	cp -alu roms/u-boot b/
+	${MAKE} -C b/u-boot O=build-e500 qemu-ppce500_config
+	${MAKE} -C b/u-boot CROSS_COMPILE=${PPC_CROSSPFX} O=build-e500 V=$V
+	${PPC_CROSSPFX}strip $@
+install-u-boot-e500: b/u-boot/build-e500/u-boot
+	install -m 0644 $< ${sysdataidir}/u-boot.e500
+sysdata-components += u-boot-e500
+
+### u-boot-sam460 (u-boot-sam460-20100605.bin)
+build-u-boot-sam460: b/u-boot-sam460ex/u-boot.bin
+b/u-boot-sam460ex/u-boot.bin: | b
+	cp -alu roms/u-boot-sam460ex b/
+	${MAKE} -C b/u-boot-sam460ex Sam460ex_config
+	env -u LDFLAGS -u OBJCFLAGS \
+	${MAKE} -C b/u-boot-sam460ex CROSS_COMPILE=${PPC_CROSSPFX}
+#	${PPC_CROSSPFX}strip $@
+install-u-boot-sam460: b/u-boot-sam460ex/u-boot.bin | ${sysdataidir}
+	install -m 0644 $< ${sysdataidir}/u-boot-sam460-20100605.bin
+sysdata-components += u-boot-sam460
+
 ### x86 optionrom
 build-x86-optionrom: b/optionrom/built
 b/optionrom/built:
@@ -485,8 +509,6 @@ b/qboot/bios.bin: | b
 	ninja -C b/qboot
 install-qboot: b/qboot/bios.bin
 	install -m 0644 $< ${sysdataidir}/qboot.rom
-	# 5.0 & 5.1 compat symlink, can go for bullseye final
-	ln -s qboot.rom ${sysdataidir}/bios-microvm.bin
 sysdata-components += qboot
 
 ### alpha firmware in roms/palcode-clipper
@@ -586,10 +608,14 @@ build-indep: $(addprefix build-, ${sysdata-components})
 override_dh_auto_install-indep: $(addprefix install-, ${sysdata-components})
 # qemu-system-data
 	install -Dp -m0644 ui/icons/qemu.svg \
-	 -t debian/qemu-system-data/usr/share/icons/hicolor/scalable/apps/
+	 -t debian/qemu-system-data/usr/share/icons/hicolor/scalable/apps/icon
+	for d in 16 24 32 48 64 128 256 512; do \
+	  install -Dp -m0644 ui/icons/qemu_$${d}x$${d}.png \
+	    debian/qemu-system-data/usr/share/icons/hicolor/$${d}x$${d}/apps/qemu.png; \
+	done
 # icon for sdl2 ui (non-sdl-image version)
 	install -Dp -m0644 ui/icons/qemu_32x32.bmp \
-	 -t debian/qemu-system-data/usr/share/icons/hicolor/32x32/apps/
+	 debian/qemu-system-data/usr/share/icons/hicolor/32x32/apps/qemu.bmp
 	install -Dp -m0644 -t debian/qemu-system-data/usr/share/qemu/keymaps/ \
 	 $$(ls -1 pc-bios/keymaps/* | fgrep -v /meson.build)
 
@@ -606,10 +632,7 @@ clean:	debian/control
 
 .PHONY: build binary-arch binary-indep binary \
 	install-arch install-indep install \
-	clean get-orig-source
-
-get-orig-source:
-	./debian/get-orig-source.sh ${DEB_VERSION}
+	clean
 
 ifneq (,$(wildcard debian/control-in))
 # only include rules for debian/control if debian/control-in is present

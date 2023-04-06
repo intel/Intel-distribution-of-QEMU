@@ -1,0 +1,13 @@
+diff --git a/roms/u-boot-sam460ex/board/ACube/common/vesa.h b/roms/u-boot-sam460ex/board/ACube/common/vesa.h
+index a6c32c3c2c..99672aa67b 100644
+--- a/roms/u-boot-sam460ex/board/ACube/common/vesa.h
++++ b/roms/u-boot-sam460ex/board/ACube/common/vesa.h
+@@ -4,7 +4,7 @@
+ extern void *DoVesa(int argc, char *argv[]);
+ extern void *set_vesa_mode(int mode);
+ 
+-struct FrameBufferInfo
++extern struct FrameBufferInfo
+ {
+         void *BaseAddress;
+         unsigned long XSize;

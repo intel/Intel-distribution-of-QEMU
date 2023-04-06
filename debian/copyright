@@ -6,7 +6,7 @@ Files-Excluded:
 	roms/edk2
 	roms/ipxe
 	roms/seabios
-	roms/u-boot
+#	roms/u-boot
 #
 	roms/SLOF/board-js2x/rtas/i2c_bmc.oco
 	roms/SLOF/board-js2x/rtas/ipmi_oem.oco
