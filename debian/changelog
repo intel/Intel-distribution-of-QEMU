@@ -1,3 +1,13 @@
+qemu (1:8.0~rc3+dfsg-2) experimental; urgency=medium
+
+  * d/rules: fix qemu.svg install and remove .png fallback icons again
+    (qemu window still doesn't have an icon)
+  * d/binfmt-install: fix systemd binfmt registration broken
+    since previous upload
+  * +linux-user-fix-getgroups-setgroups-allocations.patch (Closes: #811087)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 10 Apr 2023 12:33:01 +0300
+
 qemu (1:8.0~rc3+dfsg-1) experimental; urgency=medium
 
   * new upstream release candidate (8.0.0-rc3)
