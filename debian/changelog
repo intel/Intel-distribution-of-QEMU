@@ -1,3 +1,19 @@
+qemu (1:8.0~rc4+dfsg-1) experimental; urgency=medium
+
+  * update to 8.0.0-rc4
+  * d/rules, d/qemu.desktop: install a simple .desktop file in
+    qemu-system-data so that qemu-system-foo has an icon under gnome/wayland
+  * re-enable build on x32 - disable new CONFIG_XEN_EMU which is now enabled
+    unconditionally on x86
+  * d/patches: restore note-missing-module-pkg-name.diff
+    (lost in one of previous commits)
+  * pick 3 more fixes from qemu-devel@:
+   +rtl8139-fix-large_send_mss-divide-by-zero.patch
+   +target_i386-Change-wrong-XFRM-value.patch
+   +hw_mips_malta-Fix-malta-machine-on-big-endian-hosts.patch
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 14 Apr 2023 12:25:57 +0300
+
 qemu (1:8.0~rc3+dfsg-2) experimental; urgency=medium
 
   * d/rules: fix qemu.svg install and remove .png fallback icons again

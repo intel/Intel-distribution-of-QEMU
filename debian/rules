@@ -609,7 +609,9 @@ override_dh_auto_install-indep: $(addprefix install-, ${sysdata-components})
 # qemu-system-data
 # icon for gtk ui
 	install -Dp -m0644 ui/icons/qemu.svg \
-	 debian/qemu-system-data/usr/share/icons/hicolor/scalable/apps/qemu.svg
+	 -t debian/qemu-system-data/usr/share/icons/hicolor/scalable/apps/
+	install -Dp -m0644 debian/qemu.desktop \
+	  -t debian/qemu-system-data/usr/share/applications/
 # icon for sdl2 ui (non-sdl-image version)
 	install -Dp -m0644 ui/icons/qemu_32x32.bmp \
 	 debian/qemu-system-data/usr/share/icons/hicolor/32x32/apps/qemu.bmp

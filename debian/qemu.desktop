@@ -1,0 +1,8 @@
+# Just for the icon under wayland.
+# qemu-system-foo sets application name to qemu
+[Desktop Entry]
+Name=qemu
+Comment=QEMU System Emulation
+Icon=qemu
+Type=Application
+NoDisplay=true

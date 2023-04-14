@@ -1,0 +1,47 @@
+diff --git a/hw/i386/Kconfig b/hw/i386/Kconfig
+index d40802d83f..3ad6b44984 100644
+--- a/hw/i386/Kconfig
++++ b/hw/i386/Kconfig
+@@ -140,4 +140,4 @@ config VMMOUSE
+ config XEN_EMU
+     bool
+     default y
+-    depends on KVM && (I386 || X86_64)
++    depends on KVM && (I386 || X86_64) && !X32
+diff --git a/meson.build b/meson.build
+index c44d05a13f..9e7c83fc6a 100644
+--- a/meson.build
++++ b/meson.build
+@@ -70,6 +70,11 @@ if cpu in ['riscv32', 'riscv64']
+   cpu = 'riscv'
+ endif
+ 
++x32 = false
++if cpu == 'x86_64'
++  x32 = cc.sizeof('long') == 4
++endif
++
+ target_dirs = config_host['TARGET_DIRS'].split()
+ have_linux_user = false
+ have_bsd_user = false
+@@ -2554,7 +2559,8 @@ host_kconfig = \
+   ('CONFIG_LINUX' in config_host ? ['CONFIG_LINUX=y'] : []) + \
+   (have_pvrdma ? ['CONFIG_PVRDMA=y'] : []) + \
+   (multiprocess_allowed ? ['CONFIG_MULTIPROCESS_ALLOWED=y'] : []) + \
+-  (vfio_user_server_allowed ? ['CONFIG_VFIO_USER_SERVER_ALLOWED=y'] : [])
++  (vfio_user_server_allowed ? ['CONFIG_VFIO_USER_SERVER_ALLOWED=y'] : []) + \
++  (x32 ? ['CONFIG_X32=y'] : [])
+ 
+ ignored = [ 'TARGET_XML_FILES', 'TARGET_ABI_DIR', 'TARGET_ARCH' ]
+ 
+diff --git a/target/i386/Kconfig b/target/i386/Kconfig
+index ce6968906e..75a91f497a 100644
+--- a/target/i386/Kconfig
++++ b/target/i386/Kconfig
+@@ -3,3 +3,6 @@ config I386
+ 
+ config X86_64
+     bool
++
++config X32
++    bool
