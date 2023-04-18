@@ -1,3 +1,20 @@
+qemu (1:8.0~rc4+dfsg-2) experimental; urgency=medium
+
+  [ Vagrant Cascadian ]
+  * debian/rules: Use 'printf' instead of 'echo' to avoid
+    differences in underlying /bin/sh implementations.
+    Closes: #1034431
+
+  [ Michael Tokarev ]
+  * Provide Debian architecture names for qemu-system-foo packages and
+    binaries, for arm64, armel, armhf, powerpc, amd64, loong64 and ppc64el.
+    It is now possible to run qemu-system-$debianarch binary or depend on
+    qemu-system-$debianarch package. This should simplify various tools
+    for cross compilation and the like. Also Closes: #825841.
+  * d/qemu-system-ppc.README.Debian: remove obsolete README about video.x
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 18 Apr 2023 05:04:04 +0300
+
 qemu (1:8.0~rc4+dfsg-1) experimental; urgency=medium
 
   * update to 8.0.0-rc4
