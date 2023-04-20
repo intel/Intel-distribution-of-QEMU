@@ -1,3 +1,13 @@
+qemu (1:8.0+dfsg-2) experimental; urgency=medium
+
+  * re-add the dropped-on-the-way Provides: qemu-system-any
+  * specify versions for all Provides: so it's possible to add versioned deps
+    (including qemu-system-any and qemu-kvm)
+  * d/control: collapse Depends: qemu-system-* into tne new qemu-system-any
+  * drop Breaks:/Replaces: qemu-kvm (it was for old qemu-kvm binary pkg)  
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 20 Apr 2023 13:09:57 +0300
+
 qemu (1:8.0+dfsg-1) experimental; urgency=medium
 
   * New qemu release 8.0.0.

@@ -117,7 +117,7 @@ system_alias_x86_64 = amd64
 # install-system pkg, qemu-arch-list, kvm-deb-cpu-list, qemu-kvm-cpu
 # install qemu-arch-list binaries with manpages and aliases into pkg,
 # install kvm link to qemu-kvm-cpu if ${DEB_HOST_ARCH_CPU} is in kvm-deb-cpu-list,
-# fills in qemu:provides, qemu:kvm and qemu:archlist substvars
+# fills in qemu:Provides and qemu:archlist substvars
 define install-system
 	# installing $1
 	dh_installdirs -p $1 usr/bin usr/share/man/man1
@@ -132,13 +132,15 @@ $(foreach q,$2,\
 $(if $(filter ${DEB_HOST_ARCH_CPU},$3),\
 	dh_link -p $1 usr/bin/qemu-system-$(strip $4) usr/bin/kvm
 	dh_link -p $1 usr/share/man/man1/qemu-system-$(strip $4).1 usr/share/man/man1/kvm.1
-	echo 'qemu:kvm=qemu-kvm' >> debian/$1.substvars
+	echo 'qemu:kvm=qemu-kvm (=${DEB_VERSION})${comma}' >> debian/$1.substvars
 ,\
 	echo 'qemu:kvm=' >> debian/$1.substvars
 )
-	echo 'qemu:provides=$(patsubst %,qemu-system-%${comma},$2 $(foreach q,$2,${system_alias_$q}))' \
+	echo 'qemu:Provides=$${qemu:kvm}$(patsubst %,qemu-system-% (=${DEB_VERSION})${comma}, any $2 $(foreach q,$2,${system_alias_$q}))' \
 	    | tr _ - >> debian/$1.substvars
-	list='$(foreach q,$(strip $2),$q$(if ${system_alias_$q}, ($(strip ${system_alias_$q}))))'; \
+# construct list `arch1 arch2 (alias) arch3..' for Description
+# and word-wrap it into two lines if too long
+	list='$(foreach q,$2,$q$(if ${system_alias_$q}, (${system_alias_$q})))'; \
 	  len2=$$(($${#list}/2)); \
 	  if [ $$len2 -gt 36 ]; then \
 	    while expr substr "$$list" $$len2 1 != " " >/dev/null; do len2=$$(($$len2+1)); done; \
