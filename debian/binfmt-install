@@ -3,8 +3,8 @@ set -e
 
 PACKAGE="$1"
 case "$#$PACKAGE" in
-  1qemu-user-static) SUFFIX=-static; FIX_BINARY=yes; FIXB=F ;;
-  1qemu-user-binfmt) SUFFIX=; FIX_BINARY=no; FIXB= ;;
+  1qemu-user-static) SUFFIX=-static; FIXB=F; DOC_PACKAGE=$PACKAGE ;;
+  1qemu-user-binfmt) SUFFIX=; FIXB= ; DOC_PACKAGE=qemu-user ;;
   *) echo "usage: $0 <qemu-user-binfmt|qemu-user-static>"; exit 1 ;;
 esac
 
@@ -94,57 +94,28 @@ case "$DEB_HOST_ARCH" in
   *) omit="$DEB_HOST_ARCH" ;;
 esac
 
-mkdir -p debian/$PACKAGE/usr/share/binfmts
-mkdir -p debian/$PACKAGE/usr/lib/binfmt.d
-installed_fmts=
+mkdir -p debian/$PACKAGE/usr/lib/binfmt.d \
+	 debian/$DOC_PACKAGE/usr/share/doc/$DOC_PACKAGE
 for fmt in $fmts ; do
-    eval "case $fmt in $omit) magic= ;; *) magic=\"\$${fmt}_magic\" mask=\"\$${fmt}_mask\" ;; esac"
-    [ -z "$magic" ] && continue
-    installed_fmts="$installed_fmts $fmt"
-    cat >debian/$PACKAGE/usr/share/binfmts/qemu-$fmt <<EOF
-package $PACKAGE
-interpreter /usr/bin/qemu-$fmt
-magic $magic
-offset 0
-mask $mask
-credentials yes
-fix_binary $FIX_BINARY
-preserve yes
-EOF
+    eval "case $fmt in $omit) inst=;; *) inst=y;; esac; magic=\"\$${fmt}_magic\" mask=\"\$${fmt}_mask\""
+    # for arch from the same family as host, install stuff to docdir
+    # so it is not enabled by default. One can (sym)link selected entries
+    # from docdir to /etc/binfmt.d/ to enable them
+    if [ "$inst" ]; then inst=debian/$PACKAGE/usr/lib/binfmt.d
+    else inst=debian/$DOC_PACKAGE/usr/share/doc/$DOC_PACKAGE
+    fi
     echo ":qemu-$fmt:M::$magic:$mask:/usr/bin/qemu-$fmt$SUFFIX:OCP${FIXB}" \
-	>debian/$PACKAGE/usr/lib/binfmt.d/qemu-$fmt.conf
-
+	>$inst/qemu-$fmt.conf
 done
 
-# generate postinst and prerm fragments
-for action in postinst:configure:import prerm:remove:unimport
-do
-
-    ifs="$IFS"; IFS=:; set $action; IFS="$ifs"
-    cat >>debian/$PACKAGE.$1.debhelper <<EOF
+# generate postinst script to unregister all from binfmt-support
+# when upgrading from older qemu.
+cat >>debian/$PACKAGE.postinst.debhelper <<EOF
 binfmt_update() {
-  test $2 = "\$1" || return 0
+  test configure = "\$1" || return 0
+  dpkg --compare-versions "\$2" lt "1:8.0+dfsg" || return 0
   command -v update-binfmts >/dev/null || return 0
-  # do not touch binfmts inside a container
-  # should this be done by update-binfmts instead?
-  if command -v systemd-detect-virt >/dev/null; then
-     systemd-detect-virt --quiet --container && return 0
-  fi
-  grep -zqs ^container= /proc/1/environ && return 0
-  for fmt in $installed_fmts; do
-    update-binfmts --$3 qemu-\$fmt
-  done
-}
-binfmt_update "\$1"
-EOF
-done
-# also generate a preinst script to unregister removed fmts if any
-cat >>debian/$PACKAGE.preinst.debhelper <<EOF
-binfmt_update() {
-  test upgrade = "\$1" || return 0
-  dpkg --compare-versions "\$2" le "1:5.2+dfsg-3~" || return 0
-  command -v update-binfmts >/dev/null || return 0
-  for fmt in $removed_fmts; do
+  for fmt in $fmts $removed_fmts; do
     if [ -f /var/lib/binfmts/qemu-\$fmt ]; then
       [ -f /usr/bin/qemu-\$fmt$SUFFIX ] ||
         echo "$PACKAGE.preinst: note: the warning from update-binfmts about missing qemu-\$fmt$SUFFIX is okay" >&2

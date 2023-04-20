@@ -1,6 +1,7 @@
 microvm-default-machine-type.patch
 note-missing-module-pkg-name.diff
 skip-unpack-edk2-blobs.patch
+qemu-bridge-helper-path.patch
 u-boot-sam460ex-fdi.patch
 u-boot-sam460ex-mstring.patch
 openbios-array-bounds.diff
@@ -10,6 +11,7 @@ seabios-hppa-use-consistent-date-and-remove-hostname.patch
 slof-remove-user-and-host-from-release-version.patch
 slof-ensure-ld-is-called-with-C-locale.patch
 spelling-suppoted.patch
+spelling-information.patch
 openbios-spelling-endianess.patch
 slof-spelling-seperator.patch
 linux-user-fix-getgroups-setgroups-allocations.patch

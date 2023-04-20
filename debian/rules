@@ -37,8 +37,8 @@ V = $(if $(filter terse, ${DEB_BUILD_OPTIONS}),,1)
 # list of packages we're supposed to build
 BUILD_PACKAGES := $(shell dh_listpackages)
 
-enable_system = $(if $(filter qemu-system,${BUILD_PACKAGES}),enable,disable)
-enable_linux_user = $(if $(filter qemu-user,${BUILD_PACKAGES}),enable,disable)
+enable-system = $(if $(filter qemu-system,${BUILD_PACKAGES}),y)
+enable-linux-user = $(if $(filter qemu-user,${BUILD_PACKAGES}),y)
 
 QEMU_XEN = /usr/libexec/xen-qemu-system-i386
 PKGVERSION = Debian ${DEB_VERSION}
@@ -82,7 +82,7 @@ ifneq ($(filter $(DEB_TARGET_ARCH), alpha ia64 hppa m68k sh4 sparc), )
 common_configure_opts += --enable-tcg-interpreter --enable-tools
 endif
 
-ifeq (${enable_linux_user},enable)
+comma:=,
 
 # list of linux-user targets, from ./configure
 user_targets = \
@@ -91,8 +91,61 @@ user_targets = \
  mips mipsel mips64 mips64el mipsn32 mipsn32el nios2 or1k \
  ppc ppc64 ppc64le riscv32 riscv64 sh4 sh4eb sparc sparc64 sparc32plus \
  s390x xtensa xtensaeb
+# aliases for missing ${DEB_HOST_ARCH} names in qemu-user:
+user_alias_aarch64 = arm64
+user_alias_arm = armel armhf
+user_alias_loongarch64 = loong64
+user_alias_ppc = powerpc
+user_alis_ppc64le = ppc64el
+user_alias_x86_64 = amd64
 
-endif	# enable_linux_user
+# install-linux-user-aliases [-static]
+define install-linux-user-aliases
+$(foreach q,${user_targets}, $(foreach a,${user_alias_$q},\
+	dh_link -p qemu-user$1 usr/bin/qemu-$q$1 usr/bin/qemu-$a$1
+	dh_link -p qemu-user$1 usr/share/man/man1/qemu-$q$1.1 usr/share/man/man1/qemu-$a$1.1
+))
+endef
+
+# aliases for missing ${DEB_HOST_ARCH_CPU} names in qemu-system:
+system_alias_aarch64 = arm64
+system_alias_loongarch64 = loong64
+system_alias_ppc = powerpc
+system_alias_ppc64 = ppc64le ppc64el
+system_alias_x86_64 = amd64
+
+# install-system pkg, qemu-arch-list, kvm-deb-cpu-list, qemu-kvm-cpu
+# install qemu-arch-list binaries with manpages and aliases into pkg,
+# install kvm link to qemu-kvm-cpu if ${DEB_HOST_ARCH_CPU} is in kvm-deb-cpu-list,
+# fills in qemu:provides, qemu:kvm and qemu:archlist substvars
+define install-system
+	# installing $1
+	dh_installdirs -p $1 usr/bin usr/share/man/man1
+	dh_link -p $1 usr/share/doc/qemu-system-common usr/share/doc/$1/common
+	mv -t debian/$1/usr/bin/ $(addprefix debian/tmp/usr/bin/qemu-system-,$2)
+$(foreach q,$2,\
+	@echo ".so man1/qemu-system.1" > debian/$1/usr/share/man/man1/qemu-system-$q.1
+    $(foreach a,${system_alias_$q},\
+	dh_link -p $1 usr/bin/qemu-system-$q usr/bin/qemu-system-$a
+	dh_link -p $1 usr/share/man/man1/qemu-system-$q.1 usr/share/man/man1/qemu-system-$a.1
+))
+$(if $(filter ${DEB_HOST_ARCH_CPU},$3),\
+	dh_link -p $1 usr/bin/qemu-system-$(strip $4) usr/bin/kvm
+	dh_link -p $1 usr/share/man/man1/qemu-system-$(strip $4).1 usr/share/man/man1/kvm.1
+	echo 'qemu:kvm=qemu-kvm' >> debian/$1.substvars
+,\
+	echo 'qemu:kvm=' >> debian/$1.substvars
+)
+	echo 'qemu:provides=$(patsubst %,qemu-system-%${comma},$2 $(foreach q,$2,${system_alias_$q}))' \
+	    | tr _ - >> debian/$1.substvars
+	list='$(foreach q,$(strip $2),$q$(if ${system_alias_$q}, ($(strip ${system_alias_$q}))))'; \
+	  len2=$$(($${#list}/2)); \
+	  if [ $$len2 -gt 36 ]; then \
+	    while expr substr "$$list" $$len2 1 != " " >/dev/null; do len2=$$(($$len2+1)); done; \
+	    list="$$(expr substr "$$list" 1 $$(($$len2-1)))\$${Newline} $$(expr substr "$$list" $$(($$len2+1)) $$len2)"; \
+	  fi; \
+	  echo "qemu:archlist=$$list" >> debian/$1.substvars
+endef
 
 sysdata-components :=
 qemu-builds :=
@@ -106,8 +159,8 @@ b/qemu/configured: configure
 	rm -rf b/qemu; mkdir -p b/qemu
 	cd b/qemu && \
 	    ../../configure ${common_configure_opts} --disable-user \
-		--${enable_system}-system \
-		--${enable_linux_user}-linux-user \
+		--$(if ${enable-system},enable,disable)-system \
+		--$(if ${enable-linux-user},enable,disable)-linux-user \
 		--disable-xen \
 		--enable-modules \
 		--enable-module-upgrades \
@@ -129,6 +182,7 @@ install-qemu: b/qemu/built
 
 # save block-extra loadable modules on upgrades
 # other module types for now (5.0) can't be loaded at runtime, only at startup
+# the maintscript fragments include version string so we have to generate them
 	echo 'case $$1 in (upgrade|deconfigure) [ -d /run/qemu ] || exit 0; ! findmnt --noheadings --target /run/qemu/ | grep -q noexec || exit 0; mkdir -p ${SAVEMODDIR}; cp -p ${libdir}/qemu/block-*.so ${SAVEMODDIR}/;; esac' \
 	  >> debian/qemu-block-extra.prerm.debhelper
 	echo 'case $$1 in (remove) rm -f ${SAVEMODDIR}/block-*.so;; esac' \
@@ -136,27 +190,24 @@ install-qemu: b/qemu/built
 	echo 'case $$1 in (purge) if systemctl is-active -q run-qemu.mount; then systemctl stop run-qemu.mount || true; fi; rm -rf "/run/qemu";; esac' \
 	  >> debian/qemu-block-extra.postrm.debhelper
 
-ifeq (${enable_system},enable)
+ifeq (${enable-system},y)
 
 	# qemu-system subpackages
 	mv debian/tmp/usr/share/man/man1/qemu.1 debian/tmp/usr/share/man/man1/qemu-system.1
 
-	./debian/inst-system arm aarch64=arm64 arm=armel=armhf \
-	    $(if $(filter ${DEB_HOST_ARCH},arm64 armhf armel), +${DEB_HOST_ARCH})
-	./debian/inst-system mips mips mipsel mips64 mips64el
-	./debian/inst-system ppc ppc=powerpc ppc64=ppc64el=ppc64le \
-	    $(if $(filter ${DEB_HOST_ARCH},ppc64 powerpc), +${DEB_HOST_ARCH})
-	./debian/inst-system sparc sparc sparc64
-	./debian/inst-system x86 i386 x86_64=amd64 \
-	    $(if $(filter ${DEB_HOST_ARCH},amd64 i386), +x86_64)
+	$(call install-system,qemu-system-arm, aarch64 arm, arm64 arm, ${DEB_HOST_CPU})
+	$(call install-system,qemu-system-mips, mips mipsel mips64 mips64el,)
+	$(call install-system,qemu-system-ppc, ppc ppc64, ppc64 ppc64el powerpc, ${DEB_HOST_ARCH_CPU})
+	$(call install-system,qemu-system-sparc, sparc sparc64,)
+	$(call install-system,qemu-system-x86, i386 x86_64, amd64 i386, x86_64)
 ifeq (${VENDOR},UBUNTU)
-	./debian/inst-system s390x s390x \
-	    $(if $(filter ${DEB_HOST_ARCH},s390x), +s390x)
+	$(call install-system,qemu-system-s390x, s390x, s390x, s390x)
 endif
-	./debian/inst-system misc alpha avr cris hppa m68k loongarch64=loong64 \
+	$(call install-system,qemu-system-misc,alpha avr cris hppa m68k loongarch64 \
 		microblaze microblazeel nios2 or1k riscv32 riscv64 rx sh4 sh4eb \
-		$(if $(filter ${VENDOR},UBUNTU),,s390x $(if $(filter ${DEB_HOST_ARCH},s390x), +s390x)) \
-		tricore xtensa xtensaeb
+		$(if $(filter ${VENDOR},UBUNTU),,s390x) \
+		tricore xtensa xtensaeb,\
+	    $(if $(filter ${VENDOR},UBUNTU),,s390x), s390x)
 
 # gui modules. We move these here instead of using d/qemu-system-gui.install,
 # b/c we install "all other" modules in qemu-system-common.install
@@ -209,21 +260,20 @@ endif
 
 endif # linux
 
-endif # enable_system
+endif # enable-system
 
-ifeq ($(enable_linux_user),enable)
-	mkdir -p debian/qemu-user/usr/bin
+ifeq (${enable-linux-user},y)
+	dh_installdirs -p qemu-user usr/bin usr/share/doc/qemu-user
 	mv -t debian/qemu-user/usr/bin $(patsubst %,debian/tmp/usr/bin/qemu-%,${user_targets})
 	dh_link -p qemu-user $(patsubst %,usr/share/man/man1/qemu-user.1 usr/share/man/man1/qemu-%.1,${user_targets})
-
+	sed -e 's/qemu\\-user\\-static/qemu\\-user/g' \
+	    -e 's/ (static version)//' \
+	    debian/qemu-user-static.1 > debian/qemu-user/usr/share/man/man1/qemu-user.1
+	$(call install-linux-user-aliases)
+	sed 's|-static||g' debian/qemu-user-static.README.Debian > \
+	    debian/qemu-user/usr/share/doc/qemu-user/README.Debian
 	./debian/binfmt-install qemu-user-binfmt
-endif	# enable_linux_user
-
-ifeq (${enable_system},enable)
-# qemu-ifup is arch-specific
-	install -D debian/qemu-ifup.$(DEB_HOST_ARCH_OS) \
-		debian/qemu-system-common/etc/qemu-ifup
-endif
+endif	# enable-linux-user
 
 qemu-builds += qemu
 
@@ -259,9 +309,7 @@ install-microvm: b/microvm/qemu-system-x86_64
 	cp b/microvm/x86_64-softmmu/qemu-system-x86_64 debian/qemu-system-x86/usr/bin/qemu-system-x86_64-microvm
 	echo ".so man1/qemu-system.1" > debian/qemu-system-x86/usr/share/man/man1/qemu-system-x86_64-microvm.1
 # build microvm on amd64 only if system build is enabled
-ifeq ($(filter-out $(DEB_HOST_ARCH),amd64)${enable_system},enable)
-qemu-builds += microvm
-endif
+qemu-builds += $(if $(filter ${DEB_HOST_ARCH}-${enable-system},amd64-y),microvm)
 
 ##############################################
 # xen build (amd64 arch only, i386-softmmu target only)
@@ -289,9 +337,7 @@ b/xen/built: b/xen/configured
 install-xen: b/xen/built
 	install -D b/xen/qemu-system-i386 \
 	  debian/qemu-system-xen${QEMU_XEN}
-ifeq (${DEB_HOST_ARCH}-${enable_system},amd64-enable)
-qemu-builds += xen
-endif
+qemu-builds += $(if $(filter ${DEB_HOST_ARCH}-${enable-system},amd64-y),xen)
 
 ##############################################
 # linux-user-static build
@@ -315,22 +361,18 @@ build-user-static: b/user-static/built
 b/user-static/built: b/user-static/configured
 	# we use this invocation to build just the binaries
 	$(MAKE) -C b/user-static V=${V} $(addprefix qemu-,${user_targets})
-	sed -e 's/qemu\\-user\\-static/qemu\\-user/g' \
-	    -e 's/ (static version)//' \
-	    debian/qemu-user-static.1 > b/qemu-user.1
 	touch $@
 install-user-static: b/user-static/built
-	mkdir -p debian/qemu-user-static/usr/bin debian/qemu-user-static/usr/share/man/man1
+	dh_installdirs -p qemu-user-static usr/bin usr/share/man/man1
 	for t in ${user_targets}; do \
 	   cp -p b/user-static/$$t-linux-user/qemu-$$t \
 	       debian/qemu-user-static/usr/bin/qemu-$$t-static ; \
 	   ln -s qemu-user-static.1 \
 	       debian/qemu-user-static/usr/share/man/man1/qemu-$$t-static.1 ; \
 	done
+	$(call install-linux-user-aliases,-static)
 	./debian/binfmt-install qemu-user-static
-ifeq ($(enable_linux_user),enable)
-qemu-builds += user-static
-endif
+qemu-builds += $(if ${enable-linux-user},user-static)
 
 ##############################################
 # common rules
@@ -358,7 +400,7 @@ override_dh_installsystemd:
 	dh_installsystemd -pqemu-block-extra --no-restart-on-upgrade --name=run-qemu.mount \
 		$(if $(filter ${VENDOR},DEBIAN),--no-start --no-enable,)
 execute_after_dh_shlibdeps:
-ifeq ($(enable_linux_user),enable)
+ifeq (${enable-linux-user},y)
 # after shlibdeps finished, grab ${shlibs:Depends} from -user package
 # and transform it into Built-Using field for -user-static.
 # See also dpkg-query bug #588505

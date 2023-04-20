@@ -1,0 +1,21 @@
+diff --git a/include/ui/clipboard.h b/include/ui/clipboard.h
+index ce76aa451f..ab6acdbd8a 100644
+--- a/include/ui/clipboard.h
++++ b/include/ui/clipboard.h
+@@ -173 +173 @@ void qemu_clipboard_peer_release(QemuClipboardPeer *peer,
+- * Return the current clipboard data & owner informations.
++ * Return the current clipboard data & owner information.
+diff --git a/qapi/cryptodev.json b/qapi/cryptodev.json
+index f33f96a692..808e5a348c 100644
+--- a/qapi/cryptodev.json
++++ b/qapi/cryptodev.json
+@@ -71 +71 @@
+-# @client: the additional infomation of the crypto device
++# @client: the additional information of the crypto device
+diff --git a/qga/qapi-schema.json b/qga/qapi-schema.json
+index 796434ed34..aa292060bc 100644
+--- a/qga/qapi-schema.json
++++ b/qga/qapi-schema.json
+@@ -894 +894 @@
+-# NVMe smart informations, based on NVMe specification,
++# NVMe smart information, based on NVMe specification,

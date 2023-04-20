@@ -1,3 +1,35 @@
+qemu (1:8.0+dfsg-1) experimental; urgency=medium
+
+  * New qemu release 8.0.0.
+  * remove binfmt-support registration, use systemd binfmd.d/ only
+    No more binfmt-support support. Unregister any entries on upgrades.
+  * binfmt: ship (but not enable) entries for all arches, do not omit native
+    Ship all really-foreign binfmt entries in /usr/lib/binfmt.d/ as usual,
+    to be enable automatically at package install. Also ship the
+    same-cpu-family entries in /usr/share/doc/qemu-user-static/qemu-foo.conf -
+    this way it will not be enabled automatically but it will be possible to
+    (carefully) symlink the needed additional entries to /etc/binfmt.d/.
+    (Closes: #924667, #1016810, #1027781)
+  * qemu-system-*: add extra names to use as qemu-system-${DEB_HOST_ARCH_CPU},
+    for both the Provides: line and executable file names. See
+    /usr/share/doc/qemu-system-common/README.Debian.
+  * qemu-system-*: also Provides: qemu-system-any
+  * qemu-system-ppc: provide qemu-kvm on ppc64el too, the same as ppc64
+  * qemu-user, qemu-user-static: provide qemu-${DEB_HOST_ARCH}[-static]
+    aliases too, when qemu arch is different from debian arch. See
+    /usr/share/doc/qemu-user[-static]/README.Debian.
+  * d/binfmt-install: fix disabled .conf entries install for qemu-user-binfmt
+    (those goes to qemu-user doc dir, not qemu-user-binfmt doc dir)
+  * d/control: remove old (pre-bullseye) Breaks/Replaces
+  * qemu-bridge-helper-path.patch: use the right path for qemu-bridge-helper
+    in docs (Closes: #1027447)
+  * d/qemu-system-common.NEWS: document dropping of virtiofsd
+  * d/rules: add comment saying why savemoddir block needs to be generated
+  * stop trying to provide os-specific qemu-ifup
+  * two more spelling fixes for mistyped "information"
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 20 Apr 2023 04:19:06 +0300
+
 qemu (1:8.0~rc4+dfsg-2) experimental; urgency=medium
 
   [ Vagrant Cascadian ]
