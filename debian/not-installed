@@ -12,8 +12,5 @@ usr/share/applications/qemu.desktop
 usr/bin/elf2dmp
 # test tool
 usr/bin/qemu-edid
-# this one might be helpful for qemu-system -k <lang>
-# but is -k flag useful these days?
-usr/bin/qemu-keymap
 # we install keymaps in d/rules into arch-all pkg preserving timestamps
 usr/share/qemu/keymaps

@@ -1,10 +1,38 @@
+qemu (1:8.0+dfsg-3) experimental; urgency=medium
+
+  * Release highlights:
+    - build only tools on unsupported arches
+    - much easier arch control in a single place
+    - much easier dependency/options control
+    - stop building system targets on ia64 and kfreebsd
+  * d/control: generate Architecture: field dynamically from d/rules
+  * demote ia64 and kfreebsd from system arches to tools arches
+  * include m68k into list of utils arches
+  * optional dependencies and --enable-feature in d/control:
+    - update d/extract-config-opts to expect dpkg-like [arch] patterns
+    - d/control: unify and simplify arch strings for --enable-foo
+      and dependencies
+    - d/control: switch some build-deps to [:system-arch:]
+  * stop using --enable-tcg-interpreter for unsupported arches,
+    add --enable-tools for main qemu build
+  * provide --disable-xkbcommon to stop building qemu-keymap tool (!)
+  * d/rules: for !enable-system build, remove qemu.1 manpage
+  * install upstream qemu.desktop file instead of debian-specific
+  * d/*.install: list files relative to d/tmp/, use ${DEB_HOST_MULTIARCH}
+  * d/qemu-system-common.install: move 3 linux-specific files
+    from d/rules to here
+  * d/rules: move qemu-block-extrs maintscript/savedir generation
+    to instide enable-system
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 20 Apr 2023 20:50:35 +0300
+
 qemu (1:8.0+dfsg-2) experimental; urgency=medium
 
   * re-add the dropped-on-the-way Provides: qemu-system-any
   * specify versions for all Provides: so it's possible to add versioned deps
     (including qemu-system-any and qemu-kvm)
   * d/control: collapse Depends: qemu-system-* into tne new qemu-system-any
-  * drop Breaks:/Replaces: qemu-kvm (it was for old qemu-kvm binary pkg)  
+  * drop Breaks:/Replaces: qemu-kvm (it was for old qemu-kvm binary pkg)
 
  -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 20 Apr 2023 13:09:57 +0300
 

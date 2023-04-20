@@ -28,6 +28,18 @@ else
 VENDOR := DEBIAN
 endif
 
+# when changing this list, check d/control-in too, if any changes
+# needs to be done for build deps and --enable options.
+system-arch-linux = \
+	amd64 arm arm64 armel armhf i386 mips mipsel mips64 mips64el \
+	powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64 x32
+system-arch = ${system-arch-linux}
+user-arch = \
+	amd64 arm arm64 armel armhf i386 mips mipsel mips64 mips64el \
+	ppc64 ppc64el riscv64 s390x sparc sparc64 x32
+utils-arch = $(sort ${system-arch} ${user-arch} ia64 hppa m68k sh4 \
+	kfreebsd-amd64 kfreebsd-i386)
+
 # DEB_BUILD_OPTIONS=parallel=N
 MAKEFLAGS += $(subst parallel=,-j,$(filter parallel=%,${DEB_BUILD_OPTIONS}))
 
@@ -72,14 +84,14 @@ common_configure_opts = \
 	--localstatedir=/var \
 	--with-git-submodules=ignore \
 
+# this disables building of qemu-keymap tool (!)
+# qemu-keymap might be helpful for qemu-system -k <lang>
+# but is -k flag useful these days?
+common_configure_opts += --disable-xkbcommon
+
 # Cross compiling support
 ifneq ($(DEB_BUILD_GNU_TYPE), $(DEB_HOST_GNU_TYPE))
 common_configure_opts  += --cross-prefix=$(DEB_HOST_GNU_TYPE)-
-endif
-
-ifneq ($(filter $(DEB_TARGET_ARCH), alpha ia64 hppa m68k sh4 sparc), )
-# allow configure to run on unsupported arches to build qemu-utils and the like
-common_configure_opts += --enable-tcg-interpreter --enable-tools
 endif
 
 comma:=,
@@ -163,6 +175,7 @@ b/qemu/configured: configure
 	    ../../configure ${common_configure_opts} --disable-user \
 		--$(if ${enable-system},enable,disable)-system \
 		--$(if ${enable-linux-user},enable,disable)-linux-user \
+		--enable-tools \
 		--disable-xen \
 		--enable-modules \
 		--enable-module-upgrades \
@@ -181,16 +194,6 @@ install-qemu: b/qemu/built
 
 # remove qtest "accel" modules
 	rm -f debian/tmp${libdir}/qemu/accel-qtest-*.so
-
-# save block-extra loadable modules on upgrades
-# other module types for now (5.0) can't be loaded at runtime, only at startup
-# the maintscript fragments include version string so we have to generate them
-	echo 'case $$1 in (upgrade|deconfigure) [ -d /run/qemu ] || exit 0; ! findmnt --noheadings --target /run/qemu/ | grep -q noexec || exit 0; mkdir -p ${SAVEMODDIR}; cp -p ${libdir}/qemu/block-*.so ${SAVEMODDIR}/;; esac' \
-	  >> debian/qemu-block-extra.prerm.debhelper
-	echo 'case $$1 in (remove) rm -f ${SAVEMODDIR}/block-*.so;; esac' \
-	  >> debian/qemu-block-extra.postrm.debhelper
-	echo 'case $$1 in (purge) if systemctl is-active -q run-qemu.mount; then systemctl stop run-qemu.mount || true; fi; rm -rf "/run/qemu";; esac' \
-	  >> debian/qemu-block-extra.postrm.debhelper
 
 ifeq (${enable-system},y)
 
@@ -217,12 +220,11 @@ endif
 # hw-display-virtio-gpu-gl also pulls in X11, move it to -gui
 	mkdir -p debian/qemu-system-gui${libdir}/qemu
 	mv -t debian/qemu-system-gui${libdir}/qemu/ \
-		debian/tmp${libdir}/qemu/ui-gtk.so \
-		debian/tmp${libdir}/qemu/ui-sdl.so \
-		debian/tmp${libdir}/qemu/audio-jack.so \
-		debian/tmp${libdir}/qemu/audio-sdl.so \
-		debian/tmp${libdir}/qemu/audio-pa.so \
-		debian/tmp${libdir}/qemu/hw-display-virtio-gpu-gl.so \
+	    $(patsubst %,debian/tmp${libdir}/qemu/%.so,\
+		ui-gtk ui-sdl \
+		audio-jack audio-sdl audio-pa \
+		hw-display-virtio-gpu-gl \
+	    )
 
 ifeq ($(DEB_HOST_ARCH_OS),linux)
 
@@ -248,19 +250,25 @@ ifeq (DEBIAN-amd64,${VENDOR}-${DEB_HOST_ARCH})
 	   debian/qemu-system-x86/usr/bin/qemu-system-i386
 endif
 
-# virtfs-proxy-helper and qemu-bridge-helper are linux-specific
-	for f in usr/lib/qemu/virtfs-proxy-helper \
-	         usr/share/man/man1/virtfs-proxy-helper.1 \
-		 usr/lib/qemu/qemu-bridge-helper \
-	; do \
-	  mkdir -p debian/qemu-system-common/$${f%/*} ; \
-	  mv debian/tmp/$$f debian/qemu-system-common/$$f ; \
-	done
-
 # for --enable-module-upgrades to work in more environments
 	install -D -m 0644 debian/run-qemu.mount debian/qemu-block-extra/lib/systemd/system/run-qemu.mount
 
 endif # linux
+
+# save block-extra loadable modules on upgrades
+# other module types for now (5.0) can't be loaded at runtime, only at startup
+# the maintscript fragments include version string so we have to generate them
+	echo 'case $$1 in (upgrade|deconfigure) [ -d /run/qemu ] || exit 0; ! findmnt --noheadings --target /run/qemu/ | grep -q noexec || exit 0; mkdir -p ${SAVEMODDIR}; cp -p ${libdir}/qemu/block-*.so ${SAVEMODDIR}/;; esac' \
+	  >> debian/qemu-block-extra.prerm.debhelper
+	echo 'case $$1 in (remove) rm -f ${SAVEMODDIR}/block-*.so;; esac' \
+	  >> debian/qemu-block-extra.postrm.debhelper
+	echo 'case $$1 in (purge) if systemctl is-active -q run-qemu.mount; then systemctl stop run-qemu.mount || true; fi; rm -rf "/run/qemu";; esac' \
+	  >> debian/qemu-block-extra.postrm.debhelper
+
+else  # !enable-system
+
+# qemu-system manpage is built regardless of system target
+	rm -fv debian/tmp/usr/share/man/man1/qemu.1
 
 endif # enable-system
 
@@ -612,7 +620,7 @@ override_dh_auto_install-indep: $(addprefix install-, ${sysdata-components})
 # icon for gtk ui
 	install -Dp -m0644 ui/icons/qemu.svg \
 	 -t debian/qemu-system-data/usr/share/icons/hicolor/scalable/apps/
-	install -Dp -m0644 debian/qemu.desktop \
+	install -Dp -m0644 ui/qemu.desktop \
 	  -t debian/qemu-system-data/usr/share/applications/
 # icon for sdl2 ui (non-sdl-image version)
 	install -Dp -m0644 ui/icons/qemu_32x32.bmp \
@@ -640,6 +648,11 @@ ifneq (,$(wildcard debian/control-in))
 debian/control: debian/control-in debian/rules
 	echo '# autogenerated file, please edit debian/control-in' > $@.tmp
 	sed -e 's/^:$(shell echo ${VENDOR} | tr '[A-Z]' '[a-z]')://' \
-		-e '/^:[a-z]*:/D' $< >> $@.tmp
+		-e '/^:[a-z]*:/D' \
+		-e 's/:system-arch-linux:/$(sort ${system-arch-linux})/g' \
+		-e 's/:system-arch:/$(sort ${system-arch})/g' \
+		-e 's/:user-arch:/$(sort ${user-arch})/g' \
+		-e 's/:utils-arch:/${utils-arch}/g' \
+		$< >> $@.tmp
 	mv -f $@.tmp $@
 endif
