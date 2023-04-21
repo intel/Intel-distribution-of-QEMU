@@ -24,5 +24,5 @@ In particular, the following extra names are provided:
 The other names do match between qemu and debian.
 
 There's another name which is also provided but which is
-neither in debian nor in qemu: it is ppc64le, which is an
-alias to ppc64el in the kernel.
+neither in debian nor in qemu: it is ppc64le, which is
+the name used for this architecture in the linux kernel.

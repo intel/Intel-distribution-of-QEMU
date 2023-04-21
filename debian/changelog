@@ -1,3 +1,24 @@
+qemu (1:8.0+dfsg-4) experimental; urgency=medium
+
+  * d/control: do not use --enable-spice on sh4 and --enable-seccomp
+    on hppa where qemu-system is not being built
+  * spelling-information.patch: add headers
+  * merge d/qemu-system-x86.NEWS into d/qemu-system-common.NEWS
+  * d/rules: migrate docs for individual qemu-system-foo into symlinks
+    pointing to qemu-system-common docs
+  * d/rules: move qemu-user-binfmt doclink to the proper place,
+    and remove installdocs and installchangelogs overrides
+  * d/qemu-system-common.README.Debian, d/qemu-user*.README.Debian:
+    update statement about ppc64el in READMEs
+  * d/rules: switch to more declarative approach to generating various
+    qemu-system-foo packages, fix some bugs
+  * d/rules: switch to use "-" in variable names instead of "_"
+    to avoid exporting variables from environment
+  * add qemu-system-for-arch package (commented-out for now)
+  * refresh d/source/lintian-overrides
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 21 Apr 2023 19:11:53 +0300
+
 qemu (1:8.0+dfsg-3) experimental; urgency=medium
 
   * Release highlights:
@@ -198,7 +219,7 @@ qemu (1:7.2+dfsg-5) unstable; urgency=medium
     master/chardev-char-socket-set-s-listener-NULL-in-char_sock.patch
     master/intel-iommu-fail-MAP-notifier-without-caching-mode.patch
     master/intel-iommu-fail-DEVIOTLB_UNMAP-without-dt-mode.patch
- 
+
  -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 05 Mar 2023 20:09:04 +0300
 
 qemu (1:7.2+dfsg-4) unstable; urgency=medium

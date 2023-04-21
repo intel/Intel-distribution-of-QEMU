@@ -28,6 +28,7 @@ else
 VENDOR := DEBIAN
 endif
 
+# Architectures we produce packages for.
 # when changing this list, check d/control-in too, if any changes
 # needs to be done for build deps and --enable options.
 system-arch-linux = \
@@ -97,68 +98,108 @@ endif
 comma:=,
 
 # list of linux-user targets, from ./configure
-user_targets = \
+user-targets = \
  i386 x86_64 alpha aarch64 aarch64_be arm armeb cris hexagon hppa \
  loongarch64 m68k microblaze microblazeel \
  mips mipsel mips64 mips64el mipsn32 mipsn32el nios2 or1k \
  ppc ppc64 ppc64le riscv32 riscv64 sh4 sh4eb sparc sparc64 sparc32plus \
  s390x xtensa xtensaeb
 # aliases for missing ${DEB_HOST_ARCH} names in qemu-user:
-user_alias_aarch64 = arm64
-user_alias_arm = armel armhf
-user_alias_loongarch64 = loong64
-user_alias_ppc = powerpc
-user_alis_ppc64le = ppc64el
-user_alias_x86_64 = amd64
+user-alias-aarch64 = arm64
+user-alias-arm = armel armhf
+user-alias-loongarch64 = loong64
+user-alias-ppc = powerpc
+user-alias-ppc64le = ppc64el
+user-alias-x86_64 = amd64
 
 # install-linux-user-aliases [-static]
 define install-linux-user-aliases
-$(foreach q,${user_targets}, $(foreach a,${user_alias_$q},\
+$(foreach q,${user-targets}, $(foreach a,${user-alias-$q},\
 	dh_link -p qemu-user$1 usr/bin/qemu-$q$1 usr/bin/qemu-$a$1
 	dh_link -p qemu-user$1 usr/share/man/man1/qemu-$q$1.1 usr/share/man/man1/qemu-$a$1.1
 ))
 endef
 
-# aliases for missing ${DEB_HOST_ARCH_CPU} names in qemu-system:
-system_alias_aarch64 = arm64
-system_alias_loongarch64 = loong64
-system_alias_ppc = powerpc
-system_alias_ppc64 = ppc64le ppc64el
-system_alias_x86_64 = amd64
+# qemu-system (softmmu) targets, in multiple packages
+# For each package:
+#  system-archlist-$pkg - list qemu architectues which should go to this pkg
+#  system-kvmcpus-$pkg  - list of ${DEB_HOST_ARCH_CPU}s where we create
+#                         kvm link for this package
+# For each of ${system-archlist-*}, optional:
+#  system-alias-$qcpu   - aliases for this qemu architecture
+# For each of ${system-kvmcpus-*}, mandatory:
+#  system-kvmlink-$dcpu - where to point kvm link for this ${DEB_HOST_ARCH_CPU}
 
-# install-system pkg, qemu-arch-list, kvm-deb-cpu-list, qemu-kvm-cpu
-# install qemu-arch-list binaries with manpages and aliases into pkg,
-# install kvm link to qemu-kvm-cpu if ${DEB_HOST_ARCH_CPU} is in kvm-deb-cpu-list,
+system-archlist-arm = aarch64 arm
+system-alias-aarch64 = arm64
+system-kvmcpus-arm = arm64 arm
+system-kvmlink-arm64 = aarch64
+system-kvmlink-arm = arm
+
+system-archlist-mips = mips mipsel mips64 mips64el
+
+system-archlist-ppc = ppc ppc64
+system-alias-ppc = powerpc
+system-alias-ppc64 = ppc64le ppc64el
+system-kvmcpus-ppc = ppc64 ppc64el powerpc
+system-kvmlink-ppc64 = ppc64
+system-kvmlink-ppc64el = ppc64
+system-kvmlink-powerpc = ppc
+
+system-archlist-sparc = sparc sparc64
+
+system-s390x = $(if $(filter ${VENDOR},UBUNTU),s390x)
+
+system-archlist-s390x = ${system-s390x}
+system-kvmcpus-s390x = s390x
+system-kvmlink-s390x = s390x
+
+system-archlist-x86 = i386 x86_64
+system-alias-x86_64 = amd64
+system-kvmcpus-x86 = amd64 i386
+system-kvmlink-amd64 = x86_64
+system-kvmlink-i386 = x86_64
+
+system-archlist-misc = alpha avr cris hppa m68k loongarch64 \
+		microblaze microblazeel nios2 or1k riscv32 riscv64 rx sh4 sh4eb \
+		$(if ${system-s390x},,s390x) \
+		tricore xtensa xtensaeb
+system-alias-loongarch64 = loong64
+system-kvmcpus-misc = $(if ${system-s390x},,s390x)
+
+system-packages = arm mips ppc sparc x86 ${system-s390x} misc
+
+# install-system qemu-system-$pkg, ${system-archlist-$pkg}, kvm-link
+# install qemu-arch-list binaries with manpages and aliases into pkg
+# install kvm link to qemu-system-${kvm-link} if it is not empty
 # fills in qemu:Provides and qemu:archlist substvars
 define install-system
 	# installing $1
 	dh_installdirs -p $1 usr/bin usr/share/man/man1
-	dh_link -p $1 usr/share/doc/qemu-system-common usr/share/doc/$1/common
 	mv -t debian/$1/usr/bin/ $(addprefix debian/tmp/usr/bin/qemu-system-,$2)
 $(foreach q,$2,\
 	@echo ".so man1/qemu-system.1" > debian/$1/usr/share/man/man1/qemu-system-$q.1
-    $(foreach a,${system_alias_$q},\
+    $(foreach a,${system-alias-$q},\
 	dh_link -p $1 usr/bin/qemu-system-$q usr/bin/qemu-system-$a
 	dh_link -p $1 usr/share/man/man1/qemu-system-$q.1 usr/share/man/man1/qemu-system-$a.1
 ))
-$(if $(filter ${DEB_HOST_ARCH_CPU},$3),\
-	dh_link -p $1 usr/bin/qemu-system-$(strip $4) usr/bin/kvm
-	dh_link -p $1 usr/share/man/man1/qemu-system-$(strip $4).1 usr/share/man/man1/kvm.1
-	echo 'qemu:kvm=qemu-kvm (=${DEB_VERSION})${comma}' >> debian/$1.substvars
-,\
-	echo 'qemu:kvm=' >> debian/$1.substvars
+$(if $3,\
+	dh_link -p $1 usr/bin/$3 usr/bin/kvm
+	dh_link -p $1 usr/share/man/man1/$3.1 usr/share/man/man1/kvm.1
 )
-	echo 'qemu:Provides=$${qemu:kvm}$(patsubst %,qemu-system-% (=${DEB_VERSION})${comma}, any $2 $(foreach q,$2,${system_alias_$q}))' \
+	echo 'qemu:Provides=$(if $3,qemu-kvm (=${DEB_VERSION})${comma})\
+	 $(patsubst %,qemu-system-% (=${DEB_VERSION})${comma}, any $2 $(foreach q,$2,${system-alias-$q}))' \
 	    | tr _ - >> debian/$1.substvars
 # construct list `arch1 arch2 (alias) arch3..' for Description
 # and word-wrap it into two lines if too long
-	list='$(foreach q,$2,$q$(if ${system_alias_$q}, (${system_alias_$q})))'; \
+	list='$(foreach q,$2,$q$(if ${system-alias-$q}, (${system-alias-$q})))'; \
 	  len2=$$(($${#list}/2)); \
 	  if [ $$len2 -gt 36 ]; then \
 	    while expr substr "$$list" $$len2 1 != " " >/dev/null; do len2=$$(($$len2+1)); done; \
 	    list="$$(expr substr "$$list" 1 $$(($$len2-1)))\$${Newline} $$(expr substr "$$list" $$(($$len2+1)) $$len2)"; \
 	  fi; \
 	  echo "qemu:archlist=$$list" >> debian/$1.substvars
+	dh_installdocs -p $1 --link-doc=qemu-system-common
 endef
 
 sysdata-components :=
@@ -199,20 +240,9 @@ ifeq (${enable-system},y)
 
 	# qemu-system subpackages
 	mv debian/tmp/usr/share/man/man1/qemu.1 debian/tmp/usr/share/man/man1/qemu-system.1
-
-	$(call install-system,qemu-system-arm, aarch64 arm, arm64 arm, ${DEB_HOST_CPU})
-	$(call install-system,qemu-system-mips, mips mipsel mips64 mips64el,)
-	$(call install-system,qemu-system-ppc, ppc ppc64, ppc64 ppc64el powerpc, ${DEB_HOST_ARCH_CPU})
-	$(call install-system,qemu-system-sparc, sparc sparc64,)
-	$(call install-system,qemu-system-x86, i386 x86_64, amd64 i386, x86_64)
-ifeq (${VENDOR},UBUNTU)
-	$(call install-system,qemu-system-s390x, s390x, s390x, s390x)
-endif
-	$(call install-system,qemu-system-misc,alpha avr cris hppa m68k loongarch64 \
-		microblaze microblazeel nios2 or1k riscv32 riscv64 rx sh4 sh4eb \
-		$(if $(filter ${VENDOR},UBUNTU),,s390x) \
-		tricore xtensa xtensaeb,\
-	    $(if $(filter ${VENDOR},UBUNTU),,s390x), s390x)
+	$(foreach p,${system-packages},\
+	    $(call install-system,qemu-system-$p,${system-archlist-$p}\
+	    ,$(if $(filter ${DEB_HOST_ARCH_CPU},${system-kvmcpus-$p}),qemu-system-${system-kvmlink-${DEB_HOST_ARCH_CPU}})))
 
 # gui modules. We move these here instead of using d/qemu-system-gui.install,
 # b/c we install "all other" modules in qemu-system-common.install
@@ -274,14 +304,15 @@ endif # enable-system
 
 ifeq (${enable-linux-user},y)
 	dh_installdirs -p qemu-user usr/bin usr/share/doc/qemu-user
-	mv -t debian/qemu-user/usr/bin $(patsubst %,debian/tmp/usr/bin/qemu-%,${user_targets})
-	dh_link -p qemu-user $(patsubst %,usr/share/man/man1/qemu-user.1 usr/share/man/man1/qemu-%.1,${user_targets})
+	mv -t debian/qemu-user/usr/bin $(patsubst %,debian/tmp/usr/bin/qemu-%,${user-targets})
+	dh_link -p qemu-user $(patsubst %,usr/share/man/man1/qemu-user.1 usr/share/man/man1/qemu-%.1,${user-targets})
 	sed -e 's/qemu\\-user\\-static/qemu\\-user/g' \
 	    -e 's/ (static version)//' \
 	    debian/qemu-user-static.1 > debian/qemu-user/usr/share/man/man1/qemu-user.1
 	$(call install-linux-user-aliases)
 	sed 's|-static||g' debian/qemu-user-static.README.Debian > \
 	    debian/qemu-user/usr/share/doc/qemu-user/README.Debian
+	dh_installdocs -p qemu-user-binfmt --link-doc=qemu-user
 	./debian/binfmt-install qemu-user-binfmt
 endif	# enable-linux-user
 
@@ -365,16 +396,16 @@ b/user-static/configured: configure
 	    ../../configure ${common_configure_opts} \
 		--extra-cflags="${extra-cflags}$(if $(filter ${DEB_HOST_ARCH},arm64), -fno-pie -no-pie,)" \
 		--static --disable-pie --disable-system --disable-xen \
-		--target-list="$(addsuffix -linux-user,${user_targets})"
+		--target-list="$(addsuffix -linux-user,${user-targets})"
 	touch $@
 build-user-static: b/user-static/built
 b/user-static/built: b/user-static/configured
 	# we use this invocation to build just the binaries
-	$(MAKE) -C b/user-static V=${V} $(addprefix qemu-,${user_targets})
+	$(MAKE) -C b/user-static V=${V} $(addprefix qemu-,${user-targets})
 	touch $@
 install-user-static: b/user-static/built
 	dh_installdirs -p qemu-user-static usr/bin usr/share/man/man1
-	for t in ${user_targets}; do \
+	for t in ${user-targets}; do \
 	   cp -p b/user-static/$$t-linux-user/qemu-$$t \
 	       debian/qemu-user-static/usr/bin/qemu-$$t-static ; \
 	   ln -s qemu-user-static.1 \
@@ -383,6 +414,26 @@ install-user-static: b/user-static/built
 	$(call install-linux-user-aliases,-static)
 	./debian/binfmt-install qemu-user-static
 qemu-builds += $(if ${enable-linux-user},user-static)
+
+##############################################
+# qemu-system-for-host dep-only package
+# find the qemu-system-foo package which contains the right binary:
+#qemu-system-for-host=$(strip \
+#    $(foreach p,${system-packages},\
+#        $(if \
+#            $(filter \
+#                ${system-archlist-$p} $(foreach a,${system-archlist-$p},${system-alias-$a}),\
+#                ${DEB_HOST_ARCH_CPU}),\
+#            qemu-system-$p)))
+install-qemu-system-for-host:
+#	$(if ${qemu-system-for-host},,$(error no qemu-system-for-host found for ${DEB_HOST_ARCH_CPU}))
+#	echo 'qemu-for-host=${qemu-system-for-host}'
+	echo 'qemu:for-host=qemu-system-${DEB_HOST_ARCH_CPU}' \
+	  >> debian/qemu-system-for-host.substvars
+	dh_installdocs -p qemu-system-for-host --link-doc=qemu-system-common
+configure-qemu-system-for-host:
+build-qemu-system-for-host:
+qemu-builds += $(filter ${BUILD_PACKAGES},qemu-system-for-host)
 
 ##############################################
 # common rules
@@ -396,11 +447,6 @@ build-arch: $(addprefix build-, ${qemu-builds})
 
 override_dh_auto_install-arch: $(addprefix install-, ${qemu-builds})
 
-override_dh_installdocs:
-	dh_installdocs -Nqemu-user-binfmt
-	dh_installdocs -pqemu-user-binfmt --link-doc=qemu-user
-override_dh_installchangelogs:
-	dh_installchangelogs -Nqemu-user-binfmt
 override_dh_installinit:
 	dh_installinit -pqemu-guest-agent
 override_dh_installsystemd:
