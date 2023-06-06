@@ -1,0 +1,1097 @@
+From: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+Date: Thu, 23 Jan 2025 16:56:11 -0500
+Subject: Carry Ubuntu specific machine types
+
+Since Ubuntu is a downstream of qemu carrying patches it needs custom machine
+types to be able to identify and manage the delta that might affect machine
+types.
+
+This is an important piece to keep cross release migration supported for any
+downstream.
+
+Since the p->t transition these types are mostly stable copies of the upstream
+type (in the past this was more unstable upstream, so there was more delta),
+but they need to stay specific to reflect the delta we have. And even more so
+to have something to base off for affecting SRU changes.
+
+Also add a hint if instantiating fails due to now unsupported old guest
+types (LP: #1637936).
+
+Package maintainers please see https://wiki.ubuntu.com/QemuKVMMigration when
+maintaining this patch on SRU, merge or other packaging activity.
+While support on a type is dropped with the Release going EOL we never drop the
+type itself as long as it is maintainable. This will give people an extra
+chance to migrate and avoid issues like LP: 1802944.
+
+##
+
+This later on got extended by further ubuntu specific machine type changes:
+LP 1776189: Add a -hpb Ubuntu specific machine type suffix
+
+This works already fine on commandline, but Libvirt and other stacks above
+have no exploitation yet. Using a machine type has the benefit of being already
+controllable by most upper layer software like Libvirt (type= in os tag) but
+even up to Openstack (nova.conf or per image metadata on hw_machine_type).
+
+This is based on a discussion:
+   https://bugs.launchpad.net/ubuntu/+source/qemu/+bug/1769053
+
+A similar change is in CentOS/RH (there the default is switched, without
+even a way to go back.
+But since this can cause issues e.g. when migrating
+across hosts with different characteristics, it is not set as the default
+in Ubuntu with this change.
+
+Further we want to avoid "machine type proliferation", so we certainly won't
+add a type for every feature. But using a huge guest is more common and
+otherwise not yet achievable.
+
+From Noble onwards, we do not add the -hpb machine variants
+because they are not needed by OpenStack anymore.  For more information, see:
+
+https://bugs.launchpad.net/ubuntu/+source/qemu/+bug/1769053
+https://bugs.launchpad.net/ubuntu/+source/qemu/+bug/2045592
+
+##
+
+This later on got extended by further ubuntu specific machine type changes:
+LP 1761372: special type for ppc64 meltdown/spectre defaults
+
+Upstream 2.12 is not yet set in stone (almost but not full), and we ship 2.11
+with backports. So we don't want to make a 2.12 machine type fully recommended
+yet.
+PPC was following x86 in providing a non default convenience type that has the
+spectre/meltdown flags toggled - in bug 1761372 we were requested to carry the
+same - but we agreed to do so as a 2.11 based type.
+
+Note I: x86 changes CPU types with -IBRS suffix, power chose to change machine
+types.
+
+Note II: this change can be squashed into ubuntu-machine-types.patch >=2.12
+where the base content will exist in the upstream source instead of
+patches on top.
+
+##
+
+[1] introduced a major regression into the 4.0 types by setting split
+irqchip to be the default. This was corrected by [2] and the fix further
+modified by [3] which overall adds a 4.0.1 machine type in qemu 4.1 (not
+yet released) and probably eventually stable branches.
+We will follow upstream with the upstream types, but the Ubuntu types so
+far didn't release a 4.0 type yet so for us we can fix it on the initial
+release right away.
+
+[1]: https://git.qemu.org/?p=qemu.git;a=commit;h=b2fc91db
+[2]: https://git.qemu.org/?p=qemu.git;a=commit;h=c87759ce
+[3]: https://git.qemu.org/?p=qemu.git;a=commit;h=8e8cbed0
+
+##
+
+In Jammy (22.04) the former logic to warn about dropped types (P/U/V) no
+more applied cleanly, but since on one hand we warned about those now very
+outdated types long enough and we no more drop types to retain max
+compatibility this snippet was intentionally dropped. Users trying to use
+e.g. pc-i440fx-precise will still get a warning that the type does not
+exist and a hint how to check which are supported. Just no extra warning
+that Precise/Utopic/Vivid are out of support.
+
+##
+
+For Jammy and Mantic, qemu-system-amd64 needed to be patched to
+support more than 288 vCPUs inside a VM.  This was done by backporting
+a specific upstream change.  On top of that, and because we offer our
+own machine types to Ubuntu users, we also needed to create special
+machine types for the existing ones on Jammy and Mantic (that had
+already been released).  This is why you will see the "-maxcpus"
+variant below.
+
+For more context on the changes that were made, see:
+
+https://bugs.launchpad.net/ubuntu/+source/qemu/+bug/2012763
+
+##
+
+Add v2 ubuntu machine types for arch caps handling
+
+Across ubuntu releases before 25.10 questing we have to fix
+(LP: #2131822) the handling of arch-caps. But doing so would
+break existing guest, therefore this new behavior is gated
+by newly created -v2 ubuntu machine types. These types and
+handling needs to be known to subsequent releases to ensure
+they can continue to host these guests e.g. in migrations
+
+Bug-Ubuntu: https://bugs.launchpad.net/bugs/2131822
+
+##
+
+At the release of Ubuntu Questing, we mistakenly based I440FX
+Ubuntu Questing machine type on v10.0 istead of the v10.1. To
+fix this issue, we add a new Questing I440FX v2 machine
+to be based on v10.1 instead of v10.0.
+
+##
+
+Original-Author: Serge Hallyn <serge.hallyn@ubuntu.com>
+Original-Bug-Ubuntu: https://bugs.launchpad.net/ubuntu/+source/qemu/+bug/1304107
+Author: Christian Ehrhardt <christian.ehrhardt@canonical.com>
+Author: Sergio Durigan Junior <sergio.durigan@canonical.com>
+Bug-Ubuntu: https://bugs.launchpad.net/bugs/1776189
+Bug-Ubuntu: https://bugs.launchpad.net/bugs/1761372
+Bug-Ubuntu: https://bugs.launchpad.net/bugs/1769053
+Bug-Ubuntu: https://bugs.launchpad.net/bugs/2012763
+Bug-Ubuntu: https://bugs.launchpad.net/bugs/2131822
+Forwarded: not-needed
+Forward-info: downstream decision
+
+---
+ hw/i386/pc.c               |  16 ++
+ hw/i386/pc_piix.c          | 348 ++++++++++++++++++++++++++++++++++++-
+ hw/i386/pc_q35.c           | 335 +++++++++++++++++++++++++++++++++++
+ hw/ppc/spapr.c             |  53 +++++-
+ hw/s390x/s390-virtio-ccw.c |  68 +++++++-
+ include/hw/i386/pc.h       |   6 +
+ 6 files changed, 823 insertions(+), 3 deletions(-)
+
+diff --git a/hw/i386/pc.c b/hw/i386/pc.c
+index 2f58e73d334..ded732012e2 100644
+--- a/hw/i386/pc.c
++++ b/hw/i386/pc.c
+@@ -178,6 +178,11 @@ const size_t pc_compat_4_1_len = G_N_ELEMENTS(pc_compat_4_1);
+ GlobalProperty pc_compat_4_0[] = {};
+ const size_t pc_compat_4_0_len = G_N_ELEMENTS(pc_compat_4_0);
+ 
++GlobalProperty host_phys_bits_compat[] = {
++    { TYPE_X86_CPU, "host-phys-bits", "on" },
++};
++const size_t host_phys_bits_compat_len = G_N_ELEMENTS(host_phys_bits_compat);
++
+ GlobalProperty pc_compat_3_1[] = {
+     { "intel-iommu", "dma-drain", "off" },
+     { "Opteron_G3" "-" TYPE_X86_CPU, "rdtscp", "off" },
+@@ -263,6 +268,17 @@ GlobalProperty pc_compat_2_6[] = {
+ };
+ const size_t pc_compat_2_6_len = G_N_ELEMENTS(pc_compat_2_6);
+ 
++/* Across ubuntu releases before 25.10 questing we have to fix (LP: #2131822)
++ * the handling of arch-caps. But doing so would break existing guests, therefore
++ * this new behavior is gated by newly created -v2 ubuntu machine types.
++ * These types and handling needs to be known to subsequent releases to ensure
++ * they can continue to host these guests e.g. in migrations
++ */
++GlobalProperty ubuntu_v2_override_arch_caps[] = {
++    { TYPE_X86_CPU, "x-arch-cap-always-on", "false" },
++};
++const size_t ubuntu_v2_override_arch_caps_len = G_N_ELEMENTS(ubuntu_v2_override_arch_caps);
++
+ /*
+  * @PC_FW_DATA:
+  * Size of the chunk of memory at the top of RAM for the BIOS ACPI tables
+diff --git a/hw/i386/pc_piix.c b/hw/i386/pc_piix.c
+index 030308328ce..f78855f0caa 100644
+--- a/hw/i386/pc_piix.c
++++ b/hw/i386/pc_piix.c
+@@ -478,8 +478,30 @@ static void pc_i440fx_init(MachineState *machine)
+ #define LATEST_IS_DEFAULT true
+ #endif
+ 
++/*
++ * In Ubuntu the latest release type is alias=ubuntu, default=true
++ * set this to default=false, but keep the "pc" alias which shall stay on
++ * the latest upstrema type.
++ */
+ #define DEFINE_I440FX_MACHINE_AS_LATEST(major, minor) \
+-    DEFINE_PC_VER_MACHINE(pc_i440fx, "pc-i440fx", pc_i440fx_init, LATEST_IS_DEFAULT, "pc", major, minor);
++    DEFINE_PC_VER_MACHINE(pc_i440fx, "pc-i440fx", pc_i440fx_init, false, "pc", major, minor);
++
++#define DEFINE_UBUNTU_I440FX_MACHINE_NAMED(release, name) \
++    DEFINE_PC_MACHINE(pc_i440fx_##release, "pc-i440fx-" name, pc_i440fx_init, \
++                      pc_##release##_machine_options);
++
++#define DEFINE_UBUNTU_I440FX_MACHINE(release) \
++    DEFINE_UBUNTU_I440FX_MACHINE_NAMED(release, #release)
++#define DEFINE_UBUNTU_I440FX_HPB_MACHINE(release) \
++    DEFINE_UBUNTU_I440FX_MACHINE_NAMED(release##_hpb, #release "-hpb")
++
++#define DEFINE_UBUNTU_I440FX_MAXCPUS_MACHINE(release) \
++    DEFINE_UBUNTU_I440FX_MACHINE_NAMED(release##_maxcpus, #release "-maxcpus")
++#define DEFINE_UBUNTU_I440FX_HPB_MAXCPUS_MACHINE(release) \
++    DEFINE_UBUNTU_I440FX_MACHINE_NAMED(release##_hpb_maxcpus, #release "-hpb-maxcpus")
++
++#define DEFINE_UBUNTU_VERSION_MACHINE(release, ver)                    \
++    DEFINE_UBUNTU_I440FX_MACHINE_NAMED(release##_##ver, #release "-" #ver)
+ 
+ static void pc_i440fx_machine_options(MachineClass *m)
+ {
+@@ -857,3 +879,327 @@ static void xenfv_machine_3_1_options(MachineClass *m)
+ DEFINE_PC_MACHINE(xenfv, "xenfv-3.1", pc_xen_hvm_init,
+                   xenfv_machine_3_1_options);
+ #endif
++
++/* Ubuntu machine types */
++static void pc_yakkety_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_2_6_options(m);
++    m->desc = "Ubuntu 16.10 PC (i440FX + PIIX, 1996)";
++}
++DEFINE_UBUNTU_I440FX_MACHINE(yakkety);
++
++static void pc_zesty_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_2_8_options(m);
++    m->desc = "Ubuntu 17.04 PC (i440FX + PIIX, 1996)";
++}
++DEFINE_UBUNTU_I440FX_MACHINE(zesty);
++
++static void pc_artful_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_2_10_options(m);
++    m->desc = "Ubuntu 17.10 PC (i440FX + PIIX, 1996)";
++}
++DEFINE_UBUNTU_I440FX_MACHINE(artful);
++
++static void pc_bionic_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_2_11_options(m);
++    m->desc = "Ubuntu 18.04 PC (i440FX + PIIX, 1996)";
++}
++DEFINE_UBUNTU_I440FX_MACHINE(bionic);
++
++static void pc_bionic_hpb_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_2_11_options(m);
++    m->desc = "Ubuntu 18.04 PC (i440FX + PIIX, +host-phys-bits=true, 1996)";
++    compat_props_add(m->compat_props,
++        host_phys_bits_compat, host_phys_bits_compat_len);
++}
++DEFINE_UBUNTU_I440FX_HPB_MACHINE(bionic);
++
++static void pc_cosmic_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_2_12_options(m);
++    m->desc = "Ubuntu 18.10 PC (i440FX + PIIX, 1996)";
++}
++DEFINE_UBUNTU_I440FX_MACHINE(cosmic);
++
++static void pc_cosmic_hpb_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_2_12_options(m);
++    m->desc = "Ubuntu 18.10 PC (i440FX + PIIX +host-phys-bits=true, 1996)";
++    compat_props_add(m->compat_props,
++        host_phys_bits_compat, host_phys_bits_compat_len);
++}
++DEFINE_UBUNTU_I440FX_HPB_MACHINE(cosmic);
++
++static void pc_disco_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_3_1_options(m);
++    m->desc = "Ubuntu 19.04 PC (i440FX + PIIX, 1996)";
++}
++DEFINE_UBUNTU_I440FX_MACHINE(disco);
++
++static void pc_disco_hpb_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_3_1_options(m);
++    m->desc = "Ubuntu 19.04 PC (i440FX + PIIX +host-phys-bits=true, 1996)";
++    m->alias = NULL;
++    compat_props_add(m->compat_props,
++        host_phys_bits_compat, host_phys_bits_compat_len);
++}
++DEFINE_UBUNTU_I440FX_HPB_MACHINE(disco);
++
++static void pc_eoan_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_4_0_options(m);
++    m->desc = "Ubuntu 19.10 PC (i440FX + PIIX, 1996)";
++    m->alias = NULL;
++}
++DEFINE_UBUNTU_I440FX_MACHINE(eoan);
++
++static void pc_eoan_hpb_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_4_0_options(m);
++    m->desc = "Ubuntu 19.10 PC (i440FX + PIIX +host-phys-bits=true, 1996)";
++    m->alias = NULL;
++    compat_props_add(m->compat_props,
++        host_phys_bits_compat, host_phys_bits_compat_len);
++}
++DEFINE_UBUNTU_I440FX_HPB_MACHINE(eoan);
++
++static void pc_focal_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_4_0_options(m);
++    m->desc = "Ubuntu 20.04 PC (i440FX + PIIX, 1996)";
++    m->alias = NULL;
++}
++DEFINE_UBUNTU_I440FX_MACHINE(focal);
++
++static void pc_focal_hpb_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_4_0_options(m);
++    m->desc = "Ubuntu 20.04 PC (i440FX + PIIX +host-phys-bits=true, 1996)";
++    m->alias = NULL;
++    compat_props_add(m->compat_props,
++        host_phys_bits_compat, host_phys_bits_compat_len);
++}
++DEFINE_UBUNTU_I440FX_HPB_MACHINE(focal);
++
++static void pc_groovy_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_5_0_options(m);
++    m->desc = "Ubuntu 20.10 PC (i440FX + PIIX, 1996)";
++    m->alias = NULL;
++    m->is_default = false;
++}
++DEFINE_UBUNTU_I440FX_MACHINE(groovy);
++
++static void pc_groovy_hpb_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_5_0_options(m);
++    m->desc = "Ubuntu 20.10 PC (i440FX + PIIX +host-phys-bits=true, 1996)";
++    m->alias = NULL;
++    compat_props_add(m->compat_props,
++        host_phys_bits_compat, host_phys_bits_compat_len);
++}
++DEFINE_UBUNTU_I440FX_HPB_MACHINE(groovy);
++
++static void pc_hirsute_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_5_2_options(m);
++    m->desc = "Ubuntu 21.04 PC (i440FX + PIIX, 1996)";
++    m->is_default = false;
++}
++DEFINE_UBUNTU_I440FX_MACHINE(hirsute);
++
++static void pc_hirsute_hpb_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_5_1_options(m);
++    m->desc = "Ubuntu 21.04 PC (i440FX + PIIX +host-phys-bits=true, 1996)";
++    m->alias = NULL;
++    compat_props_add(m->compat_props,
++        host_phys_bits_compat, host_phys_bits_compat_len);
++}
++DEFINE_UBUNTU_I440FX_HPB_MACHINE(hirsute);
++
++static void pc_impish_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_6_0_options(m);
++    m->desc = "Ubuntu 21.10 PC (i440FX + PIIX, 1996)";
++    m->is_default = false;
++}
++DEFINE_UBUNTU_I440FX_MACHINE(impish);
++
++static void pc_impish_hpb_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_6_0_options(m);
++    m->desc = "Ubuntu 21.10 PC (i440FX + PIIX +host-phys-bits=true, 1996)";
++    m->alias = NULL;
++    compat_props_add(m->compat_props,
++        host_phys_bits_compat, host_phys_bits_compat_len);
++}
++DEFINE_UBUNTU_I440FX_HPB_MACHINE(impish);
++
++static void pc_jammy_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_6_2_options(m);
++    m->desc = "Ubuntu 22.04 PC (i440FX + PIIX, 1996)";
++    m->is_default = false;
++}
++DEFINE_UBUNTU_I440FX_MACHINE(jammy);
++
++static void pc_jammy_hpb_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_6_2_options(m);
++    m->desc = "Ubuntu 22.04 PC (i440FX + PIIX +host-phys-bits=true, 1996)";
++    m->alias = NULL;
++    compat_props_add(m->compat_props,
++        host_phys_bits_compat, host_phys_bits_compat_len);
++}
++DEFINE_UBUNTU_I440FX_HPB_MACHINE(jammy);
++
++static void pc_jammy_maxcpus_machine_options(MachineClass *m)
++{
++    pc_jammy_machine_options(m);
++    m->desc = "Ubuntu 22.04 PC (i440FX + PIIX, maxcpus=1024, 1996)";
++    m->alias = NULL;
++    m->max_cpus = 1024;
++}
++DEFINE_UBUNTU_I440FX_MAXCPUS_MACHINE(jammy);
++
++static void pc_jammy_hpb_maxcpus_machine_options(MachineClass *m)
++{
++    pc_jammy_hpb_machine_options(m);
++    m->desc = "Ubuntu 22.04 PC (i440FX + PIIX +host-phys-bits=true, maxcpus=1024, 1996)";
++}
++DEFINE_UBUNTU_I440FX_HPB_MAXCPUS_MACHINE(jammy);
++
++static void pc_kinetic_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_7_0_options(m);
++    m->desc = "Ubuntu 22.10 PC (i440FX + PIIX, 1996)";
++    m->is_default = false;
++}
++DEFINE_UBUNTU_I440FX_MACHINE(kinetic);
++
++static void pc_kinetic_hpb_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_7_0_options(m);
++    m->desc = "Ubuntu 22.10 PC (i440FX + PIIX +host-phys-bits=true, 1996)";
++    m->alias = NULL;
++    compat_props_add(m->compat_props,
++        host_phys_bits_compat, host_phys_bits_compat_len);
++}
++DEFINE_UBUNTU_I440FX_HPB_MACHINE(kinetic);
++
++static void pc_lunar_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_7_2_options(m);
++    m->desc = "Ubuntu 23.04 PC (i440FX + PIIX, 1996)";
++    m->is_default = false;
++}
++DEFINE_UBUNTU_I440FX_MACHINE(lunar);
++
++static void pc_lunar_hpb_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_7_2_options(m);
++    m->desc = "Ubuntu 23.04 PC (i440FX + PIIX +host-phys-bits=true, 1996)";
++    m->alias = NULL;
++    compat_props_add(m->compat_props,
++        host_phys_bits_compat, host_phys_bits_compat_len);
++}
++DEFINE_UBUNTU_I440FX_HPB_MACHINE(lunar);
++
++static void pc_mantic_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_8_0_options(m);
++    m->desc = "Ubuntu 23.10 PC (i440FX + PIIX, 1996)";
++    m->is_default = false;
++}
++DEFINE_UBUNTU_I440FX_MACHINE(mantic);
++
++static void pc_mantic_hpb_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_8_0_options(m);
++    m->desc = "Ubuntu 23.10 PC (i440FX + PIIX +host-phys-bits=true, 1996)";
++    m->alias = NULL;
++    compat_props_add(m->compat_props,
++        host_phys_bits_compat, host_phys_bits_compat_len);
++}
++DEFINE_UBUNTU_I440FX_HPB_MACHINE(mantic);
++
++static void pc_mantic_maxcpus_machine_options(MachineClass *m)
++{
++    pc_mantic_machine_options(m);
++    m->desc = "Ubuntu 23.10 PC (i440FX + PIIX, maxcpus=1024, 1996)";
++}
++DEFINE_UBUNTU_I440FX_MAXCPUS_MACHINE(mantic);
++
++static void pc_mantic_hpb_maxcpus_machine_options(MachineClass *m)
++{
++    pc_mantic_hpb_machine_options(m);
++    m->desc = "Ubuntu 23.10 PC (i440FX + PIIX +host-phys-bits=true, maxcpus=1024, 1996)";
++}
++DEFINE_UBUNTU_I440FX_HPB_MAXCPUS_MACHINE(mantic);
++
++/* Ubuntu: From Noble onwards, we do not add the -hpb machine variants
++ * because they are not needed by OpenStack anymore.  For more information, see:
++ *
++ * https://bugs.launchpad.net/ubuntu/+source/qemu/+bug/1769053
++ * https://bugs.launchpad.net/ubuntu/+source/qemu/+bug/2045592
++ */
++
++static void pc_noble_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_8_2_options(m);
++    m->desc = "Ubuntu 24.04 PC (i440FX + PIIX, 1996)";
++    m->is_default = false;
++}
++DEFINE_UBUNTU_I440FX_MACHINE(noble);
++
++static void pc_noble_v2_machine_options(MachineClass *m)
++{
++    pc_noble_machine_options(m);
++    m->desc = "Ubuntu 24.04 PC v2 (i440FX + PIIX, arch-caps fix, 1996)";
++
++    compat_props_add(m->compat_props, \
++                     ubuntu_v2_override_arch_caps, \
++                     ubuntu_v2_override_arch_caps_len);
++}
++DEFINE_UBUNTU_VERSION_MACHINE(noble, v2);
++
++static void pc_oracular_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_9_0_options(m);
++    m->desc = "Ubuntu 24.10 PC (i440FX + PIIX, 1996)";
++    m->is_default = false;
++}
++DEFINE_UBUNTU_I440FX_MACHINE(oracular);
++
++static void pc_plucky_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_9_2_options(m);
++    m->desc = "Ubuntu 25.04 PC (i440FX + PIIX, 1996)";
++    m->is_default = false;
++}
++DEFINE_UBUNTU_I440FX_MACHINE(plucky);
++
++static void pc_questing_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_10_0_options(m);
++    m->desc = "Ubuntu 25.10 PC (i440FX + PIIX, 1996)";
++    m->is_default = false;
++}
++DEFINE_UBUNTU_I440FX_MACHINE(questing);
++
++static void pc_questing_v2_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_10_1_options(m);
++    m->desc = "Ubuntu 25.10 PC v2 (i440FX + PIIX, + 10.1 machine, 1996)";
++    m->alias = "ubuntu";
++    /* if building for microvm this is false, otherwise true */
++    m->is_default = LATEST_IS_DEFAULT;
++}
++DEFINE_UBUNTU_VERSION_MACHINE(questing, v2);
+diff --git a/hw/i386/pc_q35.c b/hw/i386/pc_q35.c
+index b309b2b378d..aa83bb529c1 100644
+--- a/hw/i386/pc_q35.c
++++ b/hw/i386/pc_q35.c
+@@ -349,6 +349,23 @@ static void pc_q35_init(MachineState *machine)
+ #define DEFINE_Q35_MACHINE_BUGFIX(major, minor, micro) \
+     DEFINE_PC_VER_MACHINE(pc_q35, "pc-q35", pc_q35_init, false, NULL, major, minor, micro);
+ 
++#define DEFINE_UBUNTU_Q35_MACHINE_NAMED(release, name) \
++    DEFINE_PC_MACHINE(pc_q35_##release, "pc-q35-" name, pc_q35_init, \
++                      pc_q35_##release##_machine_options);
++
++#define DEFINE_UBUNTU_Q35_MACHINE(release) \
++    DEFINE_UBUNTU_Q35_MACHINE_NAMED(release, #release)
++#define DEFINE_UBUNTU_Q35_HPB_MACHINE(release) \
++    DEFINE_UBUNTU_Q35_MACHINE_NAMED(release##_hpb, #release "-hpb")
++
++#define DEFINE_UBUNTU_Q35_MAXCPUS_MACHINE(release) \
++    DEFINE_UBUNTU_Q35_MACHINE_NAMED(release##_maxcpus, #release "-maxcpus")
++#define DEFINE_UBUNTU_Q35_HPB_MAXCPUS_MACHINE(release) \
++    DEFINE_UBUNTU_Q35_MACHINE_NAMED(release##_hpb_maxcpus, #release "-hpb-maxcpus")
++
++#define DEFINE_UBUNTU_VERSION_MACHINE(release, ver)                  \
++    DEFINE_UBUNTU_Q35_MACHINE_NAMED(release##_##ver, #release "-" #ver)
++
+ static void pc_q35_machine_options(MachineClass *m)
+ {
+     PCMachineClass *pcmc = PC_MACHINE_CLASS(m);
+@@ -685,3 +702,321 @@ static void pc_q35_machine_2_6_options(MachineClass *m)
+ }
+ 
+ DEFINE_Q35_MACHINE(2, 6);
++
++/* Ubuntu machine types */
++static void pc_q35_yakkety_machine_options(MachineClass *m)
++{
++    pc_q35_machine_2_6_options(m);
++    m->desc = "Ubuntu 16.10 PC (Q35 + ICH9, 2009)";
++}
++DEFINE_UBUNTU_Q35_MACHINE(yakkety);
++
++static void pc_q35_zesty_machine_options(MachineClass *m)
++{
++    pc_q35_machine_2_8_options(m);
++    m->desc = "Ubuntu 17.04 PC (Q35 + ICH9, 2009)";
++}
++DEFINE_UBUNTU_Q35_MACHINE(zesty);
++
++static void pc_q35_artful_machine_options(MachineClass *m)
++{
++    pc_q35_machine_2_10_options(m);
++    m->desc = "Ubuntu 17.10 PC (Q35 + ICH9, 2009)";
++}
++DEFINE_UBUNTU_Q35_MACHINE(artful);
++
++static void pc_q35_bionic_machine_options(MachineClass *m)
++{
++    pc_q35_machine_2_11_options(m);
++    m->desc = "Ubuntu 18.04 PC (Q35 + ICH9, 2009)";
++}
++DEFINE_UBUNTU_Q35_MACHINE(bionic);
++
++static void pc_q35_bionic_hpb_machine_options(MachineClass *m)
++{
++    pc_q35_machine_2_11_options(m);
++    m->desc = "Ubuntu 18.04 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
++    compat_props_add(m->compat_props,
++        host_phys_bits_compat, host_phys_bits_compat_len);
++}
++DEFINE_UBUNTU_Q35_HPB_MACHINE(bionic);
++
++static void pc_q35_cosmic_machine_options(MachineClass *m)
++{
++    /* yes that is "wrong" but has to stay that way for compatibility */
++    pc_q35_machine_2_11_options(m);
++    m->desc = "Ubuntu 18.10 PC (Q35 + ICH9, 2009)";
++}
++DEFINE_UBUNTU_Q35_MACHINE(cosmic);
++
++static void pc_q35_cosmic_hpb_machine_options(MachineClass *m)
++{
++    pc_q35_machine_2_12_options(m);
++    m->desc = "Ubuntu 18.10 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
++    compat_props_add(m->compat_props,
++        host_phys_bits_compat, host_phys_bits_compat_len);
++}
++DEFINE_UBUNTU_Q35_HPB_MACHINE(cosmic);
++
++static void pc_q35_disco_machine_options(MachineClass *m)
++{
++    pc_q35_machine_3_1_options(m);
++    m->desc = "Ubuntu 19.04 PC (Q35 + ICH9, 2009)";
++}
++DEFINE_UBUNTU_Q35_MACHINE(disco);
++
++static void pc_q35_disco_hpb_machine_options(MachineClass *m)
++{
++    pc_q35_machine_3_1_options(m);
++    m->desc = "Ubuntu 19.04 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
++    compat_props_add(m->compat_props,
++        host_phys_bits_compat, host_phys_bits_compat_len);
++}
++DEFINE_UBUNTU_Q35_HPB_MACHINE(disco);
++
++static void pc_q35_eoan_machine_options(MachineClass *m)
++{
++    pc_q35_machine_4_0_options(m);
++    m->desc = "Ubuntu 19.10 PC (Q35 + ICH9, 2009)";
++    /*
++     * [1] introduced a major regression into the 4.0 types by setting split
++     * irqchip to be the default. This was corrected by [2] and the fix further
++     * modified by [3] which overall adds a 4.0.1 machine type in qemu 4.1 (not
++     * yet released) and probably eventually stable branches.
++     * We will follow upstream with the upstream types, but the Ubuntu types so
++     * far didn't release a 4.0 type yet so for us we can fix it on the initial
++     * release right away.
++     * [1]: https://git.qemu.org/?p=qemu.git;a=commit;h=b2fc91db
++     * [2]: https://git.qemu.org/?p=qemu.git;a=commit;h=c87759ce
++     * [3]: https://git.qemu.org/?p=qemu.git;a=commit;h=8e8cbed0
++     */
++    m->default_kernel_irqchip_split = false;
++}
++DEFINE_UBUNTU_Q35_MACHINE(eoan);
++
++static void pc_q35_eoan_hpb_machine_options(MachineClass *m)
++{
++    pc_q35_eoan_machine_options(m);
++    m->desc = "Ubuntu 19.10 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
++    compat_props_add(m->compat_props,
++        host_phys_bits_compat, host_phys_bits_compat_len);
++}
++DEFINE_UBUNTU_Q35_HPB_MACHINE(eoan);
++
++static void pc_q35_focal_machine_options(MachineClass *m)
++{
++    pc_q35_machine_4_2_options(m);
++    m->desc = "Ubuntu 20.04 PC (Q35 + ICH9, 2009)";
++}
++DEFINE_UBUNTU_Q35_MACHINE(focal);
++
++static void pc_q35_focal_hpb_machine_options(MachineClass *m)
++{
++    pc_q35_focal_machine_options(m);
++    m->desc = "Ubuntu 20.04 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
++    m->alias = NULL;
++    compat_props_add(m->compat_props,
++        host_phys_bits_compat, host_phys_bits_compat_len);
++}
++DEFINE_UBUNTU_Q35_HPB_MACHINE(focal);
++
++static void pc_q35_groovy_machine_options(MachineClass *m)
++{
++    pc_q35_machine_5_0_options(m);
++    m->desc = "Ubuntu 20.10 PC (Q35 + ICH9, 2009)";
++    m->alias = NULL;
++}
++DEFINE_UBUNTU_Q35_MACHINE(groovy);
++
++static void pc_q35_groovy_hpb_machine_options(MachineClass *m)
++{
++    pc_q35_groovy_machine_options(m);
++    m->desc = "Ubuntu 20.10 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
++    m->alias = NULL;
++    compat_props_add(m->compat_props,
++        host_phys_bits_compat, host_phys_bits_compat_len);
++}
++DEFINE_UBUNTU_Q35_HPB_MACHINE(groovy);
++
++static void pc_q35_hirsute_machine_options(MachineClass *m)
++{
++    pc_q35_machine_5_2_options(m);
++    m->desc = "Ubuntu 21.04 PC (Q35 + ICH9, 2009)";
++}
++DEFINE_UBUNTU_Q35_MACHINE(hirsute);
++
++static void pc_q35_hirsute_hpb_machine_options(MachineClass *m)
++{
++    pc_q35_hirsute_machine_options(m);
++    m->desc = "Ubuntu 21.04 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
++    m->alias = NULL;
++    compat_props_add(m->compat_props,
++        host_phys_bits_compat, host_phys_bits_compat_len);
++}
++DEFINE_UBUNTU_Q35_HPB_MACHINE(hirsute);
++
++static void pc_q35_impish_machine_options(MachineClass *m)
++{
++    pc_q35_machine_6_0_options(m);
++    m->desc = "Ubuntu 21.10 PC (Q35 + ICH9, 2009)";
++}
++DEFINE_UBUNTU_Q35_MACHINE(impish);
++
++static void pc_q35_impish_hpb_machine_options(MachineClass *m)
++{
++    pc_q35_impish_machine_options(m);
++    m->desc = "Ubuntu 21.10 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
++    m->alias = NULL;
++    compat_props_add(m->compat_props,
++        host_phys_bits_compat, host_phys_bits_compat_len);
++}
++DEFINE_UBUNTU_Q35_HPB_MACHINE(impish);
++
++static void pc_q35_jammy_machine_options(MachineClass *m)
++{
++    pc_q35_machine_6_2_options(m);
++    m->desc = "Ubuntu 22.04 PC (Q35 + ICH9, 2009)";
++}
++DEFINE_UBUNTU_Q35_MACHINE(jammy);
++
++static void pc_q35_jammy_hpb_machine_options(MachineClass *m)
++{
++    pc_q35_jammy_machine_options(m);
++    m->desc = "Ubuntu 22.04 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
++    m->alias = NULL;
++    compat_props_add(m->compat_props,
++        host_phys_bits_compat, host_phys_bits_compat_len);
++}
++DEFINE_UBUNTU_Q35_HPB_MACHINE(jammy);
++
++static void pc_q35_jammy_maxcpus_machine_options(MachineClass *m)
++{
++    pc_q35_jammy_machine_options(m);
++    m->desc = "Ubuntu 22.04 PC (Q35 + ICH9, maxcpus=1024, 2009)";
++    m->max_cpus = 1024;
++}
++DEFINE_UBUNTU_Q35_MAXCPUS_MACHINE(jammy);
++
++static void pc_q35_jammy_hpb_maxcpus_machine_options(MachineClass *m)
++{
++    pc_q35_jammy_hpb_machine_options(m);
++    m->desc = "Ubuntu 22.04 PC (Q35 + ICH9, +host-phys-bits=true, maxcpus=1024, 2009)";
++    m->max_cpus = 1024;
++}
++DEFINE_UBUNTU_Q35_HPB_MAXCPUS_MACHINE(jammy);
++
++static void pc_q35_kinetic_machine_options(MachineClass *m)
++{
++    pc_q35_machine_7_0_options(m);
++    m->desc = "Ubuntu 22.10 PC (Q35 + ICH9, 2009)";
++}
++DEFINE_UBUNTU_Q35_MACHINE(kinetic);
++
++static void pc_q35_kinetic_hpb_machine_options(MachineClass *m)
++{
++    pc_q35_kinetic_machine_options(m);
++    m->desc = "Ubuntu 22.10 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
++    m->alias = NULL;
++    compat_props_add(m->compat_props,
++        host_phys_bits_compat, host_phys_bits_compat_len);
++}
++DEFINE_UBUNTU_Q35_HPB_MACHINE(kinetic);
++
++static void pc_q35_lunar_machine_options(MachineClass *m)
++{
++    pc_q35_machine_7_2_options(m);
++    m->desc = "Ubuntu 23.04 PC (Q35 + ICH9, 2009)";
++}
++DEFINE_UBUNTU_Q35_MACHINE(lunar);
++
++static void pc_q35_lunar_hpb_machine_options(MachineClass *m)
++{
++    pc_q35_lunar_machine_options(m);
++    m->desc = "Ubuntu 23.04 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
++    m->alias = NULL;
++    compat_props_add(m->compat_props,
++        host_phys_bits_compat, host_phys_bits_compat_len);
++}
++DEFINE_UBUNTU_Q35_HPB_MACHINE(lunar);
++
++static void pc_q35_mantic_machine_options(MachineClass *m)
++{
++    pc_q35_machine_8_0_options(m);
++    m->desc = "Ubuntu 23.10 PC (Q35 + ICH9, 2009)";
++}
++DEFINE_UBUNTU_Q35_MACHINE(mantic);
++
++static void pc_q35_mantic_hpb_machine_options(MachineClass *m)
++{
++    pc_q35_mantic_machine_options(m);
++    m->desc = "Ubuntu 23.10 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
++    m->alias = NULL;
++    compat_props_add(m->compat_props,
++        host_phys_bits_compat, host_phys_bits_compat_len);
++}
++DEFINE_UBUNTU_Q35_HPB_MACHINE(mantic);
++
++static void pc_q35_mantic_maxcpus_machine_options(MachineClass *m)
++{
++    pc_q35_mantic_machine_options(m);
++    m->desc = "Ubuntu 23.10 PC (Q35 + ICH9, maxcpus=1024, 2009)";
++    m->max_cpus = 1024;
++}
++DEFINE_UBUNTU_Q35_MAXCPUS_MACHINE(mantic);
++
++static void pc_q35_mantic_hpb_maxcpus_machine_options(MachineClass *m)
++{
++    pc_q35_mantic_hpb_machine_options(m);
++    m->desc = "Ubuntu 23.10 PC (Q35 + ICH9, +host-phys-bits=true, maxcpus=1024, 2009)";
++    m->max_cpus = 1024;
++}
++DEFINE_UBUNTU_Q35_HPB_MAXCPUS_MACHINE(mantic);
++
++/* Ubuntu: From Noble onwards, we do not add the -hpb machine variants
++ * because they are not needed by OpenStack anymore.  For more information, see:
++ *
++ * https://bugs.launchpad.net/ubuntu/+source/qemu/+bug/1769053
++ * https://bugs.launchpad.net/ubuntu/+source/qemu/+bug/2045592
++ */
++
++static void pc_q35_noble_machine_options(MachineClass *m)
++{
++    pc_q35_machine_8_2_options(m);
++    m->desc = "Ubuntu 24.04 PC (Q35 + ICH9, 2009)";
++}
++DEFINE_UBUNTU_Q35_MACHINE(noble);
++
++static void pc_q35_noble_v2_machine_options(MachineClass *m)
++{
++    pc_q35_noble_machine_options(m);
++    m->desc = "Ubuntu 24.04 PC v2 (Q35 + ICH9, arch-caps fix, 2009)";
++
++    compat_props_add(m->compat_props, \
++                     ubuntu_v2_override_arch_caps, \
++                     ubuntu_v2_override_arch_caps_len);
++}
++DEFINE_UBUNTU_VERSION_MACHINE(noble, v2);
++
++static void pc_q35_oracular_machine_options(MachineClass *m)
++{
++    pc_q35_machine_9_0_options(m);
++    m->desc = "Ubuntu 24.10 PC (Q35 + ICH9, 2009)";
++}
++DEFINE_UBUNTU_Q35_MACHINE(oracular);
++
++static void pc_q35_plucky_machine_options(MachineClass *m)
++{
++    pc_q35_machine_9_1_options(m);
++    m->desc = "Ubuntu 25.04 PC (Q35 + ICH9, 2009)";
++}
++DEFINE_UBUNTU_Q35_MACHINE(plucky);
++
++static void pc_q35_questing_machine_options(MachineClass *m)
++{
++    pc_q35_machine_10_1_options(m);
++    m->desc = "Ubuntu 25.10 PC (Q35 + ICH9, 2009)";
++    /* The ubuntu alias and default is on the i440fx type. The
++     * ubuntu-q35 alias auto-picks the most recent ubuntu q35 type */
++    m->alias = "ubuntu-q35";
++}
++DEFINE_UBUNTU_Q35_MACHINE(questing);
+diff --git a/hw/ppc/spapr.c b/hw/ppc/spapr.c
+index 1855a3cd8d0..16097619e70 100644
+--- a/hw/ppc/spapr.c
++++ b/hw/ppc/spapr.c
+@@ -4761,6 +4761,42 @@ static void spapr_machine_latest_class_options(MachineClass *mc)
+ #define DEFINE_SPAPR_MACHINE(major, minor) \
+     DEFINE_SPAPR_MACHINE_IMPL(false, major, minor)
+ 
++/* Ubuntu TODO: Come up with a cleaner way to have Ubuntu-specific machine types
++   here.
++
++   The reason why we need a separate macro for Ubuntu is because of
++   the TypeInfo.name member, which needs to be calculated differently.  */
++#define DEFINE_SPAPR_UBUNTU_MACHINE_IMPL(latest, prefix, machinename, ...) \
++    static void MACHINE_VER_SYM(class_init, prefix, __VA_ARGS__)(     \
++        ObjectClass *oc,                                             \
++        const void *data)                                                  \
++    {                                                                \
++        MachineClass *mc = MACHINE_CLASS(oc);                        \
++        MACHINE_VER_SYM(class_options, spapr, __VA_ARGS__)(mc);      \
++        MACHINE_VER_DEPRECATION(__VA_ARGS__);                        \
++        if (latest) {                                                \
++            spapr_machine_latest_class_options(mc);                  \
++        }                                                            \
++    }                                                                \
++    static const TypeInfo MACHINE_VER_SYM(info, prefix, __VA_ARGS__) = \
++    {                                                                \
++        .name = machinename TYPE_MACHINE_SUFFIX,       \
++        .parent = TYPE_SPAPR_MACHINE,                                \
++        .class_init = MACHINE_VER_SYM(class_init, prefix, __VA_ARGS__), \
++    };                                                               \
++    static void MACHINE_VER_SYM(register, prefix, __VA_ARGS__)(void)  \
++    {                                                                \
++        MACHINE_VER_DELETION(__VA_ARGS__);                           \
++        type_register_static(&MACHINE_VER_SYM(info, prefix, __VA_ARGS__));   \
++    }                                                                \
++    type_init(MACHINE_VER_SYM(register, prefix, __VA_ARGS__))
++
++#define DEFINE_SPAPR_UBUNTU_MACHINE_AS_LATEST(release, major, minor) \
++    DEFINE_SPAPR_UBUNTU_MACHINE_IMPL(true, spapr_ubuntu_##release, "pseries-" #release, major, minor)
++#define DEFINE_SPAPR_UBUNTU_MACHINE(release, major, minor) \
++    DEFINE_SPAPR_UBUNTU_MACHINE_IMPL(false, spapr_ubuntu_##release, "pseries-" #release, major, minor)
++
++
+ /*
+  * pseries-10.1
+  */
+@@ -4769,7 +4805,7 @@ static void spapr_machine_10_1_class_options(MachineClass *mc)
+     /* Defaults for the latest behaviour inherited from the base class */
+ }
+ 
+-DEFINE_SPAPR_MACHINE_AS_LATEST(10, 1);
++DEFINE_SPAPR_MACHINE(10, 1);
+ 
+ /*
+  * pseries-10.0
+@@ -5073,3 +5109,18 @@ static void spapr_machine_register_types(void)
+ }
+ 
+ type_init(spapr_machine_register_types)
++
++DEFINE_SPAPR_UBUNTU_MACHINE(disco, 3, 1);
++DEFINE_SPAPR_UBUNTU_MACHINE(eoan, 4, 0);
++DEFINE_SPAPR_UBUNTU_MACHINE(focal, 4, 2);
++DEFINE_SPAPR_UBUNTU_MACHINE(groovy, 5, 0);
++DEFINE_SPAPR_UBUNTU_MACHINE(hirsute, 5, 2);
++DEFINE_SPAPR_UBUNTU_MACHINE(impish, 6, 0);
++DEFINE_SPAPR_UBUNTU_MACHINE(jammy, 6, 2);
++DEFINE_SPAPR_UBUNTU_MACHINE(kinetic, 6, 2);
++DEFINE_SPAPR_UBUNTU_MACHINE(lunar, 7, 2);
++DEFINE_SPAPR_UBUNTU_MACHINE(mantic, 8, 0);
++DEFINE_SPAPR_UBUNTU_MACHINE(noble, 8, 2);
++DEFINE_SPAPR_UBUNTU_MACHINE(oracular, 9, 0);
++DEFINE_SPAPR_UBUNTU_MACHINE(plucky, 9, 2);
++DEFINE_SPAPR_UBUNTU_MACHINE_AS_LATEST(questing, 10, 1);
+diff --git a/hw/s390x/s390-virtio-ccw.c b/hw/s390x/s390-virtio-ccw.c
+index a79bd13275b..f25a52f9413 100644
+--- a/hw/s390x/s390-virtio-ccw.c
++++ b/hw/s390x/s390-virtio-ccw.c
+@@ -910,6 +910,58 @@ static const TypeInfo ccw_machine_info = {
+ #define DEFINE_CCW_MACHINE(major, minor) \
+     DEFINE_CCW_MACHINE_IMPL(false, major, minor)
+ 
++/* Ubuntu TODO: Come up with a cleaner way to have Ubuntu-specific machine types
++   here.
++
++   The reason why we need a separate macro for Ubuntu is because of
++   the TypeInfo.name member, which needs to be calculated differently.
++
++   If there is no deviation from the upstream types the ubuntu names
++   just are putting down the very same structures via macros and for
++   instance_options and class_options use "ccw" instead of our named prefix
++   to refer to the very same implementing functions that are used in general.
++   Other architectures have examples of such deviation in which we changed
++   settings in those _options functions using our own derivatives.
++   */
++#define DEFINE_CCW_UBUNTU_MACHINE_IMPL(latest, prefix, machinename, ...)      \
++    static void MACHINE_VER_SYM(mach_init, prefix, __VA_ARGS__)(MachineState *mach) \
++    {                                                                         \
++        MACHINE_VER_SYM(instance_options, ccw, __VA_ARGS__)(mach);            \
++        ccw_init(mach);                                                       \
++    }                                                                         \
++    static void MACHINE_VER_SYM(class_init, prefix, __VA_ARGS__)(                \
++        ObjectClass *oc,                                                      \
++        const void *data)                                                           \
++    {                                                                         \
++        MachineClass *mc = MACHINE_CLASS(oc);                                 \
++        MACHINE_VER_SYM(class_options, ccw, __VA_ARGS__)(mc);                 \
++        mc->desc = "Virtual s390x machine (version " machinename "-" MACHINE_VER_STR(__VA_ARGS__) ")"; \
++        mc->init = MACHINE_VER_SYM(mach_init, prefix, __VA_ARGS__);              \
++        MACHINE_VER_DEPRECATION(__VA_ARGS__);                                 \
++        if (latest) {                                                         \
++            mc->alias = "s390-ccw-virtio";                                    \
++            mc->is_default = true;                                            \
++        }                                                                     \
++    }                                                                         \
++    static const TypeInfo MACHINE_VER_SYM(info, prefix, __VA_ARGS__) =           \
++    {                                                                         \
++        .name = machinename TYPE_MACHINE_SUFFIX,        \
++        .parent = TYPE_S390_CCW_MACHINE,                                      \
++        .class_init = MACHINE_VER_SYM(class_init, prefix, __VA_ARGS__),          \
++    };                                                                        \
++    static void MACHINE_VER_SYM(register, prefix, __VA_ARGS__)(void)             \
++    {                                                                         \
++        MACHINE_VER_DELETION(__VA_ARGS__);                                    \
++        type_register_static(&MACHINE_VER_SYM(info, prefix, __VA_ARGS__));       \
++    }                                                                         \
++    type_init(MACHINE_VER_SYM(register, prefix, __VA_ARGS__))
++
++#define DEFINE_CCW_UBUNTU_MACHINE(release, major, minor) \
++    DEFINE_CCW_UBUNTU_MACHINE_IMPL(false, ccw_ubuntu_##release, \
++                                   "s390-ccw-virtio-" #release, major, minor)
++#define DEFINE_CCW_UBUNTU_MACHINE_AS_LATEST(release, major, minor) \
++    DEFINE_CCW_UBUNTU_MACHINE_IMPL(true, ccw_ubuntu_##release, \
++                                   "s390-ccw-virtio-" #release, major, minor)
+ 
+ static void ccw_machine_10_1_instance_options(MachineState *machine)
+ {
+@@ -918,7 +970,7 @@ static void ccw_machine_10_1_instance_options(MachineState *machine)
+ static void ccw_machine_10_1_class_options(MachineClass *mc)
+ {
+ }
+-DEFINE_CCW_MACHINE_AS_LATEST(10, 1);
++DEFINE_CCW_MACHINE(10, 1);
+ 
+ static void ccw_machine_10_0_instance_options(MachineState *machine)
+ {
+@@ -1167,6 +1219,20 @@ static void ccw_machine_4_2_class_options(MachineClass *mc)
+ }
+ DEFINE_CCW_MACHINE(4, 2);
+ 
++/* Ubuntu machine types */
++DEFINE_CCW_UBUNTU_MACHINE(focal, 4, 2);
++DEFINE_CCW_UBUNTU_MACHINE(groovy, 5, 0);
++DEFINE_CCW_UBUNTU_MACHINE(hirsute, 5, 2);
++DEFINE_CCW_UBUNTU_MACHINE(impish, 6, 0);
++DEFINE_CCW_UBUNTU_MACHINE(jammy, 6, 2);
++DEFINE_CCW_UBUNTU_MACHINE(kinetic, 6, 2);
++DEFINE_CCW_UBUNTU_MACHINE(lunar, 7, 2);
++DEFINE_CCW_UBUNTU_MACHINE(mantic, 8, 0);
++DEFINE_CCW_UBUNTU_MACHINE(noble, 8, 2);
++DEFINE_CCW_UBUNTU_MACHINE(oracular, 9, 0);
++DEFINE_CCW_UBUNTU_MACHINE(plucky, 9, 2);
++DEFINE_CCW_UBUNTU_MACHINE_AS_LATEST(questing, 10, 1);
++
+ static void ccw_machine_register_types(void)
+ {
+     type_register_static(&ccw_machine_info);
+diff --git a/include/hw/i386/pc.h b/include/hw/i386/pc.h
+index 79b72c54dd3..2ee67d6426c 100644
+--- a/include/hw/i386/pc.h
++++ b/include/hw/i386/pc.h
+@@ -271,6 +271,9 @@ extern const size_t pc_compat_4_1_len;
+ extern GlobalProperty pc_compat_4_0[];
+ extern const size_t pc_compat_4_0_len;
+ 
++extern GlobalProperty host_phys_bits_compat[];
++extern const size_t host_phys_bits_compat_len;
++
+ extern GlobalProperty pc_compat_3_1[];
+ extern const size_t pc_compat_3_1_len;
+ 
+@@ -298,6 +301,9 @@ extern const size_t pc_compat_2_7_len;
+ extern GlobalProperty pc_compat_2_6[];
+ extern const size_t pc_compat_2_6_len;
+ 
++extern GlobalProperty ubuntu_v2_override_arch_caps[];
++extern const size_t ubuntu_v2_override_arch_caps_len;
++
+ #define DEFINE_PC_MACHINE(suffix, namestr, initfn, optsfn) \
+     static void pc_machine_##suffix##_class_init(ObjectClass *oc, \
+                                                  const void *data) \
+-- 
+2.34.1
+

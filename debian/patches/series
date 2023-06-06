@@ -22,3 +22,6 @@ riscv-on-ppc64-gcc15-121689.patch
 linkage-revert-gdbstub-try-unlinking-the-unix-socket.patch
 linkage-gdbstub-unlink-the-unix-socket-before-bind.patch
 1095935.patch
+
+# ubuntu patches
+ubuntu/define-ubuntu-machine-types.patch
