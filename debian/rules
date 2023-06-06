@@ -453,8 +453,12 @@ install-arch: pre-install-arch $(addprefix install-, ${qemu-builds})
 	dh_installman -a
 	dh_link -a
 	dh_installinit -pqemu-guest-agent
+	# install /etc/default/qemu-kvm
+	dh_installinit -a -pqemu-system-common --name=qemu-kvm
 	dh_installsystemd -pqemu-guest-agent --no-enable
 	dh_installudev -pqemu-guest-agent
+	# install and enable qemu-kvm.service
+	dh_installsystemd -a -pqemu-system-common --no-restart-on-upgrade --name=qemu-kvm
 	dh_lintian -a
 	dh_strip_nondeterminism -a
 	dh_compress -a

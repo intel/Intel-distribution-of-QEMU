@@ -25,3 +25,4 @@ usr/lib/${DEB_HOST_MULTIARCH}/qemu/hw-usb-redirect.so
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/hw-usb-smartcard.so
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/hw-s390x-virtio-gpu-ccw.so
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/ui-curses.so
+debian/qemu-kvm-init /usr/share/qemu/init
