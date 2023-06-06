@@ -26,3 +26,4 @@ linkage-gdbstub-unlink-the-unix-socket-before-bind.patch
 # ubuntu patches
 ubuntu/define-ubuntu-machine-types.patch
 ubuntu/enable-svm-by-default.patch
+ubuntu/pre-bionic-256k-ipxe-efi-roms.patch

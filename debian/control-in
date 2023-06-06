@@ -400,6 +400,7 @@ Recommends: qemu-utils,
  ipxe-qemu,
 # for now virtio-vga won't check arch and insist on vgabios-virtio.bin
  seabios,
+:ubuntu: ipxe-qemu-256k-compat-efi-roms,
  qemu-efi-aarch64, qemu-efi-arm,
  qemu-system-gui (= ${binary:Version}),
  qemu-system-modules-spice (= ${binary:Version}) [:spice-arch:],
@@ -456,6 +457,7 @@ Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
 Recommends: qemu-utils,
+:ubuntu: ipxe-qemu-256k-compat-efi-roms,
 # ppc targets use vgabios-stdvga and bootroms
  seabios,
  ipxe-qemu,
@@ -585,6 +587,7 @@ Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Vers
  seabios (>> 1.17.0-1~),
  ipxe-qemu (>> 1.21.1+git20220113.fbbdc3926+dfsg-1~),
 Recommends: qemu-utils,
+:ubuntu: ipxe-qemu-256k-compat-efi-roms,
  ovmf,
  qemu-system-gui (= ${binary:Version}),
  qemu-system-modules-spice (= ${binary:Version}) [:spice-arch:],
