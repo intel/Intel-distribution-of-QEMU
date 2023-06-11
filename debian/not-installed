@@ -7,10 +7,10 @@ usr/share/doc/qemu/specs
 usr/share/doc/qemu/tools
 usr/share/doc/qemu/*.*
 usr/share/doc/qemu/.buildinfo
-usr/share/icons
-usr/share/applications/qemu.desktop
 usr/bin/elf2dmp
 # test tool
 usr/bin/qemu-edid
-# we install keymaps in d/rules into arch-all pkg preserving timestamps
+# we install these files in d/rules into arch-all qemu-system-data
+usr/share/icons
+usr/share/applications/qemu.desktop
 usr/share/qemu/keymaps

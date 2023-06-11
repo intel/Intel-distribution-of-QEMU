@@ -1,0 +1,62 @@
+Subject: fix relocated_path
+From: Michael Tokarev <mjt@tls.msk.ru>
+Date: Sun, 23 Apr 2023 13:50:41 +0300
+Forwarded: not-needed
+
+Qemu does strange things with turning absolute
+paths to various firmware/data directories into
+relative paths.  Fix that, so the specified paths
+are always used as-is to avoid surprizes when qemu
+binary is moved to another dir.  Only keep the
+ability to find the data dir relative to
+${exe_path}/qemu-bundle/ if it exists.
+
+diff --git a/util/cutils.c b/util/cutils.c
+index 5887e74414..143c907478 100644
+--- a/util/cutils.c
++++ b/util/cutils.c
+@@ -1071,11 +1071,8 @@ const char *qemu_get_exec_dir(void)
+ 
+ char *get_relocated_path(const char *dir)
+ {
+-    size_t prefix_len = strlen(CONFIG_PREFIX);
+-    const char *bindir = CONFIG_BINDIR;
+     const char *exec_dir = qemu_get_exec_dir();
+     GString *result;
+-    int len_dir, len_bindir;
+ 
+     /* Fail if qemu_init_exec_dir was not called.  */
+     assert(exec_dir[0]);
+@@ -1099,31 +1096,8 @@ char *get_relocated_path(const char *dir)
+ #else
+         g_string_append(result, dir);
+ #endif
+-    } else if (!starts_with_prefix(dir) || !starts_with_prefix(bindir)) {
+-        g_string_assign(result, dir);
+     } else {
+-        g_string_assign(result, exec_dir);
+-
+-        /* Advance over common components.  */
+-        len_dir = len_bindir = prefix_len;
+-        do {
+-            dir += len_dir;
+-            bindir += len_bindir;
+-            dir = next_component(dir, &len_dir);
+-            bindir = next_component(bindir, &len_bindir);
+-        } while (len_dir && len_dir == len_bindir && !memcmp(dir, bindir, len_dir));
+-
+-        /* Ascend from bindir to the common prefix with dir.  */
+-        while (len_bindir) {
+-            bindir += len_bindir;
+-            g_string_append(result, "/..");
+-            bindir = next_component(bindir, &len_bindir);
+-        }
+-
+-        if (*dir) {
+-            assert(G_IS_DIR_SEPARATOR(dir[-1]));
+-            g_string_append(result, dir - 1);
+-        }
++        g_string_assign(result, dir);
+     }
+ 
+     return g_string_free(result, false);

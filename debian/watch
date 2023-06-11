@@ -3,7 +3,7 @@ version=4
 opts=\
 dversionmangle=auto,\
 repacksuffix=+dfsg,\
-uversionmangle=s/-rc/~rc/;s/(\d+)\.(\d+)\.(\d+)/$1.$2/g,\
+uversionmangle=s/-rc/~rc/,\
 pgpsigurlmangle=s/$/.sig/,\
 compression=xz \
   https://download.qemu.org/ qemu-@ANY_VERSION@@ARCHIVE_EXT@

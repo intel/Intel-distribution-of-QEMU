@@ -103,8 +103,6 @@ Build-Depends: debhelper-compat (= 13),
  libxen-dev [linux-amd64],
 # --enable-nettle
  nettle-dev,
-## always enabled: --enable-uuid
- uuid-dev,
 # always needed
  zlib1g-dev,
 # other optional features we enable
@@ -512,6 +510,11 @@ Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends},
 Recommends:
  qemu-block-extra (= ${binary:Version}),
+Replaces:
+# qemu-storage-daemon and qemu-block-driver.7 has been moved from q-s-c.
+ qemu-system-common (<< 1:8.0+dfsg-5~),
+Breaks:
+ qemu-system-common (<< 1:8.0+dfsg-5~),
 Description: QEMU utilities
  QEMU is a fast processor emulator: currently the package supports
  ARM, CRIS, i386, M68k (ColdFire), MicroBlaze, MIPS, PowerPC, SH4,
@@ -552,7 +555,7 @@ Description: Guest-side qemu-system agent
 ## This is actually all architectures for which qemu-system (softmmu) target is implemented
 #Architecture: any
 #Multi-Arch: same
-#Depends: ${qemu:for-host}:any (=${binary:Version})
+#Depends: ${qemu:for-host} (=${binary:Version})
 #Description: QEMU full system emulation (dependency-only package for the host architecture)
 # This package pulls one of qemu-system-* subpackages which contains
 # qemu-system-${}{DEB_HOST_ARCH_CPU} binary specific for the host

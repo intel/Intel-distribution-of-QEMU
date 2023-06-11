@@ -1,3 +1,4 @@
+fix-relocated-path.patch
 microvm-default-machine-type.patch
 note-missing-module-pkg-name.diff
 skip-unpack-edk2-blobs.patch
@@ -14,8 +15,6 @@ spelling-suppoted.patch
 spelling-information.patch
 openbios-spelling-endianess.patch
 slof-spelling-seperator.patch
-linux-user-fix-getgroups-setgroups-allocations.patch
 disable-xen-on-x32.patch
-rtl8139-fix-large_send_mss-divide-by-zero.patch
-target_i386-Change-wrong-XFRM-value.patch
 hw_mips_malta-Fix-malta-machine-on-big-endian-hosts.patch
+qga-fix-suspend-on-linux-guests-without-systemd.patch

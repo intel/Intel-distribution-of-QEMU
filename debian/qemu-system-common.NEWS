@@ -2,8 +2,8 @@ qemu (1:8.0+dfsg-1) experimental; urgency=medium
 
    Qemu upstream dropped support of the C-language virtiofsd daemon
    implementation in version 8.0, so this package does not ship
-   virtiofsd anymore.  A rust-language implementation is expected
-   to be available in a separate virtiofsd package soon.
+   virtiofsd anymore.  A rust-language implementation is available
+   in a separate virtiofsd package.
 
  -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 18 Apr 2023 21:26:14 +0300
 

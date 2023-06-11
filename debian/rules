@@ -90,6 +90,12 @@ common_configure_opts = \
 # but is -k flag useful these days?
 common_configure_opts += --disable-xkbcommon
 
+# pvrdma is an extension/optimisation for vmxnet3 vmware virtual network
+# adapter. This piece of code seems to be buggy and poorly maintained,
+# resulting in numerous security issues which comes unfixed for long time.
+# This device isn't native for qemu.  # Just disable it for now.
+common_configure_opts += --disable-pvrdma
+
 # Cross compiling support
 ifneq ($(DEB_BUILD_GNU_TYPE), $(DEB_HOST_GNU_TYPE))
 common_configure_opts  += --cross-prefix=$(DEB_HOST_GNU_TYPE)-
@@ -235,6 +241,11 @@ install-qemu: b/qemu/built
 
 # remove qtest "accel" modules
 	rm -f debian/tmp${libdir}/qemu/accel-qtest-*.so
+
+# fixup the manpage
+# Note: with no enable-system, qemu-system manpage will not be installed.
+	sed -i 's/\\fBqemu(1)\\fP manual page/\\fBqemu-system(1)\\fP manual page (in qemu-system-common package)/' \
+		debian/tmp/usr/share/man/man1/qemu-storage-daemon.1
 
 ifeq (${enable-system},y)
 

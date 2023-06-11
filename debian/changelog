@@ -1,3 +1,29 @@
+qemu (1:8.0.2+dfsg-1) unstable; urgency=medium
+
+  * new upstream stable/bugfix release
+    Closes: #1029155, CVE-2023-0330:
+    A DMA-MMIO reentrancy problem in lsi53c895a device
+  * keep full upstream version number, not just first 2 components
+    (Closes: #855966)
+  * d/copyright: remove stray newline
+  * d/control: drop libuuid-dev build-dep (not used)
+  * clarify files in d/not-installed just a little bit
+  * fixup qemu(1) refs in qemu-storage-daemon(1)
+  * move qemu-storage-daemon and qemu-block-drivers.7
+    from qemu-system-common to qemu-utils
+  * remove patches now included upstream:
+   - linux-user-fix-getgroups-setgroups-allocations.patch
+   - rtl8139-fix-large_send_mss-divide-by-zero.patch
+   - target_i386-Change-wrong-XFRM-value.patch
+  * qga-fix-suspend-on-linux-guests-without-systemd.patch
+    (hopefully Closes: #1004943)
+  * d/rules: disable pvrdma (Closes: #1034179, CVE-2023-1544)
+    CVE-2023-1544:
+     huge number of page tables for a ring of descriptors for CQ and
+     async events, potentially leading to an OOB read and crash
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 11 Jun 2023 11:49:17 +0300
+
 qemu (1:8.0+dfsg-4) experimental; urgency=medium
 
   * d/control: do not use --enable-spice on sh4 and --enable-seccomp
