@@ -1,5 +1,6 @@
 fix-relocated-path.patch
 microvm-default-machine-type.patch
+linux-user-binfmt-P.diff
 note-missing-module-pkg-name.diff
 skip-unpack-edk2-blobs.patch
 qemu-bridge-helper-path.patch
@@ -18,3 +19,4 @@ slof-spelling-seperator.patch
 disable-xen-on-x32.patch
 hw_mips_malta-Fix-malta-machine-on-big-endian-hosts.patch
 qga-fix-suspend-on-linux-guests-without-systemd.patch
+hw_intc_allwinner-a10-pic-handle-IRQ-levels-other-than-0-or-1.patch

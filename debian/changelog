@@ -1,3 +1,17 @@
+qemu (1:8.0.2+dfsg-2) unstable; urgency=medium
+
+  * d/rules: --enable-libusb for xen build (Closes: #1037341)
+  * reapply linux-user-binfmt-P.diff.
+    Re-rely on qemu-user's argv0 to detect it is running in binfmt context.
+    The problem is that while we ship kernel which can pass this info the
+    qemu way, there are many containers which are running on older kernels
+    still, including bullseye kernel (5.10) which does not have this feature.
+    Keep it for a bit more.
+  * hw_intc_allwinner-a10-pic-handle-IRQ-levels-other-than-0-or-1.patch
+    Pick a patch from upstream mailinglist to fix regression in 8.0.2
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 15 Jun 2023 22:25:50 +0300
+
 qemu (1:8.0.2+dfsg-1) unstable; urgency=medium
 
   * new upstream stable/bugfix release
