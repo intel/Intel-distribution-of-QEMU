@@ -1,3 +1,13 @@
+qemu (1:8.0.2+dfsg-3) unstable; urgency=medium
+
+  * d/patches/*: update, add DEP-3 headers
+  * d/rules: strip ../../ prefix from compile paths
+    to undo sub-subdir build (-ffile-prefix-map)
+  * linux-user-Avoid-mmap-of-the-last-byte-of-the-reserv.patch:
+    (hackish) fix for recent memory failures
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 29 Jun 2023 18:36:33 +0300
+
 qemu (1:8.0.2+dfsg-2) unstable; urgency=medium
 
   * d/rules: --enable-libusb for xen build (Closes: #1037341)

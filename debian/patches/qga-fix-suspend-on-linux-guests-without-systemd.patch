@@ -1,7 +1,7 @@
-From 86dcb6ab9b603450eb6d896cdc95286de2c7d561 Mon Sep 17 00:00:00 2001
+Origin: upstream commit:86dcb6ab9b603450eb6d896cdc95286de2c7d561
 From: Mark Somerville <mark@qpok.net>
 Date: Thu, 6 Apr 2023 13:45:31 +0100
-Subject: [PATCH] qga: Fix suspend on Linux guests without systemd
+Subject: qga: Fix suspend on Linux guests without systemd
 
 Allow the Linux guest agent to attempt each of the suspend methods
 (systemctl, pm-* and writing to /sys) in turn.

@@ -2,6 +2,7 @@ From: Vagrant Cascadian <vagrant@reproducible-builds.org>
 Date: Sun, 21 Jun 2020 19:27:11 +0000
 X-Dgit-Generated: 1:5.0-6~0~20200621~20 0b5923e6cc49abffd582177ba8558cfb6c7f10ce
 Subject: roms/openbios: Use SOURCE_DATE_EPOCH in Makefile.
+Forwarded: no
 
 Embedding the build time breaks reproducibility. Instead, use the date
 specified by the SOURCE_DATE_EPOCH environment variable:

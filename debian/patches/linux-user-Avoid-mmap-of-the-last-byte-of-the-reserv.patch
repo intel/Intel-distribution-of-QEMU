@@ -1,0 +1,55 @@
+From: Richard Henderson <richard.henderson@linaro.org>
+Date: Thu, 29 Jun 2023 10:08:35 +0200
+Subject: linux-user: Avoid mmap of the last byte of the reserved_va
+Origin: https://lore.kernel.org/qemu-devel/20230629080835.71371-1-richard.henderson@linaro.org/
+
+There is an overflow problem in mmap_find_vma_reserved:
+when reserved_va == UINT32_MAX, end may overflow to 0.
+Rather than a larger rewrite at this time, simply avoid
+the final byte of the VA, which avoids searching the
+final page, which avoids the overflow.
+
+Cc: qemu-stable@nongnu.org
+Resolves: https://gitlab.com/qemu-project/qemu/-/issues/1741
+Fixes: 95059f9c ("include/exec: Change reserved_va semantics to last byte")
+Signed-off-by: Richard Henderson <richard.henderson@linaro.org>
+---
+ linux-user/mmap.c | 14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
+
+diff --git a/linux-user/mmap.c b/linux-user/mmap.c
+index 0aa8ae7356..2692936773 100644
+--- a/linux-user/mmap.c
++++ b/linux-user/mmap.c
+@@ -281,9 +281,15 @@ static abi_ulong mmap_find_vma_reserved(abi_ulong start, abi_ulong size,
+     /* Note that start and size have already been aligned by mmap_find_vma. */
+ 
+     end_addr = start + size;
++    /*
++     * Start at the top of the address space, ignoring the last page.
++     * If reserved_va == UINT32_MAX, then end_addr wraps to 0,
++     * throwing the rest of the calculations off.
++     * TODO: rewrite using last_addr instead.
++     * TODO: use the interval tree instead of probing every page.
++     */
+     if (start > reserved_va - size) {
+-        /* Start at the top of the address space.  */
+-        end_addr = ((reserved_va + 1 - size) & -align) + size;
++        end_addr = ((reserved_va - size) & -align) + size;
+         looped = true;
+     }
+ 
+@@ -296,8 +302,8 @@ static abi_ulong mmap_find_vma_reserved(abi_ulong start, abi_ulong size,
+                 /* Failure.  The entire address space has been searched.  */
+                 return (abi_ulong)-1;
+             }
+-            /* Re-start at the top of the address space.  */
+-            addr = end_addr = ((reserved_va + 1 - size) & -align) + size;
++            /* Re-start at the top of the address space (see above). */
++            addr = end_addr = ((reserved_va - size) & -align) + size;
+             looped = true;
+         } else {
+             prot = page_get_flags(addr);
+-- 
+2.39.2
+

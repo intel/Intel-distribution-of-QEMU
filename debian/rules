@@ -5,6 +5,9 @@ SHELL = /bin/sh -e
 # of different targets in this d/rules but allow running parallel submakes
 .NOTPARALLEL:
 
+# we build in a sub-subdir so strip that from file paths too
+export DEB_CFLAGS_MAINT_APPEND = -ffile-prefix-map=../../=
+
 # get DEB_VERSION
 include /usr/share/dpkg/pkg-info.mk
 # get CFLAGS LDFLAGS etc

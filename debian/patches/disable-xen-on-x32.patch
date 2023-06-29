@@ -1,3 +1,11 @@
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: disable xen on x32
+Date: Tue Apr 11 16:36:38 2023 +0300
+Forwarded: yes
+
+Since 8.0, new xenpv now builds on X86_64, which is also
+defined on x32, but it does not build on x32. Avoid it on x32.
+
 diff --git a/hw/i386/Kconfig b/hw/i386/Kconfig
 index d40802d83f..3ad6b44984 100644
 --- a/hw/i386/Kconfig
