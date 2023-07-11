@@ -1,3 +1,19 @@
+qemu (1:8.0.3+dfsg-1) unstable; urgency=medium
+
+  * new upstream stable/bugfix release 8.0.3
+    Including the following security fix(es):
+    - 9pfs: prevent opening special files (CVE-2023-2861)
+  * remove patches now included upstream:
+   - hw-mips-malta-fix-the-malta-machine-on-big-endian-hosts.patch
+   - qga-fix-suspend-on-linux-guests-without-systemd.patch
+   - hw_intc_allwinner-a10-pic-handle-IRQ-levels-other-than-0-or-1.patch
+   - linux-user-Avoid-mmap-of-the-last-byte-of-the-reserv.patch
+  * d/rules: omit qemu-systemd-data from dh_dwz run
+  * d/rules: create qemu-system-armhf & qemu-system-armel aliases
+    for qemu-system-arm (Closes: #1040209)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 11 Jul 2023 15:07:04 +0300
+
 qemu (1:8.0.2+dfsg-3) unstable; urgency=medium
 
   * d/patches/*: update, add DEP-3 headers

@@ -141,6 +141,7 @@ endef
 
 system-archlist-arm = aarch64 arm
 system-alias-aarch64 = arm64
+system-alias-arm = armel armhf
 system-kvmcpus-arm = arm64 arm
 system-kvmlink-arm64 = aarch64
 system-kvmlink-arm = arm
@@ -490,7 +491,7 @@ override_dh_makeshlibs:
 override_dh_dwz: #968670: skip dwz << 0.14 on these arches, remove in bookworm+1
 	v="$$(dwz --version 2>&1 | sed -n 's/^dwz version //p')"; case "$$v" in \
 	  (0.1[0123]) echo "Skipping dwz version $$v on ${DEB_HOST_ARCH}: #968670" ;; \
-	  (*) dh_dwz ;; \
+	  (*) dh_dwz -Nqemu-system-data ;; \
 	esac
 
 ##############################################

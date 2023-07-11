@@ -17,7 +17,3 @@ spelling-information.patch
 openbios-spelling-endianess.patch
 slof-spelling-seperator.patch
 disable-xen-on-x32.patch
-hw-mips-malta-fix-the-malta-machine-on-big-endian-hosts.patch
-qga-fix-suspend-on-linux-guests-without-systemd.patch
-hw_intc_allwinner-a10-pic-handle-IRQ-levels-other-than-0-or-1.patch
-linux-user-Avoid-mmap-of-the-last-byte-of-the-reserv.patch
