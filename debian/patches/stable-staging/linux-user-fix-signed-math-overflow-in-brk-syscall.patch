@@ -1,0 +1,45 @@
+From: Helge Deller <deller@gmx.de>
+Date: Wed, 19 Jul 2023 17:52:33 +0200
+Subject: linux-user: Fix signed math overflow in brk() syscall
+
+Fix the math overflow when calculating the new_malloc_size.
+
+new_host_brk_page and brk_page are unsigned integers. If userspace
+reduces the heap, new_host_brk_page is lower than brk_page which results
+in a huge positive number (but should actually be negative).
+
+Fix it by adding a proper check and as such make the code more readable.
+
+Signed-off-by: Helge Deller <deller@gmx.de>
+Tested-by: "Markus F.X.J. Oberhumer" <markus@oberhumer.com>
+Reviewed-by: Philippe Mathieu-Daudé <philmd@linaro.org>
+Fixes: 86f04735ac ("linux-user: Fix brk() to release pages")
+Cc: qemu-stable@nongnu.org
+Buglink: https://github.com/upx/upx/issues/683
+---
+ linux-user/syscall.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/linux-user/syscall.c b/linux-user/syscall.c
+index e106633837..30a2ac0099 100644
+--- a/linux-user/syscall.c
++++ b/linux-user/syscall.c
+@@ -860,12 +860,13 @@ abi_long do_brk(abi_ulong brk_val)
+      * itself); instead we treat "mapped but at wrong address" as
+      * a failure and unmap again.
+      */
+-    new_alloc_size = new_host_brk_page - brk_page;
+-    if (new_alloc_size) {
++    if (new_host_brk_page > brk_page) {
++        new_alloc_size = new_host_brk_page - brk_page;
+         mapped_addr = get_errno(target_mmap(brk_page, new_alloc_size,
+                                         PROT_READ|PROT_WRITE,
+                                         MAP_ANON|MAP_PRIVATE, 0, 0));
+     } else {
++        new_alloc_size = 0;
+         mapped_addr = brk_page;
+     }
+ 
+-- 
+2.39.2
+

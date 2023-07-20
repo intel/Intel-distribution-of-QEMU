@@ -1,0 +1,65 @@
+From: Helge Deller <deller@gmx.de>
+Date: Wed, 19 Jul 2023 17:52:31 +0200
+Subject: linux-user: Fix qemu brk() to not zero bytes on current page
+
+The qemu brk() implementation is too aggressive and cleans remaining bytes
+on the current page above the last brk address.
+
+But some existing applications are buggy and read/write bytes above their
+current heap address. On a phyiscal machine this does not trigger a
+runtime error as long as the access happens on the same page. Additionally
+the Linux kernel allocates only full pages and does no zeroing on already
+allocated pages, even if the brk address is lowered.
+
+Fix qemu to behave the same way as the kernel does. Do not touch already
+allocated pages, and - when running with different page sizes of guest and
+host - zero out only those memory areas where the host page size is bigger
+than the guest page size.
+
+Signed-off-by: Helge Deller <deller@gmx.de>
+Tested-by: "Markus F.X.J. Oberhumer" <markus@oberhumer.com>
+Fixes: 86f04735ac ("linux-user: Fix brk() to release pages")
+Cc: qemu-stable@nongnu.org
+Buglink: https://github.com/upx/upx/issues/683
+---
+ linux-user/syscall.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
+
+diff --git a/linux-user/syscall.c b/linux-user/syscall.c
+index 57aaa87e30..450487af57 100644
+--- a/linux-user/syscall.c
++++ b/linux-user/syscall.c
+@@ -829,10 +829,8 @@ abi_long do_brk(abi_ulong brk_val)
+ 
+     /* brk_val and old target_brk might be on the same page */
+     if (new_brk == TARGET_PAGE_ALIGN(target_brk)) {
+-        if (brk_val > target_brk) {
+-            /* empty remaining bytes in (possibly larger) host page */
+-            memset(g2h_untagged(target_brk), 0, new_host_brk_page - target_brk);
+-        }
++        /* empty remaining bytes in (possibly larger) host page */
++        memset(g2h_untagged(new_brk), 0, new_host_brk_page - new_brk);
+         target_brk = brk_val;
+         return target_brk;
+     }
+@@ -840,7 +838,7 @@ abi_long do_brk(abi_ulong brk_val)
+     /* Release heap if necesary */
+     if (new_brk < target_brk) {
+         /* empty remaining bytes in (possibly larger) host page */
+-        memset(g2h_untagged(brk_val), 0, new_host_brk_page - brk_val);
++        memset(g2h_untagged(new_brk), 0, new_host_brk_page - new_brk);
+ 
+         /* free unused host pages and set new brk_page */
+         target_munmap(new_host_brk_page, brk_page - new_host_brk_page);
+@@ -873,7 +871,7 @@ abi_long do_brk(abi_ulong brk_val)
+          * come from the remaining part of the previous page: it may
+          * contains garbage data due to a previous heap usage (grown
+          * then shrunken).  */
+-        memset(g2h_untagged(target_brk), 0, brk_page - target_brk);
++        memset(g2h_untagged(brk_page), 0, HOST_PAGE_ALIGN(brk_page) - brk_page);
+ 
+         target_brk = brk_val;
+         brk_page = new_host_brk_page;
+-- 
+2.39.2
+

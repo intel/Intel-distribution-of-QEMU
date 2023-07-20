@@ -17,3 +17,9 @@ spelling-information.patch
 openbios-spelling-endianess.patch
 slof-spelling-seperator.patch
 disable-xen-on-x32.patch
+# patches from staging-8.0
+stable-staging/linux-user-make-sure-initial-brk-0-is-page-aligned.patch
+stable-staging/linux-user-fix-qemu-brk-to-not-zero-bytes-on-current-page.patch
+stable-staging/linux-user-prohibit-brk-to-to-shrink-below-initial-address.patch
+stable-staging/linux-user-fix-signed-math-overflow-in-brk-syscall.patch
+stable-staging/linux-user-fix-qemu-arm-to-run-static-armhf-binaries.patch

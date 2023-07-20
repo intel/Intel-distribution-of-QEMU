@@ -1,3 +1,16 @@
+qemu (1:8.0.3+dfsg-2) unstable; urgency=medium
+
+  * d/patches: set Forwarded: URLs for some patches
+  * add 5 qemu-user fixes staging for the next stable:
+   linux-user-make-sure-initial-brk-0-is-page-aligned.patch
+   linux-user-fix-qemu-brk-to-not-zero-bytes-on-current-page.patch
+   linux-user-prohibit-brk-to-to-shrink-below-initial-address.patch
+   linux-user-fix-signed-math-overflow-in-brk-syscall.patch
+   linux-user-fix-qemu-arm-to-run-static-armhf-binaries.patch
+   (Closes: #1040981)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 20 Jul 2023 09:59:49 +0300
+
 qemu (1:8.0.3+dfsg-1) unstable; urgency=medium
 
   * new upstream stable/bugfix release 8.0.3
