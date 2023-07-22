@@ -72,9 +72,9 @@ Build-Depends: debhelper-compat (= 13),
  libpixman-1-dev,
 # --enable-rbd		amd64 arm64 armel armhf i386 mips64el mipsel ppc64el s390x ppc64 sparc64
  librbd-dev            [amd64 arm64 armel armhf i386 mips64el mipsel ppc64el s390x ppc64 sparc64],
-# before buster it was glusterfs-common so keep it for now for bpo
-# --enable-glusterfs	linux-any
- libglusterfs-dev [linux-any] | glusterfs-common [linux-any],
+# gluster is 64bit-only: #1039604
+# --enable-glusterfs	 amd64 arm64 ppc64el ppc64 riscv64 mips64el s390x ia64 sparc64
+ libglusterfs-dev	[amd64 arm64 ppc64el ppc64 riscv64 mips64el s390x ia64 sparc64],
 # --enable-vnc-sasl
  libsasl2-dev,
 # --enable-sdl	:system-arch:

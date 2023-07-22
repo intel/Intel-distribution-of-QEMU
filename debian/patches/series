@@ -23,3 +23,5 @@ stable-staging/linux-user-fix-qemu-brk-to-not-zero-bytes-on-current-page.patch
 stable-staging/linux-user-prohibit-brk-to-to-shrink-below-initial-address.patch
 stable-staging/linux-user-fix-signed-math-overflow-in-brk-syscall.patch
 stable-staging/linux-user-fix-qemu-arm-to-run-static-armhf-binaries.patch
+# fix for linux-user-fix-qemu-arm-to-run-static-armhf-binaries.patch
+linux-user-limit-brk-adjustment-wrt-interp.brk-to-arm32.patch

@@ -1,3 +1,17 @@
+qemu (1:8.0.3+dfsg-3) unstable; urgency=medium
+
+  * d/control: glusterfs: drop pre-buster glusterfs-common alternative,
+    restrict glusterfs support to 64bit (see #1039604)
+  * linux-user-limit-brk-adjustment-wrt-interp.brk-to-arm32.patch
+    Fix (band-aid for now) an unexpected breakage caused by the previous
+    patch in this area which fixes static executables loading on armhf.
+  * d/binfmt-install: update mips* magic strings from upstream commit
+    77d119dd335f910c7:
+    mips: allow nonzero EI_ABIVERSION, distinguish o32 and n32
+    (Closes: #1041597)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 22 Jul 2023 11:53:38 +0300
+
 qemu (1:8.0.3+dfsg-2) unstable; urgency=medium
 
   * d/patches: set Forwarded: URLs for some patches
