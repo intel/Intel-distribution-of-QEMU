@@ -1,3 +1,22 @@
+qemu (1:8.0.3+dfsg-4) unstable; urgency=medium
+
+  * more linux-user address fixes from Helge Deller
+    Remove
+     stable-staging/linux-user-fix-qemu-arm-to-run-static-armhf-binaries.patch
+     linux-user-limit-brk-adjustment-wrt-interp.brk-to-arm32.patch
+    Add
+     linux-user-show-heap-address-in-proc-pid-maps.patch
+     linux-user-optimize-memory-layout-for-static-and-dyn.patch
+     linux-user-load-pie-executables-at-upper-memory.patch
+    This *might* fix #1041859.
+  * stable-staging/tcg-ppc-fix-race-in-goto_tb-implementation.patch
+    fix qemu sigsegv on ppc -smp. Should fix autopkgtests (debvm, others)
+  * Stop passing --no-start to qga's dh_installsystemd.
+    qga is activated from an udev rule, but we need to restart it on upgrade.
+    Change by Sergio Durigan.  Closes: LP#2028124.
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 26 Jul 2023 07:51:20 +0300
+
 qemu (1:8.0.3+dfsg-3) unstable; urgency=medium
 
   * d/control: glusterfs: drop pre-buster glusterfs-common alternative,

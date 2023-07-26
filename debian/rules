@@ -466,7 +466,7 @@ override_dh_auto_install-arch: $(addprefix install-, ${qemu-builds})
 override_dh_installinit:
 	dh_installinit -pqemu-guest-agent
 override_dh_installsystemd:
-	dh_installsystemd -pqemu-guest-agent --no-start --no-enable
+	dh_installsystemd -pqemu-guest-agent --no-enable
 # default-enable /run/qemu mount only on ubuntu,
 # on debian let it be manually controlled and off by default
 	dh_installsystemd -pqemu-block-extra --no-restart-on-upgrade --name=run-qemu.mount \
