@@ -1,3 +1,14 @@
+qemu (1:8.0.3+dfsg-5) unstable; urgency=medium
+
+  * remove previous 2 mmap/brk patches for now
+     linux-user-optimize-memory-layout-for-static-and-dyn.patch
+     linux-user-load-pie-executables-at-upper-memory.patch
+    These are intended for 8.1, and causes other issues on 8.0.
+    Closes: #1042808
+    Reopens: #1040981
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 02 Aug 2023 10:55:50 +0300
+
 qemu (1:8.0.3+dfsg-4) unstable; urgency=medium
 
   * more linux-user address fixes from Helge Deller
