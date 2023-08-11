@@ -286,15 +286,6 @@ endif # x86
 		 debian/source_qemu.py
 endif # ubuntu
 
-ifeq (DEBIAN-amd64,${VENDOR}-${DEB_HOST_ARCH})
-# do it for bookworm only, remove the wrapper for bookworm+
-	mkdir -p debian/qemu-system-x86/usr/libexec/
-	mv debian/qemu-system-x86/usr/bin/qemu-system-i386 \
-	   debian/qemu-system-x86/usr/libexec/qemu-system-i386
-	install -pm0755 debian/qemu-system-i386.xen-wrapper \
-	   debian/qemu-system-x86/usr/bin/qemu-system-i386
-endif
-
 # for --enable-module-upgrades to work in more environments
 	install -D -m 0644 debian/run-qemu.mount debian/qemu-block-extra/lib/systemd/system/run-qemu.mount
 

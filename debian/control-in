@@ -15,6 +15,9 @@ Build-Depends: debhelper-compat (= 13),
 # --enable-docs
 # for python3-sphinx:native see #995622
  texinfo, python3-sphinx:native, python3-sphinx-rtd-theme,
+# always needed
+ libglib2.0-dev,
+ zlib1g-dev,
 # iasl (from acpica-tools) is used only in a single test these days, not for building
 # acpica-tools,
 # libcapstone is in universe in ubuntu
@@ -103,8 +106,6 @@ Build-Depends: debhelper-compat (= 13),
  libxen-dev [linux-amd64],
 # --enable-nettle
  nettle-dev,
-# always needed
- zlib1g-dev,
 # other optional features we enable
 # --enable-libudev
 # needed for qga?

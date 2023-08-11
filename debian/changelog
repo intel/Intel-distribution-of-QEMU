@@ -1,3 +1,18 @@
+qemu (1:8.0.4+dfsg-1) unstable; urgency=medium
+
+  * new upstream stable/bugfix release
+    Closes: CVE-2023-3180 (virtual crypto virtio_crypto_handle_sym_req)
+    Closes: CVE-2023-3354 (VNC server QIOChannel NULL ptr deref)
+    Closes: CVE-2023-3255 (VNC: infinite loop in inflate_buffer)
+  * d/patches: remove patches picked up from stable-staging branch
+    which are applied in 8.0.4
+  * d/control: build-depend on libglib2.0-dev (forgotten!) and zlib1g-dev,
+    move the two to the top before all optional deps
+  * remove xen-specific wrapper for qemu-system-i386
+    (needed for bookworm upgrade only)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 11 Aug 2023 22:13:36 +0300
+
 qemu (1:8.0.3+dfsg-5) unstable; urgency=medium
 
   * remove previous 2 mmap/brk patches for now
