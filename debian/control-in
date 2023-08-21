@@ -23,10 +23,10 @@ Build-Depends: debhelper-compat (= 13),
 # libcapstone is in universe in ubuntu
 :debian:# --enable-capstone
 :debian: libcapstone-dev (>> 4.0.2~),
-# libsndio is in universe in ubuntu
-:ubuntu:# --disable-sndio
 # --enable-linux-aio	linux-any
  libaio-dev            [linux-any],
+# libsndio is in universe in ubuntu
+# --disable-sndio
 # --audio-drv-list=pa,alsa,jack,oss,sdl	:system-arch-linux:
 ##--audio-drv-list=pa,oss	kfreebsd-any
  libjack-dev  [:system-arch-linux:],

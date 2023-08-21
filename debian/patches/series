@@ -17,4 +17,5 @@ spelling-information.patch
 openbios-spelling-endianess.patch
 slof-spelling-seperator.patch
 disable-xen-on-x32.patch
-linux-user-show-heap-address-in-proc-pid-maps.patch
+hw-nvme-fix-null-pointer-access-in-directive-receive-CVE-2023-40360.patch
+hw-nvme-fix-oob-memory-read-in-fdp-events-log-CVE-2023-4135.patch

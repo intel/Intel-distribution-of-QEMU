@@ -1,3 +1,23 @@
+qemu (1:8.0.4+dfsg-2) unstable; urgency=medium
+
+  * remove linux-user-show-heap-address-in-proc-pid-maps.patch
+  * pick 2 nvme fixes from upstream:
+   - hw-nvme-fix-oob-memory-read-in-fdp-events-log-CVE-2023-4135.patch
+     Closes: #1050142, CVE-2023-4135
+   - hw-nvme-fix-null-pointer-access-in-directive-receive-CVE-2023-40360.patch
+     Closes: #1050140, CVE-2023-40360
+  * d/rules: --enable-virtfs (--enable-attr --enable-cap-ng) for xen build
+    to enable 9pfs (Closes: #1049925)
+  * d/rules: run-qemu.mount is linux-specific too
+    (if we ever do non-linux system build)
+  * d/control: disable sndio on debian too (disabled on ubuntu), for now anyway
+  * d/*.install, d/rules: explicitly list all qemu-system modules
+  * d/control: build-depend on libglib2.0-dev (forgotten!) and zlib1g-dev,
+    move the two to the top before all optional deps
+  * d/changelog: fix 7.1+dfsg-1 changelog entry (qemu-user and qemu-system)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 21 Aug 2023 09:57:59 +0300
+
 qemu (1:8.0.4+dfsg-1) unstable; urgency=medium
 
   * new upstream stable/bugfix release
@@ -493,7 +513,7 @@ qemu (1:7.1+dfsg-1) unstable; urgency=medium
   * temporary workaround for gcc-12 bug #1019011: use gcc-11-alpha-linux-gnu
     instead of gcc-alpha-linux-gnu (another option is to use -Os)
   * d/control: temporarily build-depend on libva-dev till #1019485 is fixed
-  * add loongarch64 qemu-user and qemu-user arch
+  * add loongarch64 qemu-user and qemu-system arch
 
  -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 12 Sep 2022 11:50:53 +0300
 

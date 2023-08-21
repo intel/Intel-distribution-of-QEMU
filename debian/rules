@@ -259,18 +259,6 @@ ifeq (${enable-system},y)
 	    $(call install-system,qemu-system-$p,${system-archlist-$p}\
 	    ,$(if $(filter ${DEB_HOST_ARCH_CPU},${system-kvmcpus-$p}),qemu-system-${system-kvmlink-${DEB_HOST_ARCH_CPU}})))
 
-# gui modules. We move these here instead of using d/qemu-system-gui.install,
-# b/c we install "all other" modules in qemu-system-common.install
-# audio-pa.so pulls in X11 so we move it into -system-gui too
-# hw-display-virtio-gpu-gl also pulls in X11, move it to -gui
-	mkdir -p debian/qemu-system-gui${libdir}/qemu
-	mv -t debian/qemu-system-gui${libdir}/qemu/ \
-	    $(patsubst %,debian/tmp${libdir}/qemu/%.so,\
-		ui-gtk ui-sdl \
-		audio-jack audio-sdl audio-pa \
-		hw-display-virtio-gpu-gl \
-	    )
-
 ifeq ($(DEB_HOST_ARCH_OS),linux)
 
 ifeq (${VENDOR},UBUNTU)
@@ -289,8 +277,6 @@ endif # ubuntu
 # for --enable-module-upgrades to work in more environments
 	install -D -m 0644 debian/run-qemu.mount debian/qemu-block-extra/lib/systemd/system/run-qemu.mount
 
-endif # linux
-
 # save block-extra loadable modules on upgrades
 # other module types for now (5.0) can't be loaded at runtime, only at startup
 # the maintscript fragments include version string so we have to generate them
@@ -300,6 +286,8 @@ endif # linux
 	  >> debian/qemu-block-extra.postrm.debhelper
 	echo 'case $$1 in (purge) if systemctl is-active -q run-qemu.mount; then systemctl stop run-qemu.mount || true; fi; rm -rf "/run/qemu";; esac' \
 	  >> debian/qemu-block-extra.postrm.debhelper
+
+endif # linux
 
 else  # !enable-system
 
@@ -376,6 +364,7 @@ b/xen/configured: configure
 		--enable-libusb \
 		--enable-vnc --enable-vnc-jpeg \
 		--enable-spice \
+		--enable-virtfs --enable-attr --enable-cap-ng \
 		${QEMU_XEN_CONFIGURE_OPTIONS}
 	touch $@
 build-xen: b/xen/built
