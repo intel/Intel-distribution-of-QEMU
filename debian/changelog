@@ -1,3 +1,16 @@
+qemu (1:8.0.4+dfsg-3) unstable; urgency=medium
+
+  * d/rules: export PYTHONDONTWRITEBYTECODE=1 to stop generating .pyc files
+    (Closes: #1046056)
+  * d/control: list more CPU types emulated by qemu in package descriptions
+  * d/control: refine qemu-system-gui package description
+  * d/rules: remove --interp-prefix= configure option
+  * late fix for 8.1: target-arm-Fix-SME-ST1Q.patch
+  * late fix for 8.1: target-arm-Fix-64-bit-SSRA.patch
+  * d/control: remove old versions from build-deps
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 22 Aug 2023 20:15:07 +0300
+
 qemu (1:8.0.4+dfsg-2) unstable; urgency=medium
 
   * remove linux-user-show-heap-address-in-proc-pid-maps.patch

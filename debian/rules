@@ -1,6 +1,9 @@
 #!/usr/bin/make -f
 SHELL = /bin/sh -e
 
+# stop python from generating .pyc caches
+export PYTHONDONTWRITEBYTECODE=1
+
 # in order to keep output non-intermixed together, disable parallel building
 # of different targets in this d/rules but allow running parallel submakes
 .NOTPARALLEL:
@@ -84,7 +87,6 @@ common_configure_opts = \
 	--localstatedir=/var \
 	--disable-install-blobs \
 	--disable-strip \
-	--interp-prefix=/etc/qemu-binfmt/%M \
 	--localstatedir=/var \
 	--with-git-submodules=ignore \
 

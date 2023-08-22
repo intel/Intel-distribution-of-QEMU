@@ -1,0 +1,32 @@
+From: Richard Henderson <richard.henderson@linaro.org>
+Date: Fri, 18 Aug 2023 14:42:55 -0700
+Subject: target/arm: Fix SME ST1Q
+Origin: https://lists.nongnu.org/archive/html/qemu-devel/2023-08/msg03152.html
+
+A typo, noted in the bug report, resulting in an
+incorrect write offset.
+
+Cc: qemu-stable@nongnu.org
+Fixes: 7390e0e9ab8 ("target/arm: Implement SME LD1, ST1")
+Resolves: https://gitlab.com/qemu-project/qemu/-/issues/1833
+Signed-off-by: Richard Henderson <richard.henderson@linaro.org>
+---
+ target/arm/tcg/sme_helper.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/target/arm/tcg/sme_helper.c b/target/arm/tcg/sme_helper.c
+index 1e67fcac30..296826ffe6 100644
+--- a/target/arm/tcg/sme_helper.c
++++ b/target/arm/tcg/sme_helper.c
+@@ -379,7 +379,7 @@ static inline void HNAME##_host(void *za, intptr_t off, void *host)         \
+ {                                                                           \
+     uint64_t *ptr = za + off;                                               \
+     HOST(host, ptr[BE]);                                                    \
+-    HOST(host + 1, ptr[!BE]);                                               \
++    HOST(host + 8, ptr[!BE]);                                               \
+ }                                                                           \
+ static inline void VNAME##_v_host(void *za, intptr_t off, void *host)       \
+ {                                                                           \
+-- 
+2.39.2
+
