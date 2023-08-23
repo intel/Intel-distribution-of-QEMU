@@ -1,5 +1,3 @@
-#! /bin/sh
-  { echo '
 debian/qemu-ifup etc/
 debian/qemu-ifdown etc/
 
@@ -19,32 +17,13 @@ usr/share/man/man1/virtfs-proxy-helper.1
 # common modules. Other gui modules are in qemu-system-gui
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/accel-tcg-*.so
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/audio-alsa.so
-usr/lib/${DEB_HOST_MULTIARCH}/qemu/audio-dbus.so
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/audio-oss.so
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/chardev-baum.so
-usr/lib/${DEB_HOST_MULTIARCH}/qemu/hw-display-virtio-gpu-pci-gl.so
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/hw-display-virtio-gpu-pci.so
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/hw-display-virtio-gpu.so
-#                       in -gui:   hw-display-virtio-gpu-gl.so
-usr/lib/${DEB_HOST_MULTIARCH}/qemu/hw-display-virtio-vga-gl.so
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/hw-display-virtio-vga.so
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/hw-usb-host.so
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/hw-usb-redirect.so
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/hw-usb-smartcard.so
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/hw-s390x-virtio-gpu-ccw.so
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/ui-curses.so
-usr/lib/${DEB_HOST_MULTIARCH}/qemu/ui-dbus.so
-usr/lib/${DEB_HOST_MULTIARCH}/qemu/ui-egl-headless.so
-usr/lib/${DEB_HOST_MULTIARCH}/qemu/ui-opengl.so
-  '
-# spice modules
-  case " $(sed -n 's/# --enable-spice\t//p' debian/control) " in
-  (*${DEB_HOST_ARCH}*) echo '
-usr/lib/${DEB_HOST_MULTIARCH}/qemu/audio-spice.so
-usr/lib/${DEB_HOST_MULTIARCH}/qemu/chardev-spice.so
-usr/lib/${DEB_HOST_MULTIARCH}/qemu/hw-display-qxl.so
-usr/lib/${DEB_HOST_MULTIARCH}/qemu/ui-spice-app.so
-usr/lib/${DEB_HOST_MULTIARCH}/qemu/ui-spice-core.so
-  ';;
-  esac
-  } | sed -e 's/#.*//' -e '/^\s*$/D'

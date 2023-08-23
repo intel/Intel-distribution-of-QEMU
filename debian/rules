@@ -46,6 +46,8 @@ user-arch = \
 	ppc64 ppc64el riscv64 s390x sparc sparc64 x32
 utils-arch = $(sort ${system-arch} ${user-arch} ia64 hppa m68k sh4 \
 	kfreebsd-amd64 kfreebsd-i386)
+# subset of system-arch
+spice-arch = amd64 i386 arm64 armel armhf mips64el mipsel ppc64el x32
 
 # DEB_BUILD_OPTIONS=parallel=N
 MAKEFLAGS += $(subst parallel=,-j,$(filter parallel=%,${DEB_BUILD_OPTIONS}))
@@ -708,6 +710,7 @@ debian/control: debian/control-in debian/rules
 		-e '/^:[a-z]*:/D' \
 		-e 's/:system-arch-linux:/$(sort ${system-arch-linux})/g' \
 		-e 's/:system-arch:/$(sort ${system-arch})/g' \
+		-e 's/:spice-arch:/$(sort ${spice-arch})/g' \
 		-e 's/:user-arch:/$(sort ${user-arch})/g' \
 		-e 's/:utils-arch:/${utils-arch}/g' \
 		$< >> $@.tmp

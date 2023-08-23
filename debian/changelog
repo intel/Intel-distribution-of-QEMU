@@ -1,3 +1,12 @@
+qemu (1:8.1.0+ds-1~exp2) experimental; urgency=medium
+
+  * qemu-system-modules-spice & qemu-system-modules-opengl packages,
+    containing optional spice and opengl modules from qemu-system-common.
+    Both are recommended by all qemu-system-* but can be removed if not
+    used, to reduce list of dependencies.
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 23 Aug 2023 12:37:55 +0300
+
 qemu (1:8.1.0+ds-1~exp1) experimental; urgency=medium
 
   * new upstream release

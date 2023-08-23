@@ -7,5 +7,3 @@ usr/lib/${DEB_HOST_MULTIARCH}/qemu/ui-sdl.so
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/audio-sdl.so
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/audio-jack.so
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/audio-pa.so
-# hw-display-virtio-gpu-gl pulls in X11, so it is in -gui too
-usr/lib/${DEB_HOST_MULTIARCH}/qemu/hw-display-virtio-gpu-gl.so

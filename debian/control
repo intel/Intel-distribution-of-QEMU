@@ -83,8 +83,8 @@ Build-Depends: debhelper-compat (= 13),
  libseccomp-dev        [amd64 arm64 armel armhf i386 mips64el mipsel ppc64 ppc64el powerpc riscv64 s390x x32],
 # --enable-slirp
  libslirp-dev,
-# --enable-spice	 amd64 i386 arm64 armel armhf mips64el mipsel ppc64el x32
- libspice-server-dev	[amd64 i386 arm64 armel armhf mips64el mipsel ppc64el x32],
+# --enable-spice	 amd64 arm64 armel armhf i386 mips64el mipsel ppc64el x32
+ libspice-server-dev	[amd64 arm64 armel armhf i386 mips64el mipsel ppc64el x32],
 # --enable-rdma		linux-any
  librdmacm-dev [linux-any], libibverbs-dev [linux-any], libibumad-dev [linux-any],
 # --enable-linux-io-uring	linux-any
@@ -178,9 +178,8 @@ Package: qemu-block-extra
 Architecture: amd64 arm arm64 armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 m68k mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sh4 sparc sparc64 x32
 Multi-Arch: no
 Depends: ${misc:Depends}, ${shlibs:Depends},
-# we need to ensure qemu-block-extra is upgraded
-# when qemu-system or qemu-utils is upgraded, somehow
-         qemu-system-any (= ${binary:Version}) [amd64 arm arm64 armel armhf i386 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64 x32] | qemu-utils (= ${binary:Version}),
+# we need to ensure qemu-block-extra is upgraded with qemu-system-* or qemu-utils
+ qemu-system-any (= ${binary:Version}) [amd64 arm arm64 armel armhf i386 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64 x32] | qemu-utils (= ${binary:Version}),
 Enhances: qemu-utils, qemu-system-misc,
  qemu-system-arm, qemu-system-mips, qemu-system-sparc, qemu-system-x86,
 Description: extra block backend modules for qemu-system and qemu-utils
@@ -199,7 +198,7 @@ Architecture: all
 Multi-Arch: foreign
 Conflicts: sgabios, qemu-skiboot, openbios-sparc, openbios-ppc, qemu-slof,
 Replaces:  sgabios, openbios-sparc, openbios-ppc, qemu-slof,
-        qemu-system-ppc (<< 1:6.1-4~),
+ qemu-system-ppc (<< 1:6.1-4~),
 Breaks: qemu-system-ppc (<< 1:6.1-4~),
 Provides: qemu-keymaps, sgabios, qemu-skiboot, openbios-sparc, openbios-ppc, qemu-slof,
 Depends: ${misc:Depends}
@@ -231,26 +230,55 @@ Architecture: amd64 arm arm64 armel armhf i386 mips mips64 mips64el mipsel power
 #XXX by moving that binary back to q-s-common or packaging it separately
 #Multi-Arch: same
 Depends: ${misc:Depends}, ${shlibs:Depends},
-# we need to ensure qemu-system-gui is upgraded
-# when qemu-system is upgraded, somehow
-        qemu-system-any (= ${binary:Version}),
+# ui-* depends on ui-opengl
+ qemu-system-modules-opengl (= ${binary:Version}),
+# we need to ensure qemu-system-gui is upgraded with qemu-system-*
+ qemu-system-any (= ${binary:Version}),
 # libgl1 is dynamically loaded by sdl display code
-        libgl1,
+ libgl1,
 # we moved vhost-user-gpu files here from qemu-system-common at 6.1-4
 Replaces: qemu-system-common (<< 1:6.1+dfsg-4~)
 Description: QEMU full system emulation binaries (user interface and audio support)
  This package provides local graphical user interface (currently GTK and SDL),
  audio backends and OpenGL display support for full system emulation
- (qemu-system-*) packages.
+ (qemu-system-*) packages.  This package also includes dbus display and
+ audio modules (which depends on opengl).
+
+Package: qemu-system-modules-spice
+Architecture: amd64 arm64 armel armhf i386 mips64el mipsel ppc64el x32
+Depends: ${misc:Depends}, ${shlibs:Depends},
+# spice modules depends on ui-opengl
+ qemu-system-modules-opengl (= ${binary:Version}),
+# we need to ensure qemu-system-modules-spice is upgraded with qemu-system-*
+ qemu-system-any (= ${binary:Version}),
+Replaces: qemu-system-common (<< 1:8.1.0+ds-1~exp2~)
+Breaks:   qemu-system-common (<< 1:8.1.0+ds-1~exp2~)
+Description: QEMU full system emulation binaries (spice modules)
+ This package provides optional spice display (qxl and spice-app) and audio modules
+ for QEMU full system emulation (qemu-system-*) packages.
+
+Package: qemu-system-modules-opengl
+Architecture: amd64 arm arm64 armel armhf i386 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64 x32
+Depends: ${misc:Depends}, ${shlibs:Depends},
+# we need to ensure qemu-system-modules-opengl is upgraded when qemu-system is upgraded
+ qemu-system-any (= ${binary:Version}),
+Replaces: qemu-system-common (<< 1:8.1.0+ds-1~exp2~), qemu-system-gui (<< 1:8.1.0+ds-1~exp2~)
+Breaks:   qemu-system-common (<< 1:8.1.0+ds-1~exp2~), qemu-system-gui (<< 1:8.1.0+ds-1~exp2~)
+Description: QEMU full system emulation binaries (OpenGL modules)
+ This package provides optional OpenGL support modules
+ for QEMU full system emulation (qemu-system-*) packages.
 
 Package: qemu-system-misc
 Architecture: amd64 arm arm64 armel armhf i386 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64 x32
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
-Recommends: qemu-system-gui (= ${binary:Version}), qemu-utils,
+Recommends: qemu-utils,
 # alpha uses vgabios
 # alpha m68k sh4 uses bootroms
  seabios, ipxe-qemu,
+ qemu-system-gui (= ${binary:Version}),
+ qemu-system-modules-spice (= ${binary:Version}) [amd64 arm64 armel armhf i386 mips64el mipsel ppc64el x32],
+ qemu-system-modules-opengl (= ${binary:Version}),
  qemu-block-extra (= ${binary:Version}),
 Suggests: samba, vde2,
 Provides: ${qemu:Provides}
@@ -275,10 +303,13 @@ Package: qemu-system-arm
 Architecture: amd64 arm arm64 armel armhf i386 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64 x32
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
-Recommends: qemu-system-gui (= ${binary:Version}), qemu-utils,
+Recommends: qemu-utils,
 # aarch64 arm uses bootroms
  ipxe-qemu,
  qemu-efi-aarch64, qemu-efi-arm,
+ qemu-system-gui (= ${binary:Version}),
+ qemu-system-modules-spice (= ${binary:Version}) [amd64 arm64 armel armhf i386 mips64el mipsel ppc64el x32],
+ qemu-system-modules-opengl (= ${binary:Version}),
  qemu-block-extra (= ${binary:Version}),
 Suggests: samba, vde2,
 Provides: ${qemu:Provides}
@@ -299,9 +330,12 @@ Package: qemu-system-mips
 Architecture: amd64 arm arm64 armel armhf i386 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64 x32
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
-Recommends: qemu-system-gui (= ${binary:Version}), qemu-utils,
+Recommends: qemu-utils,
 # all mips targets uses vgabios and bootroms
  seabios, ipxe-qemu,
+ qemu-system-gui (= ${binary:Version}),
+ qemu-system-modules-spice (= ${binary:Version}) [amd64 arm64 armel armhf i386 mips64el mipsel ppc64el x32],
+ qemu-system-modules-opengl (= ${binary:Version}),
  qemu-block-extra (= ${binary:Version}),
 Suggests: samba, vde2,
 Provides: ${qemu:Provides}
@@ -322,9 +356,12 @@ Package: qemu-system-ppc
 Architecture: amd64 arm arm64 armel armhf i386 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64 x32
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
-Recommends: qemu-system-gui (= ${binary:Version}), qemu-utils,
+Recommends: qemu-utils,
 # ppc targets use vgabios-stdvga and bootroms
  seabios, ipxe-qemu,
+ qemu-system-gui (= ${binary:Version}),
+ qemu-system-modules-spice (= ${binary:Version}) [amd64 arm64 armel armhf i386 mips64el mipsel ppc64el x32],
+ qemu-system-modules-opengl (= ${binary:Version}),
  qemu-block-extra (= ${binary:Version}),
 Suggests: samba, vde2,
 Provides: ${qemu:Provides}
@@ -345,9 +382,12 @@ Package: qemu-system-sparc
 Architecture: amd64 arm arm64 armel armhf i386 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64 x32
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
-Recommends: qemu-system-gui (= ${binary:Version}), qemu-utils,
+Recommends: qemu-utils,
 # sparc64 uses vgabios-stdvga and bootroms
  seabios, ipxe-qemu,
+ qemu-system-gui (= ${binary:Version}),
+ qemu-system-modules-spice (= ${binary:Version}) [amd64 arm64 armel armhf i386 mips64el mipsel ppc64el x32],
+ qemu-system-modules-opengl (= ${binary:Version}),
  qemu-block-extra (= ${binary:Version}),
 Suggests: samba, vde2,
 Provides: ${qemu:Provides}
@@ -369,8 +409,11 @@ Architecture: amd64 arm arm64 armel armhf i386 mips mips64 mips64el mipsel power
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
  seabios, ipxe-qemu,
-Recommends: qemu-system-gui (= ${binary:Version}), qemu-utils,
+Recommends: qemu-utils,
  ovmf,
+ qemu-system-gui (= ${binary:Version}),
+ qemu-system-modules-spice (= ${binary:Version}) [amd64 arm64 armel armhf i386 mips64el mipsel ppc64el x32],
+ qemu-system-modules-opengl (= ${binary:Version}),
  qemu-block-extra (= ${binary:Version}),
 Suggests: samba, vde2,
 Provides: ${qemu:Provides}
