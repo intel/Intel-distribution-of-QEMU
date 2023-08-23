@@ -147,6 +147,7 @@ native:
 - make
 - mesa-libgbm-devel
 - meson
+- mtools
 - nano
 - nbdkit
 - ncurses-devel
@@ -199,6 +200,7 @@ native:
 - perl-generators
 - perl-podlators
 - php-devel
+- pipewire-devel
 - pixman-devel
 - pkgconfig
 - polkit
@@ -229,7 +231,6 @@ native:
 - rdma-core-devel
 - readline-devel
 - rpcgen
-- rpm
 - rpm-build
 - ruby-devel
 - rubygem-rake

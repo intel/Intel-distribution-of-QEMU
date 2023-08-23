@@ -9,7 +9,6 @@ import sys
 import textwrap
 
 from pathlib import Path
-from pkg_resources import resource_filename
 from tempfile import TemporaryDirectory, NamedTemporaryFile
 
 from lcitool import util, LcitoolError
@@ -63,14 +62,14 @@ class Application:
         log.debug(f"Cmdline args={cli_args}")
 
     def _execute_playbook(self, playbook, hosts_pattern, projects_pattern,
-                          git_revision, data_dir, verbosity=0):
+                          data_dir, verbosity=0):
         from lcitool.ansible_wrapper import AnsibleWrapper, AnsibleWrapperError
 
         log.debug(f"Executing playbook '{playbook}': "
                   f"hosts_pattern={hosts_pattern} "
-                  f"projects_pattern={projects_pattern} gitrev={git_revision}")
+                  f"projects_pattern={projects_pattern}")
 
-        base = resource_filename(__name__, "ansible")
+        base = util.package_resource(__package__, "ansible").as_posix()
         config = Config()
         targets = Targets(data_dir)
         inventory = Inventory(targets, config)
@@ -80,19 +79,6 @@ class Application:
         hosts_expanded = inventory.expand_hosts(hosts_pattern)
         projects_expanded = projects.expand_names(projects_pattern)
 
-        if git_revision is not None:
-            tokens = git_revision.split("/")
-            if len(tokens) < 2:
-                print(f"Missing or invalid git revision '{git_revision}'",
-                      file=sys.stderr)
-                sys.exit(1)
-
-            git_remote = tokens[0]
-            git_branch = "/".join(tokens[1:])
-        else:
-            git_remote = "default"
-            git_branch = "master"
-
         playbook_base = Path(base, "playbooks", playbook)
         group_vars = dict()
 
@@ -100,8 +86,6 @@ class Application:
         extra_vars.update({
             "base": base,
             "selected_projects": projects_expanded,
-            "git_remote": git_remote,
-            "git_branch": git_branch,
         })
 
         log.debug("Preparing Ansible runner environment")
@@ -196,8 +180,15 @@ class Application:
                     f"fully_managed=True not set for {host}, refusing to proceed"
                 )
 
-        virt_install = VirtInstall.from_url(name=host,
-                                            facts=facts)
+        if args.strategy == "cloud":
+            virt_install = VirtInstall.from_image(name=host,
+                                                  config=config,
+                                                  facts=facts,
+                                                  force_download=args.force)
+        else:
+            virt_install = VirtInstall.from_url(name=host,
+                                                config=config,
+                                                facts=facts)
         virt_install(wait=args.wait)
 
     @required_deps('ansible_runner', 'libvirt')
@@ -205,21 +196,7 @@ class Application:
         self._entrypoint_debug(args)
 
         self._execute_playbook("update", args.hosts, args.projects,
-                               args.git_revision, args.data_dir, args.verbose)
-
-    def _action_build(self, args):
-        self._entrypoint_debug(args)
-
-        # we don't keep a dependencies tree for projects, hence pattern
-        # expansion would break the 'build' playbook
-        if args.projects == "all" or "*" in args.projects:
-            raise ApplicationError(
-                "'build' command doesn't support specifying projects by "
-                "either wildcards or the 'all' keyword"
-            )
-
-        self._execute_playbook("build", args.hosts, args.projects,
-                               args.git_revision, args.data_dir, args.verbose)
+                               args.data_dir, args.verbose)
 
     def _action_variables(self, args):
         self._entrypoint_debug(args)
@@ -380,8 +357,13 @@ class Application:
                                                dir=util.get_temp_dir())
         params["tempdir"] = container_tempdir.name
 
-        if not client.image_exists(args.image):
-            print(f"Image '{args.image}' not found in local cache. Build it or pull from registry first.")
+        image = args.image
+        tag = "latest"
+        if ":" in image:
+            image, tag = args.image.split(":")
+
+        if not client.image_exists(image, tag):
+            print(f"Image '{image}:{tag}' not found in local cache. Build it or pull from registry first.")
             return
 
         params["image"] = args.image

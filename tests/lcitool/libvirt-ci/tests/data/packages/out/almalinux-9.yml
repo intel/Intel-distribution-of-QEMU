@@ -1,6 +1,5 @@
 cpan:
 - LWP::UserAgent
-- Net::OpenSSH
 - TAP::Formatter::HTML
 - TAP::Formatter::JUnit
 - TAP::Harness::Archive
@@ -22,6 +21,7 @@ native:
 - bzip2
 - bzip2-devel
 - ca-certificates
+- capstone-devel
 - cargo
 - ccache
 - check-devel
@@ -72,7 +72,6 @@ native:
 - guestfs-tools
 - gzip
 - hostname
-- https://kojipkgs.fedoraproject.org/packages/capstone/4.0.2/9.el9/x86_64/capstone-4.0.2-9.el9.x86_64.rpm
 - hwdata
 - icoutils
 - intltool
@@ -141,6 +140,7 @@ native:
 - make
 - mesa-libgbm-devel
 - meson
+- mtools
 - nano
 - nbdkit
 - ncurses-devel
@@ -172,6 +172,7 @@ native:
 - perl-IO-Interface
 - perl-IO-String
 - perl-Module-Build
+- perl-Net-OpenSSH
 - perl-Net-SNMP
 - perl-NetAddr-IP
 - perl-Pod-Simple
@@ -192,6 +193,7 @@ native:
 - perl-generators
 - perl-podlators
 - php-devel
+- pipewire-devel
 - pixman-devel
 - pkgconfig
 - polkit
@@ -202,6 +204,7 @@ native:
 - python3-dbus
 - python3-devel
 - python3-docutils
+- python3-flake8
 - python3-gobject
 - python3-libnbd
 - python3-libselinux
@@ -220,7 +223,6 @@ native:
 - rdma-core-devel
 - readline-devel
 - rpcgen
-- rpm
 - rpm-build
 - ruby-devel
 - rubygem-rake
@@ -261,5 +263,4 @@ native:
 - zlib-static
 - zstd
 pypi:
-- flake8
 - pillow

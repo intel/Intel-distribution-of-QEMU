@@ -88,7 +88,7 @@ common_configure_opts = \
 	--disable-install-blobs \
 	--disable-strip \
 	--localstatedir=/var \
-	--with-git-submodules=ignore \
+	--disable-download \
 
 # this disables building of qemu-keymap tool (!)
 # qemu-keymap might be helpful for qemu-system -k <lang>
@@ -240,6 +240,18 @@ b/qemu/configured: configure
 build-qemu: b/qemu/built
 b/qemu/built: b/qemu/configured
 	$(MAKE) -C b/qemu V=${V}
+	touch $@
+
+test-qemu: b/qemu/tested
+b/qemu/tested: b/qemu/built
+ifeq (${enable-system},y)
+# copy all firmware files. An alternative is to remove qemu-bundle
+#	cp -a /usr/share/seabios/* /usr/lib/ipxe/qemu/* /usr/share/qemu/* \
+#	    b/qemu/qemu-bundle/usr/share/qemu/
+	rm -rf b/qemu/qemu-bundle
+	QEMU_MODULE_DIR=${CURDIR}/b/qemu \
+	    ${MAKE} -C b/qemu check-block
+endif
 	touch $@
 
 install-qemu: b/qemu/built
@@ -439,9 +451,10 @@ qemu-builds += $(filter ${BUILD_PACKAGES},qemu-system-for-host)
 .PHONY: $(addprefix configure-, ${qemu-builds}) \
 	$(addprefix build-, ${qemu-builds}) \
 	$(addprefix install-, ${qemu-builds}) \
-	configure-arch build-arch
+	configure-arch build-arch test-qemu
 configure-arch: $(addprefix configure-, ${qemu-builds})
-build-arch: $(addprefix build-, ${qemu-builds})
+build-arch: $(addprefix build-, ${qemu-builds}) \
+	$(if $(findstring nocheck, ${DEB_BUILD_OPTIONS}),, test-qemu)
 
 override_dh_auto_install-arch: $(addprefix install-, ${qemu-builds})
 

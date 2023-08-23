@@ -6,12 +6,15 @@
 
 #include <platform_override.h>
 #include <thead_c9xx.h>
+#include <sbi/riscv_asm.h>
 #include <sbi/riscv_io.h>
 #include <sbi/sbi_bitops.h>
 #include <sbi/sbi_ecall_interface.h>
 #include <sbi/sbi_error.h>
 #include <sbi/sbi_hsm.h>
 #include <sbi/sbi_pmu.h>
+#include <sbi/sbi_scratch.h>
+#include <sbi_utils/fdt/fdt_fixup.h>
 #include <sbi_utils/fdt/fdt_helper.h>
 #include <sbi_utils/irqchip/fdt_irqchip_plic.h>
 
@@ -69,10 +72,10 @@ static void sun20i_d1_csr_restore(void)
  * PLIC
  */
 
-#define PLIC_SOURCES			176
-#define PLIC_IE_WORDS			((PLIC_SOURCES + 31) / 32)
+#define PLIC_SOURCES			175
+#define PLIC_IE_WORDS			(PLIC_SOURCES / 32 + 1)
 
-static u8 plic_priority[PLIC_SOURCES];
+static u8 plic_priority[1 + PLIC_SOURCES];
 static u32 plic_sie[PLIC_IE_WORDS];
 static u32 plic_threshold;
 
@@ -202,6 +205,24 @@ static int sun20i_d1_final_init(bool cold_boot, const struct fdt_match *match)
 	return 0;
 }
 
+static const struct sbi_cpu_idle_state sun20i_d1_cpu_idle_states[] = {
+	{
+		.name			= "cpu-nonretentive",
+		.suspend_param		= SBI_HSM_SUSPEND_NON_RET_DEFAULT,
+		.local_timer_stop	= true,
+		.entry_latency_us	= 40,
+		.exit_latency_us	= 67,
+		.min_residency_us	= 1100,
+		.wakeup_latency_us	= 67,
+	},
+	{ }
+};
+
+static int sun20i_d1_fdt_fixup(void *fdt, const struct fdt_match *match)
+{
+	return fdt_add_cpu_idle_states(fdt, sun20i_d1_cpu_idle_states);
+}
+
 static void thead_c9xx_pmu_ctr_enable_irq(uint32_t ctr_idx)
 {
 	unsigned long mip_val;
@@ -265,5 +286,6 @@ static const struct fdt_match sun20i_d1_match[] = {
 const struct platform_override sun20i_d1 = {
 	.match_table	= sun20i_d1_match,
 	.final_init	= sun20i_d1_final_init,
+	.fdt_fixup	= sun20i_d1_fdt_fixup,
 	.extensions_init = sun20i_d1_extensions_init,
 };

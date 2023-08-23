@@ -177,6 +177,13 @@ class Container(ABC):
         passwd_mount = f"{passwd}:/etc/passwd:ro,z"
         group_mount = f"{group}:/etc/group:ro,z"
 
+        # We mount a temporary directory as the user's home in
+        # order to set correct home directory permissions.
+        home = Path(tempdir, "home")
+        home.mkdir(exist_ok=True)
+
+        home_mount = f"{home}:{user_home}:z"
+
         # Docker containers can have very large ulimits
         # for nofiles - as much as 1048576. This makes
         # some applications very slow at executing programs.
@@ -187,16 +194,20 @@ class Container(ABC):
 
         engine_args_ = [
             "--user", user,
+            "--workdir", f"{user_home}",
             "--volume", passwd_mount,
             "--volume", group_mount,
+            "--volume", home_mount,
             "--ulimit", ulimit,
             "--cap-add", cap_add
         ]
 
         if script:
-            script_file = shutil.copy2(
-                script, Path(tempdir, "script")
-            )
+            script_file = Path(shutil.copy2(script, Path(tempdir, "script")))
+
+            # make the script an executable file
+            script_file.chmod(script_file.stat().st_mode | 0o111)
+
             script_mount = f"{script_file}:{user_home}/script:z"
             engine_args_.extend([
                 "--volume", script_mount
@@ -211,11 +222,6 @@ class Container(ABC):
         if env:
             envs = ["--env=" + i for i in env]
             engine_args_.extend(envs)
-
-        if datadir or script:
-            engine_args_.extend([
-                "--workdir", f"{user_home}",
-            ])
 
         log.debug(f"Container options: {engine_args_}")
         return engine_args_

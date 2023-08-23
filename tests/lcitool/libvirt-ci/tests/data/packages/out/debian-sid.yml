@@ -139,6 +139,7 @@ native:
 - libpciaccess-dev
 - libpcre2-dev
 - libperl-dev
+- libpipewire-0.3-dev
 - libpixman-1-dev
 - libpmem-dev
 - libpng-dev
@@ -208,6 +209,7 @@ native:
 - make
 - meson
 - mount
+- mtools
 - multipath-tools
 - nano
 - nbd-client
@@ -284,6 +286,7 @@ native:
 - wget
 - wireshark-dev
 - xfslibs-dev
+- xorriso
 - xsltproc
 - xz-utils
 - zip

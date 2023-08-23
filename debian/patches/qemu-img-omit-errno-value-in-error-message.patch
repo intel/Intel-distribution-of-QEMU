@@ -1,0 +1,115 @@
+From 35a1b78cf2796e87166c0bb24edf7872d4e21dfe Mon Sep 17 00:00:00 2001
+From: Michael Tokarev <mjt@tls.msk.ru>
+Date: Fri, 11 Aug 2023 13:49:52 +0300
+Subject: [PATCH] qemu-img: omit errno value in error message
+
+I'm getting io-qcow2-244 test failure on mips*
+due to output mismatch:
+
+  Take an internal snapshot:
+ -qemu-img: Could not create snapshot 'test': -95 (Operation not supported)
+ +qemu-img: Could not create snapshot 'test': -122 (Operation not supported)
+  No errors were found on the image.
+
+This is because errno values might be different across
+different architectures.
+
+This error message in qemu-img.c is the only one which
+prints errno directly, all the rest print strerror(errno)
+only.  Fix this error message and the expected output
+of the 3 test cases too.
+
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+---
+ qemu-img.c                 | 4 ++--
+ tests/qemu-iotests/080.out | 6 +++---
+ tests/qemu-iotests/112.out | 6 +++---
+ tests/qemu-iotests/244.out | 2 +-
+ 4 files changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/qemu-img.c b/qemu-img.c
+index 27f48051b0..0756dbb835 100644
+--- a/qemu-img.c
++++ b/qemu-img.c
+@@ -3468,8 +3468,8 @@ static int img_snapshot(int argc, char **argv)
+ 
+         ret = bdrv_snapshot_create(bs, &sn);
+         if (ret) {
+-            error_report("Could not create snapshot '%s': %d (%s)",
+-                snapshot_name, ret, strerror(-ret));
++            error_report("Could not create snapshot '%s': %s",
++                snapshot_name, strerror(-ret));
+         }
+         break;
+ 
+diff --git a/tests/qemu-iotests/080.out b/tests/qemu-iotests/080.out
+index 45ab01db8e..d8acb3e723 100644
+--- a/tests/qemu-iotests/080.out
++++ b/tests/qemu-iotests/080.out
+@@ -33,7 +33,7 @@ qemu-io: can't open device TEST_DIR/t.qcow2: Snapshot table offset invalid
+ 
+ == Hitting snapshot table size limit ==
+ Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=67108864
+-qemu-img: Could not create snapshot 'test': -27 (File too large)
++qemu-img: Could not create snapshot 'test': File too large
+ read 512/512 bytes at offset 0
+ 512 bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+ 
+@@ -56,8 +56,8 @@ qemu-io: can't open device TEST_DIR/t.qcow2: Backing file name too long
+ Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=67108864
+ wrote 512/512 bytes at offset 0
+ 512 bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+-qemu-img: Could not create snapshot 'test': -27 (File too large)
+-qemu-img: Could not create snapshot 'test': -11 (Resource temporarily unavailable)
++qemu-img: Could not create snapshot 'test': File too large
++qemu-img: Could not create snapshot 'test': Resource temporarily unavailable
+ 
+ == Invalid snapshot L1 table offset ==
+ Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=67108864
+diff --git a/tests/qemu-iotests/112.out b/tests/qemu-iotests/112.out
+index dd3cc4383c..ebf426febc 100644
+--- a/tests/qemu-iotests/112.out
++++ b/tests/qemu-iotests/112.out
+@@ -32,7 +32,7 @@ Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=67108864
+ refcount bits: 1
+ wrote 512/512 bytes at offset 0
+ 512 bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+-qemu-img: Could not create snapshot 'foo': -22 (Invalid argument)
++qemu-img: Could not create snapshot 'foo': Invalid argument
+ Leaked cluster 6 refcount=1 reference=0
+ 
+ 1 leaked clusters were found on the image.
+@@ -44,7 +44,7 @@ Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=67108864
+ refcount bits: 2
+ wrote 512/512 bytes at offset 0
+ 512 bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+-qemu-img: Could not create snapshot 'baz': -22 (Invalid argument)
++qemu-img: Could not create snapshot 'baz': Invalid argument
+ Leaked cluster 7 refcount=1 reference=0
+ 
+ 1 leaked clusters were found on the image.
+@@ -75,7 +75,7 @@ Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=67108864
+ refcount bits: 64
+ wrote 512/512 bytes at offset 0
+ 512 bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+-qemu-img: Could not create snapshot 'foo': -22 (Invalid argument)
++qemu-img: Could not create snapshot 'foo': Invalid argument
+ Leaked cluster 5 refcount=18446744073709551615 reference=1
+ Leaked cluster 6 refcount=1 reference=0
+ 
+diff --git a/tests/qemu-iotests/244.out b/tests/qemu-iotests/244.out
+index 5e03add054..4815a489b0 100644
+--- a/tests/qemu-iotests/244.out
++++ b/tests/qemu-iotests/244.out
+@@ -41,7 +41,7 @@ write failed: Operation not supported
+ No errors were found on the image.
+ 
+ Take an internal snapshot:
+-qemu-img: Could not create snapshot 'test': -95 (Operation not supported)
++qemu-img: Could not create snapshot 'test': Operation not supported
+ No errors were found on the image.
+ 
+ === Standalone image with external data file (efficient) ===
+-- 
+2.39.2
+

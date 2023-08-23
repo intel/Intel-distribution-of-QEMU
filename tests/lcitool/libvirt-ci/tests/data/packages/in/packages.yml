@@ -53,6 +53,7 @@ packages:
 - fusermount
 - g++
 - gcc
+- gcc-native
 - gcovr
 - gdb
 - gdk-pixbuf
@@ -130,6 +131,7 @@ packages:
 - libparted
 - libpcap
 - libpciaccess
+- libpipewire-dev
 - libpmem
 - libpng
 - librbd
@@ -172,6 +174,7 @@ packages:
 - modprobe
 - mono
 - monodevelop
+- mtools
 - nano
 - nbd-client
 - nbd-server
@@ -313,11 +316,11 @@ packages:
 - xen
 - xfsprogs
 - xmllint
+- xorriso
 - xsltproc
 - xz
 - yajl
 - zip
 - zlib
 - zlib-static
-- zstd
 - zstdtools

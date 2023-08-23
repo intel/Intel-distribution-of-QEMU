@@ -30,7 +30,6 @@ native:
 - clang
 - clang-devel
 - cloud-init
-- cloud-utils-growpart
 - codespell
 - cpp
 - cppi
@@ -162,6 +161,7 @@ native:
 - make
 - meson
 - mkisofs
+- mtools
 - nano
 - nbd
 - nbdkit
@@ -209,6 +209,7 @@ native:
 - perl-base
 - php-devel
 - php-imagick
+- pipewire-devel
 - pkgconfig
 - polkit
 - python3-Pillow
@@ -220,7 +221,7 @@ native:
 - python3-devel
 - python3-docutils
 - python3-gobject
-- python3-libxml2-python
+- python3-libxml2
 - python3-lxml
 - python3-numpy
 - python3-opencv
@@ -237,7 +238,6 @@ native:
 - rdma-core-devel
 - readline-devel
 - rpcgen
-- rpm
 - rpm-build
 - ruby
 - ruby-devel

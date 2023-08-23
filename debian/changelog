@@ -1,3 +1,26 @@
+qemu (1:8.1.0+ds-1~exp1) experimental; urgency=medium
+
+  * new upstream release
+    Closes: #1041102, CVE-2023-3019 (NIC DMA reentrancy issue, problem class)
+    Closes: CVE-2021-3750 (DMA MMIO reentrancy issue, problem class)
+  * d/watch: change repack suffix to +ds
+  * d/patches: remove patches applied upstream
+  * disable-xen-on-x32.patch: refresh
+  * d/copyright: stop stripping dtc/ and meson/, removed upstream
+  * d/rules: replace --with-git-submodules=ignore with --disable-download
+  * d/control: build-depend on python3-venv
+  * d/control: bump minimum meson version to 0.63.0
+  * d/control: build-depend on seabios & qemu-system-data for the testsuite.
+    qemu testsuite runs qemu-system binaries which require firmware even for
+    simple tests
+  * d/rules: run `make check-block' after the main build, as a minimal test
+    for now
+  * qemu-img-omit-errno-value-in-error-message.patch fixes check-block tests
+    on mips* where errno values are different from other architectures.
+  * late fix for 8.1 linux-user-Adjust-brk-for-load_bias.patch
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 23 Aug 2023 08:01:13 +0300
+
 qemu (1:8.0.4+dfsg-3) unstable; urgency=medium
 
   * d/rules: export PYTHONDONTWRITEBYTECODE=1 to stop generating .pyc files

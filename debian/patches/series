@@ -12,12 +12,10 @@ openbios-use-source_date_epoch-in-makefile.patch
 seabios-hppa-use-consistent-date-and-remove-hostname.patch
 slof-remove-user-and-host-from-release-version.patch
 slof-ensure-ld-is-called-with-C-locale.patch
-spelling-suppoted.patch
-spelling-information.patch
 openbios-spelling-endianess.patch
 slof-spelling-seperator.patch
 disable-xen-on-x32.patch
-hw-nvme-fix-null-pointer-access-in-directive-receive-CVE-2023-40360.patch
-hw-nvme-fix-oob-memory-read-in-fdp-events-log-CVE-2023-4135.patch
 target-arm-Fix-SME-ST1Q.patch
 target-arm-Fix-64-bit-SSRA.patch
+qemu-img-omit-errno-value-in-error-message.patch
+linux-user-Adjust-brk-for-load_bias.patch

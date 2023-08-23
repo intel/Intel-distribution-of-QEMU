@@ -1,4 +1,5 @@
 import pytest
+import sys
 
 from pathlib import Path
 
@@ -9,6 +10,7 @@ from lcitool.projects import Projects
 from lcitool.targets import Targets
 from lcitool import util
 
+from test_utils.mocks import libvirt, gi
 import test_utils.utils as test_utils
 
 
@@ -34,6 +36,25 @@ _TARGETS = Targets()
 ALL_PROJECTS = sorted(_PROJECTS.names + list(_PROJECTS.internal.keys()))
 ALL_TARGETS = sorted(_TARGETS.targets)
 
+# We need to mock a few modules that we don't need for testing
+sys.modules["libvirt"] = libvirt
+sys.modules["gi"] = gi
+
+
+def monkeypatch_context():
+    with pytest.MonkeyPatch.context() as mp:
+        yield mp
+
+
+@pytest.fixture(scope="module")
+def monkeypatch_module_scope():
+    yield from monkeypatch_context()
+
+
+@pytest.fixture(scope="class")
+def monkeypatch_class_scope():
+    yield from monkeypatch_context()
+
 
 @pytest.fixture
 def config(monkeypatch, request):
@@ -51,6 +72,14 @@ def config(monkeypatch, request):
         config = Config()
 
     return config
+
+
+@pytest.fixture
+def assert_equal(request, tmp_path_factory):
+    def _assert_equal(actual, expected):
+        tmp_dir = Path(tmp_path_factory.getbasetemp(), request.node.name)
+        return test_utils._assert_equal(actual, expected, test_tmp_dir=tmp_dir)
+    return _assert_equal
 
 
 @pytest.fixture

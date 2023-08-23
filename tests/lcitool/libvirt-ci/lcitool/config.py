@@ -9,7 +9,6 @@ import logging
 import yaml
 
 from pathlib import Path
-from pkg_resources import resource_filename
 
 from lcitool import util, LcitoolError
 
@@ -53,8 +52,9 @@ class Config:
 
         # lazy evaluation: most lcitool actions actually don't need the config
         if self._values is None:
-            self._values = self._load_config()
-            self._validate()
+            values = self._load_config()
+            self._validate(values)
+            self._values = values
         return self._values
 
     def __init__(self):
@@ -71,7 +71,8 @@ class Config:
     def _load_config(self):
         # Load the template config containing the defaults first, this must
         # always succeed.
-        default_config_path = resource_filename(__name__, "etc/config.yml")
+        default_config_path = util.package_resource(__package__,
+                                                    "etc/config.yml")
         with open(default_config_path, "r") as fp:
             default_config = yaml.safe_load(fp)
 
@@ -91,7 +92,7 @@ class Config:
             raise LoadError(f"'{user_config_path.name}': {e}")
 
         if user_config is None:
-            raise ValidationError(f"'{user_config_path.name}' is empty")
+            user_config = {}
 
         # delete user params we don't recognize
         self._sanitize_values(user_config, default_config)
@@ -128,40 +129,33 @@ class Config:
                 self._remove_unknown_keys(user_config[section],
                                           default_config[section].keys())
 
-    def _validate_section(self, section, mandatory_keys):
-        log.debug(f"Validating section='[{section}]' "
-                  f"against keys='{mandatory_keys}'")
-
-        # check that the mandatory keys are present and non-empty
-        for key in mandatory_keys:
-            if self._values.get(section).get(key) is None:
-                raise ValidationError(
-                    f"Missing or empty value for mandatory key "
-                    f"'{section}.{key}'"
-                )
+    def _validate_keys(self, values, pathprefix=""):
+        log.debug(f"Validating section='[{pathprefix}]'")
 
         # check that all keys have values assigned and of the right type
-        for key in self._values[section].keys():
+        for key, value in values.items():
+            if isinstance(value, dict):
+                self._validate_keys(value, pathprefix + "." + key)
+                continue
 
-            # mandatory keys were already checked, so this covers optional keys
-            if self._values[section][key] is None:
-                raise ValidationError(f"Missing value for '{section}.{key}'")
+            if value is None:
+                raise ValidationError(f"Missing value for '{pathprefix}.{key}'")
 
-            if not isinstance(self._values[section][key], (str, int)):
-                raise ValidationError(f"Invalid type for key '{section}.{key}'")
+            if not isinstance(value, (str, int)):
+                raise ValidationError(f"Invalid type for key '{pathprefix}.{key}'")
 
-    def _validate(self):
-        if self._values is None:
-            paths = ", ".join([str(p) for p in self._config_file_paths])
-            raise ValidationError(f"Missing or empty configuration file, tried {paths}")
+    def _validate(self, values):
+        self._validate_keys(values)
 
-        self._validate_section("install", ["root_password"])
-
-        flavor = self._values["install"].get("flavor")
+        flavor = values["install"].get("flavor")
         if flavor not in ["test", "gitlab"]:
             raise ValidationError(
                 f"Invalid value '{flavor}' for 'install.flavor'"
             )
 
         if flavor == "gitlab":
-            self._validate_section("gitlab", ["runner_secret"])
+            secret = values["gitlab"]["runner_secret"]
+            if secret == "NONE" or secret is None:
+                raise ValidationError(
+                    "Invalid value for 'gitlab.runner_secret'"
+                )

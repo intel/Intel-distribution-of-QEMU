@@ -1,0 +1,32 @@
+From: Richard Henderson <richard.henderson@linaro.org>
+Date: Wed, 16 Aug 2023 11:14:34 -0700
+Subject: linux-user: Adjust brk for load_bias
+Origin: https://lists.nongnu.org/archive/html/qemu-devel/2023-08/msg02709.html
+
+PIE executables are usually linked at offset 0 and are
+relocated somewhere during load.  The hiaddr needs to
+be adjusted to keep the brk next to the executable.
+
+Cc: qemu-stable@nongnu.org
+Fixes: 1f356e8c013 ("linux-user: Adjust initial brk when interpreter is close to executable")
+Signed-off-by: Richard Henderson <richard.henderson@linaro.org>
+---
+ linux-user/elfload.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/linux-user/elfload.c b/linux-user/elfload.c
+index ac03beb01b..a69e7d7eab 100644
+--- a/linux-user/elfload.c
++++ b/linux-user/elfload.c
+@@ -3204,7 +3204,7 @@ static void load_elf_image(const char *image_name, int image_fd,
+     info->start_data = -1;
+     info->end_data = 0;
+     /* Usual start for brk is after all sections of the main executable. */
+-    info->brk = TARGET_PAGE_ALIGN(hiaddr);
++    info->brk = TARGET_PAGE_ALIGN(hiaddr + load_bias);
+     info->elf_flags = ehdr->e_flags;
+ 
+     prot_exec = PROT_EXEC;
+-- 
+2.39.2
+

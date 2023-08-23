@@ -15,26 +15,26 @@ from lcitool.config import ValidationError
 @pytest.mark.parametrize(
     "config_filename",
     [
+        "empty.yml",
         "full.yml",
         "minimal.yml",
+        "minimal_no_root_password.yml",
         "unknown_section.yml",
         "unknown_key.yml",
     ],
 )
-def test_config(config, config_filename):
+def test_config(assert_equal, config, config_filename):
     expected_path = Path(test_utils.test_data_outdir(__file__), config_filename)
 
     actual = config.values
-    test_utils.assert_yaml_matches_file(actual, expected_path)
+    assert_equal(actual, expected_path)
 
 
 @pytest.mark.parametrize(
     "config_filename",
     [
-        "empty.yml",
-        "missing_mandatory_section.yml",
-        "missing_mandatory_key.yml",
         "missing_gitlab_section_with_gitlab_flavor.yml",
+        "root_password_none.yml",
     ],
 )
 def test_config_invalid(config, config_filename):

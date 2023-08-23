@@ -84,7 +84,7 @@ class CommandLine:
         imageopt.add_argument(
             "image",
             help="Image to use (accepts plain names, image IDs, \
-                  full registry paths and tags)",
+                  full registry paths and tags - if no tag is provided 'latest' is assumed)",
         )
 
         container_projectopt = argparse.ArgumentParser(add_help=False)
@@ -105,16 +105,26 @@ class CommandLine:
             help="name of the host (taken from inventory OR a new name)",
         )
 
+        installstrategyopt = argparse.ArgumentParser(add_help=False)
+        installstrategyopt.add_argument(
+            "--strategy",
+            choices=["url", "cloud"],
+            default="url",
+            help="where to install from (URL tree, latest cloud image)"
+        )
+
+        installforceopt = argparse.ArgumentParser(add_help=False)
+        installforceopt.add_argument(
+            "--force",
+            default=False,
+            action="store_true",
+            help="force download of the image (rewrites the one in cache)"
+        )
+
         update_projectopt = argparse.ArgumentParser(add_help=False)
         update_projectopt.add_argument(
             "projects",
             help="list of projects to consider (accepts globs)",
-        )
-
-        gitrevopt = argparse.ArgumentParser(add_help=False)
-        gitrevopt.add_argument(
-            "-g", "--git-revision",
-            help="git revision to build (remote/branch)",
         )
 
         containerizedopt = argparse.ArgumentParser(add_help=False)
@@ -205,6 +215,7 @@ class CommandLine:
 
         # Main parser
         self._parser = argparse.ArgumentParser(
+            prog="lcitool",
             conflict_handler="resolve",
             description="libvirt CI guest management tool",
         )
@@ -227,27 +238,17 @@ class CommandLine:
         installparser = subparsers.add_parser(
             "install",
             help="perform unattended host installation",
-            parents=[waitopt, installtargetopt, installhostopt],
+            parents=[waitopt, installtargetopt, installhostopt,
+                     installstrategyopt, installforceopt],
         )
         installparser.set_defaults(func=Application._action_install)
 
         updateparser = subparsers.add_parser(
             "update",
             help="prepare hosts and keep them updated",
-            parents=[verbosityopt, hostsopt, update_projectopt, gitrevopt],
+            parents=[verbosityopt, hostsopt, update_projectopt],
         )
         updateparser.set_defaults(func=Application._action_update)
-
-        buildparser = subparsers.add_parser(
-            "build",
-            help="build projects on hosts",
-            parents=[verbosityopt, hostsopt, gitrevopt],
-        )
-        buildparser.add_argument(
-            "projects",
-            help="list of projects to consider (does NOT accept globs)",
-        )
-        buildparser.set_defaults(func=Application._action_build)
 
         hostsparser = subparsers.add_parser(
             "hosts",

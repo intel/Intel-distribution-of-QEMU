@@ -135,6 +135,7 @@ native:
 - flake8
 - flex
 - fuse3
+- gcc
 - gcovr
 - gdb
 - genisoimage
@@ -200,7 +201,6 @@ native:
 - libxml-xpath-perl
 - libxml2-utils
 - libyaml-perl
-- libzstd-dev
 - llvm
 - locales
 - lsof
@@ -208,6 +208,7 @@ native:
 - lvm2
 - make
 - mount
+- mtools
 - nano
 - nbd-client
 - nbd-server
@@ -276,6 +277,7 @@ native:
 - valgrind
 - vim-nox
 - wget
+- xorriso
 - xsltproc
 - xz-utils
 - zip

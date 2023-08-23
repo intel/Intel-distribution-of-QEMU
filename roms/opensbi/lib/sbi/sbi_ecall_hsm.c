@@ -12,7 +12,6 @@
 #include <sbi/sbi_ecall_interface.h>
 #include <sbi/sbi_error.h>
 #include <sbi/sbi_trap.h>
-#include <sbi/sbi_version.h>
 #include <sbi/sbi_hsm.h>
 #include <sbi/sbi_scratch.h>
 #include <sbi/riscv_asm.h>
@@ -33,7 +32,7 @@ static int sbi_ecall_hsm_handler(unsigned long extid, unsigned long funcid,
 					 regs->a0, regs->a1, smode, regs->a2);
 		break;
 	case SBI_EXT_HSM_HART_STOP:
-		ret = sbi_hsm_hart_stop(scratch, TRUE);
+		ret = sbi_hsm_hart_stop(scratch, true);
 		break;
 	case SBI_EXT_HSM_HART_GET_STATUS:
 		ret = sbi_hsm_hart_get_state(sbi_domain_thishart_ptr(),
@@ -45,7 +44,8 @@ static int sbi_ecall_hsm_handler(unsigned long extid, unsigned long funcid,
 		break;
 	default:
 		ret = SBI_ENOTSUPP;
-	};
+	}
+
 	if (ret >= 0) {
 		*out_val = ret;
 		ret = 0;
@@ -54,8 +54,16 @@ static int sbi_ecall_hsm_handler(unsigned long extid, unsigned long funcid,
 	return ret;
 }
 
+struct sbi_ecall_extension ecall_hsm;
+
+static int sbi_ecall_hsm_register_extensions(void)
+{
+	return sbi_ecall_register_extension(&ecall_hsm);
+}
+
 struct sbi_ecall_extension ecall_hsm = {
-	.extid_start = SBI_EXT_HSM,
-	.extid_end = SBI_EXT_HSM,
-	.handle = sbi_ecall_hsm_handler,
+	.extid_start		= SBI_EXT_HSM,
+	.extid_end		= SBI_EXT_HSM,
+	.register_extensions	= sbi_ecall_hsm_register_extensions,
+	.handle			= sbi_ecall_hsm_handler,
 };

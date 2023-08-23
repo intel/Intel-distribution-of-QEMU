@@ -1,7 +1,5 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Files-Excluded:
-	dtc
-	meson
 	roms/QemuMacDrivers
 	roms/edk2
 	roms/ipxe

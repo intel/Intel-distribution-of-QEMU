@@ -78,7 +78,7 @@ int sbi_ecall_register_extension(struct sbi_ecall_extension *ext)
 
 void sbi_ecall_unregister_extension(struct sbi_ecall_extension *ext)
 {
-	bool found = FALSE;
+	bool found = false;
 	struct sbi_ecall_extension *t;
 
 	if (!ext)
@@ -86,7 +86,7 @@ void sbi_ecall_unregister_extension(struct sbi_ecall_extension *ext)
 
 	sbi_list_for_each_entry(t, &ecall_exts_list, head) {
 		if (t == ext) {
-			found = TRUE;
+			found = true;
 			break;
 		}
 	}
@@ -120,7 +120,9 @@ int sbi_ecall_handler(struct sbi_trap_regs *regs)
 		trap.epc = regs->mepc;
 		sbi_trap_redirect(regs, &trap);
 	} else {
-		if (ret < SBI_LAST_ERR) {
+		if (ret < SBI_LAST_ERR ||
+		    (extension_id != SBI_EXT_0_1_CONSOLE_GETCHAR &&
+		     SBI_SUCCESS < ret)) {
 			sbi_printf("%s: Invalid error %d for ext=0x%lx "
 				   "func=0x%lx\n", __func__, ret,
 				   extension_id, func_id);
@@ -152,7 +154,10 @@ int sbi_ecall_init(void)
 
 	for (i = 0; i < sbi_ecall_exts_size; i++) {
 		ext = sbi_ecall_exts[i];
-		ret = sbi_ecall_register_extension(ext);
+		ret = SBI_ENODEV;
+
+		if (ext->register_extensions)
+			ret = ext->register_extensions();
 		if (ret)
 			return ret;
 	}

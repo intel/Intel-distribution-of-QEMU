@@ -153,6 +153,7 @@ native:
 - meson
 - mono-devel
 - monodevelop
+- mtools
 - nano
 - nbd
 - nbdkit
@@ -212,6 +213,7 @@ native:
 - perl-podlators
 - php-devel
 - php-pecl-imagick
+- pipewire-devel
 - pixman-devel
 - pkgconfig
 - polkit
@@ -244,7 +246,6 @@ native:
 - readline-devel
 - rest-devel
 - rpcgen
-- rpm
 - rpm-build
 - ruby-devel
 - rubygem-rake

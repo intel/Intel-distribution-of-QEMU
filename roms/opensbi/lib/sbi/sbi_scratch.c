@@ -59,8 +59,8 @@ unsigned long sbi_scratch_alloc_offset(unsigned long size)
 	if (!size)
 		return 0;
 
-	if (size & (__SIZEOF_POINTER__ - 1))
-		size = (size & ~(__SIZEOF_POINTER__ - 1)) + __SIZEOF_POINTER__;
+	size += __SIZEOF_POINTER__ - 1;
+	size &= ~((unsigned long)__SIZEOF_POINTER__ - 1);
 
 	spin_lock(&extra_lock);
 
@@ -96,4 +96,15 @@ void sbi_scratch_free_offset(unsigned long offset)
 	 * We don't actually free-up because it's a simple
 	 * brain-dead allocator.
 	 */
+}
+
+unsigned long sbi_scratch_used_space(void)
+{
+	unsigned long ret = 0;
+
+	spin_lock(&extra_lock);
+	ret = extra_offset;
+	spin_unlock(&extra_lock);
+
+	return ret;
 }

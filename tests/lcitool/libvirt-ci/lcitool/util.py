@@ -5,20 +5,62 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 import copy
+import errno
 import fnmatch
 import logging
 import os
+import sys
 import platform
 import tempfile
 import textwrap
 import yaml
 
 from pathlib import Path
-from pkg_resources import resource_filename
 
 _tempdir = None
 
 log = logging.getLogger(__name__)
+
+
+class SSHKey:
+    """
+    :ivar path: Absolute path to the SSH key as Path object
+    """
+
+    def __init__(self, keypath):
+        self._contents = None
+
+        # resolve user home directory + canonicalize path
+        self.path = Path(keypath).expanduser().resolve()
+        if not self.path.exists():
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT),
+                                    str(self.path))
+
+    def __str__(self):
+        if self._contents is None:
+            with open(self.path, "r") as f:
+                self._contents = f.read().strip()
+
+        return self._contents
+
+
+class SSHPublicKey(SSHKey):
+    pass
+
+
+class SSHPrivateKey(SSHKey):
+    def __str__(self):
+        # Only the SSH backend should ever need to know the contents of the
+        # private key
+
+        return ""
+
+
+class SSHKeyPair:
+    def __init__(self, keypath):
+        pathobj = Path(keypath)
+        self.public_key = SSHPublicKey(pathobj.with_suffix(".pub"))
+        self.private_key = SSHPrivateKey(pathobj.with_suffix(""))
 
 
 def expand_pattern(pattern, iterable, name):
@@ -191,7 +233,7 @@ def get_cache_dir():
     try:
         cache_dir = Path(os.environ["XDG_CACHE_HOME"])
     except KeyError:
-        cache_dir = Path(os.environ["HOME"], ".cache")
+        cache_dir = Path.home().joinpath(".cache")
 
     return Path(cache_dir, "lcitool")
 
@@ -200,9 +242,43 @@ def get_config_dir():
     try:
         config_dir = Path(os.environ["XDG_CONFIG_HOME"])
     except KeyError:
-        config_dir = Path(os.environ["HOME"], ".config")
+        config_dir = Path.home().joinpath(".config")
 
     return Path(config_dir, "lcitool")
+
+
+def package_resource(package, relpath):
+    """
+    Backcompatibility helper to retrieve a package resource using importlib
+
+    :param package: object conforming to importlib.resources.Package requirement
+    :param relpath: relative path to the actual resource (or directory) as
+                    str or Path object
+    :returns: a Path object to the resource
+    """
+
+    from importlib import import_module, resources
+
+    if hasattr(resources, "files"):
+        return Path(resources.files(package), relpath)
+    else:
+        # This is a horrible hack, it won't work for resources that don't exist
+        # on the file system (which should not be a problem for our use case),
+        # but it's needed because importlib.resources.path only accepts
+        # filenames for a 'Resource' [1]. What it means is that one cannot pass
+        # a path construct in 'relpath', because 'Resource' cannot contain
+        # path delimiters and also cannot be a directory, so we cannot use the
+        # method to construct base resource paths.
+        # [1] https://docs.python.org/3/library/importlib.resources.html?highlight=importlib%20resources#importlib.resources.path
+        # Instead, we'll extract the package path from ModuleSpec (loading the
+        # package first if needed) and then concatenate it with the 'relpath'
+        #
+        # TODO: Drop this helper once we move onto 3.9+
+        if package not in sys.modules:
+            import_module(package)
+
+        package_path = Path(sys.modules[package].__file__).parent
+        return Path(package_path, relpath)
 
 
 def merge_dict(source, dest):
@@ -243,7 +319,7 @@ class DataDir:
             if p.exists():
                 yield p
 
-        p = Path(resource_filename(__name__, resource_path), *names)
+        p = Path(package_resource(__package__, resource_path), *names)
         if p.exists():
             yield p
 

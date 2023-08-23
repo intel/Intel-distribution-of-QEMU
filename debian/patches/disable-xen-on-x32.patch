@@ -20,9 +20,9 @@ diff --git a/meson.build b/meson.build
 index c44d05a13f..9e7c83fc6a 100644
 --- a/meson.build
 +++ b/meson.build
-@@ -70,6 +70,11 @@ if cpu in ['riscv32', 'riscv64']
-   cpu = 'riscv'
- endif
+@@ -60,6 +60,11 @@ if cpu in ['riscv32', 'riscv64']
+ 
+ cpu = host_machine.cpu_family()
  
 +x32 = false
 +if cpu == 'x86_64'
