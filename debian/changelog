@@ -1,3 +1,23 @@
+qemu (1:8.1.0+ds-3) unstable; urgency=medium
+
+  * d/control: split out most of Build-Depends to Build-Depends-Arch, in order
+    to break B-D loop on qemu-system-data (it is only needed for -Arch) and
+    to reduce arch-all build time.
+    Only very few things left in common Build-Depends.
+  * Removing most things from B-D discovered that skiboot includes openssl
+    header(s) (!), so add libssl-dev to Build-Depends-Indep.
+  * d/control,d/rules: introduce build profiles to omit bulding some packages
+    (mostly debugging aid, to reduce test build run time).
+  * d/rules: use ninja directly for various qemu builds
+    (non-verbose build now shows errors/warnings nicely)
+  * d/control: Rules-Requires-Root: "binary-targets", not "no", -
+    this enables building as non-root, finally
+  * d/rules: add forgotten -p for mkdir b/user-static
+  * d/not-installed: list 2 files from user/ manual
+    (which is built even on unsupported architectures)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 10 Sep 2023 01:30:15 +0300
+
 qemu (1:8.1.0+ds-2) unstable; urgency=medium
 
   * d/control: fix descriptions of qemu-system-gui and
@@ -6,7 +26,7 @@ qemu (1:8.1.0+ds-2) unstable; urgency=medium
   * d/rules: enable verbose (-v) build for qboot
   * d/rules: move lto control to where it actually works
   * d/rules: remove usage of "standard dh sequencer".
-    It has mutliple issues.  To name a few:
+    It has multiple issues.  To name a few:
     - it exports CFLAGS &Co which breaks badly when trying to compile
       bios/firmware code (fixes FTBFS with new -fcf-protection)
     - it performs multiple recursive calls to d/rules which is
