@@ -1,7 +1,10 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/cd1e4db73646006039f25879af3bff55b2295ff3
 From: Richard Henderson <richard.henderson@linaro.org>
-Date: Sun, 20 Aug 2023 19:20:25 -0700
+Date: Tue, 22 Aug 2023 17:31:14 +0100
 Subject: target/arm: Fix 64-bit SSRA
-Origin: https://lists.nongnu.org/archive/html/qemu-devel/2023-08/msg03309.html
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 
 Typo applied byte-wise shift instead of double-word shift.
 
@@ -9,15 +12,17 @@ Cc: qemu-stable@nongnu.org
 Fixes: 631e565450c ("target/arm: Create gen_gvec_[us]sra")
 Resolves: https://gitlab.com/qemu-project/qemu/-/issues/1737
 Signed-off-by: Richard Henderson <richard.henderson@linaro.org>
----
- target/arm/tcg/translate.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Reviewed-by: Philippe Mathieu-Daudé <philmd@linaro.org>
+Message-id: 20230821022025.397682-1-richard.henderson@linaro.org
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+(cherry picked from commit cd1e4db73646006039f25879af3bff55b2295ff3)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
 
 diff --git a/target/arm/tcg/translate.c b/target/arm/tcg/translate.c
-index 3c8401e908..d795309132 100644
+index b71ac2d0d5..39541ecdf0 100644
 --- a/target/arm/tcg/translate.c
 +++ b/target/arm/tcg/translate.c
-@@ -3063,7 +3063,7 @@ void gen_gvec_ssra(unsigned vece, uint32_t rd_ofs, uint32_t rm_ofs,
+@@ -3053,7 +3053,7 @@ void gen_gvec_ssra(unsigned vece, uint32_t rd_ofs, uint32_t rm_ofs,
            .vece = MO_32 },
          { .fni8 = gen_ssra64_i64,
            .fniv = gen_ssra_vec,

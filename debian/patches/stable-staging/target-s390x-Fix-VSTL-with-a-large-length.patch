@@ -1,0 +1,33 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/6db3518ba4fcddd71049718f138552999f0d97b4
+From: Ilya Leoshkevich <iii@linux.ibm.com>
+Date: Sat, 5 Aug 2023 01:55:33 +0200
+Subject: target/s390x: Fix VSTL with a large length
+
+The length is always truncated to 16 bytes. Do not probe more than
+that.
+
+Cc: qemu-stable@nongnu.org
+Fixes: 0e0a5b49ad58 ("s390x/tcg: Implement VECTOR STORE WITH LENGTH")
+Signed-off-by: Ilya Leoshkevich <iii@linux.ibm.com>
+Message-Id: <20230804235624.263260-1-iii@linux.ibm.com>
+Reviewed-by: David Hildenbrand <david@redhat.com>
+Signed-off-by: Thomas Huth <thuth@redhat.com>
+(cherry picked from commit 6db3518ba4fcddd71049718f138552999f0d97b4)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/target/s390x/tcg/vec_helper.c b/target/s390x/tcg/vec_helper.c
+index 48d86722b2..dafc4c3582 100644
+--- a/target/s390x/tcg/vec_helper.c
++++ b/target/s390x/tcg/vec_helper.c
+@@ -193,7 +193,7 @@ void HELPER(vstl)(CPUS390XState *env, const void *v1, uint64_t addr,
+                   uint64_t bytes)
+ {
+     /* Probe write access before actually modifying memory */
+-    probe_write_access(env, addr, bytes, GETPC());
++    probe_write_access(env, addr, MIN(bytes, 16), GETPC());
+ 
+     if (likely(bytes >= 16)) {
+         cpu_stq_data_ra(env, addr, s390_vec_read_element64(v1, 0), GETPC());
+-- 
+2.39.2
+

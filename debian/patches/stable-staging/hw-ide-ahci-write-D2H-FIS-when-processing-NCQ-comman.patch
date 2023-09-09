@@ -1,0 +1,109 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/2967dc8209dd27b61a6ab7bad78cf7c6ec58ddb4
+From: Niklas Cassel <niklas.cassel@wdc.com>
+Date: Fri, 9 Jun 2023 16:08:39 +0200
+Subject: hw/ide/ahci: write D2H FIS when processing NCQ command
+
+The way that BUSY + PxCI is cleared for NCQ (FPDMA QUEUED) commands is
+described in SATA 3.5a Gold:
+
+11.15 FPDMA QUEUED command protocol
+DFPDMAQ2: ClearInterfaceBsy
+"Transmit Register Device to Host FIS with the BSY bit cleared to zero
+and the DRQ bit cleared to zero and Interrupt bit cleared to zero to
+mark interface ready for the next command."
+
+PxCI is currently cleared by handle_cmd(), but we don't write the D2H
+FIS to the FIS Receive Area that actually caused PxCI to be cleared.
+
+Similar to how ahci_pio_transfer() calls ahci_write_fis_pio() with an
+additional parameter to write a PIO Setup FIS without raising an IRQ,
+add a parameter to ahci_write_fis_d2h() so that ahci_write_fis_d2h()
+also can write the FIS to the FIS Receive Area without raising an IRQ.
+
+Change process_ncq_command() to call ahci_write_fis_d2h() without
+raising an IRQ (similar to ahci_pio_transfer()), such that the FIS
+Receive Area is in sync with the PxTFD shadow register.
+
+E.g. Linux reads status and error fields from the FIS Receive Area
+directly, so it is wise to keep the FIS Receive Area and the PxTFD
+shadow register in sync.
+
+Signed-off-by: Niklas Cassel <niklas.cassel@wdc.com>
+Message-id: 20230609140844.202795-4-nks@flawful.org
+Signed-off-by: John Snow <jsnow@redhat.com>
+(cherry picked from commit 2967dc8209dd27b61a6ab7bad78cf7c6ec58ddb4)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/hw/ide/ahci.c b/hw/ide/ahci.c
+index 48d550f633..4b272397fd 100644
+--- a/hw/ide/ahci.c
++++ b/hw/ide/ahci.c
+@@ -43,7 +43,7 @@
+ static void check_cmd(AHCIState *s, int port);
+ static int handle_cmd(AHCIState *s, int port, uint8_t slot);
+ static void ahci_reset_port(AHCIState *s, int port);
+-static bool ahci_write_fis_d2h(AHCIDevice *ad);
++static bool ahci_write_fis_d2h(AHCIDevice *ad, bool d2h_fis_i);
+ static void ahci_init_d2h(AHCIDevice *ad);
+ static int ahci_dma_prepare_buf(const IDEDMA *dma, int32_t limit);
+ static bool ahci_map_clb_address(AHCIDevice *ad);
+@@ -618,7 +618,7 @@ static void ahci_init_d2h(AHCIDevice *ad)
+         return;
+     }
+ 
+-    if (ahci_write_fis_d2h(ad)) {
++    if (ahci_write_fis_d2h(ad, true)) {
+         ad->init_d2h_sent = true;
+         /* We're emulating receiving the first Reg H2D Fis from the device;
+          * Update the SIG register, but otherwise proceed as normal. */
+@@ -850,7 +850,7 @@ static void ahci_write_fis_pio(AHCIDevice *ad, uint16_t len, bool pio_fis_i)
+     }
+ }
+ 
+-static bool ahci_write_fis_d2h(AHCIDevice *ad)
++static bool ahci_write_fis_d2h(AHCIDevice *ad, bool d2h_fis_i)
+ {
+     AHCIPortRegs *pr = &ad->port_regs;
+     uint8_t *d2h_fis;
+@@ -864,7 +864,7 @@ static bool ahci_write_fis_d2h(AHCIDevice *ad)
+     d2h_fis = &ad->res_fis[RES_FIS_RFIS];
+ 
+     d2h_fis[0] = SATA_FIS_TYPE_REGISTER_D2H;
+-    d2h_fis[1] = (1 << 6); /* interrupt bit */
++    d2h_fis[1] = d2h_fis_i ? (1 << 6) : 0; /* interrupt bit */
+     d2h_fis[2] = s->status;
+     d2h_fis[3] = s->error;
+ 
+@@ -890,7 +890,10 @@ static bool ahci_write_fis_d2h(AHCIDevice *ad)
+         ahci_trigger_irq(ad->hba, ad, AHCI_PORT_IRQ_BIT_TFES);
+     }
+ 
+-    ahci_trigger_irq(ad->hba, ad, AHCI_PORT_IRQ_BIT_DHRS);
++    if (d2h_fis_i) {
++        ahci_trigger_irq(ad->hba, ad, AHCI_PORT_IRQ_BIT_DHRS);
++    }
++
+     return true;
+ }
+ 
+@@ -1120,6 +1123,8 @@ static void process_ncq_command(AHCIState *s, int port, const uint8_t *cmd_fis,
+         return;
+     }
+ 
++    ahci_write_fis_d2h(ad, false);
++
+     ncq_tfs->used = 1;
+     ncq_tfs->drive = ad;
+     ncq_tfs->slot = slot;
+@@ -1506,7 +1511,7 @@ static void ahci_cmd_done(const IDEDMA *dma)
+     }
+ 
+     /* update d2h status */
+-    ahci_write_fis_d2h(ad);
++    ahci_write_fis_d2h(ad, true);
+ 
+     if (ad->port_regs.cmd_issue && !ad->check_bh) {
+         ad->check_bh = qemu_bh_new_guarded(ahci_check_cmd_bh, ad,
+-- 
+2.39.2
+

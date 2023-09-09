@@ -1,0 +1,69 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/f187609f27b261702a17f79d20bf252ee0d4f9cd
+From: Fabiano Rosas <farosas@suse.de>
+Date: Mon, 31 Jul 2023 17:33:38 -0300
+Subject: block-migration: Ensure we don't crash during migration cleanup
+
+We can fail the blk_insert_bs() at init_blk_migration(), leaving the
+BlkMigDevState without a dirty_bitmap and BlockDriverState. Account
+for the possibly missing elements when doing cleanup.
+
+Fix the following crashes:
+
+Thread 1 "qemu-system-x86" received signal SIGSEGV, Segmentation fault.
+0x0000555555ec83ef in bdrv_release_dirty_bitmap (bitmap=0x0) at ../block/dirty-bitmap.c:359
+359         BlockDriverState *bs = bitmap->bs;
+ #0  0x0000555555ec83ef in bdrv_release_dirty_bitmap (bitmap=0x0) at ../block/dirty-bitmap.c:359
+ #1  0x0000555555bba331 in unset_dirty_tracking () at ../migration/block.c:371
+ #2  0x0000555555bbad98 in block_migration_cleanup_bmds () at ../migration/block.c:681
+
+Thread 1 "qemu-system-x86" received signal SIGSEGV, Segmentation fault.
+0x0000555555e971ff in bdrv_op_unblock (bs=0x0, op=BLOCK_OP_TYPE_BACKUP_SOURCE, reason=0x0) at ../block.c:7073
+7073        QLIST_FOREACH_SAFE(blocker, &bs->op_blockers[op], list, next) {
+ #0  0x0000555555e971ff in bdrv_op_unblock (bs=0x0, op=BLOCK_OP_TYPE_BACKUP_SOURCE, reason=0x0) at ../block.c:7073
+ #1  0x0000555555e9734a in bdrv_op_unblock_all (bs=0x0, reason=0x0) at ../block.c:7095
+ #2  0x0000555555bbae13 in block_migration_cleanup_bmds () at ../migration/block.c:690
+
+Signed-off-by: Fabiano Rosas <farosas@suse.de>
+Message-id: 20230731203338.27581-1-farosas@suse.de
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+(cherry picked from commit f187609f27b261702a17f79d20bf252ee0d4f9cd)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/migration/block.c b/migration/block.c
+index b9580a6c7e..86c2256a2b 100644
+--- a/migration/block.c
++++ b/migration/block.c
+@@ -368,7 +368,9 @@ static void unset_dirty_tracking(void)
+     BlkMigDevState *bmds;
+ 
+     QSIMPLEQ_FOREACH(bmds, &block_mig_state.bmds_list, entry) {
+-        bdrv_release_dirty_bitmap(bmds->dirty_bitmap);
++        if (bmds->dirty_bitmap) {
++            bdrv_release_dirty_bitmap(bmds->dirty_bitmap);
++        }
+     }
+ }
+ 
+@@ -676,13 +678,18 @@ static int64_t get_remaining_dirty(void)
+ static void block_migration_cleanup_bmds(void)
+ {
+     BlkMigDevState *bmds;
++    BlockDriverState *bs;
+     AioContext *ctx;
+ 
+     unset_dirty_tracking();
+ 
+     while ((bmds = QSIMPLEQ_FIRST(&block_mig_state.bmds_list)) != NULL) {
+         QSIMPLEQ_REMOVE_HEAD(&block_mig_state.bmds_list, entry);
+-        bdrv_op_unblock_all(blk_bs(bmds->blk), bmds->blocker);
++
++        bs = blk_bs(bmds->blk);
++        if (bs) {
++            bdrv_op_unblock_all(bs, bmds->blocker);
++        }
+         error_free(bmds->blocker);
+ 
+         /* Save ctx, because bmds->blk can disappear during blk_unref.  */
+-- 
+2.39.2
+

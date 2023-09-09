@@ -1,0 +1,101 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/b21a6e31a182a5ae7436a444f840d49aac07c94f
+From: Markus Armbruster <armbru@redhat.com>
+Date: Fri, 25 Aug 2023 17:59:22 +0200
+Subject: docs tests: Fix use of migrate_set_parameter
+
+docs/multi-thread-compression.txt uses parameter names with
+underscores instead of dashes.  Wrong since day one.
+
+docs/rdma.txt, tests/qemu-iotests/181, and tests/qtest/test-hmp.c are
+wrong the same way since commit cbde7be900d2 (v6.0.0).  Hard to see,
+as test-hmp doesn't check whether the commands work, and iotest 181
+appears to be unaffected.
+
+Fixes: 263170e679df (docs: Add a doc about multiple thread compression)
+Fixes: cbde7be900d2 (migrate: remove QMP/HMP commands for speed, downtime and cache size)
+Signed-off-by: Markus Armbruster <armbru@redhat.com>
+Reviewed-by: Thomas Huth <thuth@redhat.com>
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+(cherry picked from commit b21a6e31a182a5ae7436a444f840d49aac07c94f)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/docs/multi-thread-compression.txt b/docs/multi-thread-compression.txt
+index bb88c6bdf1..95b1556f67 100644
+--- a/docs/multi-thread-compression.txt
++++ b/docs/multi-thread-compression.txt
+@@ -117,13 +117,13 @@ to support the multiple thread compression migration:
+     {qemu} migrate_set_capability compress on
+ 
+ 3. Set the compression thread count on source:
+-    {qemu} migrate_set_parameter compress_threads 12
++    {qemu} migrate_set_parameter compress-threads 12
+ 
+ 4. Set the compression level on the source:
+-    {qemu} migrate_set_parameter compress_level 1
++    {qemu} migrate_set_parameter compress-level 1
+ 
+ 5. Set the decompression thread count on destination:
+-    {qemu} migrate_set_parameter decompress_threads 3
++    {qemu} migrate_set_parameter decompress-threads 3
+ 
+ 6. Start outgoing migration:
+     {qemu} migrate -d tcp:destination.host:4444
+@@ -133,9 +133,9 @@ to support the multiple thread compression migration:
+ 
+ The following are the default settings:
+     compress: off
+-    compress_threads: 8
+-    decompress_threads: 2
+-    compress_level: 1 (which means best speed)
++    compress-threads: 8
++    decompress-threads: 2
++    compress-level: 1 (which means best speed)
+ 
+ So, only the first two steps are required to use the multiple
+ thread compression in migration. You can do more if the default
+diff --git a/docs/rdma.txt b/docs/rdma.txt
+index 2b4cdea1d8..bd8dd799a9 100644
+--- a/docs/rdma.txt
++++ b/docs/rdma.txt
+@@ -89,7 +89,7 @@ RUNNING:
+ First, set the migration speed to match your hardware's capabilities:
+ 
+ QEMU Monitor Command:
+-$ migrate_set_parameter max_bandwidth 40g # or whatever is the MAX of your RDMA device
++$ migrate_set_parameter max-bandwidth 40g # or whatever is the MAX of your RDMA device
+ 
+ Next, on the destination machine, add the following to the QEMU command line:
+ 
+diff --git a/tests/qemu-iotests/181 b/tests/qemu-iotests/181
+index cb96d09ae5..dc90a10757 100755
+--- a/tests/qemu-iotests/181
++++ b/tests/qemu-iotests/181
+@@ -109,7 +109,7 @@ if [ ${QEMU_STATUS[$dest]} -lt 0 ]; then
+     _notrun 'Postcopy is not supported'
+ fi
+ 
+-_send_qemu_cmd $src 'migrate_set_parameter max_bandwidth 4k' "(qemu)"
++_send_qemu_cmd $src 'migrate_set_parameter max-bandwidth 4k' "(qemu)"
+ _send_qemu_cmd $src 'migrate_set_capability postcopy-ram on' "(qemu)"
+ _send_qemu_cmd $src "migrate -d unix:${MIG_SOCKET}" "(qemu)"
+ _send_qemu_cmd $src 'migrate_start_postcopy' "(qemu)"
+diff --git a/tests/qtest/test-hmp.c b/tests/qtest/test-hmp.c
+index 6704be239b..c0d2d70689 100644
+--- a/tests/qtest/test-hmp.c
++++ b/tests/qtest/test-hmp.c
+@@ -45,9 +45,9 @@ static const char *hmp_cmds[] = {
+     "log all",
+     "log none",
+     "memsave 0 4096 \"/dev/null\"",
+-    "migrate_set_parameter xbzrle_cache_size 1",
+-    "migrate_set_parameter downtime_limit 1",
+-    "migrate_set_parameter max_bandwidth 1",
++    "migrate_set_parameter xbzrle-cache-size 1",
++    "migrate_set_parameter downtime-limit 1",
++    "migrate_set_parameter max-bandwidth 1",
+     "netdev_add user,id=net1",
+     "set_link net1 off",
+     "set_link net1 on",
+-- 
+2.39.2
+

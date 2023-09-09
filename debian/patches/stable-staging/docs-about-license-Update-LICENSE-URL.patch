@@ -1,0 +1,41 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/09a3fffae00b042bed8ad9c351b1a58c505fde37
+From: =?UTF-8?q?Philippe=20Mathieu-Daud=C3=A9?= <philmd@linaro.org>
+Date: Tue, 22 Aug 2023 14:57:16 +0200
+Subject: docs/about/license: Update LICENSE URL
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+In early 2021 (see commit 2ad784339e "docs: update README to use
+GitLab repo URLs") almost all of the code base was converted to
+point to GitLab instead of git.qemu.org. During 2023, git.qemu.org
+switched from a git mirror to a http redirect to GitLab (see [1]).
+
+Update the LICENSE URL to match its previous content, displaying
+the file raw content similarly to gitweb 'blob_plain' format ([2]).
+
+[1] https://lore.kernel.org/qemu-devel/CABgObfZu3mFc8tM20K-yXdt7F-7eV-uKZN4sKDarSeu7DYoRbA@mail.gmail.com/
+[2] https://git-scm.com/docs/gitweb#Documentation/gitweb.txt-blobplain
+
+Reviewed-by: Daniel P. Berrangé <berrange@redhat.com>
+Signed-off-by: Philippe Mathieu-Daudé <philmd@linaro.org>
+Reviewed-by: Thomas Huth <thuth@redhat.com>
+Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Message-ID: <20230822125716.55295-1-philmd@linaro.org>
+(cherry picked from commit 09a3fffae00b042bed8ad9c351b1a58c505fde37)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/docs/about/license.rst b/docs/about/license.rst
+index cde3d2d25d..303c55d61b 100644
+--- a/docs/about/license.rst
++++ b/docs/about/license.rst
+@@ -8,4 +8,4 @@ QEMU is a trademark of Fabrice Bellard.
+ QEMU is released under the `GNU General Public
+ License <https://www.gnu.org/licenses/gpl-2.0.txt>`__, version 2. Parts
+ of QEMU have specific licenses, see file
+-`LICENSE <https://git.qemu.org/?p=qemu.git;a=blob_plain;f=LICENSE>`__.
++`LICENSE <https://gitlab.com/qemu-project/qemu/-/raw/master/LICENSE>`__.
+-- 
+2.39.2
+

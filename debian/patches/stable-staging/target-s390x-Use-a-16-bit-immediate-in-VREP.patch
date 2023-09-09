@@ -1,0 +1,45 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/23e87d419f347b6b5f4da3bf70d222acc24cdb64
+From: Ilya Leoshkevich <iii@linux.ibm.com>
+Date: Mon, 7 Aug 2023 18:34:31 +0200
+Subject: target/s390x: Use a 16-bit immediate in VREP
+
+Unlike most other instructions that contain an immediate element index,
+VREP's one is 16-bit, and not 4-bit. The code uses only 8 bits, so
+using, e.g., 0x101 does not lead to a specification exception.
+
+Fix by checking all 16 bits.
+
+Cc: qemu-stable@nongnu.org
+Fixes: 28d08731b1d8 ("s390x/tcg: Implement VECTOR REPLICATE")
+Signed-off-by: Ilya Leoshkevich <iii@linux.ibm.com>
+Message-Id: <20230807163459.849766-1-iii@linux.ibm.com>
+Reviewed-by: David Hildenbrand <david@redhat.com>
+Signed-off-by: Thomas Huth <thuth@redhat.com>
+(cherry picked from commit 23e87d419f347b6b5f4da3bf70d222acc24cdb64)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/target/s390x/tcg/translate_vx.c.inc b/target/s390x/tcg/translate_vx.c.inc
+index f8df121d3d..a6d840d406 100644
+--- a/target/s390x/tcg/translate_vx.c.inc
++++ b/target/s390x/tcg/translate_vx.c.inc
+@@ -57,7 +57,7 @@
+ #define FPF_LONG        3
+ #define FPF_EXT         4
+ 
+-static inline bool valid_vec_element(uint8_t enr, MemOp es)
++static inline bool valid_vec_element(uint16_t enr, MemOp es)
+ {
+     return !(enr & ~(NUM_VEC_ELEMENTS(es) - 1));
+ }
+@@ -964,7 +964,7 @@ static DisasJumpType op_vpdi(DisasContext *s, DisasOps *o)
+ 
+ static DisasJumpType op_vrep(DisasContext *s, DisasOps *o)
+ {
+-    const uint8_t enr = get_field(s, i2);
++    const uint16_t enr = get_field(s, i2);
+     const uint8_t es = get_field(s, m4);
+ 
+     if (es > ES_64 || !valid_vec_element(enr, es)) {
+-- 
+2.39.2
+

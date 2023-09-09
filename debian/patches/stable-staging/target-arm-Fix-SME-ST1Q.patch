@@ -1,7 +1,10 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/4b3520fd93cd49cc56dfcab45d90735cc2e35af7
 From: Richard Henderson <richard.henderson@linaro.org>
-Date: Fri, 18 Aug 2023 14:42:55 -0700
+Date: Tue, 22 Aug 2023 17:31:13 +0100
 Subject: target/arm: Fix SME ST1Q
-Origin: https://lists.nongnu.org/archive/html/qemu-devel/2023-08/msg03152.html
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 
 A typo, noted in the bug report, resulting in an
 incorrect write offset.
@@ -10,9 +13,11 @@ Cc: qemu-stable@nongnu.org
 Fixes: 7390e0e9ab8 ("target/arm: Implement SME LD1, ST1")
 Resolves: https://gitlab.com/qemu-project/qemu/-/issues/1833
 Signed-off-by: Richard Henderson <richard.henderson@linaro.org>
----
- target/arm/tcg/sme_helper.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Reviewed-by: Philippe Mathieu-Daudé <philmd@linaro.org>
+Message-id: 20230818214255.146905-1-richard.henderson@linaro.org
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+(cherry picked from commit 4b3520fd93cd49cc56dfcab45d90735cc2e35af7)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
 
 diff --git a/target/arm/tcg/sme_helper.c b/target/arm/tcg/sme_helper.c
 index 1e67fcac30..296826ffe6 100644

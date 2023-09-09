@@ -1,0 +1,42 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/90a0778421acdf4ca903be64c8ed19378183c944
+From: Thomas Huth <thuth@redhat.com>
+Date: Thu, 17 Aug 2023 14:56:00 +0200
+Subject: hw/net/vmxnet3: Fix guest-triggerable assert()
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The assert() that checks for valid MTU sizes can be triggered by
+the guest (e.g. with the reproducer code from the bug ticket
+https://gitlab.com/qemu-project/qemu/-/issues/517 ). Let's avoid
+this problem by simply logging the error and refusing to activate
+the device instead.
+
+Fixes: d05dcd94ae ("net: vmxnet3: validate configuration values during activate")
+Signed-off-by: Thomas Huth <thuth@redhat.com>
+Cc: qemu-stable@nongnu.org
+Reviewed-by: Philippe Mathieu-Daudé <philmd@linaro.org>
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+[Mjt: change format specifier from %d to %u for uint32_t argument]
+(cherry picked from commit 90a0778421acdf4ca903be64c8ed19378183c944)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/hw/net/vmxnet3.c b/hw/net/vmxnet3.c
+index 5dfacb1098..3fb108751a 100644
+--- a/hw/net/vmxnet3.c
++++ b/hw/net/vmxnet3.c
+@@ -1439,7 +1439,10 @@ static void vmxnet3_activate_device(VMXNET3State *s)
+     vmxnet3_setup_rx_filtering(s);
+     /* Cache fields from shared memory */
+     s->mtu = VMXNET3_READ_DRV_SHARED32(d, s->drv_shmem, devRead.misc.mtu);
+-    assert(VMXNET3_MIN_MTU <= s->mtu && s->mtu <= VMXNET3_MAX_MTU);
++    if (s->mtu < VMXNET3_MIN_MTU || s->mtu > VMXNET3_MAX_MTU) {
++        qemu_log_mask(LOG_GUEST_ERROR, "vmxnet3: Bad MTU size: %u\n", s->mtu);
++        return;
++    }
+     VMW_CFPRN("MTU is %u", s->mtu);
+ 
+     s->max_rx_frags =
+-- 
+2.39.2
+

@@ -1,7 +1,10 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/aec338d63bc28f1f13d5e64c561d7f1dd0e4b07e
 From: Richard Henderson <richard.henderson@linaro.org>
-Date: Wed, 16 Aug 2023 11:14:34 -0700
+Date: Wed, 16 Aug 2023 10:32:18 -0700
 Subject: linux-user: Adjust brk for load_bias
-Origin: https://lists.nongnu.org/archive/html/qemu-devel/2023-08/msg02709.html
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 
 PIE executables are usually linked at offset 0 and are
 relocated somewhere during load.  The hiaddr needs to
@@ -9,10 +12,12 @@ be adjusted to keep the brk next to the executable.
 
 Cc: qemu-stable@nongnu.org
 Fixes: 1f356e8c013 ("linux-user: Adjust initial brk when interpreter is close to executable")
+Tested-by: Helge Deller <deller@gmx.de>
+Reviewed-by: Ilya Leoshkevich <iii@linux.ibm.com>
+Reviewed-by: Philippe Mathieu-Daudé <philmd@linaro.org>
 Signed-off-by: Richard Henderson <richard.henderson@linaro.org>
----
- linux-user/elfload.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+(cherry picked from commit aec338d63bc28f1f13d5e64c561d7f1dd0e4b07e)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
 
 diff --git a/linux-user/elfload.c b/linux-user/elfload.c
 index ac03beb01b..a69e7d7eab 100644

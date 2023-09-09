@@ -1,0 +1,71 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/1ab445af8cd99343f29032b5944023ad7d8edebf
+From: Akihiko Odaki <akihiko.odaki@daynix.com>
+Date: Tue, 22 Aug 2023 17:31:02 +0100
+Subject: accel/kvm: Specify default IPA size for arm64
+
+Before this change, the default KVM type, which is used for non-virt
+machine models, was 0.
+
+The kernel documentation says:
+> On arm64, the physical address size for a VM (IPA Size limit) is
+> limited to 40bits by default. The limit can be configured if the host
+> supports the extension KVM_CAP_ARM_VM_IPA_SIZE. When supported, use
+> KVM_VM_TYPE_ARM_IPA_SIZE(IPA_Bits) to set the size in the machine type
+> identifier, where IPA_Bits is the maximum width of any physical
+> address used by the VM. The IPA_Bits is encoded in bits[7-0] of the
+> machine type identifier.
+>
+> e.g, to configure a guest to use 48bit physical address size::
+>
+>     vm_fd = ioctl(dev_fd, KVM_CREATE_VM, KVM_VM_TYPE_ARM_IPA_SIZE(48));
+>
+> The requested size (IPA_Bits) must be:
+>
+>  ==   =========================================================
+>   0   Implies default size, 40bits (for backward compatibility)
+>   N   Implies N bits, where N is a positive integer such that,
+>       32 <= N <= Host_IPA_Limit
+>  ==   =========================================================
+
+> Host_IPA_Limit is the maximum possible value for IPA_Bits on the host
+> and is dependent on the CPU capability and the kernel configuration.
+> The limit can be retrieved using KVM_CAP_ARM_VM_IPA_SIZE of the
+> KVM_CHECK_EXTENSION ioctl() at run-time.
+>
+> Creation of the VM will fail if the requested IPA size (whether it is
+> implicit or explicit) is unsupported on the host.
+https://docs.kernel.org/virt/kvm/api.html#kvm-create-vm
+
+So if Host_IPA_Limit < 40, specifying 0 as the type will fail. This
+actually confused libvirt, which uses "none" machine model to probe the
+KVM availability, on M2 MacBook Air.
+
+Fix this by using Host_IPA_Limit as the default type when
+KVM_CAP_ARM_VM_IPA_SIZE is available.
+
+Cc: qemu-stable@nongnu.org
+Signed-off-by: Akihiko Odaki <akihiko.odaki@daynix.com>
+Message-id: 20230727073134.134102-3-akihiko.odaki@daynix.com
+Reviewed-by: Peter Maydell <peter.maydell@linaro.org>
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+(cherry picked from commit 1ab445af8cd99343f29032b5944023ad7d8edebf)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/target/arm/kvm.c b/target/arm/kvm.c
+index 40f577bfd5..23aeb09949 100644
+--- a/target/arm/kvm.c
++++ b/target/arm/kvm.c
+@@ -249,7 +249,9 @@ int kvm_arm_get_max_vm_ipa_size(MachineState *ms, bool *fixed_ipa)
+ 
+ int kvm_arch_get_default_type(MachineState *ms)
+ {
+-    return 0;
++    bool fixed_ipa;
++    int size = kvm_arm_get_max_vm_ipa_size(ms, &fixed_ipa);
++    return fixed_ipa ? 0 : size;
+ }
+ 
+ int kvm_arch_init(MachineState *ms, KVMState *s)
+-- 
+2.39.2
+

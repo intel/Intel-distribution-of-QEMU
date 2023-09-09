@@ -1,0 +1,196 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/5e0d65909c6f335d578b90491e165440c99adf81
+From: Akihiko Odaki <akihiko.odaki@daynix.com>
+Date: Tue, 22 Aug 2023 17:31:02 +0100
+Subject: kvm: Introduce kvm_arch_get_default_type hook
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+kvm_arch_get_default_type() returns the default KVM type. This hook is
+particularly useful to derive a KVM type that is valid for "none"
+machine model, which is used by libvirt to probe the availability of
+KVM.
+
+For MIPS, the existing mips_kvm_type() is reused. This function ensures
+the availability of VZ which is mandatory to use KVM on the current
+QEMU.
+
+Cc: qemu-stable@nongnu.org
+Signed-off-by: Akihiko Odaki <akihiko.odaki@daynix.com>
+Message-id: 20230727073134.134102-2-akihiko.odaki@daynix.com
+Reviewed-by: Peter Maydell <peter.maydell@linaro.org>
+[PMM: added doc comment for new function]
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Philippe Mathieu-Daudé <philmd@linaro.org>
+(cherry picked from commit 5e0d65909c6f335d578b90491e165440c99adf81)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/accel/kvm/kvm-all.c b/accel/kvm/kvm-all.c
+index 7b3da8dc3a..b472301637 100644
+--- a/accel/kvm/kvm-all.c
++++ b/accel/kvm/kvm-all.c
+@@ -2458,7 +2458,7 @@ static int kvm_init(MachineState *ms)
+     KVMState *s;
+     const KVMCapabilityInfo *missing_cap;
+     int ret;
+-    int type = 0;
++    int type;
+     uint64_t dirty_log_manual_caps;
+ 
+     qemu_mutex_init(&kml_slots_lock);
+@@ -2523,6 +2523,8 @@ static int kvm_init(MachineState *ms)
+         type = mc->kvm_type(ms, kvm_type);
+     } else if (mc->kvm_type) {
+         type = mc->kvm_type(ms, NULL);
++    } else {
++        type = kvm_arch_get_default_type(ms);
+     }
+ 
+     do {
+diff --git a/hw/mips/loongson3_virt.c b/hw/mips/loongson3_virt.c
+index 3ad0a223df..b74b358874 100644
+--- a/hw/mips/loongson3_virt.c
++++ b/hw/mips/loongson3_virt.c
+@@ -29,7 +29,6 @@
+ #include "qemu/datadir.h"
+ #include "qapi/error.h"
+ #include "elf.h"
+-#include "kvm_mips.h"
+ #include "hw/char/serial.h"
+ #include "hw/intc/loongson_liointc.h"
+ #include "hw/mips/mips.h"
+@@ -612,7 +611,6 @@ static void loongson3v_machine_class_init(ObjectClass *oc, void *data)
+     mc->max_cpus = LOONGSON_MAX_VCPUS;
+     mc->default_ram_id = "loongson3.highram";
+     mc->default_ram_size = 1600 * MiB;
+-    mc->kvm_type = mips_kvm_type;
+     mc->minimum_page_bits = 14;
+     mc->default_nic = "virtio-net-pci";
+ }
+diff --git a/include/sysemu/kvm.h b/include/sysemu/kvm.h
+index 115f0cca79..ccaf55caf7 100644
+--- a/include/sysemu/kvm.h
++++ b/include/sysemu/kvm.h
+@@ -369,6 +369,8 @@ int kvm_arch_get_registers(CPUState *cpu);
+ 
+ int kvm_arch_put_registers(CPUState *cpu, int level);
+ 
++int kvm_arch_get_default_type(MachineState *ms);
++
+ int kvm_arch_init(MachineState *ms, KVMState *s);
+ 
+ int kvm_arch_init_vcpu(CPUState *cpu);
+diff --git a/target/arm/kvm.c b/target/arm/kvm.c
+index b4c7654f49..40f577bfd5 100644
+--- a/target/arm/kvm.c
++++ b/target/arm/kvm.c
+@@ -247,6 +247,11 @@ int kvm_arm_get_max_vm_ipa_size(MachineState *ms, bool *fixed_ipa)
+     return ret > 0 ? ret : 40;
+ }
+ 
++int kvm_arch_get_default_type(MachineState *ms)
++{
++    return 0;
++}
++
+ int kvm_arch_init(MachineState *ms, KVMState *s)
+ {
+     int ret = 0;
+diff --git a/target/i386/kvm/kvm.c b/target/i386/kvm/kvm.c
+index ebfaf3d24c..b45ce20fd8 100644
+--- a/target/i386/kvm/kvm.c
++++ b/target/i386/kvm/kvm.c
+@@ -2556,6 +2556,11 @@ static void register_smram_listener(Notifier *n, void *unused)
+                                  &smram_address_space, 1, "kvm-smram");
+ }
+ 
++int kvm_arch_get_default_type(MachineState *ms)
++{
++    return 0;
++}
++
+ int kvm_arch_init(MachineState *ms, KVMState *s)
+ {
+     uint64_t identity_base = 0xfffbc000;
+diff --git a/target/mips/kvm.c b/target/mips/kvm.c
+index c14e8f550f..e98aad01bd 100644
+--- a/target/mips/kvm.c
++++ b/target/mips/kvm.c
+@@ -1266,7 +1266,7 @@ int kvm_arch_msi_data_to_gsi(uint32_t data)
+     abort();
+ }
+ 
+-int mips_kvm_type(MachineState *machine, const char *vm_type)
++int kvm_arch_get_default_type(MachineState *machine)
+ {
+ #if defined(KVM_CAP_MIPS_VZ)
+     int r;
+diff --git a/target/mips/kvm_mips.h b/target/mips/kvm_mips.h
+index 171d53dbe1..c711269d0a 100644
+--- a/target/mips/kvm_mips.h
++++ b/target/mips/kvm_mips.h
+@@ -25,13 +25,4 @@ void kvm_mips_reset_vcpu(MIPSCPU *cpu);
+ int kvm_mips_set_interrupt(MIPSCPU *cpu, int irq, int level);
+ int kvm_mips_set_ipi_interrupt(MIPSCPU *cpu, int irq, int level);
+ 
+-#ifdef CONFIG_KVM
+-int mips_kvm_type(MachineState *machine, const char *vm_type);
+-#else
+-static inline int mips_kvm_type(MachineState *machine, const char *vm_type)
+-{
+-    return 0;
+-}
+-#endif
+-
+ #endif /* KVM_MIPS_H */
+diff --git a/target/ppc/kvm.c b/target/ppc/kvm.c
+index a8a935e267..dc1182cd37 100644
+--- a/target/ppc/kvm.c
++++ b/target/ppc/kvm.c
+@@ -108,6 +108,11 @@ static int kvm_ppc_register_host_cpu_type(void);
+ static void kvmppc_get_cpu_characteristics(KVMState *s);
+ static int kvmppc_get_dec_bits(void);
+ 
++int kvm_arch_get_default_type(MachineState *ms)
++{
++    return 0;
++}
++
+ int kvm_arch_init(MachineState *ms, KVMState *s)
+ {
+     cap_interrupt_unset = kvm_check_extension(s, KVM_CAP_PPC_UNSET_IRQ);
+diff --git a/target/riscv/kvm.c b/target/riscv/kvm.c
+index b1fd2233c0..dbcf26f27d 100644
+--- a/target/riscv/kvm.c
++++ b/target/riscv/kvm.c
+@@ -914,6 +914,11 @@ int kvm_arch_add_msi_route_post(struct kvm_irq_routing_entry *route,
+     return 0;
+ }
+ 
++int kvm_arch_get_default_type(MachineState *ms)
++{
++    return 0;
++}
++
+ int kvm_arch_init(MachineState *ms, KVMState *s)
+ {
+     return 0;
+diff --git a/target/s390x/kvm/kvm.c b/target/s390x/kvm/kvm.c
+index a9e5880349..9117fab6e8 100644
+--- a/target/s390x/kvm/kvm.c
++++ b/target/s390x/kvm/kvm.c
+@@ -340,6 +340,11 @@ static void ccw_machine_class_foreach(ObjectClass *oc, void *opaque)
+     mc->default_cpu_type = S390_CPU_TYPE_NAME("host");
+ }
+ 
++int kvm_arch_get_default_type(MachineState *ms)
++{
++    return 0;
++}
++
+ int kvm_arch_init(MachineState *ms, KVMState *s)
+ {
+     object_class_foreach(ccw_machine_class_foreach, TYPE_S390_CCW_MACHINE,
+-- 
+2.39.2
+

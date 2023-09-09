@@ -1,0 +1,54 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/9f89423537653de07ca40c18b5ff5b70b104cc93
+From: Niklas Cassel <niklas.cassel@wdc.com>
+Date: Fri, 9 Jun 2023 16:08:44 +0200
+Subject: hw/ide/ahci: fix broken SError handling
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+When encountering an NCQ error, you should not write the NCQ tag to the
+SError register. This is completely wrong.
+
+The SError register has a clear definition, where each bit represents a
+different error, see PxSERR definition in AHCI 1.3.1.
+
+If we write a random value (like the NCQ tag) in SError, e.g. Linux will
+read SError, and will trigger arbitrary error handling depending on the
+NCQ tag that happened to be executing.
+
+In case of success, ncq_cb() will call ncq_finish().
+In case of error, ncq_cb() will call ncq_err() (which will clear
+ncq_tfs->used), and then call ncq_finish(), thus using ncq_tfs->used is
+sufficient to tell if finished should get set or not.
+
+Signed-off-by: Niklas Cassel <niklas.cassel@wdc.com>
+Reviewed-by: Philippe Mathieu-Daudé <philmd@linaro.org>
+Message-id: 20230609140844.202795-9-nks@flawful.org
+Signed-off-by: John Snow <jsnow@redhat.com>
+(cherry picked from commit 9f89423537653de07ca40c18b5ff5b70b104cc93)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/hw/ide/ahci.c b/hw/ide/ahci.c
+index ef6c9fc378..d0a774bc17 100644
+--- a/hw/ide/ahci.c
++++ b/hw/ide/ahci.c
+@@ -1012,7 +1012,6 @@ static void ncq_err(NCQTransferState *ncq_tfs)
+ 
+     ide_state->error = ABRT_ERR;
+     ide_state->status = READY_STAT | ERR_STAT;
+-    ncq_tfs->drive->port_regs.scr_err |= (1 << ncq_tfs->tag);
+     qemu_sglist_destroy(&ncq_tfs->sglist);
+     ncq_tfs->used = 0;
+ }
+@@ -1022,7 +1021,7 @@ static void ncq_finish(NCQTransferState *ncq_tfs)
+     /* If we didn't error out, set our finished bit. Errored commands
+      * do not get a bit set for the SDB FIS ACT register, nor do they
+      * clear the outstanding bit in scr_act (PxSACT). */
+-    if (!(ncq_tfs->drive->port_regs.scr_err & (1 << ncq_tfs->tag))) {
++    if (ncq_tfs->used) {
+         ncq_tfs->drive->finished |= (1 << ncq_tfs->tag);
+     }
+ 
+-- 
+2.39.2
+

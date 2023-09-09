@@ -1,0 +1,39 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/7b8589d7ce7e23f26ff53338d575a5cbd7818e28
+From: Nicholas Piggin <npiggin@gmail.com>
+Date: Tue, 8 Aug 2023 14:19:44 +1000
+Subject: ppc/vof: Fix missed fields in VOF cleanup
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Failing to reset the of_instance_last makes ihandle allocation continue
+to increase, which causes record-replay replay fail to match the
+recorded trace.
+
+Not resetting claimed_base makes VOF eventually run out of memory after
+some resets.
+
+Cc: Alexey Kardashevskiy <aik@ozlabs.ru>
+Fixes: fc8c745d501 ("spapr: Implement Open Firmware client interface")
+Signed-off-by: Nicholas Piggin <npiggin@gmail.com>
+Reviewed-by: Alexey Kardashevskiy <aik@ozlabs.ru>
+Signed-off-by: Cédric Le Goater <clg@kaod.org>
+(cherry picked from commit 7b8589d7ce7e23f26ff53338d575a5cbd7818e28)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/hw/ppc/vof.c b/hw/ppc/vof.c
+index 18c3f92317..e3b430a81f 100644
+--- a/hw/ppc/vof.c
++++ b/hw/ppc/vof.c
+@@ -1024,6 +1024,8 @@ void vof_cleanup(Vof *vof)
+     }
+     vof->claimed = NULL;
+     vof->of_instances = NULL;
++    vof->of_instance_last = 0;
++    vof->claimed_base = 0;
+ }
+ 
+ void vof_build_dt(void *fdt, Vof *vof)
+-- 
+2.39.2
+

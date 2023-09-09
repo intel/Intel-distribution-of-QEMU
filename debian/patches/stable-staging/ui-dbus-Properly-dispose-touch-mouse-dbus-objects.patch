@@ -1,0 +1,33 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/cb6ccdc9ca705cd8c3ef50e51c16a3732c2fa734
+From: Bilal Elmoussaoui <belmouss@redhat.com>
+Date: Fri, 1 Sep 2023 14:45:07 +0200
+Subject: ui/dbus: Properly dispose touch/mouse dbus objects
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Fixes: 142ca628a7 ("ui: add a D-Bus display backend")
+Fixes: de9f844ce2 ("ui/dbus: Expose a touch device interface")
+
+Signed-off-by: Bilal Elmoussaoui <belmouss@redhat.com>
+Reviewed-by: Marc-André Lureau <marcandre.lureau@redhat.com>
+Message-Id: <20230901124507.94087-1-belmouss@redhat.com>
+(cherry picked from commit cb6ccdc9ca705cd8c3ef50e51c16a3732c2fa734)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/ui/dbus-console.c b/ui/dbus-console.c
+index e19774f985..36f7349585 100644
+--- a/ui/dbus-console.c
++++ b/ui/dbus-console.c
+@@ -150,6 +150,8 @@ dbus_display_console_dispose(GObject *object)
+     DBusDisplayConsole *ddc = DBUS_DISPLAY_CONSOLE(object);
+ 
+     unregister_displaychangelistener(&ddc->dcl);
++    g_clear_object(&ddc->iface_touch);
++    g_clear_object(&ddc->iface_mouse);
+     g_clear_object(&ddc->iface_kbd);
+     g_clear_object(&ddc->iface);
+     g_clear_pointer(&ddc->listeners, g_hash_table_unref);
+-- 
+2.39.2
+

@@ -1,0 +1,50 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/9e771a2fc68d98c5719b877e008d1dca64e6896e
+From: =?UTF-8?q?Alex=20Benn=C3=A9e?= <alex.bennee@linaro.org>
+Date: Thu, 31 Aug 2023 09:45:16 +0100
+Subject: target/arm: properly document FEAT_CRC32
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This is a mandatory feature for Armv8.1 architectures but we don't
+state the feature clearly in our emulation list. Also include
+FEAT_CRC32 comment in aarch64_max_tcg_initfn for ease of grepping.
+
+Reviewed-by: Philippe Mathieu-Daudé <philmd@linaro.org>
+Signed-off-by: Alex Bennée <alex.bennee@linaro.org>
+Message-id: 20230824075406.1515566-1-alex.bennee@linaro.org
+Cc: qemu-stable@nongnu.org
+Message-Id: <20230222110104.3996971-1-alex.bennee@linaro.org>
+[PMM: pluralize 'instructions' in docs]
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+(cherry picked from commit 9e771a2fc68d98c5719b877e008d1dca64e6896e)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/docs/system/arm/emulation.rst b/docs/system/arm/emulation.rst
+index bdafc68819..d47b78eca9 100644
+--- a/docs/system/arm/emulation.rst
++++ b/docs/system/arm/emulation.rst
+@@ -14,6 +14,7 @@ the following architecture extensions:
+ - FEAT_BBM at level 2 (Translation table break-before-make levels)
+ - FEAT_BF16 (AArch64 BFloat16 instructions)
+ - FEAT_BTI (Branch Target Identification)
++- FEAT_CRC32 (CRC32 instructions)
+ - FEAT_CSV2 (Cache speculation variant 2)
+ - FEAT_CSV2_1p1 (Cache speculation variant 2, version 1.1)
+ - FEAT_CSV2_1p2 (Cache speculation variant 2, version 1.2)
+diff --git a/target/arm/tcg/cpu64.c b/target/arm/tcg/cpu64.c
+index 8019f00bc3..1975253dea 100644
+--- a/target/arm/tcg/cpu64.c
++++ b/target/arm/tcg/cpu64.c
+@@ -743,7 +743,7 @@ void aarch64_max_tcg_initfn(Object *obj)
+     t = FIELD_DP64(t, ID_AA64ISAR0, AES, 2);      /* FEAT_PMULL */
+     t = FIELD_DP64(t, ID_AA64ISAR0, SHA1, 1);     /* FEAT_SHA1 */
+     t = FIELD_DP64(t, ID_AA64ISAR0, SHA2, 2);     /* FEAT_SHA512 */
+-    t = FIELD_DP64(t, ID_AA64ISAR0, CRC32, 1);
++    t = FIELD_DP64(t, ID_AA64ISAR0, CRC32, 1);    /* FEAT_CRC32 */
+     t = FIELD_DP64(t, ID_AA64ISAR0, ATOMIC, 2);   /* FEAT_LSE */
+     t = FIELD_DP64(t, ID_AA64ISAR0, RDM, 1);      /* FEAT_RDM */
+     t = FIELD_DP64(t, ID_AA64ISAR0, SHA3, 1);     /* FEAT_SHA3 */
+-- 
+2.39.2
+

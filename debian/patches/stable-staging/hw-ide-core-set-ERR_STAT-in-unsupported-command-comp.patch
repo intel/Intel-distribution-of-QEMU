@@ -1,0 +1,57 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/c3461c6264a7c8ca15b117e91fe5da786924a784
+From: Niklas Cassel <niklas.cassel@wdc.com>
+Date: Fri, 9 Jun 2023 16:08:38 +0200
+Subject: hw/ide/core: set ERR_STAT in unsupported command completion
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Currently, the first time sending an unsupported command
+(e.g. READ LOG DMA EXT) will not have ERR_STAT set in the completion.
+Sending the unsupported command again, will correctly have ERR_STAT set.
+
+When ide_cmd_permitted() returns false, it calls ide_abort_command().
+ide_abort_command() first calls ide_transfer_stop(), which will call
+ide_transfer_halt() and ide_cmd_done(), after that ide_abort_command()
+sets ERR_STAT in status.
+
+ide_cmd_done() for AHCI will call ahci_write_fis_d2h() which writes the
+current status in the FIS, and raises an IRQ. (The status here will not
+have ERR_STAT set!).
+
+Thus, we cannot call ide_transfer_stop() before setting ERR_STAT, as
+ide_transfer_stop() will result in the FIS being written and an IRQ
+being raised.
+
+The reason why it works the second time, is that ERR_STAT will still
+be set from the previous command, so when writing the FIS, the
+completion will correctly have ERR_STAT set.
+
+Set ERR_STAT before writing the FIS (calling cmd_done), so that we will
+raise an error IRQ correctly when receiving an unsupported command.
+
+Signed-off-by: Niklas Cassel <niklas.cassel@wdc.com>
+Reviewed-by: Philippe Mathieu-Daudé <philmd@linaro.org>
+Message-id: 20230609140844.202795-3-nks@flawful.org
+Signed-off-by: John Snow <jsnow@redhat.com>
+(cherry picked from commit c3461c6264a7c8ca15b117e91fe5da786924a784)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/hw/ide/core.c b/hw/ide/core.c
+index de48ff9f86..07971c0218 100644
+--- a/hw/ide/core.c
++++ b/hw/ide/core.c
+@@ -533,9 +533,9 @@ BlockAIOCB *ide_issue_trim(
+ 
+ void ide_abort_command(IDEState *s)
+ {
+-    ide_transfer_stop(s);
+     s->status = READY_STAT | ERR_STAT;
+     s->error = ABRT_ERR;
++    ide_transfer_stop(s);
+ }
+ 
+ static void ide_set_retry(IDEState *s)
+-- 
+2.39.2
+

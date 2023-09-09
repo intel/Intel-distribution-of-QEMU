@@ -1,0 +1,43 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/6ec65b69ba17c954414fa23a397fb8a3fcfb4a43
+From: Maksim Kostin <maksim.kostin@ispras.ru>
+Date: Wed, 9 Aug 2023 13:07:33 +0300
+Subject: hw/ppc/e500: fix broken snapshot replay
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+ppce500_reset_device_tree is registered for system reset, but after
+c4b075318eb1 this function rerandomizes rng-seed via
+qemu_guest_getrandom_nofail. And when loading a snapshot, it tries to read
+EVENT_RANDOM that doesn't exist, so we have an error:
+
+  qemu-system-ppc: Missing random event in the replay log
+
+To fix this, use qemu_register_reset_nosnapshotload instead of
+qemu_register_reset.
+
+Reported-by: Vitaly Cheptsov <cheptsov@ispras.ru>
+Fixes: c4b075318eb1 ("hw/ppc: pass random seed to fdt ")
+Resolves: https://gitlab.com/qemu-project/qemu/-/issues/1634
+Signed-off-by: Maksim Kostin <maksim.kostin@ispras.ru>
+Reviewed-by: Nicholas Piggin <npiggin@gmail.com>
+Signed-off-by: Cédric Le Goater <clg@kaod.org>
+(cherry picked from commit 6ec65b69ba17c954414fa23a397fb8a3fcfb4a43)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/hw/ppc/e500.c b/hw/ppc/e500.c
+index 67793a86f1..d5b6820d1d 100644
+--- a/hw/ppc/e500.c
++++ b/hw/ppc/e500.c
+@@ -712,7 +712,7 @@ static int ppce500_prep_device_tree(PPCE500MachineState *machine,
+     p->kernel_base = kernel_base;
+     p->kernel_size = kernel_size;
+ 
+-    qemu_register_reset(ppce500_reset_device_tree, p);
++    qemu_register_reset_nosnapshotload(ppce500_reset_device_tree, p);
+     p->notifier.notify = ppce500_init_notify;
+     qemu_add_machine_init_done_notifier(&p->notifier);
+ 
+-- 
+2.39.2
+

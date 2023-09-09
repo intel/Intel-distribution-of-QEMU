@@ -1,0 +1,30 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/af03aeb631eeb81a44d2c0ff5b429cd4b5dc2799
+From: Richard Henderson <richard.henderson@linaro.org>
+Date: Sun, 20 Aug 2023 19:59:35 -0700
+Subject: target/ppc: Flush inputs to zero with NJ in ppc_store_vscr
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Resolves: https://gitlab.com/qemu-project/qemu/-/issues/1779
+Signed-off-by: Richard Henderson <richard.henderson@linaro.org>
+Reviewed-by: Nicholas Piggin <npiggin@gmail.com>
+Signed-off-by: Cédric Le Goater <clg@kaod.org>
+(cherry picked from commit af03aeb631eeb81a44d2c0ff5b429cd4b5dc2799)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/target/ppc/cpu.c b/target/ppc/cpu.c
+index 424f2e1741..48257f7225 100644
+--- a/target/ppc/cpu.c
++++ b/target/ppc/cpu.c
+@@ -59,6 +59,7 @@ void ppc_store_vscr(CPUPPCState *env, uint32_t vscr)
+     env->vscr_sat.u64[0] = vscr & (1u << VSCR_SAT);
+     env->vscr_sat.u64[1] = 0;
+     set_flush_to_zero((vscr >> VSCR_NJ) & 1, &env->vec_status);
++    set_flush_inputs_to_zero((vscr >> VSCR_NJ) & 1, &env->vec_status);
+ }
+ 
+ uint32_t ppc_get_vscr(CPUPPCState *env)
+-- 
+2.39.2
+
