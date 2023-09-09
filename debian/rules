@@ -11,6 +11,13 @@ export PYTHONDONTWRITEBYTECODE=1
 # we build in a sub-subdir so strip that from file paths too
 export DEB_CFLAGS_MAINT_APPEND = -ffile-prefix-map=../../=
 
+# Disable LTO on non-amd64 builds, see:
+# https://bugs.launchpad.net/ubuntu/+source/qemu/+bug/1921664
+# https://bugzilla.redhat.com/show_bug.cgi?id=1952483
+ifneq ($(DEB_HOST_ARCH),amd64)
+  export DEB_BUILD_MAINT_OPTIONS += optimize=-lto
+endif
+
 # get DEB_VERSION
 include /usr/share/dpkg/pkg-info.mk
 # get CFLAGS LDFLAGS etc
@@ -18,13 +25,6 @@ include /usr/share/dpkg/buildflags.mk
 # Fast version of dpkg/architecture.mk defining all vars in one go
 ifeq (${DEB_HOST_MULTIARCH},)
    $(foreach d, $(shell dpkg-architecture | sed 's/=/?=/'), $(eval export $d))
-endif
-
-# Disable LTO on non-amd64 builds, see:
-# https://bugs.launchpad.net/ubuntu/+source/qemu/+bug/1921664
-# https://bugzilla.redhat.com/show_bug.cgi?id=1952483
-ifneq ($(DEB_HOST_ARCH),amd64)
-  export DEB_BUILD_MAINT_OPTIONS += optimize=-lto
 endif
 
 ifeq ($(shell dpkg-vendor --derives-from Ubuntu && echo yes),yes)
@@ -453,22 +453,40 @@ qemu-builds += $(filter ${BUILD_PACKAGES},qemu-system-for-host)
 .PHONY: $(addprefix configure-, ${qemu-builds}) \
 	$(addprefix build-, ${qemu-builds}) \
 	$(addprefix install-, ${qemu-builds}) \
-	configure-arch build-arch test-qemu
+	configure-arch build-arch test-qemu \
+	pre-install-arch install-arch binary-arch
 configure-arch: $(addprefix configure-, ${qemu-builds})
 build-arch: $(addprefix build-, ${qemu-builds}) \
 	$(if $(findstring nocheck, ${DEB_BUILD_OPTIONS}),, test-qemu)
 
-override_dh_auto_install-arch: $(addprefix install-, ${qemu-builds})
-
-override_dh_installinit:
+pre-install-arch:
+	dh_testroot
+	dh_prep -a
+	dh_installdirs -a
+install-arch: pre-install-arch $(addprefix install-, ${qemu-builds})
+	dh_install -a
+	dh_missing -a
+	dh_installdocs -a
+	dh_installchangelogs -a
+	dh_installman -a
 	dh_installinit -pqemu-guest-agent
-override_dh_installsystemd:
 	dh_installsystemd -pqemu-guest-agent --no-enable
+	dh_installudev -pqemu-guest-agent
 # default-enable /run/qemu mount only on ubuntu,
 # on debian let it be manually controlled and off by default
 	dh_installsystemd -pqemu-block-extra --no-restart-on-upgrade --name=run-qemu.mount \
 		$(if $(filter ${VENDOR},DEBIAN),--no-start --no-enable,)
-execute_after_dh_shlibdeps:
+	dh_lintian -a
+	dh_strip_nondeterminism -a
+	dh_compress -a
+	dh_fixperms -a
+#968670: skip dwz << 0.14 on these arches, remove in bookworm+1
+	v="$$(dwz --version 2>&1 | sed -n 's/^dwz version //p')"; case "$$v" in \
+	  (0.1[0123]) echo "Skipping dwz version $$v on ${DEB_HOST_ARCH}: #968670" ;; \
+	  (*) dh_dwz -a ;; \
+	esac
+	dh_strip -a
+	dh_shlibdeps -a
 ifeq (${enable-linux-user},y)
 # after shlibdeps finished, grab ${shlibs:Depends} from -user package
 # and transform it into Built-Using field for -user-static.
@@ -481,15 +499,8 @@ ifeq (${enable-linux-user},y)
 	  echo "built-using=$$srcs" >> debian/qemu-user-static.substvars ; \
 	fi
 endif
-
-# we do not need these (just a tiny build speedup):
-override_dh_makeshlibs:
-
-override_dh_dwz: #968670: skip dwz << 0.14 on these arches, remove in bookworm+1
-	v="$$(dwz --version 2>&1 | sed -n 's/^dwz version //p')"; case "$$v" in \
-	  (0.1[0123]) echo "Skipping dwz version $$v on ${DEB_HOST_ARCH}: #968670" ;; \
-	  (*) dh_dwz -Nqemu-system-data ;; \
-	esac
+binary-arch: install-arch binary-helper
+binary-arch: a=-a
 
 ##############################################
 ### firmware, qemu-user-data package
@@ -575,7 +586,7 @@ build-qboot: b/qboot/bios.bin
 b/qboot/bios.bin: | b
 	rm -rf b/qboot
 	meson setup roms/qboot b/qboot
-	ninja -C b/qboot
+	ninja -C b/qboot $(if $V,-v)
 install-qboot: b/qboot/bios.bin
 	install -m 0644 $< ${sysdataidir}/qboot.rom
 sysdata-components += qboot
@@ -660,22 +671,6 @@ install-misc: build-misc
 		-D -t ${sysdataidir}
 	install -m 0644 b/misc/petalogix-ml605.dtb b/misc/petalogix-s3adsp1800.dtb \
 		-D -t debian/qemu-system-misc/usr/share/qemu/
-sysdata-components += misc
-
-${sysdataidir}:
-	mkdir -p -m 0755 $@
-b:
-	mkdir -p $@
-
-.PHONY: $(addprefix build-  , ${sysdata-components}) \
-	$(addprefix install-, ${sysdata-components}) \
-	build-indep
-$(addprefix build-  , ${sysdata-components}): | b
-$(addprefix install-, ${sysdata-components}): | ${sysdataidir}
-build-indep: $(addprefix build-, ${sysdata-components})
-
-override_dh_auto_install-indep: $(addprefix install-, ${sysdata-components})
-# qemu-system-data
 # icon for gtk ui
 	install -Dp -m0644 ui/icons/qemu.svg \
 	 -t debian/qemu-system-data/usr/share/icons/hicolor/scalable/apps/
@@ -686,21 +681,46 @@ override_dh_auto_install-indep: $(addprefix install-, ${sysdata-components})
 	 debian/qemu-system-data/usr/share/icons/hicolor/32x32/apps/qemu.bmp
 	install -Dp -m0644 -t debian/qemu-system-data/usr/share/qemu/keymaps/ \
 	 $$(ls -1 pc-bios/keymaps/* | fgrep -v /meson.build)
+sysdata-components += misc
 
-binary-arch binary-indep binary \
-install-arch install-indep install \
-: %:
-	dh $@
+${sysdataidir}:
+	mkdir -p -m 0755 $@
+b:
+	mkdir -p $@
+
+.PHONY: $(addprefix build-  , ${sysdata-components}) \
+	$(addprefix install-, ${sysdata-components}) \
+	build-indep pre-install-indep install-indep binary-indep
+$(addprefix build-  , ${sysdata-components}): | b
+$(addprefix install-, ${sysdata-components}): | ${sysdataidir}
+build-indep: $(addprefix build-, ${sysdata-components})
+pre-install-indep:
+	dh_testroot
+	dh_prep -i
+install-indep: pre-install-indep $(addprefix install-, ${sysdata-components})
+	dh_installdocs -i
+	dh_installchangelogs -i
+	dh_lintian -i
+	dh_compress -i
+	dh_fixperms -i
+binary-indep: install-indep binary-helper
+binary-indep: a=-i
+
 build: build-arch build-indep
+install: install-arch install-indep
+binary: binary-arch binary-indep
+binary-helper:
+	dh_installdeb $a
+	dh_gencontrol $a
+	dh_md5sums $a
+	dh_builddeb $a
 
 clean:	debian/control
 	dh_clean \
 		b/ \
 		configs/devices/x86_64-softmmu/microvm.mak \
 
-.PHONY: build binary-arch binary-indep binary \
-	install-arch install-indep install \
-	clean
+.PHONY: build install binary binary-helper clean
 
 ifneq (,$(wildcard debian/control-in))
 # only include rules for debian/control if debian/control-in is present

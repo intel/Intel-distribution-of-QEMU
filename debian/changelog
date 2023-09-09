@@ -1,3 +1,24 @@
+qemu (1:8.1.0+ds-2) unstable; urgency=medium
+
+  * d/control: fix descriptions of qemu-system-gui and
+    qemu-system-modules-spice packages
+  * update lintian-overrides
+  * d/rules: enable verbose (-v) build for qboot
+  * d/rules: move lto control to where it actually works
+  * d/rules: remove usage of "standard dh sequencer".
+    It has mutliple issues.  To name a few:
+    - it exports CFLAGS &Co which breaks badly when trying to compile
+      bios/firmware code (fixes FTBFS with new -fcf-protection)
+    - it performs multiple recursive calls to d/rules which is
+      slow when make variables are set using $(shell), - annoying
+      when debugging
+    - it hides actual actions being done at install/binary stages
+    - it is confusing in override_dh_foo{,-indep,-arch}
+    - it does just too much unknown magic, - just give the control
+      back.
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 09 Sep 2023 22:37:02 +0300
+
 qemu (1:8.1.0+ds-1) unstable; urgency=medium
 
   * d/changelog: mention closing of #984451, CVE-2021-20255 by 8.1

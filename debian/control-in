@@ -248,7 +248,7 @@ Replaces: qemu-system-common (<< 1:6.1+dfsg-4~)
 Description: QEMU full system emulation binaries (user interface and audio support)
  This package provides local graphical user interface (currently GTK and SDL),
  audio backends and OpenGL display support for full system emulation
- (qemu-system-*) packages.  This package also includes dbus display and
+ (qemu-system-*) packages.  This package also includes D-Bus display and
  audio modules (which depends on opengl).
 
 Package: qemu-system-modules-spice
@@ -261,8 +261,8 @@ Depends: ${misc:Depends}, ${shlibs:Depends},
 Replaces: qemu-system-common (<< 1:8.1.0+ds-1~exp2~)
 Breaks:   qemu-system-common (<< 1:8.1.0+ds-1~exp2~)
 Description: QEMU full system emulation binaries (spice modules)
- This package provides optional spice display (qxl and spice-app) and audio modules
- for QEMU full system emulation (qemu-system-*) packages.
+ This package provides optional spice display (qxl and spice-app) and
+ audio modules for QEMU full system emulation (qemu-system-*) packages.
 
 Package: qemu-system-modules-opengl
 Architecture: :system-arch:

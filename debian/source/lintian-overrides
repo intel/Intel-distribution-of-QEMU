@@ -4,5 +4,9 @@ qemu source: debian-control-has-unusual-field-spacing Replaces *
 qemu source: very-long-line-length-in-source-file *
 qemu source: package-does-not-install-examples *roms/*/examples/*
 # we refer to versioned Provides coming from the same source so it's ok
-qemu source: version-substvar-for-external-package Depends ${binary:Version} qemu-block-extra -> qemu-system-any *
-qemu source: version-substvar-for-external-package Depends ${binary:Version} qemu-system-gui -> qemu-system-any *
+qemu source: version-substvar-for-external-package Depends ${binary:Version} qemu-* -> qemu-system-any *
+# yes we do NOT use dh sequencer.
+# dh exports CFLAGS et all, which breaks firmware compilation badly
+# also, it makes whole thing recursive, uncontrollable and hidden,
+# hence difficult to debug.
+qemu source: no-dh-sequencer [debian/rules]
