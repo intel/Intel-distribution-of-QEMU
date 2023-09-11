@@ -16,6 +16,7 @@ openbios-spelling-endianess.patch
 slof-spelling-seperator.patch
 disable-xen-on-x32.patch
 qemu-img-omit-errno-value-in-error-message.patch
+linux-user-Fixes-for-zero_bss.patch
 stable-staging/target-s390x-Fix-the-ignored-match-case-in-VSTRS.patch
 stable-staging/target-s390x-Use-a-16-bit-immediate-in-VREP.patch
 stable-staging/target-s390x-Fix-VSTL-with-a-large-length.patch

@@ -1,3 +1,23 @@
+qemu (1:8.1.0+ds-4) unstable; urgency=medium
+
+  * d/changelog: fix spelling
+  * +linux-user-Fixes-for-zero_bss.patch: fix linux-user zero_bss bug
+  * many small changes for d/rules
+  * d/rules: split out qemu-user build out out of main qemu build
+    When both system and linux-user builds are enabled, linux-user
+    build is getting features only relevant for system (softmmu)
+    configuration, like linking with liburing, libnuma and other
+    softmmu-only stuff.  So build it separately.
+    This not only makes qemu-user smaller and neater, but it also
+    makes Built-Using field for qemu-user-static (which is generated
+    from Depends field of qemu-user) accurate.
+  * d/qemu-user[-static].docs: use unprocessed .rst doc instead of html
+  * d/rules: check for nocheck in DEB_BUILD_PROFILES too,
+    not only DEB_BUILD_OPTIONS
+  * d/rules, d/control: disable build-time test due to apparent dak bug
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 11 Sep 2023 14:19:32 +0300
+
 qemu (1:8.1.0+ds-3) unstable; urgency=medium
 
   * d/control: split out most of Build-Depends to Build-Depends-Arch, in order
@@ -6,7 +26,7 @@ qemu (1:8.1.0+ds-3) unstable; urgency=medium
     Only very few things left in common Build-Depends.
   * Removing most things from B-D discovered that skiboot includes openssl
     header(s) (!), so add libssl-dev to Build-Depends-Indep.
-  * d/control,d/rules: introduce build profiles to omit bulding some packages
+  * d/control,d/rules: introduce build profiles to omit building some packages
     (mostly debugging aid, to reduce test build run time).
   * d/rules: use ninja directly for various qemu builds
     (non-verbose build now shows errors/warnings nicely)

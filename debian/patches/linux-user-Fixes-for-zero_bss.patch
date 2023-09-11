@@ -1,0 +1,110 @@
+Origin: https://lists.nongnu.org/archive/html/qemu-stable/2023-09/msg00155.html
+From: Richard Henderson <richard.henderson@linaro.org>
+Date: Sat, 9 Sep 2023 11:45:59 -0700
+Subject: linux-user: Fixes for zero_bss
+
+The previous change, 2d385be6152, assumed !PAGE_VALID meant that
+the page would be unmapped by the elf image.  However, since we
+reserved the entire image space via mmap, PAGE_VALID will always
+be set.  Instead, assume PROT_NONE for the same condition.
+
+Furthermore, assume bss is only ever present for writable segments,
+and that there is no page overlap between PT_LOAD segments.
+Instead of an assert, return false to indicate failure.
+
+Cc: qemu-stable@nongnu.org
+Resolves: https://gitlab.com/qemu-project/qemu/-/issues/1854
+Fixes: 2d385be6152 ("linux-user: Do not adjust zero_bss for host page size")
+Signed-off-by: Richard Henderson <richard.henderson@linaro.org>
+---
+ linux-user/elfload.c | 53 +++++++++++++++++++++++++++++++++-----------
+ 1 file changed, 40 insertions(+), 13 deletions(-)
+
+diff --git a/linux-user/elfload.c b/linux-user/elfload.c
+index ac03beb01b..0178f74255 100644
+--- a/linux-user/elfload.c
++++ b/linux-user/elfload.c
+@@ -2217,31 +2217,58 @@ static abi_ulong setup_arg_pages(struct linux_binprm *bprm,
+  * Map and zero the bss.  We need to explicitly zero any fractional pages
+  * after the data section (i.e. bss).  Return false on mapping failure.
+  */
+-static bool zero_bss(abi_ulong start_bss, abi_ulong end_bss, int prot)
++static bool zero_bss(abi_ulong start_bss, abi_ulong end_bss,
++                     int prot, Error **errp)
+ {
+     abi_ulong align_bss;
+ 
++    /* We only expect writable bss; the code segment shouldn't need this. */
++    if (!(prot & PROT_WRITE)) {
++        error_setg(errp, "PT_LOAD with non-writable bss");
++        return false;
++    }
++
+     align_bss = TARGET_PAGE_ALIGN(start_bss);
+     end_bss = TARGET_PAGE_ALIGN(end_bss);
+ 
+     if (start_bss < align_bss) {
+         int flags = page_get_flags(start_bss);
+ 
+-        if (!(flags & PAGE_VALID)) {
+-            /* Map the start of the bss. */
++        if (!(flags & PAGE_BITS)) {
++            /*
++             * The whole address space of the executable was reserved
++             * at the start, therefore all pages will be VALID.
++             * But assuming there are no PROT_NONE PT_LOAD segments,
++             * a PROT_NONE page means no data all bss, and we can
++             * simply extend the new anon mapping back to the start
++             * of the page of bss.
++             */
+             align_bss -= TARGET_PAGE_SIZE;
+-        } else if (flags & PAGE_WRITE) {
+-            /* The page is already mapped writable. */
+-            memset(g2h_untagged(start_bss), 0, align_bss - start_bss);
+         } else {
+-            /* Read-only zeros? */
+-            g_assert_not_reached();
++            /*
++             * The start of the bss shares a page with something.
++             * The only thing that we expect is the data section,
++             * which would already be marked writable.
++             * Overlapping the RX code segment seems malformed.
++             */
++            if (!(flags & PAGE_WRITE)) {
++                error_setg(errp, "PT_LOAD with bss overlapping "
++                           "non-writable page");
++                return false;
++            }
++
++            /* The page is already mapped and writable. */
++            memset(g2h_untagged(start_bss), 0, align_bss - start_bss);
+         }
+     }
+ 
+-    return align_bss >= end_bss ||
+-           target_mmap(align_bss, end_bss - align_bss, prot,
+-                       MAP_FIXED | MAP_PRIVATE | MAP_ANON, -1, 0) != -1;
++    if (align_bss < end_bss &&
++        target_mmap(align_bss, end_bss - align_bss, prot,
++                    MAP_FIXED | MAP_PRIVATE | MAP_ANON, -1, 0) == -1) {
++        error_setg_errno(errp, errno, "Error mapping bss");
++        return false;
++    }
++    return true;
+ }
+ 
+ #if defined(TARGET_ARM)
+@@ -3265,8 +3292,8 @@ static void load_elf_image(const char *image_name, int image_fd,
+ 
+             /* If the load segment requests extra zeros (e.g. bss), map it. */
+             if (vaddr_ef < vaddr_em &&
+-                !zero_bss(vaddr_ef, vaddr_em, elf_prot)) {
+-                goto exit_mmap;
++                !zero_bss(vaddr_ef, vaddr_em, elf_prot, &err)) {
++                goto exit_errmsg;
+             }
+ 
+             /* Find the full program boundaries.  */
+-- 
+2.39.2
+

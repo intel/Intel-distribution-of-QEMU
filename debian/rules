@@ -34,7 +34,7 @@ else
 VENDOR := DEBIAN
 endif
 
-# Architectures we produce packages for.
+# Host architectures we produce packages for.
 # when changing this list, check d/control-in too, if any changes
 # needs to be done for build deps and --enable options.
 system-arch-linux = \
@@ -112,29 +112,6 @@ common_configure_opts  += --cross-prefix=$(DEB_HOST_GNU_TYPE)-
 endif
 
 comma:=,
-
-# list of linux-user targets, from ./configure
-user-targets = \
- i386 x86_64 alpha aarch64 aarch64_be arm armeb cris hexagon hppa \
- loongarch64 m68k microblaze microblazeel \
- mips mipsel mips64 mips64el mipsn32 mipsn32el nios2 or1k \
- ppc ppc64 ppc64le riscv32 riscv64 sh4 sh4eb sparc sparc64 sparc32plus \
- s390x xtensa xtensaeb
-# aliases for missing ${DEB_HOST_ARCH} names in qemu-user:
-user-alias-aarch64 = arm64
-user-alias-arm = armel armhf
-user-alias-loongarch64 = loong64
-user-alias-ppc = powerpc
-user-alias-ppc64le = ppc64el
-user-alias-x86_64 = amd64
-
-# install-user-aliases [-static]
-define install-user-aliases
-$(foreach q,${user-targets}, $(foreach a,${user-alias-$q},\
-	dh_link -p qemu-user$1 usr/bin/qemu-$q$1 usr/bin/qemu-$a$1
-	dh_link -p qemu-user$1 usr/share/man/man1/qemu-$q$1.1 usr/share/man/man1/qemu-$a$1.1
-))
-endef
 
 # qemu-system (softmmu) targets, in multiple packages
 # For each package:
@@ -222,21 +199,21 @@ endef
 sysdata-components :=
 qemu-builds :=
 
-# several builds of qemu binary:
+# several builds of qemu binaries:
 
 ##############################################
-# regular, main system/user and tools build
+# main system and tools build
 configure-qemu: b/qemu/configured
 b/qemu/configured: configure
 	rm -rf b/qemu; mkdir -p b/qemu
 	cd b/qemu && \
-	    ../../configure ${common_configure_opts} --disable-user \
+	    ../../configure ${common_configure_opts} \
 		--$(if ${enable-system},enable,disable)-system \
-		--$(if ${enable-user},enable,disable)-linux-user \
+		--disable-user --disable-linux-user \
 		--enable-tools \
 		--disable-xen \
 		--enable-modules \
-		--enable-module-upgrades \
+		$(if ${enable-system},--enable-module-upgrades) \
 		$(shell sh debian/extract-config-opts \
 		    $(DEB_HOST_ARCH_OS)-$(DEB_HOST_ARCH) debian/control) \
 		${QEMU_CONFIGURE_OPTIONS}
@@ -316,20 +293,6 @@ else  # !enable-system
 
 endif # enable-system
 
-ifeq (${enable-user},y)
-	dh_installdirs -p qemu-user usr/bin usr/share/doc/qemu-user
-	mv -t debian/qemu-user/usr/bin $(patsubst %,debian/tmp/usr/bin/qemu-%,${user-targets})
-	dh_link -p qemu-user $(patsubst %,usr/share/man/man1/qemu-user.1 usr/share/man/man1/qemu-%.1,${user-targets})
-	sed -e 's/qemu\\-user\\-static/qemu\\-user/g' \
-	    -e 's/ (static version)//' \
-	    debian/qemu-user-static.1 > debian/qemu-user/usr/share/man/man1/qemu-user.1
-	$(call install-user-aliases)
-	sed 's|-static||g' debian/qemu-user-static.README.Debian > \
-	    debian/qemu-user/usr/share/doc/qemu-user/README.Debian
-	dh_installdocs -p qemu-user-binfmt --link-doc=qemu-user
-	./debian/binfmt-install qemu-user-binfmt
-endif	# enable-user
-
 qemu-builds += qemu
 
 ##############################################
@@ -343,7 +306,6 @@ b/microvm/configured: configure debian/microvm-devices.mak
 		--extra-cflags="${extra-cflags} -DCONFIG_MICROVM_DEFAULT=1" \
 		--disable-docs \
 		--without-default-features \
-		--disable-user \
 		--target-list=x86_64-softmmu --enable-kvm --disable-tcg \
 		--enable-vnc \
 		--enable-attr --enable-avx2 \
@@ -396,6 +358,65 @@ install-xen: b/xen/built
 	  debian/qemu-system-xen${QEMU_XEN}
 qemu-builds += $(if $(filter qemu-system-xen,${BUILD_PACKAGES}),xen)
 
+##############################
+
+# list of linux-user targets, from configs/targets/*-linux-user.mak
+user-targets = \
+ aarch64 aarch64_be alpha arm armeb cris hexagon hppa i386 loongarch64 \
+ m68k microblaze microblazeel mips mips64 mips64el mipsel mipsn32 mipsn32el \
+ nios2 or1k ppc ppc64 ppc64le riscv32 riscv64 \
+ s390x sh4 sh4eb sparc sparc32plus sparc64 \
+ x86_64 xtensa xtensaeb
+# aliases for missing ${DEB_HOST_ARCH} names in qemu-user:
+user-alias-aarch64 = arm64
+user-alias-arm = armel armhf
+user-alias-loongarch64 = loong64
+user-alias-ppc = powerpc
+user-alias-ppc64le = ppc64el
+user-alias-x86_64 = amd64
+
+# install-user [-static]
+define install-user
+	dh_installdirs -p qemu-user$1 \
+	    usr/bin usr/share/man/man1 usr/share/doc/qemu-user$1
+$(foreach t,${user-targets},\
+	cp -p b/user$1/qemu-$t debian/qemu-user$1/usr/bin/qemu-$t$1
+	ln -sf qemu-user$1.1   debian/qemu-user$1/usr/share/man/man1/qemu-$t$1.1
+$(foreach a,${user-alias-$t},\
+	ln -sf qemu-$t$1   debian/qemu-user$1/usr/bin/qemu-$a$1
+	ln -sf qemu-$t$1.1 debian/qemu-user$1/usr/share/man/man1/qemu-$a$1.1
+))
+endef
+
+##############################################
+# user build
+configure-user: b/user/configured
+b/user/configured: configure
+# do not use debian/configure-opts here, all optional stuff will be enabled
+# automatically, dependencies are already verified in the main build
+	rm -rf b/user; mkdir -p b/user
+	cd b/user && \
+	    ../../configure ${common_configure_opts} \
+		--extra-cflags="${extra-cflags}" \
+		--disable-plugins \
+		--target-list="$(addsuffix -linux-user,${user-targets})"
+	touch $@
+build-user: b/user/built
+b/user/built: b/user/configured
+	# we use this invocation to build just the binaries
+	${NINJA} -C b/user $(addprefix qemu-,${user-targets})
+	touch $@
+install-user: b/user/built
+	$(call install-user,)
+	sed -e 's/qemu\\-user\\-static/qemu\\-user/g' \
+	    -e 's/ (static version)//' \
+	    debian/qemu-user-static.1 > debian/qemu-user/usr/share/man/man1/qemu-user.1
+	sed 's|-static||g' debian/qemu-user-static.README.Debian > \
+	    debian/qemu-user/usr/share/doc/qemu-user/README.Debian
+	dh_installdocs -p qemu-user-binfmt --link-doc=qemu-user
+	./debian/binfmt-install qemu-user-binfmt
+qemu-builds += $(if ${enable-user},user)
+
 ##############################################
 # user-static build
 configure-user-static: b/user-static/configured
@@ -411,7 +432,8 @@ b/user-static/configured: configure
 	cd b/user-static && \
 	    ../../configure ${common_configure_opts} \
 		--extra-cflags="${extra-cflags}$(if $(filter ${DEB_HOST_ARCH},arm64), -fno-pie -no-pie,)" \
-		--static --disable-pie --disable-system --disable-xen \
+		--static --disable-pie \
+		--disable-plugins \
 		--target-list="$(addsuffix -linux-user,${user-targets})"
 	touch $@
 build-user-static: b/user-static/built
@@ -420,14 +442,7 @@ b/user-static/built: b/user-static/configured
 	${NINJA} -C b/user-static $(addprefix qemu-,${user-targets})
 	touch $@
 install-user-static: b/user-static/built
-	dh_installdirs -p qemu-user-static usr/bin usr/share/man/man1
-	for t in ${user-targets}; do \
-	   cp -p b/user-static/qemu-$$t \
-	       debian/qemu-user-static/usr/bin/qemu-$$t-static ; \
-	   ln -s qemu-user-static.1 \
-	       debian/qemu-user-static/usr/share/man/man1/qemu-$$t-static.1 ; \
-	done
-	$(call install-user-aliases,-static)
+	$(call install-user,-static)
 	./debian/binfmt-install qemu-user-static
 qemu-builds += $(if ${enable-user-static},user-static)
 
@@ -461,7 +476,8 @@ qemu-builds += $(filter ${BUILD_PACKAGES},qemu-system-for-host)
 	pre-install-arch install-arch binary-arch
 configure-arch: $(addprefix configure-, ${qemu-builds})
 build-arch: $(addprefix build-, ${qemu-builds}) \
-	$(if $(findstring nocheck, ${DEB_BUILD_OPTIONS}),, test-qemu)
+
+#XXX-cyclic-test-dep-dak-bug	$(if $(findstring nocheck, ${DEB_BUILD_OPTIONS} ${DEB_BUILD_PROFILES}),, test-qemu)
 
 pre-install-arch:
 	dh_testroot

@@ -126,10 +126,10 @@ Build-Depends-Arch:
 ## gio-2.0 - for -display=spice-app
 #
 # the testsuite:
- seabios [:system-arch-linux:] <!nocheck>,
+#XXX-cyclic-test-dep-dak-bug seabios [:system-arch-linux:] <!nocheck>,
 # ipxe-qemu [:system-arch-linux:] <!nocheck>,
 # various firmware files (kvmvapic.bin &Co), older qemu-system-data should work
- qemu-system-data [:system-arch-linux:] <!nocheck>,
+#XXX-cyclic-test-dep-dak-bug qemu-system-data [:system-arch-linux:] <!nocheck>,
 Build-Depends-Indep:
 # pc-bios/*.dts => *.dtb (PPC firmware)
  device-tree-compiler,
