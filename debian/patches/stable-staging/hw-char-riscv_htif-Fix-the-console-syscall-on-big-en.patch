@@ -1,0 +1,50 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/058096f1c55ab688db7e1d6814aaefc1bcd87f7a
+From: Thomas Huth <thuth@redhat.com>
+Date: Fri, 21 Jul 2023 11:47:20 +0200
+Subject: hw/char/riscv_htif: Fix the console syscall on big endian hosts
+
+Values that have been read via cpu_physical_memory_read() from the
+guest's memory have to be swapped in case the host endianess differs
+from the guest.
+
+Fixes: a6e13e31d5 ("riscv_htif: Support console output via proxy syscall")
+Signed-off-by: Thomas Huth <thuth@redhat.com>
+Reviewed-by: Alistair Francis <alistair.francis@wdc.com>
+Reviewed-by: Bin Meng <bmeng@tinylab.org>
+Reviewed-by: Daniel Henrique Barboza <dbarboza@ventanamicro.com>
+Message-Id: <20230721094720.902454-3-thuth@redhat.com>
+Signed-off-by: Alistair Francis <alistair.francis@wdc.com>
+(cherry picked from commit 058096f1c55ab688db7e1d6814aaefc1bcd87f7a)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/hw/char/riscv_htif.c b/hw/char/riscv_htif.c
+index f96df40124..40de6b8b77 100644
+--- a/hw/char/riscv_htif.c
++++ b/hw/char/riscv_htif.c
+@@ -30,6 +30,7 @@
+ #include "qemu/timer.h"
+ #include "qemu/error-report.h"
+ #include "exec/address-spaces.h"
++#include "exec/tswap.h"
+ #include "sysemu/dma.h"
+ 
+ #define RISCV_DEBUG_HTIF 0
+@@ -209,11 +210,11 @@ static void htif_handle_tohost_write(HTIFState *s, uint64_t val_written)
+             } else {
+                 uint64_t syscall[8];
+                 cpu_physical_memory_read(payload, syscall, sizeof(syscall));
+-                if (syscall[0] == PK_SYS_WRITE &&
+-                    syscall[1] == HTIF_DEV_CONSOLE &&
+-                    syscall[3] == HTIF_CONSOLE_CMD_PUTC) {
++                if (tswap64(syscall[0]) == PK_SYS_WRITE &&
++                    tswap64(syscall[1]) == HTIF_DEV_CONSOLE &&
++                    tswap64(syscall[3]) == HTIF_CONSOLE_CMD_PUTC) {
+                     uint8_t ch;
+-                    cpu_physical_memory_read(syscall[2], &ch, 1);
++                    cpu_physical_memory_read(tswap64(syscall[2]), &ch, 1);
+                     qemu_chr_fe_write(&s->chr, &ch, 1);
+                     resp = 0x100 | (uint8_t)payload;
+                 } else {
+-- 
+2.39.2
+

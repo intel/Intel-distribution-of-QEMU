@@ -1,0 +1,48 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/9382a9eafccad8dc6a487ea3a8d2bed03dc35db9
+From: Jason Chien <jason.chien@sifive.com>
+Date: Fri, 28 Jul 2023 08:24:39 +0000
+Subject: hw/intc: Make rtc variable names consistent
+
+The variables whose values are given by cpu_riscv_read_rtc() should be named
+"rtc". The variables whose value are given by cpu_riscv_read_rtc_raw()
+should be named "rtc_r".
+
+Signed-off-by: Jason Chien <jason.chien@sifive.com>
+Reviewed-by: Alistair Francis <alistair.francis@wdc.com>
+Message-ID: <20230728082502.26439-2-jason.chien@sifive.com>
+Signed-off-by: Alistair Francis <alistair.francis@wdc.com>
+(cherry picked from commit 9382a9eafccad8dc6a487ea3a8d2bed03dc35db9)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/hw/intc/riscv_aclint.c b/hw/intc/riscv_aclint.c
+index bf77e29a70..25cf7a5d9d 100644
+--- a/hw/intc/riscv_aclint.c
++++ b/hw/intc/riscv_aclint.c
+@@ -64,13 +64,13 @@ static void riscv_aclint_mtimer_write_timecmp(RISCVAclintMTimerState *mtimer,
+     uint64_t next;
+     uint64_t diff;
+ 
+-    uint64_t rtc_r = cpu_riscv_read_rtc(mtimer);
++    uint64_t rtc = cpu_riscv_read_rtc(mtimer);
+ 
+     /* Compute the relative hartid w.r.t the socket */
+     hartid = hartid - mtimer->hartid_base;
+ 
+     mtimer->timecmp[hartid] = value;
+-    if (mtimer->timecmp[hartid] <= rtc_r) {
++    if (mtimer->timecmp[hartid] <= rtc) {
+         /*
+          * If we're setting an MTIMECMP value in the "past",
+          * immediately raise the timer interrupt
+@@ -81,7 +81,7 @@ static void riscv_aclint_mtimer_write_timecmp(RISCVAclintMTimerState *mtimer,
+ 
+     /* otherwise, set up the future timer interrupt */
+     qemu_irq_lower(mtimer->timer_irqs[hartid]);
+-    diff = mtimer->timecmp[hartid] - rtc_r;
++    diff = mtimer->timecmp[hartid] - rtc;
+     /* back to ns (note args switched in muldiv64) */
+     uint64_t ns_diff = muldiv64(diff, NANOSECONDS_PER_SECOND, timebase_freq);
+ 
+-- 
+2.39.2
+

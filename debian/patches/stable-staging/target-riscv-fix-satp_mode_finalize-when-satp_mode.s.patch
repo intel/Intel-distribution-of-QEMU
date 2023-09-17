@@ -1,0 +1,94 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/3a2fc23563885c219c73c8f24318921daf02f3f2
+From: Daniel Henrique Barboza <dbarboza@ventanamicro.com>
+Date: Thu, 17 Aug 2023 12:29:03 -0300
+Subject: target/riscv: fix satp_mode_finalize() when satp_mode.supported = 0
+
+In the same emulated RISC-V host, the 'host' KVM CPU takes 4 times
+longer to boot than the 'rv64' KVM CPU.
+
+The reason is an unintended behavior of riscv_cpu_satp_mode_finalize()
+when satp_mode.supported = 0, i.e. when cpu_init() does not set
+satp_mode_max_supported(). satp_mode_max_from_map(map) does:
+
+31 - __builtin_clz(map)
+
+This means that, if satp_mode.supported = 0, satp_mode_supported_max
+wil be '31 - 32'. But this is C, so satp_mode_supported_max will gladly
+set it to UINT_MAX (4294967295). After that, if the user didn't set a
+satp_mode, set_satp_mode_default_map(cpu) will make
+
+cfg.satp_mode.map = cfg.satp_mode.supported
+
+So satp_mode.map = 0. And then satp_mode_map_max will be set to
+satp_mode_max_from_map(cpu->cfg.satp_mode.map), i.e. also UINT_MAX. The
+guard "satp_mode_map_max > satp_mode_supported_max" doesn't protect us
+here since both are UINT_MAX.
+
+And finally we have 2 loops:
+
+        for (int i = satp_mode_map_max - 1; i >= 0; --i) {
+
+Which are, in fact, 2 loops from UINT_MAX -1 to -1. This is where the
+extra delay when booting the 'host' CPU is coming from.
+
+Commit 43d1de32f8 already set a precedence for satp_mode.supported = 0
+in a different manner. We're doing the same here. If supported == 0,
+interpret as 'the CPU wants the OS to handle satp mode alone' and skip
+satp_mode_finalize().
+
+We'll also put a guard in satp_mode_max_from_map() to assert out if map
+is 0 since the function is not ready to deal with it.
+
+Cc: Alexandre Ghiti <alexghiti@rivosinc.com>
+Fixes: 6f23aaeb9b ("riscv: Allow user to set the satp mode")
+Signed-off-by: Daniel Henrique Barboza <dbarboza@ventanamicro.com>
+Reviewed-by: Andrew Jones <ajones@ventanamicro.com>
+Message-ID: <20230817152903.694926-1-dbarboza@ventanamicro.com>
+Signed-off-by: Alistair Francis <alistair.francis@wdc.com>
+(cherry picked from commit 3a2fc23563885c219c73c8f24318921daf02f3f2)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/target/riscv/cpu.c b/target/riscv/cpu.c
+index 7b04f10053..e6c54a8bb3 100644
+--- a/target/riscv/cpu.c
++++ b/target/riscv/cpu.c
+@@ -299,6 +299,17 @@ static uint8_t satp_mode_from_str(const char *satp_mode_str)
+ 
+ uint8_t satp_mode_max_from_map(uint32_t map)
+ {
++    /*
++     * 'map = 0' will make us return (31 - 32), which C will
++     * happily overflow to UINT_MAX. There's no good result to
++     * return if 'map = 0' (e.g. returning 0 will be ambiguous
++     * with the result for 'map = 1').
++     *
++     * Assert out if map = 0. Callers will have to deal with
++     * it outside of this function.
++     */
++    g_assert(map > 0);
++
+     /* map here has at least one bit set, so no problem with clz */
+     return 31 - __builtin_clz(map);
+ }
+@@ -1304,9 +1315,15 @@ void riscv_cpu_validate_set_extensions(RISCVCPU *cpu, Error **errp)
+ static void riscv_cpu_satp_mode_finalize(RISCVCPU *cpu, Error **errp)
+ {
+     bool rv32 = riscv_cpu_mxl(&cpu->env) == MXL_RV32;
+-    uint8_t satp_mode_map_max;
+-    uint8_t satp_mode_supported_max =
+-                        satp_mode_max_from_map(cpu->cfg.satp_mode.supported);
++    uint8_t satp_mode_map_max, satp_mode_supported_max;
++
++    /* The CPU wants the OS to decide which satp mode to use */
++    if (cpu->cfg.satp_mode.supported == 0) {
++        return;
++    }
++
++    satp_mode_supported_max =
++                    satp_mode_max_from_map(cpu->cfg.satp_mode.supported);
+ 
+     if (cpu->cfg.satp_mode.map == 0) {
+         if (cpu->cfg.satp_mode.init == 0) {
+-- 
+2.39.2
+

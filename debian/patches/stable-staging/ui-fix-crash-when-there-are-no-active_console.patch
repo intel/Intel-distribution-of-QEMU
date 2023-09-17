@@ -1,0 +1,42 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/48a35e12faf90a896c5aa4755812201e00d60316
+From: =?UTF-8?q?Marc-Andr=C3=A9=20Lureau?= <marcandre.lureau@redhat.com>
+Date: Mon, 11 Sep 2023 18:04:47 +0400
+Subject: ui: fix crash when there are no active_console
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Thread 1 "qemu-system-x86" received signal SIGSEGV, Segmentation fault.
+0x0000555555888630 in dpy_ui_info_supported (con=0x0) at ../ui/console.c:812
+812	    return con->hw_ops->ui_info != NULL;
+(gdb) bt
+#0  0x0000555555888630 in dpy_ui_info_supported (con=0x0) at ../ui/console.c:812
+#1  0x00005555558a44b1 in protocol_client_msg (vs=0x5555578c76c0, data=0x5555581e93f0 <incomplete sequence \373>, len=24) at ../ui/vnc.c:2585
+#2  0x00005555558a19ac in vnc_client_read (vs=0x5555578c76c0) at ../ui/vnc.c:1607
+#3  0x00005555558a1ac2 in vnc_client_io (ioc=0x5555581eb0e0, condition=G_IO_IN, opaque=0x5555578c76c0) at ../ui/vnc.c:1635
+
+Fixes:
+https://issues.redhat.com/browse/RHEL-2600
+
+Signed-off-by: Marc-André Lureau <marcandre.lureau@redhat.com>
+Reviewed-by: Albert Esteve <aesteve@redhat.com>
+(cherry picked from commit 48a35e12faf90a896c5aa4755812201e00d60316)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/ui/console.c b/ui/console.c
+index 8da2170a7e..bca610b72a 100644
+--- a/ui/console.c
++++ b/ui/console.c
+@@ -1818,6 +1818,9 @@ bool dpy_ui_info_supported(QemuConsole *con)
+     if (con == NULL) {
+         con = active_console;
+     }
++    if (con == NULL) {
++        return false;
++    }
+ 
+     return con->hw_ops->ui_info != NULL;
+ }
+-- 
+2.39.2
+

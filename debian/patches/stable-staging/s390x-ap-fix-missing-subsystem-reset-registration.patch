@@ -1,0 +1,33 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/297ec01f0b9864ea8209ca0ddc6643b4c0574bdb
+From: Janosch Frank <frankja@linux.ibm.com>
+Date: Wed, 23 Aug 2023 16:22:15 +0200
+Subject: s390x/ap: fix missing subsystem reset registration
+
+A subsystem reset contains a reset of AP resources which has been
+missing.  Adding the AP bridge to the list of device types that need
+reset fixes this issue.
+
+Reviewed-by: Jason J. Herne <jjherne@linux.ibm.com>
+Reviewed-by: Tony Krowiak <akrowiak@linux.ibm.com>
+Signed-off-by: Janosch Frank <frankja@linux.ibm.com>
+Fixes: a51b3153 ("s390x/ap: base Adjunct Processor (AP) object model")
+Message-ID: <20230823142219.1046522-2-seiden@linux.ibm.com>
+Signed-off-by: Thomas Huth <thuth@redhat.com>
+(cherry picked from commit 297ec01f0b9864ea8209ca0ddc6643b4c0574bdb)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/hw/s390x/s390-virtio-ccw.c b/hw/s390x/s390-virtio-ccw.c
+index 4516d73ff5..4b36c9970e 100644
+--- a/hw/s390x/s390-virtio-ccw.c
++++ b/hw/s390x/s390-virtio-ccw.c
+@@ -109,6 +109,7 @@ static const char *const reset_dev_types[] = {
+     "s390-flic",
+     "diag288",
+     TYPE_S390_PCI_HOST_BRIDGE,
++    TYPE_AP_BRIDGE,
+ };
+ 
+ static void subsystem_reset(void)
+-- 
+2.39.2
+

@@ -1,0 +1,33 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/4cc9f284d5971ecd8055d26ef74c23ef0be8b8f5
+From: LIU Zhiwei <zhiwei_liu@linux.alibaba.com>
+Date: Sat, 29 Jul 2023 11:16:18 +0800
+Subject: target/riscv: Fix page_check_range use in fault-only-first
+
+Commit bef6f008b98(accel/tcg: Return bool from page_check_range) converts
+integer return value to bool type. However, it wrongly converted the use
+of the API in riscv fault-only-first, where page_check_range < = 0, should
+be converted to !page_check_range.
+
+Signed-off-by: LIU Zhiwei <zhiwei_liu@linux.alibaba.com>
+Reviewed-by: Richard Henderson <richard.henderson@linaro.org>
+Message-ID: <20230729031618.821-1-zhiwei_liu@linux.alibaba.com>
+Signed-off-by: Alistair Francis <alistair.francis@wdc.com>
+(cherry picked from commit 4cc9f284d5971ecd8055d26ef74c23ef0be8b8f5)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/target/riscv/vector_helper.c b/target/riscv/vector_helper.c
+index 4d06754826..a059ef3900 100644
+--- a/target/riscv/vector_helper.c
++++ b/target/riscv/vector_helper.c
+@@ -583,7 +583,7 @@ vext_ldff(void *vd, void *v0, target_ulong base,
+                                          cpu_mmu_index(env, false));
+                 if (host) {
+ #ifdef CONFIG_USER_ONLY
+-                    if (page_check_range(addr, offset, PAGE_READ)) {
++                    if (!page_check_range(addr, offset, PAGE_READ)) {
+                         vl = i;
+                         goto ProbeSuccess;
+                     }
+-- 
+2.39.2
+

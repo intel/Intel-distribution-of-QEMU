@@ -1,3 +1,16 @@
+qemu (1:8.1.0+ds-5) unstable; urgency=medium
+
+  * disable softmmu-Use-async_run_on_cpu-in-tcg_commit.patch
+    The change in softmmu-Use-async_run_on_cpu-in-tcg_commit.patch
+    which is a fix for https://gitlab.com/qemu-project/qemu/-/issues/1864
+    (x86 VM with TCG and SMP fails to start on 8.1.0)
+    introduces https://gitlab.com/qemu-project/qemu/-/issues/1866
+  * more patches from stable-staging
+  * re-introduce qemu-debootstrap for now until all users of it will
+    be converted to regular debootstrap
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 17 Sep 2023 19:10:34 +0300
+
 qemu (1:8.1.0+ds-4) unstable; urgency=medium
 
   * d/changelog: fix spelling

@@ -1,0 +1,38 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/ae7d4d625cab49657b9fc2be09d895afb9bcdaf0
+From: LIU Zhiwei <zhiwei_liu@linux.alibaba.com>
+Date: Fri, 11 Aug 2023 13:54:38 +0800
+Subject: linux-user/riscv: Use abi type for target_ucontext
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+We should not use types dependend on host arch for target_ucontext.
+This bug is found when run rv32 applications.
+
+Signed-off-by: LIU Zhiwei <zhiwei_liu@linux.alibaba.com>
+Reviewed-by: Richard Henderson <richard.henderson@linaro.org>
+Reviewed-by: Daniel Henrique Barboza <dbarboza@ventanamicro.com>
+Reviewed-by: Philippe Mathieu-Daudé <philmd@linaro.org>
+Message-ID: <20230811055438.1945-1-zhiwei_liu@linux.alibaba.com>
+Signed-off-by: Alistair Francis <alistair.francis@wdc.com>
+(cherry picked from commit ae7d4d625cab49657b9fc2be09d895afb9bcdaf0)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/linux-user/riscv/signal.c b/linux-user/riscv/signal.c
+index eaa168199a..f989f7f51f 100644
+--- a/linux-user/riscv/signal.c
++++ b/linux-user/riscv/signal.c
+@@ -38,8 +38,8 @@ struct target_sigcontext {
+ }; /* cf. riscv-linux:arch/riscv/include/uapi/asm/ptrace.h */
+ 
+ struct target_ucontext {
+-    unsigned long uc_flags;
+-    struct target_ucontext *uc_link;
++    abi_ulong uc_flags;
++    abi_ptr uc_link;
+     target_stack_t uc_stack;
+     target_sigset_t uc_sigmask;
+     uint8_t   __unused[1024 / 8 - sizeof(target_sigset_t)];
+-- 
+2.39.2
+

@@ -1,0 +1,38 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/4e3adce1244e1ca30ec05874c3eca14911dc0825
+From: Leon Schuermann <leons@opentitan.org>
+Date: Tue, 29 Aug 2023 17:50:46 -0400
+Subject: target/riscv/pmp.c: respect mseccfg.RLB for pmpaddrX changes
+
+When the rule-lock bypass (RLB) bit is set in the mseccfg CSR, the PMP
+configuration lock bits must not apply. While this behavior is
+implemented for the pmpcfgX CSRs, this bit is not respected for
+changes to the pmpaddrX CSRs. This patch ensures that pmpaddrX CSR
+writes work even on locked regions when the global rule-lock bypass is
+enabled.
+
+Signed-off-by: Leon Schuermann <leons@opentitan.org>
+Reviewed-by: Mayuresh Chitale <mchitale@ventanamicro.com>
+Reviewed-by: Alistair Francis <alistair.francis@wdc.com>
+Message-ID: <20230829215046.1430463-1-leon@is.currently.online>
+Signed-off-by: Alistair Francis <alistair.francis@wdc.com>
+(cherry picked from commit 4e3adce1244e1ca30ec05874c3eca14911dc0825)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/target/riscv/pmp.c b/target/riscv/pmp.c
+index 9d8db493e6..5e60c26031 100644
+--- a/target/riscv/pmp.c
++++ b/target/riscv/pmp.c
+@@ -44,6 +44,10 @@ static inline uint8_t pmp_get_a_field(uint8_t cfg)
+  */
+ static inline int pmp_is_locked(CPURISCVState *env, uint32_t pmp_index)
+ {
++    /* mseccfg.RLB is set */
++    if (MSECCFG_RLB_ISSET(env)) {
++        return 0;
++    }
+ 
+     if (env->pmp_state.pmp[pmp_index].cfg_reg & PMP_LOCK) {
+         return 1;
+-- 
+2.39.2
+

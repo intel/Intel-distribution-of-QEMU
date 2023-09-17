@@ -1,0 +1,103 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/a7c272df82af11c568ea83921b04334791dccd5e
+From: Akihiko Odaki <akihiko.odaki@daynix.com>
+Date: Fri, 18 Aug 2023 12:40:58 +0900
+Subject: target/riscv: Allocate itrigger timers only once
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+riscv_trigger_init() had been called on reset events that can happen
+several times for a CPU and it allocated timers for itrigger. If old
+timers were present, they were simply overwritten by the new timers,
+resulting in a memory leak.
+
+Divide riscv_trigger_init() into two functions, namely
+riscv_trigger_realize() and riscv_trigger_reset() and call them in
+appropriate timing. The timer allocation will happen only once for a
+CPU in riscv_trigger_realize().
+
+Fixes: 5a4ae64cac ("target/riscv: Add itrigger support when icount is enabled")
+Signed-off-by: Akihiko Odaki <akihiko.odaki@daynix.com>
+Reviewed-by: Philippe Mathieu-Daudé <philmd@linaro.org>
+Reviewed-by: LIU Zhiwei <zhiwei_liu@linux.alibaba.com>
+Reviewed-by: Alistair Francis <alistair.francis@wdc.com>
+Message-ID: <20230818034059.9146-1-akihiko.odaki@daynix.com>
+Signed-off-by: Alistair Francis <alistair.francis@wdc.com>
+(cherry picked from commit a7c272df82af11c568ea83921b04334791dccd5e)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/target/riscv/cpu.c b/target/riscv/cpu.c
+index e6c54a8bb3..400c29f658 100644
+--- a/target/riscv/cpu.c
++++ b/target/riscv/cpu.c
+@@ -916,7 +916,7 @@ static void riscv_cpu_reset_hold(Object *obj)
+ 
+ #ifndef CONFIG_USER_ONLY
+     if (cpu->cfg.debug) {
+-        riscv_trigger_init(env);
++        riscv_trigger_reset_hold(env);
+     }
+ 
+     if (kvm_enabled()) {
+@@ -1491,6 +1491,12 @@ static void riscv_cpu_realize(DeviceState *dev, Error **errp)
+ 
+     riscv_cpu_register_gdb_regs_for_features(cs);
+ 
++#ifndef CONFIG_USER_ONLY
++    if (cpu->cfg.debug) {
++        riscv_trigger_realize(&cpu->env);
++    }
++#endif
++
+     qemu_init_vcpu(cs);
+     cpu_reset(cs);
+ 
+diff --git a/target/riscv/debug.c b/target/riscv/debug.c
+index 75ee1c4971..ddd46b2d3e 100644
+--- a/target/riscv/debug.c
++++ b/target/riscv/debug.c
+@@ -903,7 +903,17 @@ bool riscv_cpu_debug_check_watchpoint(CPUState *cs, CPUWatchpoint *wp)
+     return false;
+ }
+ 
+-void riscv_trigger_init(CPURISCVState *env)
++void riscv_trigger_realize(CPURISCVState *env)
++{
++    int i;
++
++    for (i = 0; i < RV_MAX_TRIGGERS; i++) {
++        env->itrigger_timer[i] = timer_new_ns(QEMU_CLOCK_VIRTUAL,
++                                              riscv_itrigger_timer_cb, env);
++    }
++}
++
++void riscv_trigger_reset_hold(CPURISCVState *env)
+ {
+     target_ulong tdata1 = build_tdata1(env, TRIGGER_TYPE_AD_MATCH, 0, 0);
+     int i;
+@@ -928,7 +938,6 @@ void riscv_trigger_init(CPURISCVState *env)
+         env->tdata3[i] = 0;
+         env->cpu_breakpoint[i] = NULL;
+         env->cpu_watchpoint[i] = NULL;
+-        env->itrigger_timer[i] = timer_new_ns(QEMU_CLOCK_VIRTUAL,
+-                                              riscv_itrigger_timer_cb, env);
++        timer_del(env->itrigger_timer[i]);
+     }
+ }
+diff --git a/target/riscv/debug.h b/target/riscv/debug.h
+index c471748d5a..5794aa6ee5 100644
+--- a/target/riscv/debug.h
++++ b/target/riscv/debug.h
+@@ -143,7 +143,8 @@ void riscv_cpu_debug_excp_handler(CPUState *cs);
+ bool riscv_cpu_debug_check_breakpoint(CPUState *cs);
+ bool riscv_cpu_debug_check_watchpoint(CPUState *cs, CPUWatchpoint *wp);
+ 
+-void riscv_trigger_init(CPURISCVState *env);
++void riscv_trigger_realize(CPURISCVState *env);
++void riscv_trigger_reset_hold(CPURISCVState *env);
+ 
+ bool riscv_itrigger_enabled(CPURISCVState *env);
+ void riscv_itrigger_update_priv(CPURISCVState *env);
+-- 
+2.39.2
+

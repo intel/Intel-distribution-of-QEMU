@@ -1,0 +1,46 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/e0922b73baf00c4c19d4ad30d09bb94f7ffea0f4
+From: Jason Chien <jason.chien@sifive.com>
+Date: Fri, 28 Jul 2023 08:24:38 +0000
+Subject: hw/intc: Fix upper/lower mtime write calculation
+
+When writing the upper mtime, we should keep the original lower mtime
+whose value is given by cpu_riscv_read_rtc() instead of
+cpu_riscv_read_rtc_raw(). The same logic applies to writes to lower mtime.
+
+Signed-off-by: Jason Chien <jason.chien@sifive.com>
+Reviewed-by: Alistair Francis <alistair.francis@wdc.com>
+Message-ID: <20230728082502.26439-1-jason.chien@sifive.com>
+Signed-off-by: Alistair Francis <alistair.francis@wdc.com>
+(cherry picked from commit e0922b73baf00c4c19d4ad30d09bb94f7ffea0f4)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/hw/intc/riscv_aclint.c b/hw/intc/riscv_aclint.c
+index b466a6abaf..bf77e29a70 100644
+--- a/hw/intc/riscv_aclint.c
++++ b/hw/intc/riscv_aclint.c
+@@ -208,11 +208,12 @@ static void riscv_aclint_mtimer_write(void *opaque, hwaddr addr,
+         return;
+     } else if (addr == mtimer->time_base || addr == mtimer->time_base + 4) {
+         uint64_t rtc_r = cpu_riscv_read_rtc_raw(mtimer->timebase_freq);
++        uint64_t rtc = cpu_riscv_read_rtc(mtimer);
+ 
+         if (addr == mtimer->time_base) {
+             if (size == 4) {
+                 /* time_lo for RV32/RV64 */
+-                mtimer->time_delta = ((rtc_r & ~0xFFFFFFFFULL) | value) - rtc_r;
++                mtimer->time_delta = ((rtc & ~0xFFFFFFFFULL) | value) - rtc_r;
+             } else {
+                 /* time for RV64 */
+                 mtimer->time_delta = value - rtc_r;
+@@ -220,7 +221,7 @@ static void riscv_aclint_mtimer_write(void *opaque, hwaddr addr,
+         } else {
+             if (size == 4) {
+                 /* time_hi for RV32/RV64 */
+-                mtimer->time_delta = (value << 32 | (rtc_r & 0xFFFFFFFF)) - rtc_r;
++                mtimer->time_delta = (value << 32 | (rtc & 0xFFFFFFFF)) - rtc_r;
+             } else {
+                 qemu_log_mask(LOG_GUEST_ERROR,
+                               "aclint-mtimer: invalid time_hi write: %08x",
+-- 
+2.39.2
+

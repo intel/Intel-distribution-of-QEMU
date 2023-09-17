@@ -1,0 +1,32 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/50f9464962fb41f04fd5f42e7ee2cb60942aba89
+From: Daniel Henrique Barboza <dbarboza@ventanamicro.com>
+Date: Thu, 20 Jul 2023 10:24:23 -0300
+Subject: target/riscv/cpu.c: add zmmul isa string
+
+zmmul was promoted from experimental to ratified in commit 6d00ffad4e95.
+Add a riscv,isa string for it.
+
+Fixes: 6d00ffad4e95 ("target/riscv: move zmmul out of the experimental properties")
+Signed-off-by: Daniel Henrique Barboza <dbarboza@ventanamicro.com>
+Reviewed-by: Weiwei Li <liweiwei@iscas.ac.cn>
+Reviewed-by: Alistair Francis <alistair.francis@wdc.com>
+Message-Id: <20230720132424.371132-2-dbarboza@ventanamicro.com>
+Signed-off-by: Alistair Francis <alistair.francis@wdc.com>
+(cherry picked from commit 50f9464962fb41f04fd5f42e7ee2cb60942aba89)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/target/riscv/cpu.c b/target/riscv/cpu.c
+index 6b93b04453..7b04f10053 100644
+--- a/target/riscv/cpu.c
++++ b/target/riscv/cpu.c
+@@ -88,6 +88,7 @@ static const struct isa_ext_data isa_edata_arr[] = {
+     ISA_EXT_DATA_ENTRY(zicsr, PRIV_VERSION_1_10_0, ext_icsr),
+     ISA_EXT_DATA_ENTRY(zifencei, PRIV_VERSION_1_10_0, ext_ifencei),
+     ISA_EXT_DATA_ENTRY(zihintpause, PRIV_VERSION_1_10_0, ext_zihintpause),
++    ISA_EXT_DATA_ENTRY(zmmul, PRIV_VERSION_1_12_0, ext_zmmul),
+     ISA_EXT_DATA_ENTRY(zawrs, PRIV_VERSION_1_12_0, ext_zawrs),
+     ISA_EXT_DATA_ENTRY(zfa, PRIV_VERSION_1_12_0, ext_zfa),
+     ISA_EXT_DATA_ENTRY(zfbfmin, PRIV_VERSION_1_12_0, ext_zfbfmin),
+-- 
+2.39.2
+

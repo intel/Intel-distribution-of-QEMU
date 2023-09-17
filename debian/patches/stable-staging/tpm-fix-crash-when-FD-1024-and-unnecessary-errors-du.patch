@@ -1,0 +1,55 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/8e32ddff69b6b4547cc00592ad816484e160817a
+From: =?UTF-8?q?Marc-Andr=C3=A9=20Lureau?= <marcandre.lureau@redhat.com>
+Date: Mon, 11 Sep 2023 17:25:51 +0400
+Subject: tpm: fix crash when FD >= 1024 and unnecessary errors due to EINTR
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Replace select() with poll() to fix a crash when QEMU has a large number
+of FDs. Also use RETRY_ON_EINTR to avoid unnecessary errors due to EINTR.
+
+Cc: qemu-stable@nongnu.org
+Fixes: https://bugzilla.redhat.com/show_bug.cgi?id=2020133
+Fixes: 56a3c24ffc ("tpm: Probe for connected TPM 1.2 or TPM 2")
+Signed-off-by: Marc-André Lureau <marcandre.lureau@redhat.com>
+Reviewed-by: Michael Tokarev <mjt@tls.msk.ru>
+Reviewed-by: Stefan Berger <stefanb@linux.ibm.com>
+Signed-off-by: Stefan Berger <stefanb@linux.ibm.com>
+(cherry picked from commit 8e32ddff69b6b4547cc00592ad816484e160817a)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/backends/tpm/tpm_util.c b/backends/tpm/tpm_util.c
+index a6e6d3e72f..1856589c3b 100644
+--- a/backends/tpm/tpm_util.c
++++ b/backends/tpm/tpm_util.c
+@@ -112,12 +112,8 @@ static int tpm_util_request(int fd,
+                             void *response,
+                             size_t responselen)
+ {
+-    fd_set readfds;
++    GPollFD fds[1] = { {.fd = fd, .events = G_IO_IN } };
+     int n;
+-    struct timeval tv = {
+-        .tv_sec = 1,
+-        .tv_usec = 0,
+-    };
+ 
+     n = write(fd, request, requestlen);
+     if (n < 0) {
+@@ -127,11 +123,8 @@ static int tpm_util_request(int fd,
+         return -EFAULT;
+     }
+ 
+-    FD_ZERO(&readfds);
+-    FD_SET(fd, &readfds);
+-
+     /* wait for a second */
+-    n = select(fd + 1, &readfds, NULL, NULL, &tv);
++    n = RETRY_ON_EINTR(g_poll(fds, 1, 1000));
+     if (n != 1) {
+         return -errno;
+     }
+-- 
+2.39.2
+

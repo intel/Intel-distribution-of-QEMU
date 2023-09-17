@@ -1,0 +1,43 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/eda633a534f8af4abe3a88731bba6dacdb973993
+From: LIU Zhiwei <zhiwei_liu@linux.alibaba.com>
+Date: Fri, 28 Jul 2023 08:39:06 +0800
+Subject: target/riscv: Fix zfa fleq.d and fltq.d
+
+Commit a47842d ("riscv: Add support for the Zfa extension") implemented the zfa extension.
+However, it has some typos for fleq.d and fltq.d. Both of them misused the fltq.s
+helper function.
+
+Fixes: a47842d ("riscv: Add support for the Zfa extension")
+Signed-off-by: LIU Zhiwei <zhiwei_liu@linux.alibaba.com>
+Reviewed-by: Daniel Henrique Barboza <dbarboza@ventanamicro.com>
+Reviewed-by: Weiwei Li <liweiwei@iscas.ac.cn>
+Message-ID: <20230728003906.768-1-zhiwei_liu@linux.alibaba.com>
+Signed-off-by: Alistair Francis <alistair.francis@wdc.com>
+(cherry picked from commit eda633a534f8af4abe3a88731bba6dacdb973993)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/target/riscv/insn_trans/trans_rvzfa.c.inc b/target/riscv/insn_trans/trans_rvzfa.c.inc
+index 2c715af3e5..0fdd2698f6 100644
+--- a/target/riscv/insn_trans/trans_rvzfa.c.inc
++++ b/target/riscv/insn_trans/trans_rvzfa.c.inc
+@@ -470,7 +470,7 @@ bool trans_fleq_d(DisasContext *ctx, arg_fleq_d *a)
+     TCGv_i64 src1 = get_fpr_hs(ctx, a->rs1);
+     TCGv_i64 src2 = get_fpr_hs(ctx, a->rs2);
+ 
+-    gen_helper_fltq_s(dest, cpu_env, src1, src2);
++    gen_helper_fleq_d(dest, cpu_env, src1, src2);
+     gen_set_gpr(ctx, a->rd, dest);
+     return true;
+ }
+@@ -485,7 +485,7 @@ bool trans_fltq_d(DisasContext *ctx, arg_fltq_d *a)
+     TCGv_i64 src1 = get_fpr_hs(ctx, a->rs1);
+     TCGv_i64 src2 = get_fpr_hs(ctx, a->rs2);
+ 
+-    gen_helper_fltq_s(dest, cpu_env, src1, src2);
++    gen_helper_fltq_d(dest, cpu_env, src1, src2);
+     gen_set_gpr(ctx, a->rd, dest);
+     return true;
+ }
+-- 
+2.39.2
+

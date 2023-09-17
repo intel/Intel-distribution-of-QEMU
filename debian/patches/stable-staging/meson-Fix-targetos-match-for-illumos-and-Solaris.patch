@@ -1,0 +1,46 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/fb0a8b0e238277296907ffe765bf76874cfc1df6
+From: Jonathan Perkin <jonathan@perkin.org.uk>
+Date: Fri, 8 Sep 2023 18:45:42 +0100
+Subject: meson: Fix targetos match for illumos and Solaris.
+
+qemu 8.1.0 breaks on illumos platforms due to _XOPEN_SOURCE and others no longer being set correctly, leading to breakage such as:
+
+  https://us-central.manta.mnx.io/pkgsrc/public/reports/trunk/tools/20230908.1404/qemu-8.1.0/build.log
+
+This is a result of meson conversion which incorrectly matches against 'solaris' instead of 'sunos' for uname.
+
+First time submitting a patch here, hope I did it correctly.  Thanks.
+
+Signed-off-by: Jonathan Perkin <jonathan@perkin.org.uk>
+Message-ID: <ZPtdxtum9UVPy58J@perkin.org.uk>
+Cc: qemu-stable@nongnu.org
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit fb0a8b0e238277296907ffe765bf76874cfc1df6)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+(Mjt: omit net/meson.build change before v8.1.0-279-g73258b3864, adjust context befor v8.1.0-288-g2fc36530de)
+
+diff --git a/meson.build b/meson.build
+index 98e68ef0b1..912c7e7847 100644
+--- a/meson.build
++++ b/meson.build
+@@ -225,7 +225,7 @@ if targetos == 'darwin'
+   # Disable attempts to use ObjectiveC features in os/object.h since they
+   # won't work when we're compiling with gcc as a C compiler.
+   qemu_common_flags += '-DOS_OBJECT_USE_OBJC=0'
+-elif targetos == 'solaris'
++elif targetos == 'sunos'
+   # needed for CMSG_ macros in sys/socket.h
+   qemu_common_flags += '-D_XOPEN_SOURCE=600'
+   # needed for TIOCWIN* defines in termios.h
+@@ -2056,7 +2056,7 @@ have_slirp_smbd = get_option('slirp_smbd') \
+ if have_slirp_smbd
+   smbd_path = get_option('smbd')
+   if smbd_path == ''
+-    smbd_path = (targetos == 'solaris' ? '/usr/sfw/sbin/smbd' : '/usr/sbin/smbd')
++    smbd_path = (targetos == 'sunos' ? '/usr/sfw/sbin/smbd' : '/usr/sbin/smbd')
+   endif
+   config_host_data.set_quoted('CONFIG_SMBD_COMMAND', smbd_path)
+ endif
+-- 
+2.39.2
+

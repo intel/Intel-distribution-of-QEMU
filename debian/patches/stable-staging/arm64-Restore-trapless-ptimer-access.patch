@@ -1,0 +1,50 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/682814e2a3c883b27f24b9e7cab47313c49acbd4
+From: Colton Lewis <coltonlewis@google.com>
+Date: Thu, 31 Aug 2023 19:00:52 +0000
+Subject: arm64: Restore trapless ptimer access
+
+Due to recent KVM changes, QEMU is setting a ptimer offset resulting
+in unintended trap and emulate access and a consequent performance
+hit. Filter out the PTIMER_CNT register to restore trapless ptimer
+access.
+
+Quoting Andrew Jones:
+
+Simply reading the CNT register and writing back the same value is
+enough to set an offset, since the timer will have certainly moved
+past whatever value was read by the time it's written.  QEMU
+frequently saves and restores all registers in the get-reg-list array,
+unless they've been explicitly filtered out (with Linux commit
+680232a94c12, KVM_REG_ARM_PTIMER_CNT is now in the array). So, to
+restore trapless ptimer accesses, we need a QEMU patch to filter out
+the register.
+
+See
+https://lore.kernel.org/kvmarm/gsntttsonus5.fsf@coltonlewis-kvm.c.googlers.com/T/#m0770023762a821db2a3f0dd0a7dc6aa54e0d0da9
+for additional context.
+
+Cc: qemu-stable@nongnu.org
+Signed-off-by: Andrew Jones <andrew.jones@linux.dev>
+Signed-off-by: Colton Lewis <coltonlewis@google.com>
+Reviewed-by: Richard Henderson <richard.henderson@linaro.org>
+Tested-by: Colton Lewis <coltonlewis@google.com>
+Message-id: 20230831190052.129045-1-coltonlewis@google.com
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+(cherry picked from commit 682814e2a3c883b27f24b9e7cab47313c49acbd4)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/target/arm/kvm64.c b/target/arm/kvm64.c
+index 94bbd9661f..f89ea31f17 100644
+--- a/target/arm/kvm64.c
++++ b/target/arm/kvm64.c
+@@ -674,6 +674,7 @@ typedef struct CPRegStateLevel {
+  */
+ static const CPRegStateLevel non_runtime_cpregs[] = {
+     { KVM_REG_ARM_TIMER_CNT, KVM_PUT_FULL_STATE },
++    { KVM_REG_ARM_PTIMER_CNT, KVM_PUT_FULL_STATE },
+ };
+ 
+ int kvm_arm_cpreg_level(uint64_t regidx)
+-- 
+2.39.2
+

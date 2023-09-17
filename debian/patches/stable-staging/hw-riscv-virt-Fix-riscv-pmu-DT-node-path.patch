@@ -1,0 +1,38 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/9ff31406312500053ecb5f92df01dd9ce52e635d
+From: Conor Dooley <conor.dooley@microchip.com>
+Date: Thu, 27 Jul 2023 15:24:17 +0100
+Subject: hw/riscv: virt: Fix riscv,pmu DT node path
+
+On a dtb dumped from the virt machine, dt-validate complains:
+soc: pmu: {'riscv,event-to-mhpmcounters': [[1, 1, 524281], [2, 2, 524284], [65561, 65561, 524280], [65563, 65563, 524280], [65569, 65569, 524280]], 'compatible': ['riscv,pmu']} should not be valid under {'type': 'object'}
+        from schema $id: http://devicetree.org/schemas/simple-bus.yaml#
+That's pretty cryptic, but running the dtb back through dtc produces
+something a lot more reasonable:
+Warning (simple_bus_reg): /soc/pmu: missing or empty reg/ranges property
+
+Moving the riscv,pmu node out of the soc bus solves the problem.
+
+Signed-off-by: Conor Dooley <conor.dooley@microchip.com>
+Acked-by: Alistair Francis <alistair.francis@wdc.com>
+Reviewed-by: Daniel Henrique Barboza <dbarboza@ventanamicro.com>
+Message-ID: <20230727-groom-decline-2c57ce42841c@spud>
+Signed-off-by: Alistair Francis <alistair.francis@wdc.com>
+(cherry picked from commit 9ff31406312500053ecb5f92df01dd9ce52e635d)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/hw/riscv/virt.c b/hw/riscv/virt.c
+index 99c4e6314b..505a36dff6 100644
+--- a/hw/riscv/virt.c
++++ b/hw/riscv/virt.c
+@@ -732,7 +732,7 @@ static void create_fdt_pmu(RISCVVirtState *s)
+     MachineState *ms = MACHINE(s);
+     RISCVCPU hart = s->soc[0].harts[0];
+ 
+-    pmu_name = g_strdup_printf("/soc/pmu");
++    pmu_name = g_strdup_printf("/pmu");
+     qemu_fdt_add_subnode(ms->fdt, pmu_name);
+     qemu_fdt_setprop_string(ms->fdt, pmu_name, "compatible", "riscv,pmu");
+     riscv_pmu_generate_fdt_node(ms->fdt, hart.cfg.pmu_num, pmu_name);
+-- 
+2.39.2
+

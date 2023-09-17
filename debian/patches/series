@@ -28,7 +28,12 @@ stable-staging/target-arm-Fix-SME-ST1Q.patch
 stable-staging/target-arm-Fix-64-bit-SSRA.patch
 stable-staging/docs-about-license-Update-LICENSE-URL.patch
 stable-staging/softmmu-Assert-data-in-bounds-in-iotlb_to_section.patch
-stable-staging/softmmu-Use-async_run_on_cpu-in-tcg_commit.patch
+#
+# this is a fix for https://gitlab.com/qemu-project/qemu/-/issues/1864
+# (x86 VM with TCG and SMP fails to start on 8.1.0)
+# which introduces https://gitlab.com/qemu-project/qemu/-/issues/1866
+# comment it out for now
+#stable-staging/softmmu-Use-async_run_on_cpu-in-tcg_commit.patch
 stable-staging/block-migration-Ensure-we-don-t-crash-during-migrati.patch
 stable-staging/target-arm-properly-document-FEAT_CRC32.patch
 stable-staging/linux-user-Adjust-brk-for-load_bias.patch
@@ -51,3 +56,22 @@ stable-staging/qemu-options.hx-Rephrase-the-descriptions-of-the-hd-.patch
 stable-staging/docs-tests-Fix-use-of-migrate_set_parameter.patch
 stable-staging/hw-net-vmxnet3-Fix-guest-triggerable-assert.patch
 stable-staging/qxl-don-t-assert-if-device-isn-t-yet-initialized.patch
+stable-staging/virtio-Drop-out-of-coroutine-context-in-virtio_load.patch
+stable-staging/arm64-Restore-trapless-ptimer-access.patch
+stable-staging/hw-char-riscv_htif-Fix-printing-of-console-character.patch
+stable-staging/hw-char-riscv_htif-Fix-the-console-syscall-on-big-en.patch
+stable-staging/target-riscv-cpu.c-add-zmmul-isa-string.patch
+stable-staging/target-riscv-Fix-page_check_range-use-in-fault-only-.patch
+stable-staging/target-riscv-Fix-zfa-fleq.d-and-fltq.d.patch
+stable-staging/hw-intc-Fix-upper-lower-mtime-write-calculation.patch
+stable-staging/hw-intc-Make-rtc-variable-names-consistent.patch
+stable-staging/linux-user-riscv-Use-abi-type-for-target_ucontext.patch
+stable-staging/hw-riscv-virt-Fix-riscv-pmu-DT-node-path.patch
+stable-staging/target-riscv-fix-satp_mode_finalize-when-satp_mode.s.patch
+stable-staging/target-riscv-pmp.c-respect-mseccfg.RLB-for-pmpaddrX-.patch
+stable-staging/target-riscv-Allocate-itrigger-timers-only-once.patch
+stable-staging/virtio-gpu-win32-set-the-destroy-function-on-load.patch
+stable-staging/ui-fix-crash-when-there-are-no-active_console.patch
+stable-staging/s390x-ap-fix-missing-subsystem-reset-registration.patch
+stable-staging/meson-Fix-targetos-match-for-illumos-and-Solaris.patch
+stable-staging/tpm-fix-crash-when-FD-1024-and-unnecessary-errors-du.patch

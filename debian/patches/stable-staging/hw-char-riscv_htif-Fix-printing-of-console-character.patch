@@ -1,0 +1,43 @@
+Origin: https://gitlab.com/qemu-project/qemu/-/commit/c255946e3df4d9660e4f468a456633c24393d468
+From: Thomas Huth <thuth@redhat.com>
+Date: Fri, 21 Jul 2023 11:47:19 +0200
+Subject: hw/char/riscv_htif: Fix printing of console characters on big endian hosts
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The character that should be printed is stored in the 64 bit "payload"
+variable. The code currently tries to print it by taking the address
+of the variable and passing this pointer to qemu_chr_fe_write(). However,
+this only works on little endian hosts where the least significant bits
+are stored on the lowest address. To do this in a portable way, we have
+to store the value in an uint8_t variable instead.
+
+Fixes: 5033606780 ("RISC-V HTIF Console")
+Signed-off-by: Thomas Huth <thuth@redhat.com>
+Reviewed-by: Alistair Francis <alistair.francis@wdc.com>
+Reviewed-by: Bin Meng <bmeng@tinylab.org>
+Reviewed-by: Daniel Henrique Barboza <dbarboza@ventanamicro.com>
+Reviewed-by: Philippe Mathieu-Daudé <philmd@linaro.org>
+Message-Id: <20230721094720.902454-2-thuth@redhat.com>
+Signed-off-by: Alistair Francis <alistair.francis@wdc.com>
+(cherry picked from commit c255946e3df4d9660e4f468a456633c24393d468)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/hw/char/riscv_htif.c b/hw/char/riscv_htif.c
+index 37d3ccc76b..f96df40124 100644
+--- a/hw/char/riscv_htif.c
++++ b/hw/char/riscv_htif.c
+@@ -232,7 +232,8 @@ static void htif_handle_tohost_write(HTIFState *s, uint64_t val_written)
+             s->tohost = 0; /* clear to indicate we read */
+             return;
+         } else if (cmd == HTIF_CONSOLE_CMD_PUTC) {
+-            qemu_chr_fe_write(&s->chr, (uint8_t *)&payload, 1);
++            uint8_t ch = (uint8_t)payload;
++            qemu_chr_fe_write(&s->chr, &ch, 1);
+             resp = 0x100 | (uint8_t)payload;
+         } else {
+             qemu_log("HTIF device %d: unknown command\n", device);
+-- 
+2.39.2
+
