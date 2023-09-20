@@ -1,0 +1,44 @@
+From 48e5f093fc3cfa06914b5fb3a12babd2dcefa08b Mon Sep 17 00:00:00 2001
+From: Richard Henderson <richard.henderson@linaro.org>
+Date: Thu, 14 Sep 2023 10:44:31 -0700
+Subject: [PATCH 1/7] accel/tcg: Avoid load of icount_decr if unused
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+With CF_NOIRQ and without !CF_USE_ICOUNT, the load isn't used.
+Avoid emitting it.
+
+Signed-off-by: Richard Henderson <richard.henderson@linaro.org>
+Reviewed-by: Philippe Mathieu-Daudé <philmd@linaro.org>
+---
+ accel/tcg/translator.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/accel/tcg/translator.c b/accel/tcg/translator.c
+index 1a6a5448c8..a3983019a5 100644
+--- a/accel/tcg/translator.c
++++ b/accel/tcg/translator.c
+@@ -49,12 +49,15 @@ bool translator_io_start(DisasContextBase *db)
+ 
+ static TCGOp *gen_tb_start(uint32_t cflags)
+ {
+-    TCGv_i32 count = tcg_temp_new_i32();
++    TCGv_i32 count = NULL;
+     TCGOp *icount_start_insn = NULL;
+ 
+-    tcg_gen_ld_i32(count, cpu_env,
+-                   offsetof(ArchCPU, neg.icount_decr.u32) -
+-                   offsetof(ArchCPU, env));
++    if ((cflags & CF_USE_ICOUNT) || !(cflags & CF_NOIRQ)) {
++        count = tcg_temp_new_i32();
++        tcg_gen_ld_i32(count, cpu_env,
++                       offsetof(ArchCPU, neg.icount_decr.u32) -
++                       offsetof(ArchCPU, env));
++    }
+ 
+     if (cflags & CF_USE_ICOUNT) {
+         /*
+-- 
+2.39.2
+

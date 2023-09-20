@@ -28,12 +28,7 @@ stable-staging/target-arm-Fix-SME-ST1Q.patch
 stable-staging/target-arm-Fix-64-bit-SSRA.patch
 stable-staging/docs-about-license-Update-LICENSE-URL.patch
 stable-staging/softmmu-Assert-data-in-bounds-in-iotlb_to_section.patch
-#
-# this is a fix for https://gitlab.com/qemu-project/qemu/-/issues/1864
-# (x86 VM with TCG and SMP fails to start on 8.1.0)
-# which introduces https://gitlab.com/qemu-project/qemu/-/issues/1866
-# comment it out for now
-#stable-staging/softmmu-Use-async_run_on_cpu-in-tcg_commit.patch
+stable-staging/softmmu-Use-async_run_on_cpu-in-tcg_commit.patch
 stable-staging/block-migration-Ensure-we-don-t-crash-during-migrati.patch
 stable-staging/target-arm-properly-document-FEAT_CRC32.patch
 stable-staging/linux-user-Adjust-brk-for-load_bias.patch
@@ -75,3 +70,12 @@ stable-staging/ui-fix-crash-when-there-are-no-active_console.patch
 stable-staging/s390x-ap-fix-missing-subsystem-reset-registration.patch
 stable-staging/meson-Fix-targetos-match-for-illumos-and-Solaris.patch
 stable-staging/tpm-fix-crash-when-FD-1024-and-unnecessary-errors-du.patch
+# series from https://www.mail-archive.com/qemu-devel@nongnu.org/msg989073.html
+# fixing https://gitlab.com/qemu-project/qemu/-/issues/1866
+always-can-do-io-1866/accel-tcg-Avoid-load-of-icount_decr-if-unused.patch
+always-can-do-io-1866/accel-tcg-Hoist-CF_MEMI_ONLY-check-outside-translati.patch
+always-can-do-io-1866/accel-tcg-Refactor-gen_io_start-as-set_can_do_io.patch
+always-can-do-io-1866/accel-tcg-Track-current-value-of-can_do_io-in-the-TB.patch
+always-can-do-io-1866/accel-tcg-Improve-setting-of-can_do_io-at-start-of-T.patch
+always-can-do-io-1866/accel-tcg-Always-set-CF_LAST_IO-with-CF_NOIRQ.patch
+always-can-do-io-1866/accel-tcg-Always-require-can_do_io.patch

@@ -1,0 +1,75 @@
+From f2fc49c302036315db6e8c9f74592decc3be0476 Mon Sep 17 00:00:00 2001
+From: Richard Henderson <richard.henderson@linaro.org>
+Date: Thu, 14 Sep 2023 10:44:36 -0700
+Subject: [PATCH 7/7] accel/tcg: Always require can_do_io
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Require i/o as the last insn of a TranslationBlock always,
+not only with icount.  This is required for i/o that alters
+the address space, such as a pci config space write.
+
+Resolves: https://gitlab.com/qemu-project/qemu/-/issues/1866
+Signed-off-by: Richard Henderson <richard.henderson@linaro.org>
+Reviewed-by: Philippe Mathieu-Daudé <philmd@linaro.org>
+---
+ accel/tcg/translator.c      | 20 +++++++-------------
+ target/mips/tcg/translate.c |  1 -
+ 2 files changed, 7 insertions(+), 14 deletions(-)
+
+diff --git a/accel/tcg/translator.c b/accel/tcg/translator.c
+index dd507cd471..358214d526 100644
+--- a/accel/tcg/translator.c
++++ b/accel/tcg/translator.c
+@@ -28,12 +28,6 @@ static void set_can_do_io(DisasContextBase *db, bool val)
+ 
+ bool translator_io_start(DisasContextBase *db)
+ {
+-    uint32_t cflags = tb_cflags(db->tb);
+-
+-    if (!(cflags & CF_USE_ICOUNT)) {
+-        return false;
+-    }
+-
+     set_can_do_io(db, true);
+ 
+     /*
+@@ -86,15 +80,15 @@ static TCGOp *gen_tb_start(DisasContextBase *db, uint32_t cflags)
+         tcg_gen_st16_i32(count, cpu_env,
+                          offsetof(ArchCPU, neg.icount_decr.u16.low) -
+                          offsetof(ArchCPU, env));
+-        /*
+-         * cpu->can_do_io is set automatically here at the beginning of
+-         * each translation block.  The cost is minimal and only paid for
+-         * -icount, plus it would be very easy to forget doing it in the
+-         * translator.
+-         */
+-        set_can_do_io(db, db->max_insns == 1 && (cflags & CF_LAST_IO));
+     }
+ 
++    /*
++     * cpu->can_do_io is set automatically here at the beginning of
++     * each translation block.  The cost is minimal, plus it would be
++     * very easy to forget doing it in the translator.
++     */
++    set_can_do_io(db, db->max_insns == 1 && (cflags & CF_LAST_IO));
++
+     return icount_start_insn;
+ }
+ 
+diff --git a/target/mips/tcg/translate.c b/target/mips/tcg/translate.c
+index 9bb40f1849..593fc80458 100644
+--- a/target/mips/tcg/translate.c
++++ b/target/mips/tcg/translate.c
+@@ -11212,7 +11212,6 @@ static void gen_branch(DisasContext *ctx, int insn_bytes)
+         /* Branches completion */
+         clear_branch_hflags(ctx);
+         ctx->base.is_jmp = DISAS_NORETURN;
+-        /* FIXME: Need to clear can_do_io.  */
+         switch (proc_hflags & MIPS_HFLAG_BMASK_BASE) {
+         case MIPS_HFLAG_FBNSLOT:
+             gen_goto_tb(ctx, 0, ctx->base.pc_next + insn_bytes);
+-- 
+2.39.2
+

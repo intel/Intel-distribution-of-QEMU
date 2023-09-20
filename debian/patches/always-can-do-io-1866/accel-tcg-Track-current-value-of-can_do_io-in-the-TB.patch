@@ -1,0 +1,83 @@
+From 4e9bc3c52d8d5a2052f1d904aa653b169af3c1cb Mon Sep 17 00:00:00 2001
+From: Richard Henderson <richard.henderson@linaro.org>
+Date: Fri, 15 Sep 2023 11:41:09 +0200
+Subject: [PATCH 4/7] accel/tcg: Track current value of can_do_io in the TB
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Simplify translator_io_start by recording the current
+known value of can_do_io within DisasContextBase.
+
+Signed-off-by: Richard Henderson <richard.henderson@linaro.org>
+Message-ID: <20230914174436.1597356-4-richard.henderson@linaro.org>
+[PMD: Split patch in 2, extracting set_can_do_io() first]
+Reviewed-by: Philippe Mathieu-Daudé <philmd@linaro.org>
+Signed-off-by: Philippe Mathieu-Daudé <philmd@linaro.org>
+---
+ accel/tcg/translator.c    | 14 +++++++-------
+ include/exec/translator.h |  2 ++
+ 2 files changed, 9 insertions(+), 7 deletions(-)
+
+diff --git a/accel/tcg/translator.c b/accel/tcg/translator.c
+index cebf0a84cc..850d82e26f 100644
+--- a/accel/tcg/translator.c
++++ b/accel/tcg/translator.c
+@@ -18,9 +18,12 @@
+ 
+ static void set_can_do_io(DisasContextBase *db, bool val)
+ {
+-    tcg_gen_st_i32(tcg_constant_i32(val), cpu_env,
+-                   offsetof(ArchCPU, parent_obj.can_do_io) -
+-                   offsetof(ArchCPU, env));
++    if (db->saved_can_do_io != val) {
++        db->saved_can_do_io = val;
++        tcg_gen_st_i32(tcg_constant_i32(val), cpu_env,
++                       offsetof(ArchCPU, parent_obj.can_do_io) -
++                       offsetof(ArchCPU, env));
++    }
+ }
+ 
+ bool translator_io_start(DisasContextBase *db)
+@@ -30,10 +33,6 @@ bool translator_io_start(DisasContextBase *db)
+     if (!(cflags & CF_USE_ICOUNT)) {
+         return false;
+     }
+-    if (db->num_insns == db->max_insns && (cflags & CF_LAST_IO)) {
+-        /* Already started in translator_loop. */
+-        return true;
+-    }
+ 
+     set_can_do_io(db, true);
+ 
+@@ -144,6 +143,7 @@ void translator_loop(CPUState *cpu, TranslationBlock *tb, int *max_insns,
+     db->num_insns = 0;
+     db->max_insns = *max_insns;
+     db->singlestep_enabled = cflags & CF_SINGLE_STEP;
++    db->saved_can_do_io = -1;
+     db->host_addr[0] = host_pc;
+     db->host_addr[1] = NULL;
+ 
+diff --git a/include/exec/translator.h b/include/exec/translator.h
+index a53d3243d4..0f4ecad7a2 100644
+--- a/include/exec/translator.h
++++ b/include/exec/translator.h
+@@ -72,6 +72,7 @@ typedef enum DisasJumpType {
+  * @num_insns: Number of translated instructions (including current).
+  * @max_insns: Maximum number of instructions to be translated in this TB.
+  * @singlestep_enabled: "Hardware" single stepping enabled.
++ * @saved_can_do_io: Known value of cpu->neg.can_do_io, or -1 for unknown.
+  *
+  * Architecture-agnostic disassembly context.
+  */
+@@ -83,6 +84,7 @@ typedef struct DisasContextBase {
+     int num_insns;
+     int max_insns;
+     bool singlestep_enabled;
++    int8_t saved_can_do_io;
+     void *host_addr[2];
+ } DisasContextBase;
+ 
+-- 
+2.39.2
+

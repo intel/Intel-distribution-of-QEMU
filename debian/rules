@@ -8,6 +8,21 @@ export PYTHONDONTWRITEBYTECODE=1
 # of different targets in this d/rules but allow running parallel submakes
 .NOTPARALLEL:
 
+ifeq ($(shell dpkg-vendor --derives-from Ubuntu && echo yes),yes)
+VENDOR := UBUNTU
+DEB_BUILD_PARALLEL = yes
+else
+VENDOR := DEBIAN
+endif
+
+# get DEB_VERSION
+include /usr/share/dpkg/pkg-info.mk
+
+ifeq ($(and ${DEB_HOST_MULTIARCH},${DEB_HOST_ARCH}),)
+# Fast version of dpkg/architecture.mk defining all vars in one go
+   $(foreach d, $(shell dpkg-architecture | sed 's/=/?=/'), $(eval export $d))
+endif
+
 # we build in a sub-subdir so strip that from file paths too
 export DEB_CFLAGS_MAINT_APPEND = -ffile-prefix-map=../../=
 
@@ -18,21 +33,8 @@ ifneq ($(DEB_HOST_ARCH),amd64)
   export DEB_BUILD_MAINT_OPTIONS += optimize=-lto
 endif
 
-# get DEB_VERSION
-include /usr/share/dpkg/pkg-info.mk
-# get CFLAGS LDFLAGS etc
+# get CFLAGS LDFLAGS etc (should come after DEB_*MAINT*)
 include /usr/share/dpkg/buildflags.mk
-# Fast version of dpkg/architecture.mk defining all vars in one go
-ifeq (${DEB_HOST_MULTIARCH},)
-   $(foreach d, $(shell dpkg-architecture | sed 's/=/?=/'), $(eval export $d))
-endif
-
-ifeq ($(shell dpkg-vendor --derives-from Ubuntu && echo yes),yes)
-VENDOR := UBUNTU
-DEB_BUILD_PARALLEL = yes
-else
-VENDOR := DEBIAN
-endif
 
 # Host architectures we produce packages for.
 # when changing this list, check d/control-in too, if any changes

@@ -1,3 +1,12 @@
+qemu (1:8.1.0+ds-6) unstable; urgency=medium
+
+  * re-enable softmmu-Use-async_run_on_cpu-in-tcg_commit.patch
+  * add https://www.mail-archive.com/qemu-devel@nongnu.org/msg989073.html
+    fixing https://gitlab.com/qemu-project/qemu/-/issues/1866
+  * d/rules: reorder some definitions to evaluate in proper order
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 20 Sep 2023 23:31:59 +0300
+
 qemu (1:8.1.0+ds-5) unstable; urgency=medium
 
   * disable softmmu-Use-async_run_on_cpu-in-tcg_commit.patch
