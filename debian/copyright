@@ -11,6 +11,8 @@ Files-Excluded:
 	roms/SLOF/clients/takeover/takeover.oco
 	roms/SLOF/lib/libipmi/libipmi.oco
 #
+	subprojects/dtc
+#
 	pc-bios/QEMU,*.bin
 	pc-bios/bamboo.dtb pc-bios/canyonlands.dtb
 	pc-bios/bios.bin

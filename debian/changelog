@@ -1,3 +1,21 @@
+qemu (1:8.1.1+ds-1) unstable; urgency=medium
+
+  * new upstream stable/bugfix release
+  * remove all stable-staging/ patches, keep
+    softmmu-Use-async_run_on_cpu-in-tcg_commit.patch
+  * vfio-display-fix-missing-update-to-set-backing-field.patch
+  * scsi-disk-disallow-small-block-sizes-CVE-2023-42467.patch
+    (Closes: #1051899, CVE-2023-42467)
+  * migration-qmp-Fix-crash-on-setting-tls-authz-with-nu.patch
+  * d/patches/move-vl-opts/ - stop linking everything with async-teardown.c,
+    un-FTBFS on ia64
+  * d/control: minor: remove old todo comments
+  * d/control: disable rbd (ceph) on 32bit platforms (Closes: #1053172)
+  * d/control: enable rbd on riscv64 once it's built there
+  * d/copyright: also remove subprojects/dtc
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 01 Oct 2023 22:11:24 +0300
+
 qemu (1:8.1.0+ds-6) unstable; urgency=medium
 
   * re-enable softmmu-Use-async_run_on_cpu-in-tcg_commit.patch

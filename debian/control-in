@@ -72,8 +72,8 @@ Build-Depends-Arch:
 # --enable-smartcard
  libcacard-dev,
  libpixman-1-dev,
-# --enable-rbd		amd64 arm64 armel armhf i386 mips64el mipsel ppc64el s390x ppc64 sparc64
- librbd-dev            [amd64 arm64 armel armhf i386 mips64el mipsel ppc64el s390x ppc64 sparc64],
+# --enable-rbd		amd64 arm64 mips64el ppc64el ppc64 riscv64 s390x sparc64
+ librbd-dev            [amd64 arm64 mips64el ppc64el ppc64 riscv64 s390x sparc64],
 # gluster is 64bit-only: #1039604
 # --enable-glusterfs	 amd64 arm64 ppc64el ppc64 riscv64 mips64el s390x ia64 sparc64
  libglusterfs-dev	[amd64 arm64 ppc64el ppc64 riscv64 mips64el s390x ia64 sparc64],
@@ -121,9 +121,7 @@ Build-Depends-Arch:
 ##--enable-lzo todo, for (memory) dumps
 ##--enable-netmap todo bsd
 ##--enable-xen-pci-passthrough todo
-##--with-iconv (libiconv for curses wide char support)
 ## auth-pam - for auth for vnc&Co using PAM
-## gio-2.0 - for -display=spice-app
 #
 # the testsuite:
 #XXX-cyclic-test-dep-dak-bug seabios [:system-arch-linux:] <!nocheck>,

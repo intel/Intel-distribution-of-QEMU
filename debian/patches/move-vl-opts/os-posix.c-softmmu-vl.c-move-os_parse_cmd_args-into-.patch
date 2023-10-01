@@ -1,0 +1,275 @@
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/8a768db16afacf2056a753b99b81a5855c3320fa
+From: Michael Tokarev <mjt@tls.msk.ru>
+Date: Fri, 1 Sep 2023 13:12:58 +0300
+Subject: [PATCH 4/8] os-posix.c, softmmu/vl.c: move os_parse_cmd_args() into
+ qemu_init()
+
+This will stop linking softmmu-specific os_parse_cmd_args() into every
+qemu executable which happens to use other functions from os-posix.c,
+such as os_set_line_buffering() or os_setup_signal_handling().
+
+Also, since there's no win32-specific options, *all* option parsing is
+now done in softmmu/vl.c:qemu_init(), which is easier to read without
+extra indirection, - all options are in the single function now.
+
+This effectively reverts commit 59a5264b99434.
+
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+Reviewed-by: Eric Blake <eblake@redhat.com>
+Message-ID: <20230901101302.3618955-5-mjt@tls.msk.ru>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+---
+ include/sysemu/os-posix.h |  1 -
+ include/sysemu/os-win32.h |  1 -
+ os-posix.c                | 82 ---------------------------------------
+ softmmu/vl.c              | 76 ++++++++++++++++++++++++++++++++++--
+ 4 files changed, 73 insertions(+), 87 deletions(-)
+
+diff --git a/include/sysemu/os-posix.h b/include/sysemu/os-posix.h
+index 8a66763395..6dfdcbb086 100644
+--- a/include/sysemu/os-posix.h
++++ b/include/sysemu/os-posix.h
+@@ -42,7 +42,6 @@
+ extern "C" {
+ #endif
+ 
+-int os_parse_cmd_args(int index, const char *optarg);
+ void os_set_line_buffering(void);
+ void os_setup_early_signal_handling(void);
+ void os_set_proc_name(const char *s);
+diff --git a/include/sysemu/os-win32.h b/include/sysemu/os-win32.h
+index 91aa0d7ec0..8ae30fac15 100644
+--- a/include/sysemu/os-win32.h
++++ b/include/sysemu/os-win32.h
+@@ -101,7 +101,6 @@ static inline void os_setup_signal_handling(void) {}
+ static inline void os_daemonize(void) {}
+ static inline void os_setup_post(void) {}
+ static inline void os_set_proc_name(const char *dummy) {}
+-static inline int os_parse_cmd_args(int index, const char *optarg) { return -1; }
+ void os_set_line_buffering(void);
+ void os_setup_early_signal_handling(void);
+ 
+diff --git a/os-posix.c b/os-posix.c
+index ed0787ecfd..fc2883ff82 100644
+--- a/os-posix.c
++++ b/os-posix.c
+@@ -31,18 +31,13 @@
+ 
+ /* Needed early for CONFIG_BSD etc. */
+ #include "net/slirp.h"
+-#include "qemu/qemu-options.h"
+ #include "qemu/error-report.h"
+ #include "qemu/log.h"
+ #include "sysemu/runstate.h"
+ #include "qemu/cutils.h"
+-#include "qemu/config-file.h"
+-#include "qemu/option.h"
+-#include "qemu/module.h"
+ 
+ #ifdef CONFIG_LINUX
+ #include <sys/prctl.h>
+-#include "qemu/async-teardown.h"
+ #endif
+ 
+ /*
+@@ -142,59 +137,6 @@ bool os_set_runas(const char *optarg)
+     return true;
+ }
+ 
+-/*
+- * Parse OS specific command line options.
+- * return 0 if option handled, -1 otherwise
+- */
+-int os_parse_cmd_args(int index, const char *optarg)
+-{
+-    switch (index) {
+-    case QEMU_OPTION_runas:
+-        if (!os_set_runas(optarg)) {
+-            error_report("User \"%s\" doesn't exist"
+-                         " (and is not <uid>:<gid>)",
+-                         optarg);
+-            exit(1);
+-        }
+-        break;
+-    case QEMU_OPTION_chroot:
+-        warn_report("option is deprecated, use '-run-with chroot=...' instead");
+-        os_set_chroot(optarg);
+-        break;
+-    case QEMU_OPTION_daemonize:
+-        daemonize = 1;
+-        break;
+-#if defined(CONFIG_LINUX)
+-    /* deprecated */
+-    case QEMU_OPTION_asyncteardown:
+-        init_async_teardown();
+-        break;
+-#endif
+-    case QEMU_OPTION_run_with: {
+-        const char *str;
+-        QemuOpts *opts = qemu_opts_parse_noisily(qemu_find_opts("run-with"),
+-                                                 optarg, false);
+-        if (!opts) {
+-            exit(1);
+-        }
+-#if defined(CONFIG_LINUX)
+-        if (qemu_opt_get_bool(opts, "async-teardown", false)) {
+-            init_async_teardown();
+-        }
+-#endif
+-        str = qemu_opt_get(opts, "chroot");
+-        if (str) {
+-            os_set_chroot(str);
+-        }
+-        break;
+-    }
+-    default:
+-        return -1;
+-    }
+-
+-    return 0;
+-}
+-
+ static void change_process_uid(void)
+ {
+     assert((user_uid == (uid_t)-1) || user_pwd == NULL);
+@@ -371,27 +313,3 @@ int os_mlock(void)
+     return -ENOSYS;
+ #endif
+ }
+-
+-static QemuOptsList qemu_run_with_opts = {
+-    .name = "run-with",
+-    .head = QTAILQ_HEAD_INITIALIZER(qemu_run_with_opts.head),
+-    .desc = {
+-#if defined(CONFIG_LINUX)
+-        {
+-            .name = "async-teardown",
+-            .type = QEMU_OPT_BOOL,
+-        },
+-#endif
+-        {
+-            .name = "chroot",
+-            .type = QEMU_OPT_STRING,
+-        },
+-        { /* end of list */ }
+-    },
+-};
+-
+-static void register_runwith(void)
+-{
+-    qemu_add_opts(&qemu_run_with_opts);
+-}
+-opts_init(register_runwith);
+diff --git a/softmmu/vl.c b/softmmu/vl.c
+index b0b96f67fa..0a74810ca3 100644
+--- a/softmmu/vl.c
++++ b/softmmu/vl.c
+@@ -49,6 +49,7 @@
+ #include "qemu/error-report.h"
+ #include "qemu/sockets.h"
+ #include "qemu/accel.h"
++#include "qemu/async-teardown.h"
+ #include "hw/usb.h"
+ #include "hw/isa/isa.h"
+ #include "hw/scsi/scsi.h"
+@@ -748,6 +749,33 @@ static QemuOptsList qemu_smp_opts = {
+     },
+ };
+ 
++#if defined(CONFIG_POSIX)
++static QemuOptsList qemu_run_with_opts = {
++    .name = "run-with",
++    .head = QTAILQ_HEAD_INITIALIZER(qemu_run_with_opts.head),
++    .desc = {
++#if defined(CONFIG_LINUX)
++        {
++            .name = "async-teardown",
++            .type = QEMU_OPT_BOOL,
++        },
++#endif
++        {
++            .name = "chroot",
++            .type = QEMU_OPT_STRING,
++        },
++        { /* end of list */ }
++    },
++};
++
++#define qemu_add_run_with_opts() qemu_add_opts(&qemu_run_with_opts)
++
++#else
++
++#define qemu_add_run_with_opts()
++
++#endif /* CONFIG_POSIX */
++
+ static void realtime_init(void)
+ {
+     if (enable_mlock) {
+@@ -2704,6 +2732,7 @@ void qemu_init(int argc, char **argv)
+     qemu_add_opts(&qemu_semihosting_config_opts);
+     qemu_add_opts(&qemu_fw_cfg_opts);
+     qemu_add_opts(&qemu_action_opts);
++    qemu_add_run_with_opts();
+     module_call_init(MODULE_INIT_OPTS);
+ 
+     error_init(argv[0]);
+@@ -3522,11 +3551,52 @@ void qemu_init(int argc, char **argv)
+             case QEMU_OPTION_nouserconfig:
+                 /* Nothing to be parsed here. Especially, do not error out below. */
+                 break;
+-            default:
+-                if (os_parse_cmd_args(popt->index, optarg)) {
+-                    error_report("Option not supported in this build");
++#if defined(CONFIG_POSIX)
++            case QEMU_OPTION_runas:
++                if (!os_set_runas(optarg)) {
++                    error_report("User \"%s\" doesn't exist"
++                                 " (and is not <uid>:<gid>)",
++                                 optarg);
++                    exit(1);
++                }
++                break;
++            case QEMU_OPTION_chroot:
++                warn_report("option is deprecated,"
++                            " use '-run-with chroot=...' instead");
++                os_set_chroot(optarg);
++                break;
++            case QEMU_OPTION_daemonize:
++                os_set_daemonize(true);
++                break;
++#if defined(CONFIG_LINUX)
++            /* deprecated */
++            case QEMU_OPTION_asyncteardown:
++                init_async_teardown();
++                break;
++#endif
++            case QEMU_OPTION_run_with: {
++                const char *str;
++                opts = qemu_opts_parse_noisily(qemu_find_opts("run-with"),
++                                                         optarg, false);
++                if (!opts) {
+                     exit(1);
+                 }
++#if defined(CONFIG_LINUX)
++                if (qemu_opt_get_bool(opts, "async-teardown", false)) {
++                    init_async_teardown();
++                }
++#endif
++                str = qemu_opt_get(opts, "chroot");
++                if (str) {
++                    os_set_chroot(str);
++                }
++                break;
++            }
++#endif /* CONFIG_POSIX */
++
++            default:
++                error_report("Option not supported in this build");
++                exit(1);
+             }
+         }
+     }
+-- 
+2.39.2
+

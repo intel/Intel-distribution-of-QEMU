@@ -1,0 +1,36 @@
+From: Alex Williamson <alex.williamson@redhat.com>
+Date: Wed, 16 Aug 2023 15:55:49 -0600
+Subject: vfio/display: Fix missing update to set backing fields
+Origin: upstream, https://lists.nongnu.org/archive/html/qemu-devel/2023-08/msg02734.html
+
+The below referenced commit renames scanout_width/height to
+backing_width/height, but also promotes these fields in various portions
+of the egl interface.  Meanwhile vfio dmabuf support has never used the
+previous scanout fields and is therefore missed in the update.  This
+results in a black screen when transitioning from ramfb to dmabuf display
+when using Intel vGPU with these features.
+
+Link: https://lists.gnu.org/archive/html/qemu-devel/2023-08/msg02726.html
+Fixes: 9ac06df8b684 ("virtio-gpu-udmabuf: correct naming of QemuDmaBuf size properties")
+Resolves: https://gitlab.com/qemu-project/qemu/-/issues/1891
+Signed-off-by: Alex Williamson <alex.williamson@redhat.com>
+---
+ hw/vfio/display.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/hw/vfio/display.c b/hw/vfio/display.c
+index bec864f482..837d9e6a30 100644
+--- a/hw/vfio/display.c
++++ b/hw/vfio/display.c
+@@ -243,6 +243,8 @@ static VFIODMABuf *vfio_display_get_dmabuf(VFIOPCIDevice *vdev,
+     dmabuf->dmabuf_id  = plane.dmabuf_id;
+     dmabuf->buf.width  = plane.width;
+     dmabuf->buf.height = plane.height;
++    dmabuf->buf.backing_width = plane.width;
++    dmabuf->buf.backing_height = plane.height;
+     dmabuf->buf.stride = plane.stride;
+     dmabuf->buf.fourcc = plane.drm_format;
+     dmabuf->buf.modifier = plane.drm_format_mod;
+-- 
+2.39.2
+
