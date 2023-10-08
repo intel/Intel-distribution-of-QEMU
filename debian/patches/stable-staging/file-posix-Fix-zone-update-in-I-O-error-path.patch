@@ -1,0 +1,37 @@
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/deab5c9a4ed74f76a713008a42527762b30a7e84
+Forwared: not-needed
+From: Hanna Czenczek <hreitz@redhat.com>
+Date: Thu, 24 Aug 2023 17:53:42 +0200
+Subject: file-posix: Fix zone update in I/O error path
+
+We must check that zone information is present before running
+update_zones_wp().
+
+Fixes: https://bugzilla.redhat.com/show_bug.cgi?id=2234374
+Fixes: Coverity CID 1512459
+Signed-off-by: Hanna Czenczek <hreitz@redhat.com>
+Message-Id: <20230824155345.109765-4-hreitz@redhat.com>
+Reviewed-by: Sam Li <faithilikerun@gmail.com>
+(cherry picked from commit deab5c9a4ed74f76a713008a42527762b30a7e84)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+---
+ block/file-posix.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/block/file-posix.c b/block/file-posix.c
+index 46e22403fe..a050682e97 100644
+--- a/block/file-posix.c
++++ b/block/file-posix.c
+@@ -2525,7 +2525,8 @@ out:
+             }
+         }
+     } else {
+-        if (type & (QEMU_AIO_WRITE | QEMU_AIO_ZONE_APPEND)) {
++        if ((type & (QEMU_AIO_WRITE | QEMU_AIO_ZONE_APPEND)) &&
++            bs->bl.zoned != BLK_Z_NONE) {
+             update_zones_wp(bs, s->fd, 0, 1);
+         }
+     }
+-- 
+2.39.2
+

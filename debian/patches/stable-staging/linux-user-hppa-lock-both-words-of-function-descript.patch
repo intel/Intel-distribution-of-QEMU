@@ -1,0 +1,42 @@
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/5b1270ef1477bb7f240c3bfe2cd8b0fe4721fd51
+Forwared: not-needed
+From: Mikulas Patocka <mpatocka@redhat.com>
+Date: Sat, 16 Sep 2023 18:32:45 +0200
+Subject: linux-user/hppa: lock both words of function descriptor
+
+The code in setup_rt_frame reads two words at haddr, but locks only one.
+This patch fixes it to lock both.
+
+Signed-off-by: Mikulas Patocka <mpatocka@redhat.com>
+Acked-by: Helge Deller <deller@gmx.de>
+Cc: qemu-stable@nongnu.org
+Signed-off-by: Helge Deller <deller@gmx.de>
+(cherry picked from commit 5b1270ef1477bb7f240c3bfe2cd8b0fe4721fd51)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+---
+ linux-user/hppa/signal.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/linux-user/hppa/signal.c b/linux-user/hppa/signal.c
+index 3a976ac693..bda6e54655 100644
+--- a/linux-user/hppa/signal.c
++++ b/linux-user/hppa/signal.c
+@@ -149,12 +149,13 @@ void setup_rt_frame(int sig, struct target_sigaction *ka,
+         target_ulong *fdesc, dest;
+ 
+         haddr &= -4;
+-        if (!lock_user_struct(VERIFY_READ, fdesc, haddr, 1)) {
++        fdesc = lock_user(VERIFY_READ, haddr, 2 * sizeof(target_ulong), 1);
++        if (!fdesc) {
+             goto give_sigsegv;
+         }
+         __get_user(dest, fdesc);
+         __get_user(env->gr[19], fdesc + 1);
+-        unlock_user_struct(fdesc, haddr, 1);
++        unlock_user(fdesc, haddr, 0);
+         haddr = dest;
+     }
+     env->iaoq_f = haddr;
+-- 
+2.39.2
+

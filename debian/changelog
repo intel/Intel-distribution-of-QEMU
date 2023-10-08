@@ -1,3 +1,15 @@
+qemu (1:8.1.1+ds-2) unstable; urgency=medium
+
+  * d/rules: fix binary target to produce both arch and indep
+    binaries instead of omitting indep one(s)
+  * d/patches: sync with current staging-8.1 branch, many new fixes
+  * additional fixes:  
+    +hw-ide-ahci-fix-legacy-software-reset.patch
+    +target-mips-Fix-MSA-BZ-BNZ-opcodes-displacement.patch
+    +hw-ide-reset-cancel-async-DMA-operation-before-reset.patch
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 08 Oct 2023 12:28:55 +0300
+
 qemu (1:8.1.1+ds-1) unstable; urgency=medium
 
   * new upstream stable/bugfix release

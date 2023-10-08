@@ -1,0 +1,36 @@
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/0cb9c5880e6b8dedc4e20026ce859dd1ea9aac84
+Forwared: not-needed
+From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Mon, 25 Sep 2023 13:06:46 +0200
+Subject: ui/vnc: fix debug output for invalid audio message
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The debug message was cut and pasted from the invalid audio format
+case, but the audio message is at bytes 2-3.
+
+Reviewed-by: Daniel P. Berrangé <berrange@redhat.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 0cb9c5880e6b8dedc4e20026ce859dd1ea9aac84)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+---
+ ui/vnc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/ui/vnc.c b/ui/vnc.c
+index 92964dcc0c..538581929a 100644
+--- a/ui/vnc.c
++++ b/ui/vnc.c
+@@ -2551,7 +2551,7 @@ static int protocol_client_msg(VncState *vs, uint8_t *data, size_t len)
+                     vs, vs->ioc, vs->as.fmt, vs->as.nchannels, vs->as.freq);
+                 break;
+             default:
+-                VNC_DEBUG("Invalid audio message %d\n", read_u8(data, 4));
++                VNC_DEBUG("Invalid audio message %d\n", read_u8(data, 2));
+                 vnc_client_error(vs);
+                 break;
+             }
+-- 
+2.39.2
+

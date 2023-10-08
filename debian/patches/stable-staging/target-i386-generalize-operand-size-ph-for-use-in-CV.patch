@@ -1,0 +1,66 @@
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/a48b26978a090fe1f3f3e54319902d4ab56a6b3a
+Forwared: not-needed
+From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Tue, 29 Aug 2023 18:25:46 +0200
+Subject: target/i386: generalize operand size "ph" for use in CVTPS2PD
+
+CVTPS2PD only loads a half-register for memory, like CVTPH2PS.  It can
+reuse the "ph" packed half-precision size to load a half-register,
+but rename it to "xh" because it is now a variation of "x" (it is not
+used only for half-precision values).
+
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit a48b26978a090fe1f3f3e54319902d4ab56a6b3a)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+---
+ target/i386/tcg/decode-new.c.inc | 6 +++---
+ target/i386/tcg/decode-new.h     | 2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/target/i386/tcg/decode-new.c.inc b/target/i386/tcg/decode-new.c.inc
+index 8f93a239dd..43c39aad2a 100644
+--- a/target/i386/tcg/decode-new.c.inc
++++ b/target/i386/tcg/decode-new.c.inc
+@@ -337,7 +337,7 @@ static const X86OpEntry opcodes_0F38_00toEF[240] = {
+     [0x07] = X86_OP_ENTRY3(PHSUBSW,   V,x,  H,x,   W,x,  vex4 cpuid(SSSE3) mmx avx2_256 p_00_66),
+ 
+     [0x10] = X86_OP_ENTRY2(PBLENDVB,  V,x,         W,x,  vex4 cpuid(SSE41) avx2_256 p_66),
+-    [0x13] = X86_OP_ENTRY2(VCVTPH2PS, V,x,         W,ph, vex11 cpuid(F16C) p_66),
++    [0x13] = X86_OP_ENTRY2(VCVTPH2PS, V,x,         W,xh, vex11 cpuid(F16C) p_66),
+     [0x14] = X86_OP_ENTRY2(BLENDVPS,  V,x,         W,x,  vex4 cpuid(SSE41) p_66),
+     [0x15] = X86_OP_ENTRY2(BLENDVPD,  V,x,         W,x,  vex4 cpuid(SSE41) p_66),
+     /* Listed incorrectly as type 4 */
+@@ -565,7 +565,7 @@ static const X86OpEntry opcodes_0F3A[256] = {
+     [0x15] = X86_OP_ENTRY3(PEXTRW,     E,w,  V,dq, I,b,  vex5 cpuid(SSE41) zext0 p_66),
+     [0x16] = X86_OP_ENTRY3(PEXTR,      E,y,  V,dq, I,b,  vex5 cpuid(SSE41) p_66),
+     [0x17] = X86_OP_ENTRY3(VEXTRACTPS, E,d,  V,dq, I,b,  vex5 cpuid(SSE41) p_66),
+-    [0x1d] = X86_OP_ENTRY3(VCVTPS2PH,  W,ph, V,x,  I,b,  vex11 cpuid(F16C) p_66),
++    [0x1d] = X86_OP_ENTRY3(VCVTPS2PH,  W,xh, V,x,  I,b,  vex11 cpuid(F16C) p_66),
+ 
+     [0x20] = X86_OP_ENTRY4(PINSRB,     V,dq, H,dq, E,b,  vex5 cpuid(SSE41) zext2 p_66),
+     [0x21] = X86_OP_GROUP0(VINSERTPS),
+@@ -1104,7 +1104,7 @@ static bool decode_op_size(DisasContext *s, X86OpEntry *e, X86OpSize size, MemOp
+         *ot = s->vex_l ? MO_256 : MO_128;
+         return true;
+ 
+-    case X86_SIZE_ph: /* SSE/AVX packed half precision */
++    case X86_SIZE_xh: /* SSE/AVX packed half register */
+         *ot = s->vex_l ? MO_128 : MO_64;
+         return true;
+ 
+diff --git a/target/i386/tcg/decode-new.h b/target/i386/tcg/decode-new.h
+index cb6b8bcf67..a542ec1681 100644
+--- a/target/i386/tcg/decode-new.h
++++ b/target/i386/tcg/decode-new.h
+@@ -92,7 +92,7 @@ typedef enum X86OpSize {
+     /* Custom */
+     X86_SIZE_d64,
+     X86_SIZE_f64,
+-    X86_SIZE_ph, /* SSE/AVX packed half precision */
++    X86_SIZE_xh, /* SSE/AVX packed half register */
+ } X86OpSize;
+ 
+ typedef enum X86CPUIDFeature {
+-- 
+2.39.2
+

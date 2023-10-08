@@ -1,0 +1,38 @@
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/28a8347281e24c2e7bba6d3301472eda41d4c096
+Forwared: not-needed
+From: Fabiano Rosas <farosas@suse.de>
+Date: Mon, 18 Sep 2023 14:28:16 -0300
+Subject: migration: Fix possible race when setting rp_state.error
+
+We don't need to set the rp_state.error right after a shutdown because
+qemu_file_shutdown() always sets the QEMUFile error, so the return
+path thread would have seen it and set the rp error itself.
+
+Setting the error outside of the thread is also racy because the
+thread could clear it after we set it.
+
+Reviewed-by: Peter Xu <peterx@redhat.com>
+Signed-off-by: Fabiano Rosas <farosas@suse.de>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Message-ID: <20230918172822.19052-3-farosas@suse.de>
+(cherry picked from commit 28a8347281e24c2e7bba6d3301472eda41d4c096)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+---
+ migration/migration.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/migration/migration.c b/migration/migration.c
+index 6a7122694a..b92c6ae436 100644
+--- a/migration/migration.c
++++ b/migration/migration.c
+@@ -2063,7 +2063,6 @@ static int await_return_path_close_on_source(MigrationState *ms)
+          * waiting for the destination.
+          */
+         qemu_file_shutdown(ms->rp_state.from_dst_file);
+-        mark_source_rp_bad(ms);
+     }
+     trace_await_return_path_close_on_source_joining();
+     qemu_thread_join(&ms->rp_state.rp_thread);
+-- 
+2.39.2
+

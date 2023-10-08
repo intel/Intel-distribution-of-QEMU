@@ -1,0 +1,242 @@
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/ef796ee93b313ed2f0b427ef30320417387d2ad5
+Forwared: not-needed
+From: Fabiano Rosas <farosas@suse.de>
+Date: Mon, 18 Sep 2023 14:28:21 -0300
+Subject: migration: Replace the return path retry logic
+
+Replace the return path retry logic with finishing and restarting the
+thread. This fixes a race when resuming the migration that leads to a
+segfault.
+
+Currently when doing postcopy we consider that an IO error on the
+return path file could be due to a network intermittency. We then keep
+the thread alive but have it do cleanup of the 'from_dst_file' and
+wait on the 'postcopy_pause_rp' semaphore. When the user issues a
+migrate resume, a new return path is opened and the thread is allowed
+to continue.
+
+There's a race condition in the above mechanism. It is possible for
+the new return path file to be setup *before* the cleanup code in the
+return path thread has had a chance to run, leading to the *new* file
+being closed and the pointer set to NULL. When the thread is released
+after the resume, it tries to dereference 'from_dst_file' and crashes:
+
+Thread 7 "return path" received signal SIGSEGV, Segmentation fault.
+[Switching to Thread 0x7fffd1dbf700 (LWP 9611)]
+0x00005555560e4893 in qemu_file_get_error_obj (f=0x0, errp=0x0) at ../migration/qemu-file.c:154
+154         return f->last_error;
+
+(gdb) bt
+ #0  0x00005555560e4893 in qemu_file_get_error_obj (f=0x0, errp=0x0) at ../migration/qemu-file.c:154
+ #1  0x00005555560e4983 in qemu_file_get_error (f=0x0) at ../migration/qemu-file.c:206
+ #2  0x0000555555b9a1df in source_return_path_thread (opaque=0x555556e06000) at ../migration/migration.c:1876
+ #3  0x000055555602e14f in qemu_thread_start (args=0x55555782e780) at ../util/qemu-thread-posix.c:541
+ #4  0x00007ffff38d76ea in start_thread (arg=0x7fffd1dbf700) at pthread_create.c:477
+ #5  0x00007ffff35efa6f in clone () at ../sysdeps/unix/sysv/linux/x86_64/clone.S:95
+
+Here's the race (important bit is open_return_path happening before
+migration_release_dst_files):
+
+migration                 | qmp                         | return path
+--------------------------+-----------------------------+---------------------------------
+			    qmp_migrate_pause()
+			     shutdown(ms->to_dst_file)
+			      f->last_error = -EIO
+migrate_detect_error()
+ postcopy_pause()
+  set_state(PAUSED)
+  wait(postcopy_pause_sem)
+			    qmp_migrate(resume)
+			    migrate_fd_connect()
+			     resume = state == PAUSED
+			     open_return_path <-- TOO SOON!
+			     set_state(RECOVER)
+			     post(postcopy_pause_sem)
+							(incoming closes to_src_file)
+							res = qemu_file_get_error(rp)
+							migration_release_dst_files()
+							ms->rp_state.from_dst_file = NULL
+  post(postcopy_pause_rp_sem)
+							postcopy_pause_return_path_thread()
+							  wait(postcopy_pause_rp_sem)
+							rp = ms->rp_state.from_dst_file
+							goto retry
+							qemu_file_get_error(rp)
+							SIGSEGV
+-------------------------------------------------------------------------------------------
+
+We can keep the retry logic without having the thread alive and
+waiting. The only piece of data used by it is the 'from_dst_file' and
+it is only allowed to proceed after a migrate resume is issued and the
+semaphore released at migrate_fd_connect().
+
+Move the retry logic to outside the thread by waiting for the thread
+to finish before pausing the migration.
+
+Reviewed-by: Peter Xu <peterx@redhat.com>
+Signed-off-by: Fabiano Rosas <farosas@suse.de>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Message-ID: <20230918172822.19052-8-farosas@suse.de>
+(cherry picked from commit ef796ee93b313ed2f0b427ef30320417387d2ad5)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+---
+ migration/migration.c | 60 ++++++++-----------------------------------
+ migration/migration.h |  1 -
+ 2 files changed, 11 insertions(+), 50 deletions(-)
+
+diff --git a/migration/migration.c b/migration/migration.c
+index ac4541b971..a0782c64a1 100644
+--- a/migration/migration.c
++++ b/migration/migration.c
+@@ -1776,18 +1776,6 @@ static void migrate_handle_rp_req_pages(MigrationState *ms, const char* rbname,
+     }
+ }
+ 
+-/* Return true to retry, false to quit */
+-static bool postcopy_pause_return_path_thread(MigrationState *s)
+-{
+-    trace_postcopy_pause_return_path();
+-
+-    qemu_sem_wait(&s->postcopy_pause_rp_sem);
+-
+-    trace_postcopy_pause_return_path_continued();
+-
+-    return true;
+-}
+-
+ static int migrate_handle_rp_recv_bitmap(MigrationState *s, char *block_name)
+ {
+     RAMBlock *block = qemu_ram_block_by_name(block_name);
+@@ -1871,7 +1859,6 @@ static void *source_return_path_thread(void *opaque)
+     trace_source_return_path_thread_entry();
+     rcu_register_thread();
+ 
+-retry:
+     while (!ms->rp_state.error && !qemu_file_get_error(rp) &&
+            migration_is_setup_or_active(ms->state)) {
+         trace_source_return_path_thread_loop_top();
+@@ -1993,26 +1980,7 @@ retry:
+     }
+ 
+ out:
+-    res = qemu_file_get_error(rp);
+-    if (res) {
+-        if (res && migration_in_postcopy()) {
+-            /*
+-             * Maybe there is something we can do: it looks like a
+-             * network down issue, and we pause for a recovery.
+-             */
+-            migration_release_dst_files(ms);
+-            rp = NULL;
+-            if (postcopy_pause_return_path_thread(ms)) {
+-                /*
+-                 * Reload rp, reset the rest.  Referencing it is safe since
+-                 * it's reset only by us above, or when migration completes
+-                 */
+-                rp = ms->rp_state.from_dst_file;
+-                ms->rp_state.error = false;
+-                goto retry;
+-            }
+-        }
+-
++    if (qemu_file_get_error(rp)) {
+         trace_source_return_path_thread_bad_end();
+         mark_source_rp_bad(ms);
+     }
+@@ -2023,8 +1991,7 @@ out:
+     return NULL;
+ }
+ 
+-static int open_return_path_on_source(MigrationState *ms,
+-                                      bool create_thread)
++static int open_return_path_on_source(MigrationState *ms)
+ {
+     ms->rp_state.from_dst_file = qemu_file_get_return_path(ms->to_dst_file);
+     if (!ms->rp_state.from_dst_file) {
+@@ -2033,11 +2000,6 @@ static int open_return_path_on_source(MigrationState *ms,
+ 
+     trace_open_return_path_on_source();
+ 
+-    if (!create_thread) {
+-        /* We're done */
+-        return 0;
+-    }
+-
+     qemu_thread_create(&ms->rp_state.rp_thread, "return path",
+                        source_return_path_thread, ms, QEMU_THREAD_JOINABLE);
+     ms->rp_state.rp_thread_created = true;
+@@ -2077,6 +2039,7 @@ static int await_return_path_close_on_source(MigrationState *ms)
+     trace_await_return_path_close_on_source_close();
+ 
+     ret = ms->rp_state.error;
++    ms->rp_state.error = false;
+     trace_migration_return_path_end_after(ret);
+     return ret;
+ }
+@@ -2552,6 +2515,13 @@ static MigThrError postcopy_pause(MigrationState *s)
+         qemu_file_shutdown(file);
+         qemu_fclose(file);
+ 
++        /*
++         * We're already pausing, so ignore any errors on the return
++         * path and just wait for the thread to finish. It will be
++         * re-created when we resume.
++         */
++        await_return_path_close_on_source(s);
++
+         migrate_set_state(&s->state, s->state,
+                           MIGRATION_STATUS_POSTCOPY_PAUSED);
+ 
+@@ -2569,12 +2539,6 @@ static MigThrError postcopy_pause(MigrationState *s)
+         if (s->state == MIGRATION_STATUS_POSTCOPY_RECOVER) {
+             /* Woken up by a recover procedure. Give it a shot */
+ 
+-            /*
+-             * Firstly, let's wake up the return path now, with a new
+-             * return path channel.
+-             */
+-            qemu_sem_post(&s->postcopy_pause_rp_sem);
+-
+             /* Do the resume logic */
+             if (postcopy_do_resume(s) == 0) {
+                 /* Let's continue! */
+@@ -3264,7 +3228,7 @@ void migrate_fd_connect(MigrationState *s, Error *error_in)
+      * QEMU uses the return path.
+      */
+     if (migrate_postcopy_ram() || migrate_return_path()) {
+-        if (open_return_path_on_source(s, !resume)) {
++        if (open_return_path_on_source(s)) {
+             error_setg(&local_err, "Unable to open return-path for postcopy");
+             migrate_set_state(&s->state, s->state, MIGRATION_STATUS_FAILED);
+             migrate_set_error(s, local_err);
+@@ -3328,7 +3292,6 @@ static void migration_instance_finalize(Object *obj)
+     qemu_sem_destroy(&ms->rate_limit_sem);
+     qemu_sem_destroy(&ms->pause_sem);
+     qemu_sem_destroy(&ms->postcopy_pause_sem);
+-    qemu_sem_destroy(&ms->postcopy_pause_rp_sem);
+     qemu_sem_destroy(&ms->rp_state.rp_sem);
+     qemu_sem_destroy(&ms->rp_state.rp_pong_acks);
+     qemu_sem_destroy(&ms->postcopy_qemufile_src_sem);
+@@ -3348,7 +3311,6 @@ static void migration_instance_init(Object *obj)
+     migrate_params_init(&ms->parameters);
+ 
+     qemu_sem_init(&ms->postcopy_pause_sem, 0);
+-    qemu_sem_init(&ms->postcopy_pause_rp_sem, 0);
+     qemu_sem_init(&ms->rp_state.rp_sem, 0);
+     qemu_sem_init(&ms->rp_state.rp_pong_acks, 0);
+     qemu_sem_init(&ms->rate_limit_sem, 0);
+diff --git a/migration/migration.h b/migration/migration.h
+index 9a30216895..1034d617bf 100644
+--- a/migration/migration.h
++++ b/migration/migration.h
+@@ -393,7 +393,6 @@ struct MigrationState {
+ 
+     /* Needed by postcopy-pause state */
+     QemuSemaphore postcopy_pause_sem;
+-    QemuSemaphore postcopy_pause_rp_sem;
+     /*
+      * Whether we abort the migration if decompression errors are
+      * detected at the destination. It is left at false for qemu
+-- 
+2.39.2
+

@@ -1,0 +1,39 @@
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/b3b101157d4651f12e6b3361af2de6bace7f9b4a
+Forwared: not-needed
+From: Fabiano Rosas <farosas@suse.de>
+Date: Mon, 18 Sep 2023 14:28:19 -0300
+Subject: migration: Remove redundant cleanup of postcopy_qemufile_src
+
+This file is owned by the return path thread which is already doing
+cleanup.
+
+Reviewed-by: Peter Xu <peterx@redhat.com>
+Signed-off-by: Fabiano Rosas <farosas@suse.de>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Message-ID: <20230918172822.19052-6-farosas@suse.de>
+(cherry picked from commit b3b101157d4651f12e6b3361af2de6bace7f9b4a)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+---
+ migration/migration.c | 6 ------
+ 1 file changed, 6 deletions(-)
+
+diff --git a/migration/migration.c b/migration/migration.c
+index 169e6bdce8..e2e4a7d8ae 100644
+--- a/migration/migration.c
++++ b/migration/migration.c
+@@ -1178,12 +1178,6 @@ static void migrate_fd_cleanup(MigrationState *s)
+         qemu_fclose(tmp);
+     }
+ 
+-    if (s->postcopy_qemufile_src) {
+-        migration_ioc_unregister_yank_from_file(s->postcopy_qemufile_src);
+-        qemu_fclose(s->postcopy_qemufile_src);
+-        s->postcopy_qemufile_src = NULL;
+-    }
+-
+     assert(!migration_is_active(s));
+ 
+     if (s->state == MIGRATION_STATUS_CANCELLING) {
+-- 
+2.39.2
+

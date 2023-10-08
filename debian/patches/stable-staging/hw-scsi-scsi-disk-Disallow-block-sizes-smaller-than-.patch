@@ -1,9 +1,9 @@
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/7cfcc79b0ab800959716738aff9419f53fc68c9c
+Forwared: not-needed
 From: Thomas Huth <thuth@redhat.com>
-Date: Thu, 17 Aug 2023 10:53:00 +0200
-Subject: hw/scsi/scsi-disk: Disallow block sizes smaller than BDRV_SECTOR_SIZE
-Bug-Debian: https://bugs.debian.org/1051899
-Bug: https://gitlab.com/qemu-project/qemu/-/issues/1813
-Origin: upstream, https://gitlab.com/thuth/qemu/-/commit/3f91104484e5bf55b56d7e1b039a4a5a17d0c1a7
+Date: Mon, 25 Sep 2023 11:18:54 +0200
+Subject: hw/scsi/scsi-disk: Disallow block sizes smaller than 512
+ [CVE-2023-42467]
 
 We are doing things like
 
@@ -15,14 +15,18 @@ with a division by 0 exception. Thus disallow block sizes of 256
 bytes to avoid this situation.
 
 Resolves: https://gitlab.com/qemu-project/qemu/-/issues/1813
-Resolves: CVE-2023-42467
+CVE: 2023-42467
 Signed-off-by: Thomas Huth <thuth@redhat.com>
+Message-ID: <20230925091854.49198-1-thuth@redhat.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 7cfcc79b0ab800959716738aff9419f53fc68c9c)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
 ---
  hw/scsi/scsi-disk.c | 5 +++--
  1 file changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/hw/scsi/scsi-disk.c b/hw/scsi/scsi-disk.c
-index e0d79c7966c..477ee2bcd47 100644
+index e0d79c7966..477ee2bcd4 100644
 --- a/hw/scsi/scsi-disk.c
 +++ b/hw/scsi/scsi-disk.c
 @@ -1628,9 +1628,10 @@ static void scsi_disk_emulate_mode_select(SCSIDiskReq *r, uint8_t *inbuf)
@@ -39,5 +43,5 @@ index e0d79c7966c..477ee2bcd47 100644
              trace_scsi_disk_mode_select_set_blocksize(s->qdev.blocksize);
          }
 -- 
-GitLab
+2.39.2
 

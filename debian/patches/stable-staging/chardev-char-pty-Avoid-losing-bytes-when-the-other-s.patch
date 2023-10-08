@@ -1,0 +1,84 @@
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/4f7689f0817a717d18cc8aca298990760f27a89b
+Forwared: not-needed
+From: Thomas Huth <thuth@redhat.com>
+Date: Wed, 16 Aug 2023 23:07:43 +0200
+Subject: chardev/char-pty: Avoid losing bytes when the other side
+ just (re-)connected
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+When starting a guest via libvirt with "virsh start --console ...",
+the first second of the console output is missing. This is especially
+annoying on s390x that only has a text console by default and no graphical
+output - if the bios fails to boot here, the information about what went
+wrong is completely lost.
+
+One part of the problem (there is also some things to be done on the
+libvirt side) is that QEMU only checks with a 1 second timer whether
+the other side of the pty is already connected, so the first second of
+the console output is always lost.
+
+This likely used to work better in the past, since the code once checked
+for a re-connection during write, but this has been removed in commit
+f8278c7d74 ("char-pty: remove the check for connection on write") to avoid
+some locking.
+
+To ease the situation here at least a little bit, let's check with g_poll()
+whether we could send out the data anyway, even if the connection has not
+been marked as "connected" yet. The file descriptor is marked as non-blocking
+anyway since commit fac6688a18 ("Do not hang on full PTY"), so this should
+not cause any trouble if the other side is not ready for receiving yet.
+
+With this patch applied, I can now successfully see the bios output of
+a s390x guest when running it with "virsh start --console" (with a patched
+version of virsh that fixes the remaining issues there, too).
+
+Reported-by: Marc Hartmayer <mhartmay@linux.ibm.com>
+Signed-off-by: Thomas Huth <thuth@redhat.com>
+Reviewed-by: Daniel P. Berrangé <berrange@redhat.com>
+Message-Id: <20230816210743.1319018-1-thuth@redhat.com>
+(cherry picked from commit 4f7689f0817a717d18cc8aca298990760f27a89b)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+---
+ chardev/char-pty.c | 22 +++++++++++++++++++---
+ 1 file changed, 19 insertions(+), 3 deletions(-)
+
+diff --git a/chardev/char-pty.c b/chardev/char-pty.c
+index 4e5deac18a..cc2f7617fe 100644
+--- a/chardev/char-pty.c
++++ b/chardev/char-pty.c
+@@ -106,11 +106,27 @@ static void pty_chr_update_read_handler(Chardev *chr)
+ static int char_pty_chr_write(Chardev *chr, const uint8_t *buf, int len)
+ {
+     PtyChardev *s = PTY_CHARDEV(chr);
++    GPollFD pfd;
++    int rc;
+ 
+-    if (!s->connected) {
+-        return len;
++    if (s->connected) {
++        return io_channel_send(s->ioc, buf, len);
+     }
+-    return io_channel_send(s->ioc, buf, len);
++
++    /*
++     * The other side might already be re-connected, but the timer might
++     * not have fired yet. So let's check here whether we can write again:
++     */
++    pfd.fd = QIO_CHANNEL_FILE(s->ioc)->fd;
++    pfd.events = G_IO_OUT;
++    pfd.revents = 0;
++    rc = RETRY_ON_EINTR(g_poll(&pfd, 1, 0));
++    g_assert(rc >= 0);
++    if (!(pfd.revents & G_IO_HUP) && (pfd.revents & G_IO_OUT)) {
++        io_channel_send(s->ioc, buf, len);
++    }
++
++    return len;
+ }
+ 
+ static GSource *pty_chr_add_watch(Chardev *chr, GIOCondition cond)
+-- 
+2.39.2
+

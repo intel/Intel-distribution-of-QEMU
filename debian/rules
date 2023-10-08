@@ -727,7 +727,8 @@ binary-indep: a=-i
 
 build: build-arch build-indep
 install: install-arch install-indep
-binary: binary-arch binary-indep
+binary: install-arch install-indep binary-helper
+binary: a=
 binary-helper:
 	dh_installdeb $a
 	dh_gencontrol $a

@@ -1,0 +1,65 @@
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/febb71d543a8f747b2f8aaf0182d0a385c6a02c3
+Forwared: not-needed
+From: Nicholas Piggin <npiggin@gmail.com>
+Date: Tue, 8 Aug 2023 14:19:51 +1000
+Subject: hw/ppc: Always store the decrementer value
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+When writing a value to the decrementer that raises an exception, the
+irq is raised, but the value is not stored so the store doesn't appear
+to have changed the register when it is read again.
+
+Always store the write value to the register.
+
+Fixes: e81a982aa53 ("PPC: Clean up DECR implementation")
+Signed-off-by: Nicholas Piggin <npiggin@gmail.com>
+Signed-off-by: Cédric Le Goater <clg@kaod.org>
+(cherry picked from commit febb71d543a8f747b2f8aaf0182d0a385c6a02c3)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+---
+ hw/ppc/ppc.c | 20 ++++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/hw/ppc/ppc.c b/hw/ppc/ppc.c
+index befa9d95b3..06f3ad0719 100644
+--- a/hw/ppc/ppc.c
++++ b/hw/ppc/ppc.c
+@@ -835,6 +835,16 @@ static void __cpu_ppc_store_decr(PowerPCCPU *cpu, uint64_t *nextp,
+         return;
+     }
+ 
++    /*
++     * Calculate the next decrementer event and set a timer.
++     * decr_next is in timebase units to keep rounding simple. Note it is
++     * not adjusted by tb_offset because if TB changes via tb_offset changing,
++     * decrementer does not change, so not directly comparable with TB.
++     */
++    now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
++    next = ns_to_tb(tb_env->decr_freq, now) + value;
++    *nextp = next; /* nextp is in timebase units */
++
+     /*
+      * Going from 1 -> 0 or 0 -> -1 is the event to generate a DEC interrupt.
+      *
+@@ -856,16 +866,6 @@ static void __cpu_ppc_store_decr(PowerPCCPU *cpu, uint64_t *nextp,
+         (*lower_excp)(cpu);
+     }
+ 
+-    /*
+-     * Calculate the next decrementer event and set a timer.
+-     * decr_next is in timebase units to keep rounding simple. Note it is
+-     * not adjusted by tb_offset because if TB changes via tb_offset changing,
+-     * decrementer does not change, so not directly comparable with TB.
+-     */
+-    now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+-    next = ns_to_tb(tb_env->decr_freq, now) + value;
+-    *nextp = next;
+-
+     /* Adjust timer */
+     timer_mod(timer, tb_to_ns_round_up(tb_env->decr_freq, next));
+ }
+-- 
+2.39.2
+

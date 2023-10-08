@@ -1,0 +1,40 @@
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/f1085882d028e5a1b227443cd6e96bbb63d66f43
+Forwared: not-needed
+From: =?UTF-8?q?Eugenio=20P=C3=A9rez?= <eperezma@redhat.com>
+Date: Fri, 15 Sep 2023 19:08:35 +0200
+Subject: vdpa net: stop probing if cannot set features
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Otherwise it continues the CVQ isolation probing.
+
+Fixes: 152128d646 ("vdpa: move CVQ isolation check to net_init_vhost_vdpa")
+Reported-by: Peter Maydell <peter.maydell@linaro.org>
+Signed-off-by: Eugenio Pérez <eperezma@redhat.com>
+Message-Id: <20230915170836.3078172-3-eperezma@redhat.com>
+Tested-by: Lei Yang <leiyang@redhat.com>
+Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Reviewed-by: Philippe Mathieu-Daudé <philmd@linaro.org>
+(cherry picked from commit f1085882d028e5a1b227443cd6e96bbb63d66f43)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+---
+ net/vhost-vdpa.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/vhost-vdpa.c b/net/vhost-vdpa.c
+index 1c79e33170..cda6099ceb 100644
+--- a/net/vhost-vdpa.c
++++ b/net/vhost-vdpa.c
+@@ -1291,6 +1291,7 @@ static int vhost_vdpa_probe_cvq_isolation(int device_fd, uint64_t features,
+     r = ioctl(device_fd, VHOST_SET_FEATURES, &features);
+     if (unlikely(r)) {
+         error_setg_errno(errp, errno, "Cannot set features");
++        goto out;
+     }
+ 
+     r = ioctl(device_fd, VHOST_VDPA_SET_STATUS, &status);
+-- 
+2.39.2
+

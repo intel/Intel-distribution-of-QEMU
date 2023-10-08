@@ -1,7 +1,8 @@
-From f2fc49c302036315db6e8c9f74592decc3be0476 Mon Sep 17 00:00:00 2001
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/18a536f1f8d6222e562f59179e837fdfd8b92718
+Forwared: not-needed
 From: Richard Henderson <richard.henderson@linaro.org>
-Date: Thu, 14 Sep 2023 10:44:36 -0700
-Subject: [PATCH 7/7] accel/tcg: Always require can_do_io
+Date: Tue, 12 Sep 2023 19:08:11 -0700
+Subject: accel/tcg: Always require can_do_io
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -11,8 +12,10 @@ not only with icount.  This is required for i/o that alters
 the address space, such as a pci config space write.
 
 Resolves: https://gitlab.com/qemu-project/qemu/-/issues/1866
-Signed-off-by: Richard Henderson <richard.henderson@linaro.org>
 Reviewed-by: Philippe Mathieu-Daudé <philmd@linaro.org>
+Signed-off-by: Richard Henderson <richard.henderson@linaro.org>
+(cherry picked from commit 18a536f1f8d6222e562f59179e837fdfd8b92718)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
 ---
  accel/tcg/translator.c      | 20 +++++++-------------
  target/mips/tcg/translate.c |  1 -

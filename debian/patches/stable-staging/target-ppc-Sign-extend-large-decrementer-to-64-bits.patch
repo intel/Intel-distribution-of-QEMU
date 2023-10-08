@@ -1,0 +1,55 @@
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/c8fbc6b9f2f3c732ee3307093c1c5c367eaa64ae
+Forwared: not-needed
+From: Nicholas Piggin <npiggin@gmail.com>
+Date: Tue, 8 Aug 2023 14:19:50 +1000
+Subject: target/ppc: Sign-extend large decrementer to 64-bits
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+When storing a large decrementer value with the most significant
+implemented bit set, it is to be treated as a negative and sign
+extended.
+
+This isn't hit for book3s DEC because of another bug, fixing it
+in the next patch exposes this one and can cause additional
+problems, so fix this first. It can be hit with HDECR and other
+edge triggered types.
+
+Fixes: a8dafa52518 ("target/ppc: Implement large decrementer support for TCG")
+Signed-off-by: Nicholas Piggin <npiggin@gmail.com>
+[ clg: removed extra cpu and pcc variables shadowing local variables ]
+Signed-off-by: Cédric Le Goater <clg@kaod.org>
+(cherry picked from commit c8fbc6b9f2f3c732ee3307093c1c5c367eaa64ae)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+---
+ hw/ppc/ppc.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/hw/ppc/ppc.c b/hw/ppc/ppc.c
+index 57d0aae7d7..befa9d95b3 100644
+--- a/hw/ppc/ppc.c
++++ b/hw/ppc/ppc.c
+@@ -739,7 +739,9 @@ target_ulong cpu_ppc_load_decr(CPUPPCState *env)
+      * to 64 bits, otherwise it is a 32 bit value.
+      */
+     if (env->spr[SPR_LPCR] & LPCR_LD) {
+-        return decr;
++        PowerPCCPU *cpu = env_archcpu(env);
++        PowerPCCPUClass *pcc = POWERPC_CPU_GET_CLASS(cpu);
++        return sextract64(decr, 0, pcc->lrg_decr_bits);
+     }
+     return (uint32_t) decr;
+ }
+@@ -758,7 +760,7 @@ target_ulong cpu_ppc_load_hdecr(CPUPPCState *env)
+      * extended to 64 bits, otherwise it is 32 bits.
+      */
+     if (pcc->lrg_decr_bits > 32) {
+-        return hdecr;
++        return sextract64(hdecr, 0, pcc->lrg_decr_bits);
+     }
+     return (uint32_t) hdecr;
+ }
+-- 
+2.39.2
+

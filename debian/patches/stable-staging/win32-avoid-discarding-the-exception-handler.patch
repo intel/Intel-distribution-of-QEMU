@@ -1,0 +1,59 @@
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/75b773d84c89220463a14a6883d2b2a8e49e5b68
+Forwared: not-needed
+From: =?UTF-8?q?Marc-Andr=C3=A9=20Lureau?= <marcandre.lureau@redhat.com>
+Date: Mon, 25 Sep 2023 15:36:04 +0400
+Subject: win32: avoid discarding the exception handler
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+In all likelihood, the compiler with lto doesn't see the function being
+used, from assembly macro __try1. Help it by marking the function has
+being used.
+
+Resolves:
+https://gitlab.com/qemu-project/qemu/-/issues/1904
+
+Fixes: commit d89f30b4df ("win32: wrap socket close() with an exception handler")
+
+Signed-off-by: Marc-André Lureau <marcandre.lureau@redhat.com>
+Reviewed-by: Thomas Huth <thuth@redhat.com>
+(cherry picked from commit 75b773d84c89220463a14a6883d2b2a8e49e5b68)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+(mjt: trivial context fixup in include/qemu/compiler.h)
+---
+ include/qemu/compiler.h | 6 ++++++
+ util/oslib-win32.c      | 2 +-
+ 2 files changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/include/qemu/compiler.h b/include/qemu/compiler.h
+index a309f90c76..5c7f63f351 100644
+--- a/include/qemu/compiler.h
++++ b/include/qemu/compiler.h
+@@ -197,4 +197,10 @@
+ #define BUILTIN_SUBCLL_BROKEN
+ #endif
+ 
++#if __has_attribute(used)
++# define QEMU_USED __attribute__((used))
++#else
++# define QEMU_USED
++#endif
++
+ #endif /* COMPILER_H */
+diff --git a/util/oslib-win32.c b/util/oslib-win32.c
+index 19a0ea7fbe..55b0189dc3 100644
+--- a/util/oslib-win32.c
++++ b/util/oslib-win32.c
+@@ -479,7 +479,7 @@ int qemu_bind_wrap(int sockfd, const struct sockaddr *addr,
+     return ret;
+ }
+ 
+-EXCEPTION_DISPOSITION
++QEMU_USED EXCEPTION_DISPOSITION
+ win32_close_exception_handler(struct _EXCEPTION_RECORD *exception_record,
+                               void *registration, struct _CONTEXT *context,
+                               void *dispatcher)
+-- 
+2.39.2
+

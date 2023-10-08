@@ -1,0 +1,42 @@
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/cbc9ae87b5f6f81c52a249e0b64100d5011fca53
+Forwared: not-needed
+From: =?UTF-8?q?Eugenio=20P=C3=A9rez?= <eperezma@redhat.com>
+Date: Fri, 15 Sep 2023 19:08:34 +0200
+Subject: vdpa net: fix error message setting virtio status
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+It incorrectly prints "error setting features", probably because a copy
+paste miss.
+
+Fixes: 152128d646 ("vdpa: move CVQ isolation check to net_init_vhost_vdpa")
+Reported-by: Peter Maydell <peter.maydell@linaro.org>
+Signed-off-by: Eugenio Pérez <eperezma@redhat.com>
+Message-Id: <20230915170836.3078172-2-eperezma@redhat.com>
+Tested-by: Lei Yang <leiyang@redhat.com>
+Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Reviewed-by: Philippe Mathieu-Daudé <philmd@linaro.org>
+(cherry picked from commit cbc9ae87b5f6f81c52a249e0b64100d5011fca53)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+---
+ net/vhost-vdpa.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/vhost-vdpa.c b/net/vhost-vdpa.c
+index 977faeb44b..1c79e33170 100644
+--- a/net/vhost-vdpa.c
++++ b/net/vhost-vdpa.c
+@@ -1295,7 +1295,7 @@ static int vhost_vdpa_probe_cvq_isolation(int device_fd, uint64_t features,
+ 
+     r = ioctl(device_fd, VHOST_VDPA_SET_STATUS, &status);
+     if (unlikely(r)) {
+-        error_setg_errno(errp, -r, "Cannot set device features");
++        error_setg_errno(errp, -r, "Cannot set status");
+         goto out;
+     }
+ 
+-- 
+2.39.2
+

@@ -1,4 +1,5 @@
 Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/0d58c660689f6da1e3feff8a997014003d928b3b
+Forwared: not-needed
 From: Richard Henderson <richard.henderson@linaro.org>
 Date: Fri, 25 Aug 2023 16:13:17 -0700
 Subject: softmmu: Use async_run_on_cpu in tcg_commit
@@ -22,6 +23,11 @@ Reviewed-by: Alex Bennée <alex.bennee@linaro.org>
 Signed-off-by: Richard Henderson <richard.henderson@linaro.org>
 (cherry picked from commit 0d58c660689f6da1e3feff8a997014003d928b3b)
 Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+---
+ accel/tcg/cpu-exec-common.c | 30 ----------------------------
+ include/exec/cpu-common.h   |  1 -
+ softmmu/physmem.c           | 40 +++++++++++++++++++++++++++----------
+ 3 files changed, 29 insertions(+), 42 deletions(-)
 
 diff --git a/accel/tcg/cpu-exec-common.c b/accel/tcg/cpu-exec-common.c
 index 9a5fabf625..7e35d7f4b5 100644

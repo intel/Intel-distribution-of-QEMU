@@ -1,0 +1,47 @@
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/32b214384e1e1472ddfa875196c57f6620172301
+Forwared: not-needed
+From: Fabian Vogt <fvogt@suse.de>
+Date: Fri, 15 Sep 2023 15:36:59 +0100
+Subject: hw/arm/boot: Set SCR_EL3.FGTEn when booting kernel
+
+Just like d7ef5e16a17c sets SCR_EL3.HXEn for FEAT_HCX, this commit
+handles SCR_EL3.FGTEn for FEAT_FGT:
+
+When we direct boot a kernel on a CPU which emulates EL3, we need to
+set up the EL3 system registers as the Linux kernel documentation
+specifies:
+    https://www.kernel.org/doc/Documentation/arm64/booting.rst
+
+> For CPUs with the Fine Grained Traps (FEAT_FGT) extension present:
+> - If EL3 is present and the kernel is entered at EL2:
+>   - SCR_EL3.FGTEn (bit 27) must be initialised to 0b1.
+
+Cc: qemu-stable@nongnu.org
+Signed-off-by: Fabian Vogt <fvogt@suse.de>
+Message-id: 4831384.GXAFRqVoOG@linux-e202.suse.de
+Reviewed-by: Peter Maydell <peter.maydell@linaro.org>
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+(cherry picked from commit 32b214384e1e1472ddfa875196c57f6620172301)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+---
+ hw/arm/boot.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/hw/arm/boot.c b/hw/arm/boot.c
+index 720f22531a..24fa169060 100644
+--- a/hw/arm/boot.c
++++ b/hw/arm/boot.c
+@@ -761,6 +761,10 @@ static void do_cpu_reset(void *opaque)
+                     if (cpu_isar_feature(aa64_hcx, cpu)) {
+                         env->cp15.scr_el3 |= SCR_HXEN;
+                     }
++                    if (cpu_isar_feature(aa64_fgt, cpu)) {
++                        env->cp15.scr_el3 |= SCR_FGTEN;
++                    }
++
+                     /* AArch64 kernels never boot in secure mode */
+                     assert(!info->secure_boot);
+                     /* This hook is only supported for AArch32 currently:
+-- 
+2.39.2
+

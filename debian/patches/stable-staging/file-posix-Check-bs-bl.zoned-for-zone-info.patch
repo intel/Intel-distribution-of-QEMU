@@ -1,0 +1,63 @@
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/4b5d80f3d02096a9bb1f651f6b3401ba40877159
+Forwared: not-needed
+From: Hanna Czenczek <hreitz@redhat.com>
+Date: Thu, 24 Aug 2023 17:53:41 +0200
+Subject: file-posix: Check bs->bl.zoned for zone info
+
+Instead of checking bs->wps or bs->bl.zone_size for whether zone
+information is present, check bs->bl.zoned.  That is the flag that
+raw_refresh_zoned_limits() reliably sets to indicate zone support.  If
+it is set to something other than BLK_Z_NONE, other values and objects
+like bs->wps and bs->bl.zone_size must be non-null/zero and valid; if it
+is not, we cannot rely on their validity.
+
+Signed-off-by: Hanna Czenczek <hreitz@redhat.com>
+Message-Id: <20230824155345.109765-3-hreitz@redhat.com>
+Reviewed-by: Sam Li <faithilikerun@gmail.com>
+(cherry picked from commit 4b5d80f3d02096a9bb1f651f6b3401ba40877159)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+---
+ block/file-posix.c | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/block/file-posix.c b/block/file-posix.c
+index 2b88b9eefa..46e22403fe 100644
+--- a/block/file-posix.c
++++ b/block/file-posix.c
+@@ -2455,9 +2455,10 @@ static int coroutine_fn raw_co_prw(BlockDriverState *bs, uint64_t offset,
+     if (fd_open(bs) < 0)
+         return -EIO;
+ #if defined(CONFIG_BLKZONED)
+-    if ((type & (QEMU_AIO_WRITE | QEMU_AIO_ZONE_APPEND)) && bs->wps) {
++    if ((type & (QEMU_AIO_WRITE | QEMU_AIO_ZONE_APPEND)) &&
++        bs->bl.zoned != BLK_Z_NONE) {
+         qemu_co_mutex_lock(&bs->wps->colock);
+-        if (type & QEMU_AIO_ZONE_APPEND && bs->bl.zone_size) {
++        if (type & QEMU_AIO_ZONE_APPEND) {
+             int index = offset / bs->bl.zone_size;
+             offset = bs->wps->wp[index];
+         }
+@@ -2508,8 +2509,8 @@ out:
+ {
+     BlockZoneWps *wps = bs->wps;
+     if (ret == 0) {
+-        if ((type & (QEMU_AIO_WRITE | QEMU_AIO_ZONE_APPEND))
+-            && wps && bs->bl.zone_size) {
++        if ((type & (QEMU_AIO_WRITE | QEMU_AIO_ZONE_APPEND)) &&
++            bs->bl.zoned != BLK_Z_NONE) {
+             uint64_t *wp = &wps->wp[offset / bs->bl.zone_size];
+             if (!BDRV_ZT_IS_CONV(*wp)) {
+                 if (type & QEMU_AIO_ZONE_APPEND) {
+@@ -2529,7 +2530,8 @@ out:
+         }
+     }
+ 
+-    if ((type & (QEMU_AIO_WRITE | QEMU_AIO_ZONE_APPEND)) && wps) {
++    if ((type & (QEMU_AIO_WRITE | QEMU_AIO_ZONE_APPEND)) &&
++        bs->blk.zoned != BLK_Z_NONE) {
+         qemu_co_mutex_unlock(&wps->colock);
+     }
+ }
+-- 
+2.39.2
+

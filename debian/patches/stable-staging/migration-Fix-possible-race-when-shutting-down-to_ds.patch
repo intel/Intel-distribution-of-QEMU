@@ -1,0 +1,72 @@
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/7478fb0df914f0a5ab551ff74b1df62dd250500e
+Forwared: not-needed
+From: Fabiano Rosas <farosas@suse.de>
+Date: Mon, 18 Sep 2023 14:28:18 -0300
+Subject: migration: Fix possible race when shutting down to_dst_file
+
+It's not safe to call qemu_file_shutdown() on the to_dst_file without
+first checking for the file's presence under the lock. The cleanup of
+this file happens at postcopy_pause() and migrate_fd_cleanup() which
+are not necessarily running in the same thread as migrate_fd_cancel().
+
+Reviewed-by: Peter Xu <peterx@redhat.com>
+Signed-off-by: Fabiano Rosas <farosas@suse.de>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Message-ID: <20230918172822.19052-5-farosas@suse.de>
+(cherry picked from commit 7478fb0df914f0a5ab551ff74b1df62dd250500e)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+---
+ migration/migration.c | 18 +++++++++++-------
+ 1 file changed, 11 insertions(+), 7 deletions(-)
+
+diff --git a/migration/migration.c b/migration/migration.c
+index 517b3e04d2..169e6bdce8 100644
+--- a/migration/migration.c
++++ b/migration/migration.c
+@@ -1246,7 +1246,7 @@ static void migrate_fd_error(MigrationState *s, const Error *error)
+ static void migrate_fd_cancel(MigrationState *s)
+ {
+     int old_state ;
+-    QEMUFile *f = migrate_get_current()->to_dst_file;
++
+     trace_migrate_fd_cancel();
+ 
+     WITH_QEMU_LOCK_GUARD(&s->qemu_file_lock) {
+@@ -1272,11 +1272,13 @@ static void migrate_fd_cancel(MigrationState *s)
+      * If we're unlucky the migration code might be stuck somewhere in a
+      * send/write while the network has failed and is waiting to timeout;
+      * if we've got shutdown(2) available then we can force it to quit.
+-     * The outgoing qemu file gets closed in migrate_fd_cleanup that is
+-     * called in a bh, so there is no race against this cancel.
+      */
+-    if (s->state == MIGRATION_STATUS_CANCELLING && f) {
+-        qemu_file_shutdown(f);
++    if (s->state == MIGRATION_STATUS_CANCELLING) {
++        WITH_QEMU_LOCK_GUARD(&s->qemu_file_lock) {
++            if (s->to_dst_file) {
++                qemu_file_shutdown(s->to_dst_file);
++            }
++        }
+     }
+     if (s->state == MIGRATION_STATUS_CANCELLING && s->block_inactive) {
+         Error *local_err = NULL;
+@@ -1520,12 +1522,14 @@ void qmp_migrate_pause(Error **errp)
+ {
+     MigrationState *ms = migrate_get_current();
+     MigrationIncomingState *mis = migration_incoming_get_current();
+-    int ret;
++    int ret = 0;
+ 
+     if (ms->state == MIGRATION_STATUS_POSTCOPY_ACTIVE) {
+         /* Source side, during postcopy */
+         qemu_mutex_lock(&ms->qemu_file_lock);
+-        ret = qemu_file_shutdown(ms->to_dst_file);
++        if (ms->to_dst_file) {
++            ret = qemu_file_shutdown(ms->to_dst_file);
++        }
+         qemu_mutex_unlock(&ms->qemu_file_lock);
+         if (ret) {
+             error_setg(errp, "Failed to pause source migration");
+-- 
+2.39.2
+

@@ -1,7 +1,8 @@
-From 602cfe467720f7c20459f83b6fd4cd790999e038 Mon Sep 17 00:00:00 2001
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/200c1f904f46c209cb022e711a48b89e46512902
+Forwared: not-needed
 From: Richard Henderson <richard.henderson@linaro.org>
-Date: Thu, 14 Sep 2023 10:44:35 -0700
-Subject: [PATCH 6/7] accel/tcg: Always set CF_LAST_IO with CF_NOIRQ
+Date: Thu, 14 Sep 2023 08:36:11 -0700
+Subject: accel/tcg: Always set CF_LAST_IO with CF_NOIRQ
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -9,8 +10,10 @@ Content-Transfer-Encoding: 8bit
 Without this we can get see loops through cpu_io_recompile,
 in which the cpu makes no progress.
 
-Signed-off-by: Richard Henderson <richard.henderson@linaro.org>
 Reviewed-by: Philippe Mathieu-Daudé <philmd@linaro.org>
+Signed-off-by: Richard Henderson <richard.henderson@linaro.org>
+(cherry picked from commit 200c1f904f46c209cb022e711a48b89e46512902)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
 ---
  accel/tcg/cpu-exec.c | 2 +-
  accel/tcg/tb-maint.c | 6 ++++--

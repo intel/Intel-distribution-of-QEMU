@@ -1,0 +1,48 @@
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/0a7a164bc37b4ecbf74466e1e5243d72a768ad06
+Forwared: not-needed
+From: =?UTF-8?q?Eugenio=20P=C3=A9rez?= <eperezma@redhat.com>
+Date: Wed, 13 Sep 2023 14:34:08 +0200
+Subject: vdpa net: zero vhost_vdpa iova_tree pointer at cleanup
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Not zeroing it causes a SIGSEGV if the live migration is cancelled, at
+net device restart.
+
+This is caused because CVQ tries to reuse the iova_tree that is present
+in the first vhost_vdpa device at the end of vhost_vdpa_net_cvq_start.
+As a consequence, it tries to access an iova_tree that has been already
+free.
+
+Fixes: 00ef422e9fbf ("vdpa net: move iova tree creation from init to start")
+Reported-by: Yanhui Ma <yama@redhat.com>
+Signed-off-by: Eugenio Pérez <eperezma@redhat.com>
+Message-Id: <20230913123408.2819185-1-eperezma@redhat.com>
+Acked-by: Jason Wang <jasowang@redhat.com>
+Tested-by: Lei Yang <leiyang@redhat.com>
+Reviewed-by: Si-Wei Liu <si-wei.liu@oracle.com>
+Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+(cherry picked from commit 0a7a164bc37b4ecbf74466e1e5243d72a768ad06)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+---
+ net/vhost-vdpa.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/vhost-vdpa.c b/net/vhost-vdpa.c
+index 9795306742..977faeb44b 100644
+--- a/net/vhost-vdpa.c
++++ b/net/vhost-vdpa.c
+@@ -385,6 +385,8 @@ static void vhost_vdpa_net_client_stop(NetClientState *nc)
+     dev = s->vhost_vdpa.dev;
+     if (dev->vq_index + dev->nvqs == dev->vq_index_end) {
+         g_clear_pointer(&s->vhost_vdpa.iova_tree, vhost_iova_tree_delete);
++    } else {
++        s->vhost_vdpa.iova_tree = NULL;
+     }
+ }
+ 
+-- 
+2.39.2
+

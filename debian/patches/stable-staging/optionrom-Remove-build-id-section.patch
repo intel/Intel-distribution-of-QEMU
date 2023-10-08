@@ -1,0 +1,73 @@
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/35ed01ba5448208695ada5fa20a13c0a4689a1c1
+Forwared: not-needed
+From: Fabiano Rosas <farosas@suse.de>
+Date: Tue, 26 Sep 2023 16:25:02 -0300
+Subject: optionrom: Remove build-id section
+
+Our linker script for optionroms specifies only the placement of the
+.text section, leaving the linker free to place the remaining sections
+at arbitrary places in the file.
+
+Since at least binutils 2.39, the .note.gnu.build-id section is now
+being placed at the start of the file, which causes label addresses to
+be shifted. For linuxboot_dma.bin that means that the PnP header
+(among others) will not be found when determining the type of ROM at
+optionrom_setup():
+
+(0x1c is the label _pnph, where the magic "PnP" is)
+
+$ xxd /usr/share/qemu/linuxboot_dma.bin | grep "PnP"
+00000010: 0000 0000 0000 0000 0000 1c00 2450 6e50  ............$PnP
+
+$ xxd pc-bios/optionrom/linuxboot_dma.bin | grep "PnP"
+00000010: 0000 0000 0000 0000 0000 4c00 2450 6e50  ............$PnP
+                                   ^bad
+
+Using a freshly built linuxboot_dma.bin ROM results in a broken boot:
+
+  SeaBIOS (version rel-1.16.2-0-gea1b7a073390-prebuilt.qemu.org)
+  Booting from Hard Disk...
+  Boot failed: could not read the boot disk
+
+  Booting from Floppy...
+  Boot failed: could not read the boot disk
+
+  No bootable device.
+
+We're not using the build-id section, so pass the --build-id=none
+option to the linker to remove it entirely.
+
+Note: In theory, this same issue could happen with any other
+section. The ideal solution would be to have all unused sections
+discarded in the linker script. However that would be a larger change,
+specially for the pvh rom which uses the .bss and COMMON sections so
+I'm addressing only the immediate issue here.
+
+Reported-by: Vasiliy Ulyanov <vulyanov@suse.de>
+Signed-off-by: Fabiano Rosas <farosas@suse.de>
+Reviewed-by: Thomas Huth <thuth@redhat.com>
+Message-ID: <20230926192502.15986-1-farosas@suse.de>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 35ed01ba5448208695ada5fa20a13c0a4689a1c1)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+(mjt: remove unrelated stable@vger)
+---
+ pc-bios/optionrom/Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/pc-bios/optionrom/Makefile b/pc-bios/optionrom/Makefile
+index b1fff0ba6c..30d07026c7 100644
+--- a/pc-bios/optionrom/Makefile
++++ b/pc-bios/optionrom/Makefile
+@@ -36,7 +36,7 @@ config-cc.mak: Makefile
+ 	    $(call cc-option,-Wno-array-bounds)) 3> config-cc.mak
+ -include config-cc.mak
+ 
+-override LDFLAGS = -nostdlib -Wl,-T,$(SRC_DIR)/flat.lds
++override LDFLAGS = -nostdlib -Wl,--build-id=none,-T,$(SRC_DIR)/flat.lds
+ 
+ pvh.img: pvh.o pvh_main.o
+ 
+-- 
+2.39.2
+
