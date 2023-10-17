@@ -1,3 +1,12 @@
+qemu (1:8.1.2+ds-1) unstable; urgency=medium
+
+  * upstream 8.1.2 stable/bugfix release
+  * remove all stable-staging/ patches and two more
+    (all included into 8.1.2)
+  * d/rules: microvm build: do not explicitly enable avx2
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 17 Oct 2023 09:44:39 +0300
+
 qemu (1:8.1.1+ds-2) unstable; urgency=medium
 
   * d/rules: fix binary target to produce both arch and indep

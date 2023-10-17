@@ -553,6 +553,7 @@ static float64_t f64Random( void )
      case 6:
         return f64RandomQInfP3();
      case 7:
+     default:
         return f64RandomQInfPInf();
     }
 

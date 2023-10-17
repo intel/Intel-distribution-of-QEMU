@@ -310,7 +310,7 @@ b/microvm/configured: configure debian/microvm-devices.mak
 		--without-default-features \
 		--target-list=x86_64-softmmu --enable-kvm --disable-tcg \
 		--enable-vnc \
-		--enable-attr --enable-avx2 \
+		--enable-attr \
 		--enable-coroutine-pool \
 		--audio-drv-list="" \
 		--without-default-devices \

@@ -411,6 +411,7 @@ static float32_t f32Random( void )
      case 6:
         return f32RandomQInfP3();
      case 7:
+     default:
         return f32RandomQInfPInf();
     }
 

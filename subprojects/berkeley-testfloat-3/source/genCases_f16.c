@@ -330,6 +330,7 @@ static float16_t f16Random( void )
      case 6:
         return f16RandomQInfP3();
      case 7:
+     default:
         return f16RandomQInfPInf();
     }
 
