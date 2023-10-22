@@ -22,7 +22,7 @@
 #
 
 PLATFORM_RELFLAGS += -fPIC -meabi
-PLATFORM_CPPFLAGS += -DCONFIG_4xx -ffixed-r2 -mstring -msoft-float
+PLATFORM_CPPFLAGS += -DCONFIG_4xx -ffixed-r2 -msoft-float
 
 cfg=$(shell grep configs $(OBJTREE)/include/config.h | sed 's/.*<\(configs.*\)>/\1/')
 is440:=$(shell grep CONFIG_440 $(TOPDIR)/include/$(cfg))
