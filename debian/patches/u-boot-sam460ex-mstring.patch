@@ -7,6 +7,8 @@ diff --git a/roms/u-boot-sam460ex/arch/powerpc/cpu/ppc4xx/config.mk b/roms/u-boo
 index 8f47c9b728..cf4414cee6 100644
 --- a/roms/u-boot-sam460ex/arch/powerpc/cpu/ppc4xx/config.mk
 +++ b/roms/u-boot-sam460ex/arch/powerpc/cpu/ppc4xx/config.mk
-@@ -25 +25 @@ PLATFORM_RELFLAGS += -fPIC -meabi
+@@ -24,3 +24,3 @@
+ PLATFORM_RELFLAGS += -fPIC -meabi
 -PLATFORM_CPPFLAGS += -DCONFIG_4xx -ffixed-r2 -mstring -msoft-float
 +PLATFORM_CPPFLAGS += -DCONFIG_4xx -ffixed-r2 -msoft-float
+ 

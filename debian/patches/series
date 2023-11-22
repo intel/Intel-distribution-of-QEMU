@@ -16,7 +16,6 @@ openbios-spelling-endianess.patch
 slof-spelling-seperator.patch
 disable-xen-on-x32.patch
 qemu-img-omit-errno-value-in-error-message.patch
-linux-user-Fixes-for-zero_bss.patch
 # do not link everything with system-specific async-teardown.c
 # (fixes build error on ia64 without clone(2))
 move-vl-opts/include-sysemu-os-posix.h-move-daemonize-declaration.patch
@@ -28,5 +27,3 @@ move-vl-opts/os-posix.c-remove-unneeded-includes.patch
 move-vl-opts/softmmu-vl.c-inline-include-qemu-qemu-options.h-into.patch
 move-vl-opts/util-async-teardown.c-move-to-softmmu-only-build-it-.patch
 hw-ide-ahci-fix-legacy-software-reset.patch
-target-mips-Fix-MSA-BZ-BNZ-opcodes-displacement.patch
-hw-ide-reset-cancel-async-DMA-operation-before-reset.patch

@@ -28,11 +28,12 @@ Build-Depends-Arch:
  libaio-dev            [linux-any],
 # libsndio is in universe in ubuntu
 # --disable-sndio
-# --audio-drv-list=pa,alsa,jack,oss,sdl	amd64 arm arm64 armel armhf i386 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64 x32
+# --audio-drv-list=pipewire,pa,alsa,jack,oss,sdl	amd64 arm arm64 armel armhf i386 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64 x32
 ##--audio-drv-list=pa,oss	kfreebsd-any
  libjack-dev  [amd64 arm arm64 armel armhf i386 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64 x32],
  libpulse-dev,
  libasound2-dev [amd64 arm arm64 armel armhf i386 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64 x32],
+ libpipewire-0.3-dev [amd64 arm arm64 armel armhf i386 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64 x32],
 # for virtfs (now in libc6)
 # --enable-attr
 # --enable-bpf	linux-any

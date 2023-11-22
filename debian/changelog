@@ -1,3 +1,15 @@
+qemu (1:8.1.3+ds-1) unstable; urgency=medium
+
+  * new upstream stable/bugfix release
+  * remove patches applied upstream:
+   - linux-user-Fixes-for-zero_bss.patch
+   - target-mips-Fix-MSA-BZ-BNZ-opcodes-displacement.patch
+   - hw-ide-reset-cancel-async-DMA-operation-before-reset.patch
+  * d/control, d/qemu-system-gui.install: enable pipewire audio support
+    (Closes: #1055221)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 22 Nov 2023 17:56:06 +0300
+
 qemu (1:8.1.2+ds-1) unstable; urgency=medium
 
   * upstream 8.1.2 stable/bugfix release
@@ -12,7 +24,7 @@ qemu (1:8.1.1+ds-2) unstable; urgency=medium
   * d/rules: fix binary target to produce both arch and indep
     binaries instead of omitting indep one(s)
   * d/patches: sync with current staging-8.1 branch, many new fixes
-  * additional fixes:  
+  * additional fixes:
     +hw-ide-ahci-fix-legacy-software-reset.patch
     +target-mips-Fix-MSA-BZ-BNZ-opcodes-displacement.patch
     +hw-ide-reset-cancel-async-DMA-operation-before-reset.patch
