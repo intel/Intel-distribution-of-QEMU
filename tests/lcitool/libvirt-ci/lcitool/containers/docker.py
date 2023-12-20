@@ -7,34 +7,35 @@
 import json
 import logging
 
-from .containers import Container, ContainerError
+from .containers import Container
 
 log = logging.getLogger()
-
-
-class DockerBuildError(ContainerError):
-    """
-    Thrown whenever error occurs during
-    docker build operation.
-    """
-    pass
-
-
-class DockerRunError(ContainerError):
-    """
-    Thrown whenever error occurs during
-    docker run operation.
-    """
-    pass
 
 
 class Docker(Container):
     """Docker container class"""
 
-    def __init__(self):
-        super().__init__()
-        self._run_exception = DockerRunError
-        self._build_exception = DockerBuildError
+    def run(self, image, container_cmd, user, tempdir, env=None, datadir=None,
+            script=None, **kwargs):
+        """
+        Prepares and runs the command inside a container.
+
+        See Container.run() for more information.
+        """
+
+        return super().run(image, container_cmd, user, tempdir, env, datadir,
+                           script, **kwargs)
+
+    def shell(self, image, user, tempdir, env=None, datadir=None, script=None,
+              **kwargs):
+        """
+        Spawns an interactive shell inside the container.
+
+        See Container.shell() for more information
+        """
+
+        return super().shell(image, user, tempdir, env, datadir,
+                             script, **kwargs)
 
     def _images(self):
         """

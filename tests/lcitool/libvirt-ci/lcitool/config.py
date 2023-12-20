@@ -57,16 +57,17 @@ class Config:
             self._values = values
         return self._values
 
-    def __init__(self):
+    def __init__(self, path=None):
         self._values = None
-        self._config_file_dir = util.get_config_dir()
-        self._config_file_paths = [
-            self.get_config_path(fname) for fname in
-            ["config.yml", "config.yaml"]
-        ]
+        self._config_file_paths = None
 
-    def get_config_path(self, *args):
-        return Path(self._config_file_dir, *args)
+        if path is not None:
+            self._config_file_paths = [Path(path)]
+        else:
+            self._config_file_paths = [
+                Path(util.get_config_dir(), fname) for fname in ["config.yml",
+                                                                 "config.yaml"]
+            ]
 
     def _load_config(self):
         # Load the template config containing the defaults first, this must
@@ -78,20 +79,21 @@ class Config:
 
         user_config_path = None
         for user_config_path in self._config_file_paths:
-            if user_config_path.exists():
-                break
+            if not user_config_path.exists():
+                continue
+
+            user_config_path_str = user_config_path.as_posix()
+            log.debug(f"Loading configuration from '{user_config_path_str}'")
+            try:
+                with open(user_config_path, "r") as fp:
+                    user_config = yaml.safe_load(fp)
+                    if user_config is None:
+                        user_config = {}
+            except Exception as e:
+                raise LoadError(f"'{user_config_path.name}': {e}")
+
+            break
         else:
-            return
-
-        user_config_path_str = user_config_path.as_posix()
-        log.debug(f"Loading configuration from '{user_config_path_str}'")
-        try:
-            with open(user_config_path, "r") as fp:
-                user_config = yaml.safe_load(fp)
-        except Exception as e:
-            raise LoadError(f"'{user_config_path.name}': {e}")
-
-        if user_config is None:
             user_config = {}
 
         # delete user params we don't recognize

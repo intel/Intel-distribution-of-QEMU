@@ -28,6 +28,7 @@ stages:
 .job_rules_test_container_changes: &job_rules_test_container_changes
   changes:
     - .gitlab-ci.yml
+    - lcitool/facts/mappings.yml
 
 # If pushing to the default branch, then publish the container
 # for future reuse, otherwise just discard it after testing build
@@ -283,19 +284,19 @@ x86_64-check-centos-stream-9:
     IMAGE: quay.io/centos/centos:stream9
     NAME: centos-stream-9
 
-x86_64-check-debian-10:
-  extends: .check_container_template
-  variables:
-    <<: *apt_dry_run_command
-    IMAGE: docker.io/library/debian:10-slim
-    NAME: debian-10
-
 x86_64-check-debian-11:
   extends: .check_container_template
   variables:
     <<: *apt_dry_run_command
     IMAGE: docker.io/library/debian:11-slim
     NAME: debian-11
+
+x86_64-check-debian-12:
+  extends: .check_container_template
+  variables:
+    <<: *apt_dry_run_command
+    IMAGE: docker.io/library/debian:12-slim
+    NAME: debian-12
 
 x86_64-check-debian-sid:
   extends: .check_container_template
@@ -331,7 +332,7 @@ x86_64-check-opensuse-leap-15:
   extends: .check_container_template
   variables:
     <<: *zypper_dry_run_command
-    IMAGE: registry.opensuse.org/opensuse/leap:15.4
+    IMAGE: registry.opensuse.org/opensuse/leap:15.5
     NAME: opensuse-leap-15
 
 x86_64-check-opensuse-tumbleweed:

@@ -176,13 +176,14 @@ $smp_exit_loop:
 	rsm	PSW_I, %r0	/* disable local irqs */
 	mtctl	%r0, CR_EIEM
 
-	/* on 64bit: Address of PDCE_PROC for each non-monarch processor in GR26. */
-	load32	BOOTADDR(pdc_entry), %r26
+	/* provide PDCE_PROC entry in arg0 (required on 64-bit) */
+	load32	MEM_PDC_ENTRY, %arg0
 
 	/* jump to rendevouz */
 	ldw	0x10(%r0),%r3	/* MEM_RENDEZ */
 	/* ldw	0x28(%r0),%r0	MEM_RENDEZ_HI - assume addr < 4GB */
-	cmpb,=,n  %r0,%r3,startup	/* branch to startup if not yet initialized */
+	cmpb,=,n  %r0,%r3,enter_smp_idle_loop
+	nop			/* failed backward branch is nullified */
 	load32	startup, %rp
 	bv,n	0(%r3)
 
@@ -346,6 +347,10 @@ END(smp_ivt)
 	PDC and IODC entry
  *******************************************************/
 
+/* XXX: memory location in page0: vec_pad0[], temporary storage for PSW.W */
+#define PSW_OFFSET1	24
+#define PSW_OFFSET2	28
+
 ENTRY(pdc_entry)
 	stw %rp,-20(%sp)
 	stw %dp,-32(%sp)
@@ -353,6 +358,7 @@ ENTRY(pdc_entry)
 	stw %arg1,-40(%sp)
 	stw %arg2,-44(%sp)
 	stw %arg3,-48(%sp)
+	stw %r31,PSW_OFFSET1(%r0)	/* store PSW_W */
 	ldo -FRAME_SIZE(%sp),%arg0
 
 	loadgp
@@ -361,13 +367,25 @@ ENTRY(pdc_entry)
 
 	ldo -FRAME_SIZE(%sp),%sp
 	ldw -20(%sp),%rp
-	bv %r0(%rp)
 	ldw -32(%sp),%dp
+	ldw PSW_OFFSET1(%r0),%r31
+	load32 0x8000000,%r1	/* mask PSW_W */
+	and,= %r31,%r1,%r0
+	bv %r0(%rp)		/* return without setting PSW_W */
+	nop
+	bv %r0(%rp)		/* return with setting PSW_W */
+	.level 2.0
+	nop // ssm PSW_W_SM,%r0
+	.level 1.1
 END(pdc_entry)
 
 /* pdc_entry_table will be copied into low memory. */
 ENTRY(pdc_entry_table)
 	load32 pdc_entry,%r1
+	;! nuke the W bit
+	.level 2.0
+	rsm	PSW_W_SM, %r31
+	.level 1.1
 	bv,n %r0(%r1)
 END(pdc_entry_table)
 
@@ -390,6 +408,11 @@ ENTRY(iodc_entry)
 	stw %arg1,-40(%sp)
 	stw %arg2,-44(%sp)
 	stw %arg3,-48(%sp)
+	;! nuke the W bit
+	.level 2.0
+	rsm	PSW_W_SM, %r31
+	.level 1.1
+	stw %r31,PSW_OFFSET2(%r0)	/* store PSW_W */
 	ldo -FRAME_SIZE(%sp),%arg0
 
 	loadgp
@@ -399,8 +422,18 @@ ENTRY(iodc_entry)
 .iodc_ret:
 	ldo -FRAME_SIZE(%sp),%sp
 	ldw -20(%sp),%rp
-	bv %r0(%rp)
 	ldw -32(%sp),%dp
+
+// .word 0xfffdead0
+	ldw PSW_OFFSET2(%r0),%r31
+	load32 0x8000000,%r1	/* mask PSW_W */
+	and,= %r31,%r1,%r0
+	bv %r0(%rp)		/* return without setting PSW_W */
+	nop
+	bv %r0(%rp)		/* return with setting PSW_W */
+	.level 2.0
+	nop // ssm PSW_W_SM,%r0
+	.level 1.1
 END(iodc_entry)
 
 /****************************************************************

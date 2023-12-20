@@ -16,6 +16,7 @@ native:
 - augeas-lenses
 - autoconf
 - automake
+- awk
 - bash
 - bash-completion
 - bc
@@ -90,7 +91,7 @@ native:
 - libaio-devel
 - libapparmor-devel
 - libarchive-devel
-- libasan6
+- libasan8
 - libattr-devel
 - libblkid-devel
 - libbpf-devel
@@ -232,6 +233,7 @@ native:
 - python3-selinux
 - python3-setuptools
 - python3-sphinx_rtd_theme
+- python3-tomli
 - python3-wheel
 - qemu
 - qemu-tools
@@ -254,6 +256,7 @@ native:
 - spice-protocol-devel
 - strace
 - sudo
+- swtpm
 - systemd-devel
 - systemd-rpm-macros
 - systemtap-sdt-devel
@@ -284,3 +287,5 @@ native:
 - zlib-devel
 - zlib-devel-static
 - zstd
+pypi:
+- build

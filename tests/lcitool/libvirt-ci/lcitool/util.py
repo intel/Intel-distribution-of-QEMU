@@ -122,13 +122,17 @@ def expand_pattern(pattern, iterable, name):
     return matches
 
 
-def get_native_arch():
+def get_host_arch():
     # Same canonicalization as libvirt virArchFromHost
     arch = platform.machine()
     if arch in ["i386", "i486", "i586"]:
         arch = "i686"
     if arch == "amd64":
         arch = "x86_64"
+    if arch == "arm64":
+        arch = "aarch64"
+    if arch not in valid_arches():
+        raise ValueError(f"Unsupported architecture {arch}")
     return arch
 
 
@@ -247,6 +251,16 @@ def get_config_dir():
     return Path(config_dir, "lcitool")
 
 
+def get_datadir_inventory(data_dir):
+    if data_dir.path is None or not Path(data_dir.path, "ansible").exists():
+        return None
+
+    # check whether user provided an inventory file via datadir
+    inventory_path = Path(data_dir.path, "ansible/inventory")
+    if inventory_path.exists():
+        return inventory_path
+
+
 def package_resource(package, relpath):
     """
     Backcompatibility helper to retrieve a package resource using importlib
@@ -300,14 +314,26 @@ class DataDir:
        an externally specified data directory.  Used to implement the
        -d option."""
 
+    @property
+    def path(self):
+        if self._path is None:
+            if self._extra_data_dir is not None:
+                self._path = Path(self._extra_data_dir).resolve()
+
+        return self._path
+
     def __init__(self, extra_data_dir=None):
         self._extra_data_dir = extra_data_dir
+        self._path = None
 
     def __repr__(self):
         return f'DataDir({str(self._extra_data_dir)})'
 
+    def __bool__(self):
+        return bool(self._extra_data_dir)
+
     def _search(self, resource_path, *names, internal=False):
-        if not internal and self._extra_data_dir:
+        if self and not internal:
             # The first part of the path is used to keep data files out of
             # the source directory, for example "facts" or "etc".  Remove it
             # when using an external data directory.

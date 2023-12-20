@@ -127,7 +127,21 @@ them before deciding which install strategy (as we call it) is best for you:
   in a VM. Naturally, installation of such an OS distro in a VM would fail
   using this method and you can either fall back to the URL-based install
   mentioned above or you can install the latest *osinfo* database manually
-  yourself.
+  yourself. If you decide to with the latter, there's a few ways of installing
+  a fresh osinfo database on your system:
+
+  * by running ``osinfo-db-import --nightly`` which downloads and installs
+    the latest unofficial automated database build directly from the
+    project's GitLab CI pipeline
+    *Note: your* ``osinfo-db-tools`` *package needs to be new enough to support
+    the* ``--nightly`` *option.*
+
+  * by using the URL to the
+    `Gitlab nightly database build archive <https://gitlab.com/libosinfo/osinfo-db/-/jobs/artifacts/main/raw/osinfo-db-latest.tar.xz?job=publish>`__
+    directly in ``osinfo-db-import <db local archive file | db archive URL>``
+
+  * by building the osinfo-db project locally from source and installing the
+    database that way (**discouraged**)
 
 * some distro vendors don't provide a symbolic link (e.g. Fedora) always
   pointing to the latest image build. What this means for you is that the image
@@ -158,6 +172,27 @@ has refreshed the images since you downloaded your last one), run::
 
     lcitool install $host --target $target_os --strategy cloud --force
 
+Installing using custom template images
+---------------------------------------
+
+Vendor cloud images are convenient to use because they're stripped down to
+the bare minimum so they don't take long to download, they're publicly
+accessible from potentially multiple mirrors, and they're rebuilt often so you
+should get fresh contents regularly. The problem is that sometimes you need to
+install a bunch of other packages to get your environment going, including some
+complex system configuration. The obvious option is to perform the
+configuration each time you provision a new system backed by the vendor cloud
+image. However, that takes time and it would be better if the provisioning
+could be sped up even more by pre-installing and pre-configuring the vendor
+cloud image to your liking and then use that image as a template.
+
+To install a local VM using your pre-configured template image, run ::
+
+    lcitool install $host --target $target_os --strategy template --template <path to your base image>
+
+Note that in order for the above to work your template image needs to have
+cloud-init enabled as lcitool will provide a minimalistic NoCloud ISO to the
+VM (injecting the public SSH key specified in lcitool's config).
 
 Installing FreeBSD VMs
 ----------------------
@@ -256,6 +291,40 @@ handy as you can go as far as putting the following in your crontab
 ::
 
    0 0 * * * lcitool update all all
+
+
+Injecting software repositories & custom pre-tasks
+--------------------------------------------------
+
+If you wish to use the above procedure with one of the enterprise distros out
+there you'll quickly find out it doesn't work because those don't use publicly
+accessible (or subscription managed) repositories which we could make use of.
+You'll have to inject these using Ansible pre-tasks file which we'll runs very
+early during the bootstrap stage of the ``update`` command before performing
+any update or configuration changes on the target system. First you need to
+create a data directory which you'll pass to lcitool
+
+::
+
+    $ mkdir <lcitool_datadir>
+
+then you'll create a ``<lcitool_datadir>/ansible/pre/tasks/main.yml`` Ansible
+task file containing tasks necessary to enable the base repositories. Finally,
+you need to tell lcitool about this data directory when running the ``update``
+command
+
+::
+
+    $ lcitool --data-dir <lcitool_datadir> update <hosts> <projects>
+
+Note that ``main.yml`` is a regular Ansible tasks file (not a playbook!), so
+you're constrained by what Ansible allows to be in a tasks file. We recommend
+to keep the file as simple as possible by not adding any tasks unrelated to
+software installation or package updates in order to not collide with any
+system configuration changes (e.g. SSH key uploads) lcitool performs as part of
+the ``update`` sequence. If you need more configuration changes you can always
+execute ``ansible-playbook`` yourself after performing ``update`` and that way
+you'll have full control over the expected outcome.
 
 
 Cloud-init

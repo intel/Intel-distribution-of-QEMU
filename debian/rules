@@ -28,7 +28,7 @@ export DEB_CFLAGS_MAINT_APPEND = -ffile-prefix-map=../../=
 
 # Disable LTO on non-amd64 builds, see:
 # https://bugs.launchpad.net/ubuntu/+source/qemu/+bug/1921664
-# https://bugzilla.redhat.com/show_bug.cgi?id=1952483
+# https://issues.redhat.com/browse/RHEL-7385
 ifneq ($(DEB_HOST_ARCH),amd64)
   export DEB_BUILD_MAINT_OPTIONS += optimize=-lto
 endif
@@ -96,6 +96,7 @@ common_configure_opts = \
 	--disable-strip \
 	--localstatedir=/var \
 	--disable-download \
+	--disable-relocatable \
 
 # this disables building of qemu-keymap tool (!)
 # qemu-keymap might be helpful for qemu-system -k <lang>
@@ -309,7 +310,7 @@ b/microvm/configured: configure debian/microvm-devices.mak
 		--disable-docs \
 		--without-default-features \
 		--target-list=x86_64-softmmu --enable-kvm --disable-tcg \
-		--enable-vnc \
+		--enable-pixman --enable-vnc \
 		--enable-attr \
 		--enable-coroutine-pool \
 		--audio-drv-list="" \
@@ -346,7 +347,7 @@ b/xen/configured: configure
 		--disable-tcg --disable-kvm \
 		--audio-drv-list= \
 		--enable-libusb \
-		--enable-vnc --enable-vnc-jpeg \
+		--enable-pixman --enable-vnc --enable-vnc-jpeg \
 		--enable-spice \
 		--enable-virtfs --enable-attr --enable-cap-ng \
 		${QEMU_XEN_CONFIGURE_OPTIONS}
@@ -425,16 +426,16 @@ configure-user-static: b/user-static/configured
 b/user-static/configured: configure
 # do not use debian/configure-opts here, all optional stuff will be enabled
 # automatically, dependencies are already verified in the main build
-# by default this would detect linker option --static-pie, but that
-# breaks some use cases of qemu-static builds (LP: #1908331), therefore
-# add --disable-pie to get "real static" builds.
-# With gcc-12, compiler is unable to build static qemu-aarch64 anymore with no extra options,
-# see https://sourceware.org/bugzilla/show_bug.cgi?id=29514 , so we add -no-pie there.
+# See LP:#1908331 for --static-pie (the default in qemu) and #1053101
+# See https://sourceware.org/bugzilla/show_bug.cgi?id=29514
+# use --disable-pie on i386 for now due to #1056739
+# (maybe also add arm64 here for gcc12)
 	rm -rf b/user-static; mkdir -p b/user-static
 	cd b/user-static && \
 	    ../../configure ${common_configure_opts} \
-		--extra-cflags="${extra-cflags}$(if $(filter ${DEB_HOST_ARCH},arm64), -fno-pie -no-pie,)" \
-		--static --disable-pie \
+		--extra-cflags="${extra-cflags}" \
+		--static \
+		$(if $(filter i386,${DEB_HOST_ARCH}),--disable-pie) \
 		--disable-plugins \
 		--target-list="$(addsuffix -linux-user,${user-targets})"
 	touch $@
@@ -508,7 +509,9 @@ install-arch: pre-install-arch $(addprefix install-, ${qemu-builds})
 	  (*) dh_dwz -a ;; \
 	esac
 	dh_strip -a
-	dh_shlibdeps -a
+# qemu-user-static contains static binaries only, but they might be built
+# as static-pie executables and dpkg-shlibdeps complains. Just omit it here.
+	dh_shlibdeps -a -Nqemu-user-static
 ifeq (${enable-user-static},y)
 # after shlibdeps finished, grab ${shlibs:Depends} from -user package
 # and transform it into Built-Using field for -user-static.

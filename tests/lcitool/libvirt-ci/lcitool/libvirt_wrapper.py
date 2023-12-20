@@ -53,16 +53,19 @@ class LibvirtWrapper():
 
         for dom in doms:
             try:
+                domain_metadata_flags = libvirt.VIR_DOMAIN_AFFECT_CONFIG
+                if not dom.isPersistent():
+                    domain_metadata_flags = libvirt.VIR_DOMAIN_AFFECT_LIVE
                 xml = dom.metadata(libvirt.VIR_DOMAIN_METADATA_ELEMENT,
                                    LCITOOL_XMLNS,
-                                   libvirt.VIR_DOMAIN_AFFECT_CONFIG)
+                                   domain_metadata_flags)
             except libvirt.libvirtError as e:
                 if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN_METADATA:
                     # skip hosts which don't have lcitool's metadata
                     continue
 
                 raise LibvirtWrapperError(
-                    f"Failed to query metadata for '{dom.name}': " + str(e)
+                    f"Failed to query metadata for '{dom.name()}': " + str(e)
                 )
 
             xmltree = ET.fromstring(xml)
@@ -98,7 +101,7 @@ class LibvirtWrapper():
     def pool_by_name(self, name):
         try:
             poolobj = self._conn.storagePoolLookupByName(name)
-            return LibvirtPoolObject(poolobj)
+            return LibvirtStoragePoolObject(self._conn, poolobj)
         except libvirt.libvirtError as e:
             raise LibvirtWrapperError(
                 f"Failed to retrieve storage pool '{name}' info: " + str(e)
@@ -118,7 +121,8 @@ class LibvirtAbstractObject(abc.ABC):
 
     """
 
-    def __init__(self, obj):
+    def __init__(self, conn, obj):
+        self._conn = conn
         self.raw = obj
 
     def _get_xml_tree(self):
@@ -128,31 +132,76 @@ class LibvirtAbstractObject(abc.ABC):
         if root is None:
             root = self._get_xml_tree()
 
-        nodeelem = root.find(node_name)
-        return nodeelem.text
+        return root.find(node_name)
 
 
-class LibvirtPoolObject(LibvirtAbstractObject):
+class LibvirtStoragePoolObject(LibvirtAbstractObject):
 
-    def __init__(self, obj):
-        super().__init__(obj)
+    def __init__(self, conn, obj):
+        super().__init__(conn, obj)
+        self.name = obj.name()
         self._path = None
+        self.raw.refresh()
 
     @property
     def path(self):
         if self._path is None:
-            self._path = self._get_xml_node("target/path")
+            path_node = self._get_xml_node("target/path")
+            self._path = path_node.text
         return Path(self._path)
 
-    def create_volume(self, name, capacity, allocation=None, _format=None,
-                      owner=None, group=None, mode=None,):
+    @staticmethod
+    def _lookup_volume_by_path(conn, path):
+        try:
+            return conn.storageVolLookupByPath(path)
+        except libvirt.libvirtError:
+            return None
+
+    def _volume_by_path(self, path):
+        volobj = self._lookup_volume_by_path(self._conn, path)
+        if volobj:
+            return LibvirtStorageVolObject(self, volobj)
+
+    @staticmethod
+    def _create_transient_pool(conn, name, target):
+        """Creates a transient pool of type 'dir'"""
+
+        pool_xml = textwrap.dedent(
+            f"""
+            <pool type='dir'>
+              <name>{name}</name>
+              <target>
+                <path>{target}</path>
+              </target>
+            </pool>
+            """)
+
+        conn.storagePoolCreateXML(pool_xml)
+        return conn.storagePoolLookupByName(name)
+
+    def _create_from_xml(self, name, xmlstr):
+        self.raw.createXML(xmlstr)
+        return LibvirtStorageVolObject(self,
+                                       self.raw.storageVolLookupByName(name))
+
+    def create_volume(self, name, capacity, allocation=None, _format="qcow2",
+                      units='bytes', owner=None, group=None, mode=None,
+                      backing_store=None):
+
+        import re
+        unit_pattern = '^(bytes|B|[K,M,G,T,P,E](iB|B)?)$'
+
+        if not re.match(unit_pattern, units):
+            raise ValueError(
+                f"Invalid value '{units}' passed to 'create_volume().units'"
+            )
 
         # define a base XML template to be updated depending on other params
         volume_xml = textwrap.dedent(
             f"""
             <volume>
-              <name>{name}</target>
-              <capacity>{capacity}</capacity>
+              <name>{name}</name>
+              <capacity unit='{units}'>{capacity}</capacity>
             </volume>
             """)
 
@@ -166,7 +215,7 @@ class LibvirtPoolObject(LibvirtAbstractObject):
             target_el = ET.SubElement(root_el, "target")
             ET.SubElement(target_el, "format", {"type": _format})
 
-        if any(owner, group, mode):
+        if any([owner, group, mode]):
             target_el = ET.SubElement(root_el, "target")
             perms_el = ET.SubElement(target_el, "permissions")
             for perm_var, perm in [(owner, "owner"),
@@ -176,5 +225,51 @@ class LibvirtPoolObject(LibvirtAbstractObject):
                     node_el = ET.SubElement(perms_el, perm)
                     node_el.text = perm_var
 
-        volume_xml = ET.dump(root_el)
-        self.raw.createXML(volume_xml)
+        if backing_store:
+            backing_store_path_str = backing_store.as_posix()
+            backingStore_el = ET.SubElement(root_el, "backingStore")
+            path_el = ET.SubElement(backingStore_el, "path")
+            format_el = ET.SubElement(backingStore_el, "format")
+            path_el.text = backing_store_path_str
+
+            volobj = self._volume_by_path(backing_store_path_str)
+            if volobj:
+                format_ = volobj.format
+            else:
+                import uuid
+
+                # We could not locate the backing store in any storage pool.
+                # In order to fill in the backingStore volume data correctly we
+                # need to create a transient pool of type dir which contains
+                # the backingStore file storage volume to let libvirt fetch the
+                # information for us. We'll destroy the pool afterwards.
+
+                pool_dir = backing_store.parent.as_posix()
+                pool_name = "lcitool_" + str(uuid.uuid1())
+                poolobj = self._create_transient_pool(self._conn, pool_name,
+                                                      pool_dir)
+                volobj = self._volume_by_path(backing_store_path_str)
+                format_ = volobj.format
+                poolobj.destroy()
+
+            format_el.attrib["type"] = format_
+
+        volume_xml = ET.tostring(root_el, encoding="UTF-8", method="xml")
+        return self._create_from_xml(name, volume_xml.decode("UTF-8"))
+
+
+class LibvirtStorageVolObject(LibvirtAbstractObject):
+
+    def __init__(self, pool, obj):
+        super().__init__(pool._conn, obj)
+        self.pool = pool
+        self.name = obj.name()
+        self.path = obj.path()
+        self._format = None
+
+    @property
+    def format(self):
+        if self._format is None:
+            format_node = self._get_xml_node("target/format")
+            self._format = format_node.attrib["type"]
+        return self._format

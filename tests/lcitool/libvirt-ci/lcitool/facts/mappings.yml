@@ -147,6 +147,14 @@ mappings:
     rpm: gettext-devel
     MacOS: gettext
 
+  awk:
+    default: awk
+    apk: busybox
+    deb: original-awk
+    pkg:
+    rpm: gawk
+    OpenSUSE: awk
+
   bash:
     default: bash
 
@@ -169,7 +177,6 @@ mappings:
     apk: util-linux
     deb: bsdextrautils
     rpm: util-linux
-    Debian10: bsdmainutils
     Ubuntu2004: bsdmainutils
 
   bzip2:
@@ -228,7 +235,6 @@ mappings:
     pkg: rust
     rpm: clippy
     OpenSUSE:
-    Debian10:
     Debian11:
 
   cloud-init:
@@ -460,6 +466,10 @@ mappings:
     cross-mingw64-rpm: mingw64-gettext
     cross-policy-rpm: foreign
 
+  gettext-native:
+    default: gettext
+    OpenSUSE: gettext-runtime
+
   git:
     default: git
 
@@ -578,7 +588,6 @@ mappings:
     apk: hexdump
     deb: bsdextrautils
     rpm: util-linux
-    Debian10: bsdmainutils
     Ubuntu2004: bsdmainutils
 
   hostname:
@@ -622,7 +631,7 @@ mappings:
 
   java:
     apk: openjdk11-jdk
-    deb: openjdk-11-jdk-headless
+    deb: openjdk-17-jdk-headless
     pkg: openjdk11
     rpm: java-11-openjdk-headless
     MacOS: openjdk
@@ -682,9 +691,9 @@ mappings:
     cross-policy-default: foreign
 
   libasan:
-    deb: libasan5
+    deb: libasan6
     rpm: libasan
-    OpenSUSE: libasan6
+    OpenSUSE: libasan8
     mips-deb:
     mips64el-deb:
     mipsel-deb:
@@ -899,7 +908,6 @@ mappings:
   libnbd:
     deb: libnbd-dev
     rpm: libnbd-devel
-    Debian10:
     Debian11:
     Ubuntu2004:
 
@@ -946,7 +954,6 @@ mappings:
     apk: pipewire-dev
     deb: libpipewire-0.3-dev
     rpm: pipewire-devel
-    Debian10:
     Ubuntu2004:
     cross-policy-default: foreign
 
@@ -1009,7 +1016,6 @@ mappings:
     CentOS:
     AlmaLinux8: libslirp-devel
     CentOSStream8: libslirp-devel
-    Debian10:
     cross-policy-default: foreign
 
   libsoup:
@@ -1092,7 +1098,6 @@ mappings:
     CentOS:
     AlmaLinux8: liburing-devel
     CentOSStream8: liburing-devel
-    Debian10:
     Ubuntu2004:
     cross-policy-default: foreign
 
@@ -1145,6 +1150,16 @@ mappings:
     cross-mingw64-rpm: mingw64-libxml2
     cross-policy-default: foreign
 
+  libxdp:
+    apk: libxdp-dev
+    deb: libxdp-dev
+    rpm: libxdp-devel
+    Debian11:
+    OpenSUSELeap15:
+    Ubuntu2004:
+    Ubuntu2204:
+    cross-policy-default: foreign
+
   libxslt:
     default: libxslt
     apk: libxslt-dev
@@ -1190,7 +1205,6 @@ mappings:
     pkg: lua54
     rpm: lua-devel
     MacOS: lua
-    Debian10: lua5.3
     Ubuntu2004: lua5.3
 
   lvm2:
@@ -1219,7 +1233,6 @@ mappings:
 
   meson:
     default: meson
-    Debian10:
     Ubuntu2004:
 
   mkisofs:
@@ -1273,7 +1286,6 @@ mappings:
     pkg:
     MacOS:
     OpenSUSE:
-    Debian10:
     Ubuntu2004:
 
   ncursesw:
@@ -1293,7 +1305,6 @@ mappings:
     apk: netcf-dev
     AlmaLinux8: netcf-devel
     CentOSStream8: netcf-devel
-    Debian10: libnetcf-dev
     Debian11: libnetcf-dev
     Ubuntu2004: libnetcf-dev
     cross-policy-default: skip
@@ -1656,6 +1667,14 @@ mappings:
     pkg: py39-yaml
     rpm: python3-PyYAML
 
+  python3-build:
+    apk: py3-build
+    deb: python3-build
+    pkg: py39-build
+    Fedora: python3-build
+    MacOS: python-build
+    Ubuntu:
+
   python3-dbus:
     default: python3-dbus
     apk: py3-dbus
@@ -1831,6 +1850,7 @@ mappings:
     default: rpcgen
     deb: libc-dev-bin
     pkg:
+    MacOS:
 
   rpm2cpio:
     default: rpm2cpio
@@ -1971,6 +1991,18 @@ mappings:
     pkg:
     MacOS:
 
+  sudo:
+    default: sudo
+    MacOS:
+
+  swtpm:
+    default: swtpm
+    # Although in "latest", not in the stable quarterly releases.
+    # Revisit mid-october 2023 after the next quarterly release.
+    FreeBSD:
+    Debian11:
+    Ubuntu2004:
+
   systemd:
     deb: libsystemd-dev
     rpm: systemd-devel
@@ -1978,10 +2010,6 @@ mappings:
 
   systemd-rpm-macros:
     rpm: systemd-rpm-macros
-
-  sudo:
-    default: sudo
-    MacOS:
 
   tar:
     default: tar
@@ -2023,6 +2051,14 @@ mappings:
 
   texinfo:
     default: texinfo
+
+  python3-tomli:
+    default: python3-tomli
+    apk: py3-tomli
+    pkg: py39-tomli
+    MacOS:
+    Debian11:
+    Ubuntu2004:
 
   unzip:
     default: unzip
@@ -2187,6 +2223,9 @@ pypi_mappings:
   python3-boto3:
     default: boto3
 
+  python3-build:
+    default: build
+
   # Several packages need devel header packages that are generally not
   # installed by Linux distros.  Restrict them to MacOS, which is where
   # they are actually needed.
@@ -2224,6 +2263,9 @@ pypi_mappings:
 
   python3-sphinx-rtd-theme:
     default: sphinx-rtd-theme
+
+  python3-tomli:
+    default: tomli
 
 
 # CPAN mappings work like PyPi mappings, the only difference being that

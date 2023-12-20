@@ -12,6 +12,7 @@ from pathlib import Path
 
 from lcitool.application import Application
 from lcitool.util import DataDir
+from lcitool.util import valid_arches
 
 
 log = logging.getLogger(__name__)
@@ -108,7 +109,7 @@ class CommandLine:
         installstrategyopt = argparse.ArgumentParser(add_help=False)
         installstrategyopt.add_argument(
             "--strategy",
-            choices=["url", "cloud"],
+            choices=["url", "cloud", "template"],
             default="url",
             help="where to install from (URL tree, latest cloud image)"
         )
@@ -118,7 +119,13 @@ class CommandLine:
             "--force",
             default=False,
             action="store_true",
-            help="force download of the image (rewrites the one in cache)"
+            help="force download of a new image (only with --strategy=cloud)"
+        )
+
+        installfromtemplate = argparse.ArgumentParser(add_help=False)
+        installfromtemplate.add_argument(
+            "--template",
+            help="template image to instantiate (only with --strategy=template)",
         )
 
         update_projectopt = argparse.ArgumentParser(add_help=False)
@@ -137,7 +144,15 @@ class CommandLine:
         crossarchopt = argparse.ArgumentParser(add_help=False)
         crossarchopt.add_argument(
             "-x", "--cross-arch",
+            choices=valid_arches(),
             help="target architecture for cross compiler",
+        )
+
+        hostarchopt = argparse.ArgumentParser(add_help=False)
+        hostarchopt.add_argument(
+            "-a", "--host-arch",
+            choices=valid_arches(),
+            help="host architecture of the build system",
         )
 
         baseopt = argparse.ArgumentParser(add_help=False)
@@ -230,6 +245,12 @@ class CommandLine:
             action=DataDirAction,
             help="extra directory for loading data files from")
 
+        self._parser.add_argument(
+            "-c", "--config",
+            type=argparse.FileType('r'),
+            help="absolute path to a configuration file"
+        )
+
         subparsers = self._parser.add_subparsers(metavar="ACTION",
                                                  dest="action")
         subparsers.required = True
@@ -238,8 +259,14 @@ class CommandLine:
         installparser = subparsers.add_parser(
             "install",
             help="perform unattended host installation",
-            parents=[waitopt, installtargetopt, installhostopt,
-                     installstrategyopt, installforceopt],
+            parents=[
+                waitopt,
+                installtargetopt,
+                installhostopt,
+                installstrategyopt,
+                installforceopt,
+                installfromtemplate,
+            ],
         )
         installparser.set_defaults(func=Application._action_install)
 
@@ -272,22 +299,23 @@ class CommandLine:
         variablesparser = subparsers.add_parser(
             "variables",
             help="generate variables",
-            parents=[formatopt, targetopt, update_projectopt, crossarchopt],
+            parents=[formatopt, targetopt, update_projectopt,
+                     hostarchopt, crossarchopt],
         )
         variablesparser.set_defaults(func=Application._action_variables)
 
         dockerfileparser = subparsers.add_parser(
             "dockerfile",
             help="generate Dockerfile",
-            parents=[targetopt, update_projectopt, crossarchopt,
-                     baseopt, layersopt],
+            parents=[targetopt, update_projectopt, hostarchopt,
+                     crossarchopt, baseopt, layersopt],
         )
         dockerfileparser.set_defaults(func=Application._action_dockerfile)
 
         buildenvscriptparser = subparsers.add_parser(
             "buildenvscript",
             help="generate shell script for build environment setup",
-            parents=[targetopt, update_projectopt, crossarchopt],
+            parents=[targetopt, update_projectopt, hostarchopt, crossarchopt],
         )
         buildenvscriptparser.set_defaults(func=Application._action_buildenvscript)
 
@@ -332,9 +360,39 @@ class CommandLine:
             help="Access to an interactive shell",
             parents=[imageopt, containeropt, engineopt, workload_diropt, scriptopt]
         )
-        shell_containerparser.set_defaults(func=Application._action_container_run)
+        shell_containerparser.set_defaults(func=Application._action_container_shell)
 
-    # Validate "container" args
+    @staticmethod
+    def _validate_container(args):
+        if args.container not in ["build", "run", "shell"]:
+            return
+
+        # Ensure that (--target & --projects) argument are passed with
+        # "build" subcommand.
+        if args.container == "build":
+            if args.projects and args.target:
+                return args
+            else:
+                log.error("--target and --projects are required")
+                sys.exit(1)
+
+        if args.container == "run":
+            # "run" subcommand only requires "--script" argument;
+            # it works with or without "--workload-dir" argument
+            if not args.script:
+                log.error("--script is required")
+                sys.exit(1)
+
+    @staticmethod
+    def _validate_install(args):
+        if args.strategy == "template":
+            if not args.template:
+                log.error("--template is required with with --strategy=template")
+                sys.exit(1)
+
+        return
+
+    # Main CLI validating method
     def _validate(self, args):
         """
         Validate command line arguments.
@@ -344,24 +402,11 @@ class CommandLine:
         :return: args.
         """
 
-        if vars(args).get("container") \
-                and args.container in ["build", "run", "shell"]:
+        if args.action == "container":
+            self._validate_container(args)
 
-            # Ensure that (--target & --projects) argument are passed with
-            # "build" subcommand.
-            if args.container == "build":
-                if args.projects and args.target:
-                    return args
-                else:
-                    log.error("--target and --projects are required")
-                    sys.exit(1)
-
-            if args.container == "run":
-                # "run" subcommand only requires "--script" argument;
-                # it works with or without "--workload-dir" argument
-                if not args.script:
-                    log.error("--script is required")
-                    sys.exit(1)
+        elif args.action == "install":
+            self._validate_install(args)
 
         return args
 

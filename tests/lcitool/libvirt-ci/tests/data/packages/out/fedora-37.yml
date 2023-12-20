@@ -47,6 +47,7 @@ native:
 - fuse-devel
 - fuse3
 - fuse3-devel
+- gawk
 - gcc
 - gcc-c++
 - gcovr
@@ -137,6 +138,7 @@ native:
 - libvirt-devel
 - libvirt-gobject-devel
 - libwsman-devel
+- libxdp-devel
 - libxml2
 - libxml2-devel
 - libxslt
@@ -221,6 +223,7 @@ native:
 - python3
 - python3-PyYAML
 - python3-boto3
+- python3-build
 - python3-dbus
 - python3-devel
 - python3-docutils
@@ -239,6 +242,7 @@ native:
 - python3-setuptools
 - python3-sphinx
 - python3-sphinx_rtd_theme
+- python3-tomli
 - python3-wheel
 - qemu-img
 - qemu-kvm
@@ -262,6 +266,7 @@ native:
 - spice-server-devel
 - strace
 - sudo
+- swtpm
 - systemd-devel
 - systemd-rpm-macros
 - systemtap-sdt-devel

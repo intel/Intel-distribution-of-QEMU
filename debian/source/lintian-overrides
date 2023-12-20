@@ -10,3 +10,5 @@ qemu source: version-substvar-for-external-package Depends ${binary:Version} qem
 # also, it makes whole thing recursive, uncontrollable and hidden,
 # hence difficult to debug.
 qemu source: no-dh-sequencer [debian/rules]
+# the source is available in linux-user/*/vdso.S:
+qemu source: source-is-missing [linux-user/*/vdso*.so]
