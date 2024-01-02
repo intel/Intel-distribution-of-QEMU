@@ -1,0 +1,34 @@
+From: Paolo Bonzini <pbonzini@redhat.com>
+Subject: [PATCH] target/i386: the sgx_epc_get_section stub is reachable
+Date: Sun, 31 Dec 2023 09:44:39 +0100
+Message-ID: <20231231084502.235366-24-pbonzini@redhat.com>
+Forwarded: yes, https://lists.nongnu.org/archive/html/qemu-devel/2023-12/msg03717.html
+
+The sgx_epc_get_section stub is reachable from cpu_x86_cpuid.  It
+should not assert, instead it should just return true just like
+the "real" sgx_epc_get_section does when SGX is disabled.
+
+Reported-by: Vladimír Beneš <vbenes@redhat.com>
+Cc: qemu-stable@nongnu.org
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+Message-ID: <20220201190941.106001-1-pbonzini@redhat.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+---
+ hw/i386/sgx-stub.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/hw/i386/sgx-stub.c b/hw/i386/sgx-stub.c
+index 26833eb233c..16b1dfd90bb 100644
+--- a/hw/i386/sgx-stub.c
++++ b/hw/i386/sgx-stub.c
+@@ -34,5 +34,5 @@ void pc_machine_init_sgx_epc(PCMachineState *pcms)
+ 
+ bool sgx_epc_get_section(int section_nr, uint64_t *addr, uint64_t *size)
+ {
+-    g_assert_not_reached();
++    return true;
+ }
+-- 
+2.43.0
+
+

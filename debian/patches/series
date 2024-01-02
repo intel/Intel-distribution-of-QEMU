@@ -17,3 +17,6 @@ include-ui-rect.h-fix-qemu_rect_init-mis-assignment.patch
 hw-vfio-fix-iteration-over-global-VFIODevice-list.patch
 target-i386-do-not-re-compute-new-pc-with-CF_PCREL.patch
 block-fix-crash-when-loading-snapshot-on-inactive-no.patch
+virtio-net-correctly-copy-vnet-header-when-flushing-TX-CVE-2023-6693.patch
+target-i386-the-sgx_epc_get_section-stub-is-reachable.patch
+target-xtensa-fix-OOB-TLB-entry-access.patch

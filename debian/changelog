@@ -1,3 +1,13 @@
+qemu (1:8.2.0+ds-3) unstable; urgency=medium
+
+  * +virtio-net-correctly-copy-vnet-header-when-flushing-TX-CVE-2023-6693.patch
+    Fix CVE-2023-6693 (virtio-net: stack buffer overflow in virtio_net_flush_tx)
+  * +target-i386-the-sgx_epc_get_section-stub-is-reachable.patch
+  * +target-xtensa-fix-OOB-TLB-entry-access.patch
+  * d/rules: print last 20 lines of config.log & meson.log if ./configure fails
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 02 Jan 2024 15:54:35 +0300
+
 qemu (1:8.2.0+ds-2) unstable; urgency=medium
 
   * include-ui-rect.h-fix-qemu_rect_init-mis-assignment.patch
