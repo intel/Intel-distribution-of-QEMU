@@ -13,3 +13,7 @@ slof-remove-user-and-host-from-release-version.patch
 slof-ensure-ld-is-called-with-C-locale.patch
 openbios-spelling-endianess.patch
 disable-xen-on-x32.patch
+include-ui-rect.h-fix-qemu_rect_init-mis-assignment.patch
+hw-vfio-fix-iteration-over-global-VFIODevice-list.patch
+target-i386-do-not-re-compute-new-pc-with-CF_PCREL.patch
+block-fix-crash-when-loading-snapshot-on-inactive-no.patch

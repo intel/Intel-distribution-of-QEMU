@@ -1,0 +1,50 @@
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/d3007d348adaaf04ee8b099a475282034a662414
+From: Kevin Wolf <kwolf@redhat.com>
+Date: Fri, 1 Dec 2023 15:25:18 +0100
+Subject: block: Fix crash when loading snapshot on inactive node
+
+bdrv_is_read_only() only checks if the node is configured to be
+read-only eventually, but even if it returns false, writing to the node
+may not be permitted at the moment (because it's inactive).
+
+bdrv_is_writable() checks that the node can be written to right now, and
+this is what the snapshot operations really need.
+
+Change bdrv_can_snapshot() to use bdrv_is_writable() to fix crashes like
+the following:
+
+$ ./qemu-system-x86_64 -hda /tmp/test.qcow2 -loadvm foo -incoming defer
+qemu-system-x86_64: ../block/io.c:1990: int bdrv_co_write_req_prepare(BdrvChild *, int64_t, int64_t, BdrvTrackedRequest *, int): Assertion `!(bs->open_flags & BDRV_O_INACTIVE)' failed.
+
+The resulting error message after this patch isn't perfect yet, but at
+least it doesn't crash any more:
+
+$ ./qemu-system-x86_64 -hda /tmp/test.qcow2 -loadvm foo -incoming defer
+qemu-system-x86_64: Device 'ide0-hd0' is writable but does not support snapshots
+
+Signed-off-by: Kevin Wolf <kwolf@redhat.com>
+Message-ID: <20231201142520.32255-2-kwolf@redhat.com>
+Signed-off-by: Kevin Wolf <kwolf@redhat.com>
+---
+ block/snapshot.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/block/snapshot.c b/block/snapshot.c
+index ec8cf4810b..c4d40e80dd 100644
+--- a/block/snapshot.c
++++ b/block/snapshot.c
+@@ -196,8 +196,10 @@ bdrv_snapshot_fallback(BlockDriverState *bs)
+ int bdrv_can_snapshot(BlockDriverState *bs)
+ {
+     BlockDriver *drv = bs->drv;
++
+     GLOBAL_STATE_CODE();
+-    if (!drv || !bdrv_is_inserted(bs) || bdrv_is_read_only(bs)) {
++
++    if (!drv || !bdrv_is_inserted(bs) || !bdrv_is_writable(bs)) {
+         return 0;
+     }
+ 
+-- 
+2.39.2
+

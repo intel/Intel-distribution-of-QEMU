@@ -1,0 +1,61 @@
+From: Volker Rümelin <vr_qemu@t-online.de>
+Date: Fri, 29 Dec 2023 21:38:54 +0100
+Subject: [PATCH] hw/vfio: fix iteration over global VFIODevice list
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Forwarded: yes, https://lists.nongnu.org/archive/html/qemu-devel/2023-12/msg03613.html
+
+Commit 3d779abafe ("vfio/common: Introduce a global VFIODevice list")
+introduced a global VFIODevice list, but forgot to update the list
+element field name when iterating over the new list. Change the code
+to use the correct list element field.
+
+Fixes: 3d779abafe ("vfio/common: Introduce a global VFIODevice list")
+Resolves: https://gitlab.com/qemu-project/qemu/-/issues/2061
+Signed-off-by: Volker Rümelin <vr_qemu@t-online.de>
+---
+ hw/vfio/common.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/hw/vfio/common.c b/hw/vfio/common.c
+index e70fdf5e0c..a5dfc2d27e 100644
+--- a/hw/vfio/common.c
++++ b/hw/vfio/common.c
+@@ -73,7 +73,7 @@ bool vfio_mig_active(void)
+         return false;
+     }
+ 
+-    QLIST_FOREACH(vbasedev, &vfio_device_list, next) {
++    QLIST_FOREACH(vbasedev, &vfio_device_list, global_next) {
+         if (vbasedev->migration_blocker) {
+             return false;
+         }
+@@ -94,7 +94,7 @@ static bool vfio_multiple_devices_migration_is_supported(void)
+     unsigned int device_num = 0;
+     bool all_support_p2p = true;
+ 
+-    QLIST_FOREACH(vbasedev, &vfio_device_list, next) {
++    QLIST_FOREACH(vbasedev, &vfio_device_list, global_next) {
+         if (vbasedev->migration) {
+             device_num++;
+ 
+@@ -1352,13 +1352,13 @@ void vfio_reset_handler(void *opaque)
+ {
+     VFIODevice *vbasedev;
+ 
+-    QLIST_FOREACH(vbasedev, &vfio_device_list, next) {
++    QLIST_FOREACH(vbasedev, &vfio_device_list, global_next) {
+         if (vbasedev->dev->realized) {
+             vbasedev->ops->vfio_compute_needs_reset(vbasedev);
+         }
+     }
+ 
+-    QLIST_FOREACH(vbasedev, &vfio_device_list, next) {
++    QLIST_FOREACH(vbasedev, &vfio_device_list, global_next) {
+         if (vbasedev->dev->realized && vbasedev->needs_reset) {
+             vbasedev->ops->vfio_hot_reset_multi(vbasedev);
+         }
+-- 
+2.39.2
+

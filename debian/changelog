@@ -1,3 +1,16 @@
+qemu (1:8.2.0+ds-2) unstable; urgency=medium
+
+  * include-ui-rect.h-fix-qemu_rect_init-mis-assignment.patch
+    fixes virtio-gpu redraw issue (Closes: #1059211)
+  * hw-vfio-fix-iteration-over-global-VFIODevice-list.patch
+    fixes reboot issue with virtio-gpu
+  * target-i386-do-not-re-compute-new-pc-with-CF_PCREL.patch
+    fixes 4M edk2 stall in i386 tcg mode
+  * block-fix-crash-when-loading-snapshot-on-inactive-no.patch
+    fix possible assertion failure when loading snapshot
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 02 Jan 2024 12:10:14 +0300
+
 qemu (1:8.2.0+ds-1) unstable; urgency=medium
 
   * new upstream release 8.2.0
