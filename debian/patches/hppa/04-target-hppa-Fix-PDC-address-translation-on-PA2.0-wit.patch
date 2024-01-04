@@ -1,0 +1,36 @@
+From 8765c2c741ae3ba79cc6a363ea6e62e851298908 Mon Sep 17 00:00:00 2001
+From: Helge Deller <deller@gmx.de>
+Date: Wed, 3 Jan 2024 19:55:55 +0100
+Subject: [PATCH 4/9] target/hppa: Fix PDC address translation on PA2.0 with
+ PSW.W=0
+
+Fix the address translation for PDC space on PA2.0 if PSW.W=0.
+Basically, for any address in the 32-bit PDC range from 0xf0000000 to
+0xf1000000 keep the lower 32-bits and just set the upper 32-bits to
+0xfffffff0.
+
+This mapping fixes the emulated power button in PDC space for 32- and
+64-bit machines and is how the physical C3700 machine seems to map
+PDC.
+
+Signed-off-by: Helge Deller <deller@gmx.de>
+---
+ target/hppa/mem_helper.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/target/hppa/mem_helper.c b/target/hppa/mem_helper.c
+index 08abd1a9f9..011b192406 100644
+--- a/target/hppa/mem_helper.c
++++ b/target/hppa/mem_helper.c
+@@ -56,7 +56,7 @@ hwaddr hppa_abs_to_phys_pa2_w0(vaddr addr)
+         addr = (int32_t)addr;
+     } else {
+         /* PDC address space */
+-        addr &= MAKE_64BIT_MASK(0, 24);
++        addr = (uint32_t)addr;
+         addr |= -1ull << (TARGET_PHYS_ADDR_SPACE_BITS - 4);
+     }
+     return addr;
+-- 
+2.39.2
+

@@ -1,0 +1,173 @@
+From 7584f4f54607c463c72d87a33b163c1cd593ca82 Mon Sep 17 00:00:00 2001
+From: Helge Deller <deller@gmx.de>
+Date: Fri, 8 Dec 2023 19:24:58 +0100
+Subject: [PATCH 02/23] parisc: Fix detection of mptsas and esp scsi drivers
+
+Make sure that inl()/outl() works correctly (with little-endian
+accesses) so that the scsi drivers can be used unchanged.
+
+Signed-off-by: Helge Deller <deller@gmx.de>
+---
+ src/hw/pci.c      | 24 ++++++++++++------------
+ src/parisc/hppa.h | 30 ++++++++++--------------------
+ 2 files changed, 22 insertions(+), 32 deletions(-)
+
+diff --git a/roms/seabios-hppa/src/hw/pci.c b/roms/seabios-hppa/src/hw/pci.c
+index 3f352505..f77ab94a 100644
+--- a/roms/seabios-hppa/src/hw/pci.c
++++ b/roms/seabios-hppa/src/hw/pci.c
+@@ -68,8 +68,8 @@ void pci_config_writel(u16 bdf, u32 addr, u32 val)
+     if (!MODESEGMENT && mmconfig) {
+         writel(mmconfig_addr(bdf, addr), val);
+     } else {
+-        outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
+-        outl(cpu_to_le32(val), PORT_PCI_DATA);
++        *(u32*)PORT_PCI_CMD = ioconfig_cmd(bdf, addr);
++        *(u32*)PORT_PCI_DATA = cpu_to_le32(val);
+     }
+ }
+ 
+@@ -85,8 +85,8 @@ void pci_config_writew(u16 bdf, u32 addr, u16 val)
+     if (!MODESEGMENT && mmconfig) {
+         writew(mmconfig_addr(bdf, addr), val);
+     } else {
+-        outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
+-        outw(cpu_to_le16(val), PORT_PCI_DATA + (addr & 2));
++        *(u32*)PORT_PCI_CMD = ioconfig_cmd(bdf, addr);
++        *(u16*)(PORT_PCI_DATA + (addr & 2)) = cpu_to_le16(val);
+     }
+ }
+ 
+@@ -102,8 +102,8 @@ void pci_config_writeb(u16 bdf, u32 addr, u8 val)
+     if (!MODESEGMENT && mmconfig) {
+         writeb(mmconfig_addr(bdf, addr), val);
+     } else {
+-        outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
+-        outb(val, PORT_PCI_DATA + (addr & 3));
++        *(u32*)PORT_PCI_CMD = ioconfig_cmd(bdf, addr);
++        *(u8*)(PORT_PCI_DATA + (addr & 3)) = val;
+     }
+ }
+ 
+@@ -119,8 +119,8 @@ u32 pci_config_readl(u16 bdf, u32 addr)
+     if (!MODESEGMENT && mmconfig) {
+         return readl(mmconfig_addr(bdf, addr));
+     } else {
+-        outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
+-        return le32_to_cpu(inl(PORT_PCI_DATA));
++        *(u32*)PORT_PCI_CMD = ioconfig_cmd(bdf, addr);
++        return (le32_to_cpu(*(u32*)PORT_PCI_DATA));
+     }
+ }
+ 
+@@ -136,8 +136,8 @@ u16 pci_config_readw(u16 bdf, u32 addr)
+     if (!MODESEGMENT && mmconfig) {
+         return readw(mmconfig_addr(bdf, addr));
+     } else {
+-        outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
+-        return le16_to_cpu(inw(PORT_PCI_DATA + (addr & 2)));
++        *(u32*)PORT_PCI_CMD = ioconfig_cmd(bdf, addr);
++        return (le16_to_cpu(*(u16*)(PORT_PCI_DATA + (addr & 2))));
+     }
+ }
+ 
+@@ -153,8 +153,8 @@ u8 pci_config_readb(u16 bdf, u32 addr)
+     if (!MODESEGMENT && mmconfig) {
+         return readb(mmconfig_addr(bdf, addr));
+     } else {
+-        outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
+-        return inb(PORT_PCI_DATA + (addr & 3));
++        *(u32*)PORT_PCI_CMD = ioconfig_cmd(bdf, addr);
++        return (*(u8*)(PORT_PCI_DATA + (addr & 3)));
+     }
+ }
+ 
+diff --git a/roms/seabios-hppa/src/parisc/hppa.h b/roms/seabios-hppa/src/parisc/hppa.h
+index 99e2ba59..62901874 100644
+--- a/roms/seabios-hppa/src/parisc/hppa.h
++++ b/roms/seabios-hppa/src/parisc/hppa.h
+@@ -214,9 +214,11 @@ extern unsigned long hppa_port_pci_data;
+ 
+ #define astro_ioport_addr(port) ((void *)(portaddr_t)(IOS_DIST_BASE_ADDR + port))
+ 
++/*  inb()/outb() accesses little-endian memory and does byteswapping to host endianess */
++
+ static inline void outl(u32 value, portaddr_t port) {
+     if (is_astro_ioport(port))
+-        *(volatile u32 *)(astro_ioport_addr(port)) = value;
++        *(volatile u32 *)(astro_ioport_addr(port)) = cpu_to_le32(value);
+     else
+     if (!pci_ioport_addr(port)) {
+         *(volatile u32 *)(port) = be32_to_cpu(value);
+@@ -230,7 +232,7 @@ static inline void outl(u32 value, portaddr_t port) {
+ 
+ static inline void outw(u16 value, portaddr_t port) {
+     if (is_astro_ioport(port))
+-        *(volatile u16 *)(astro_ioport_addr(port)) = value;
++        *(volatile u16 *)(astro_ioport_addr(port)) = cpu_to_le16(value);
+     else
+     if (!pci_ioport_addr(port)) {
+         *(volatile u16 *)(port) = be16_to_cpu(value);
+@@ -272,7 +274,7 @@ static inline u8 inb(portaddr_t port) {
+ 
+ static inline u16 inw(portaddr_t port) {
+     if (is_astro_ioport(port))
+-        return *(volatile u16 *)(astro_ioport_addr(port));
++        return le16_to_cpu(*(volatile u16 *)(astro_ioport_addr(port)));
+     else
+     if (!pci_ioport_addr(port)) {
+         return *(volatile u16 *)(port);
+@@ -285,7 +287,7 @@ static inline u16 inw(portaddr_t port) {
+ }
+ static inline u32 inl(portaddr_t port) {
+     if (is_astro_ioport(port))
+-        return *(volatile u32 *)(astro_ioport_addr(port));
++        return le32_to_cpu(*(volatile u32 *)(astro_ioport_addr(port)));
+     else
+     if (!pci_ioport_addr(port)) {
+         return *(volatile u32 *)(port);
+@@ -303,17 +305,11 @@ static inline void insb(portaddr_t port, u8 *data, u32 count) {
+ }
+ static inline void insw(portaddr_t port, u16 *data, u32 count) {
+     while (count--)
+-	if (pci_ioport_addr(port))
+-		*data++ = be16_to_cpu(inw(port));
+-	else
+-		*data++ = inw(port);
++        *data++ = inw(port);
+ }
+ static inline void insl(portaddr_t port, u32 *data, u32 count) {
+     while (count--)
+-	if (pci_ioport_addr(port))
+-		*data++ = be32_to_cpu(inl(port));
+-	else
+-		*data++ = inl(port);
++        *data++ = inl(port);
+ }
+ // XXX - outs not limited to es segment
+ static inline void outsb(portaddr_t port, u8 *data, u32 count) {
+@@ -322,19 +318,13 @@ static inline void outsb(portaddr_t port, u8 *data, u32 count) {
+ }
+ static inline void outsw(portaddr_t port, u16 *data, u32 count) {
+     while (count--) {
+-	if (pci_ioport_addr(port))
+-		outw(cpu_to_be16(*data), port);
+-	else
+-		outw(*data, port);
++        outw(*data, port);
+ 	data++;
+     }
+ }
+ static inline void outsl(portaddr_t port, u32 *data, u32 count) {
+     while (count--) {
+-	if (pci_ioport_addr(port))
+-		outl(cpu_to_be32(*data), port);
+-	else
+-		outl(*data, port);
++        outl(*data, port);
+ 	data++;
+     }
+ }
+-- 
+2.39.2
+

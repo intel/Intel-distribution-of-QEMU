@@ -1,0 +1,75 @@
+From 5b053e8ad63815c318f19642d25ae17160c280b5 Mon Sep 17 00:00:00 2001
+From: Helge Deller <deller@gmx.de>
+Date: Tue, 2 Jan 2024 23:20:58 +0100
+Subject: [PATCH 12/23] block/ata: Fixes to allow building 64-bit firmware
+
+Signed-off-by: Helge Deller <deller@gmx.de>
+---
+ src/block.c  | 2 +-
+ src/farptr.h | 5 +++--
+ src/hw/ata.c | 6 +++---
+ 3 files changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/roms/seabios-hppa/src/block.c b/roms/seabios-hppa/src/block.c
+index ed08bb73..f83d3fc2 100644
+--- a/roms/seabios-hppa/src/block.c
++++ b/roms/seabios-hppa/src/block.c
+@@ -477,7 +477,7 @@ fill_ata_edd(struct segoff_s edd, struct drive_s *drive_gf)
+         ifpath = edd_pci_path(bdf, channel);
+     }
+     return fill_generic_edd(
+-        edd, drive_gf, SEGOFF(SEG_LOW, (u32)&DefaultDPTE).segoff
++        edd, drive_gf, SEGOFF(SEG_LOW, (unsigned long)&DefaultDPTE).segoff
+         , bustype | EDD_ATA, ifpath, slave);
+ }
+ 
+diff --git a/roms/seabios-hppa/src/farptr.h b/roms/seabios-hppa/src/farptr.h
+index de6331a6..aa86b9b0 100644
+--- a/roms/seabios-hppa/src/farptr.h
++++ b/roms/seabios-hppa/src/farptr.h
+@@ -137,8 +137,9 @@ DECL_SEGFUNCS(SS)
+ #define FLATPTR_TO_OFFSET(p) (((u32)(p)) & 0xf)
+ #define MAKE_FLATPTR(seg,off) ((void*)(((u32)(seg)<<4)+(u32)(off)))
+ #elif CONFIG_PARISC
+-#define FLATPTR_TO_SEG(p) (((u32)(p)) >> 16)
+-#define FLATPTR_TO_OFFSET(p) (((u32)(p)) & 0xffff)
++#define uintptr_t  unsigned long
++#define FLATPTR_TO_SEG(p) (((uintptr_t)(p)) >> 16)
++#define FLATPTR_TO_OFFSET(p) (((uintptr_t)(p)) & 0xffff)
+ #define MAKE_FLATPTR(seg,off) ((void*)(unsigned long)(off))
+ #endif
+ 
+diff --git a/roms/seabios-hppa/src/hw/ata.c b/roms/seabios-hppa/src/hw/ata.c
+index 56163602..808aa564 100644
+--- a/roms/seabios-hppa/src/hw/ata.c
++++ b/roms/seabios-hppa/src/hw/ata.c
+@@ -361,7 +361,7 @@ ata_try_dma(struct disk_op_s *op, int iswrite, int blocksize)
+     if (! CONFIG_ATA_DMA)
+         return -1;
+     ASSERT16(); // behind ATA_DMA, needed on parisc to boot via ata
+-    u32 dest = (u32)op->buf_fl;
++    unsigned long dest = (unsigned long)op->buf_fl;
+     if (dest & 1)
+         // Need minimum alignment of 1.
+         return -1;
+@@ -392,7 +392,7 @@ ata_try_dma(struct disk_op_s *op, int iswrite, int blocksize)
+         if (!bytes)
+             // Last descriptor.
+             count |= 1<<31;
+-        dprintf(16, "dma@%p: %08x %08x\n", dma, dest, count);
++        dprintf(16, "dma@%p: %08lx %08x\n", dma, dest, count);
+         dest += count;
+         SET_LOWFLAT(dma->count, count);
+         dma++;
+@@ -842,7 +842,7 @@ powerup_await_non_bsy(portaddr_t base)
+         }
+         yield();
+     }
+-    dprintf(6, "powerup iobase=%x st=%x\n", base, status);
++    dprintf(6, "powerup iobase=%lx st=%x\n", base, status);
+     return status;
+ }
+ 
+-- 
+2.39.2
+

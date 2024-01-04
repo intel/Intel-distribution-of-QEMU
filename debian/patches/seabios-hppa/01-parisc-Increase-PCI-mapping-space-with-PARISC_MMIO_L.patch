@@ -1,0 +1,30 @@
+From e4772c981329b1c5854f1e9c85598d6f5f0cb5f8 Mon Sep 17 00:00:00 2001
+From: Helge Deller <deller@gmx.de>
+Date: Thu, 7 Dec 2023 22:15:18 +0100
+Subject: [PATCH 01/23] parisc: Increase PCI mapping space with
+ PARISC_MMIO_LIMIT
+
+Increase the limit for which the PCI memory region is mapped into
+shared memory. This fixes loading of megaraid-sas driver.
+
+Signed-off-by: Helge Deller <deller@gmx.de>
+---
+ src/fw/pciinit.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/roms/seabios-hppa/src/fw/pciinit.c b/roms/seabios-hppa/src/fw/pciinit.c
+index d79fb56c..55f331a7 100644
+--- a/roms/seabios-hppa/src/fw/pciinit.c
++++ b/roms/seabios-hppa/src/fw/pciinit.c
+@@ -513,7 +513,7 @@ static void mch_mem_addr_setup(struct pci_device *dev, void *arg)
+  * parisc: If mmio bar is bigger than this size, map the bar it into the
+  * directed ELMMIO instead of the distributed LMMIO region.
+  */
+-#define PARISC_MMIO_LIMIT       0x10000
++#define PARISC_MMIO_LIMIT       0x40000
+ 
+ #if CONFIG_PARISC
+ static int dino_pci_slot_get_irq(struct pci_device *pci, int pin)
+-- 
+2.39.2
+

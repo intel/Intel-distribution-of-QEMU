@@ -1,0 +1,30 @@
+From 31ca8f429dca47acc2b2fc0f5741044df44e2b4a Mon Sep 17 00:00:00 2001
+From: Helge Deller <deller@gmx.de>
+Date: Wed, 3 Jan 2024 20:26:07 +0100
+Subject: [PATCH 6/9] target/hppa: Strip upper 32-bits of IOR on unaligned
+ access error
+
+Limit IOR to the lower 32-bits on failure.
+Keep patch short for easier backporting.
+
+Signed-off-by: Helge Deller <deller@gmx.de>
+---
+ target/hppa/cpu.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/target/hppa/cpu.c b/target/hppa/cpu.c
+index 04de1689d7..bc30bfe4c7 100644
+--- a/target/hppa/cpu.c
++++ b/target/hppa/cpu.c
+@@ -112,7 +112,7 @@ void hppa_cpu_do_unaligned_access(CPUState *cs, vaddr addr,
+     cs->exception_index = EXCP_UNALIGN;
+     if (env->psw & PSW_Q) {
+         /* ??? Needs tweaking for hppa64.  */
+-        env->cr[CR_IOR] = addr;
++        env->cr[CR_IOR] = (uint32_t) addr;
+         env->cr[CR_ISR] = addr >> 32;
+     }
+ 
+-- 
+2.39.2
+

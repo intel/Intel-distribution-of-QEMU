@@ -1,0 +1,32 @@
+From 9800adbde1645a80732afd1e1a01712567202d99 Mon Sep 17 00:00:00 2001
+From: Helge Deller <deller@gmx.de>
+Date: Wed, 3 Jan 2024 20:35:18 +0100
+Subject: [PATCH 8/9] target/hppa: Avoid accessing %gr0 when raising exception
+
+The value of unwind_breg may reference register %r0, but we need to avoid
+accessing gr0 directly and use the value 0 instead.
+
+At runtime I've seen unwind_breg being zero with the Linux kernel when
+rfi is used to jump to smp_callin().
+
+Signed-off-by: Helge Deller <deller@gmx.de>
+---
+ target/hppa/mem_helper.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/target/hppa/mem_helper.c b/target/hppa/mem_helper.c
+index 011b192406..42bd0063c0 100644
+--- a/target/hppa/mem_helper.c
++++ b/target/hppa/mem_helper.c
+@@ -335,7 +335,7 @@ raise_exception_with_ior(CPUHPPAState *env, int excp, uintptr_t retaddr,
+ 
+                 cpu_restore_state(cs, retaddr);
+ 
+-                b = env->gr[env->unwind_breg];
++                b = env->unwind_breg ? env->gr[env->unwind_breg] : 0;
+                 b >>= (env->psw & PSW_W ? 62 : 30);
+                 env->cr[CR_IOR] |= b << 62;
+ 
+-- 
+2.39.2
+

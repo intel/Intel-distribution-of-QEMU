@@ -250,11 +250,10 @@ Depends: ${misc:Depends}, ${shlibs:Depends},
  libgl1,
 # we moved vhost-user-gpu files here from qemu-system-common at 6.1-4
 Replaces: qemu-system-common (<< 1:6.1+dfsg-4~)
-Description: QEMU full system emulation binaries (user interface and audio support)
- This package provides local graphical user interface (currently GTK and SDL),
- audio backends and OpenGL display support for full system emulation
- (qemu-system-*) packages.  This package also includes D-Bus display and
- audio modules (which depends on opengl).
+Description: QEMU full system emulation binaries (graphical display and audio modules)
+ This package provides optional graphical guest display modules (currently GTK
+ and SDL) and audio backend modules for full system emulation (qemu-system-*)
+ packages.
 
 Package: qemu-system-modules-spice
 Architecture: :spice-arch:
@@ -266,9 +265,9 @@ Depends: ${misc:Depends}, ${shlibs:Depends},
  qemu-system-any (= ${binary:Version}),
 Replaces: qemu-system-common (<< 1:8.1.0+ds-1~exp2~)
 Breaks:   qemu-system-common (<< 1:8.1.0+ds-1~exp2~)
-Description: QEMU full system emulation binaries (spice modules)
- This package provides optional spice display (qxl and spice-app) and
- audio modules for QEMU full system emulation (qemu-system-*) packages.
+Description: QEMU full system emulation binaries (spice display modules)
+ This package provides optional spice display (qxl and spice-app) and audio
+ support modules for QEMU full system emulation (qemu-system-*) packages.
 
 Package: qemu-system-modules-opengl
 Architecture: :system-arch:
@@ -278,9 +277,9 @@ Depends: ${misc:Depends}, ${shlibs:Depends},
  qemu-system-any (= ${binary:Version}),
 Replaces: qemu-system-common (<< 1:8.1.0+ds-1~exp2~), qemu-system-gui (<< 1:8.1.0+ds-1~exp2~)
 Breaks:   qemu-system-common (<< 1:8.1.0+ds-1~exp2~), qemu-system-gui (<< 1:8.1.0+ds-1~exp2~)
-Description: QEMU full system emulation binaries (OpenGL modules)
- This package provides optional OpenGL support modules
- for QEMU full system emulation (qemu-system-*) packages.
+Description: QEMU full system emulation binaries (OpenGL display modules)
+ This package provides optional OpenGL display support modules for QEMU full
+ system emulation (qemu-system-*) packages.  It also provides dbus display type.
 
 Package: qemu-system-misc
 Architecture: :system-arch:

@@ -1,0 +1,37 @@
+From 1307a05301e45f18abb1678c692f1122cd043b37 Mon Sep 17 00:00:00 2001
+From: Mark Cave-Ayland <mark.cave-ayland@ilande.co.uk>
+Date: Mon, 1 Jan 2024 14:09:26 +0100
+Subject: [PATCH 09/23] esp-scsi: terminate DMA transfer when ESP data transfer
+ completes
+
+When the ESP data transfer completes indicated by the STAT_TC flag being set,
+terminate the DMA transfer by issuing a DMA IDLE command. Otherwise in the case
+where the guest sends a reset followed by an ESP command, the DMA signal remains
+enabled and so the next SeaBIOS DMA transfer begins immediately when the next
+ESP command is received rather than waiting until the data is ready and the DMA
+command is issued.
+
+With this fix it is possible to boot a Windows XP ISO to the installer and
+complete a full installation within QEMU directly using SeaBIOS.
+
+Signed-off-by: Mark Cave-Ayland <mark.cave-ayland@ilande.co.uk>
+---
+ src/hw/esp-scsi.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/roms/seabios-hppa/src/hw/esp-scsi.c b/roms/seabios-hppa/src/hw/esp-scsi.c
+index ab161de2..9f018d71 100644
+--- a/roms/seabios-hppa/src/hw/esp-scsi.c
++++ b/roms/seabios-hppa/src/hw/esp-scsi.c
+@@ -147,6 +147,8 @@ esp_scsi_process_op(struct disk_op_s *op)
+         /* At end of DMA TC is set again -> complete command.  */
+         if (state == 1 && (stat & ESP_STAT_TC)) {
+             state++;
++            /* Terminate esp_scsi_dma() command */
++            outb(0, iobase + ESP_DMA_CMD);
+             continue;
+         }
+ 
+-- 
+2.39.2
+

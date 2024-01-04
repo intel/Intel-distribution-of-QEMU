@@ -1,0 +1,43 @@
+From 5403344b6b23b847d71c282bfd912a5d88056a3a Mon Sep 17 00:00:00 2001
+From: Helge Deller <deller@gmx.de>
+Date: Tue, 2 Jan 2024 23:42:52 +0100
+Subject: [PATCH 15/23] parisc/sti: Static pointer initializations not possible
+ on 64-bit build
+
+Signed-off-by: Helge Deller <deller@gmx.de>
+---
+ src/parisc/sti.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/roms/seabios-hppa/src/parisc/sti.c b/roms/seabios-hppa/src/parisc/sti.c
+index 7743d7c8..72f2b895 100644
+--- a/roms/seabios-hppa/src/parisc/sti.c
++++ b/roms/seabios-hppa/src/parisc/sti.c
+@@ -34,7 +34,6 @@ static struct sti_glob_cfg_ext sti_glob_ext_cfg = {
+ 
+ static struct sti_glob_cfg sti_glob_cfg = {
+         .region_ptrs = { 0, ARTIST_FB_ADDR, 0xf8100000, 0xf8380000, 0, 0, 0, 0 },
+-        .ext_ptr = (u32)&sti_glob_ext_cfg,
+ };
+ 
+ static struct sti_init_inptr_ext sti_init_inptr_ext = {
+@@ -43,7 +42,6 @@ static struct sti_init_inptr_ext sti_init_inptr_ext = {
+ 
+ static struct sti_init_inptr sti_init_inptr = {
+         .text_planes = 3,
+-        .ext_ptr = (u32)&sti_init_inptr_ext,
+ };
+ 
+ static struct sti_init_outptr sti_init_outptr = {
+@@ -121,6 +119,8 @@ void sti_console_init(struct sti_rom *rom)
+                     struct sti_glob_cfg *);
+ 
+     sti_init = (void *)rom + rom->init_graph;
++    sti_glob_cfg.ext_ptr = (u32)&sti_glob_ext_cfg;
++    sti_init_inptr.ext_ptr = (u32)&sti_init_inptr_ext;
+ 
+     sti_init(&sti_init_flags, &sti_init_inptr,
+              &sti_init_outptr, &sti_glob_cfg);
+-- 
+2.39.2
+

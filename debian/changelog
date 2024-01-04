@@ -1,3 +1,19 @@
+qemu (1:8.2.0+ds-4) unstable; urgency=medium
+
+  * d/rules: fix "tail -20" usage
+  * note-missing-module-pkg-name.diff: update, to be much more accurate
+    No more sporadic warnings about missing audio backends etc
+  * d/control: clarify qemu-system-gui and qemu-system-modules-* package
+    descriptions a little bit (#1059457)
+  * more fixups from the ML targetting stable:
+   + hw-net-cadence_gem-fix-MDIO_OP_xxx-values.patch
+   + tcg-ppc-use-new-registers-for-LQ-destination.patch
+   + target-riscv-fix-mcycle-minstret-increment-behavior.patch
+  * a bunch of hppa and seabios-hppa fixes targetting -stable for
+    https://gitlab.com/qemu-project/qemu/-/issues/2044
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 04 Jan 2024 22:47:59 +0300
+
 qemu (1:8.2.0+ds-3) unstable; urgency=medium
 
   * +virtio-net-correctly-copy-vnet-header-when-flushing-TX-CVE-2023-6693.patch

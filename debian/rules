@@ -220,7 +220,7 @@ b/qemu/configured: configure
 		$(shell sh debian/extract-config-opts \
 		    $(DEB_HOST_ARCH_OS)-$(DEB_HOST_ARCH) debian/control) \
 		${QEMU_CONFIGURE_OPTIONS} || \
-	   { tail -20 config.log meson-logs/meson-log.txt && false; }
+	   { tail -n20 config.log meson-logs/meson-log.txt && false; }
 	touch $@
 
 build-qemu: b/qemu/built
