@@ -26,6 +26,7 @@
 #include "ui/console.h"
 #include "trace.h"
 
+#include "standard-headers/drm/drm_fourcc.h"
 #include "ui/spice-display.h"
 
 bool spice_opengl;
@@ -890,11 +891,64 @@ static void spice_gl_update(DisplayChangeListener *dcl,
     ssd->gl_updates++;
 }
 
+static bool spice_gl_replace_fd_texture(SimpleSpiceDisplay *ssd,
+                                        EGLint *stride, EGLint *fourcc,
+                                        EGLuint64KHR *modifier,
+                                        int *fd)
+{
+    GLuint texture = 0;
+
+    if (!remote_client) {
+        return true;
+    }
+
+    if (surface_format(ssd->ds) == PIXMAN_r5g6b5) {
+        return true;
+    }
+
+    if (*modifier == DRM_FORMAT_MOD_LINEAR) {
+        return true;
+    }
+
+    /*
+     * We really want to ensure that the memory layout of the texture
+     * is linear; otherwise, the encoder's output may show corruption.
+     */
+    surface_gl_create_texture_from_fd(ssd->ds, *fd, &texture);
+
+    /*
+     * A successful return after glImportMemoryFdEXT() means that
+     * the ownership of fd has been passed to GL. In other words,
+     * the fd we got above should not be used anymore.
+     */
+    if (texture > 0) {
+        *fd = egl_get_fd_for_texture(texture,
+                                     stride, fourcc,
+                                     NULL);
+        if (*fd < 0) {
+            glDeleteTextures(1, &texture);
+            *fd = egl_get_fd_for_texture(ssd->ds->texture,
+                                         stride, fourcc,
+                                         NULL);
+            if (*fd < 0) {
+                surface_gl_destroy_texture(ssd->gls, ssd->ds);
+                return false;
+            }
+        } else {
+            surface_gl_destroy_texture(ssd->gls, ssd->ds);
+            ssd->ds->texture = texture;
+        }
+    }
+    return true;
+}
+
 static void spice_gl_switch(DisplayChangeListener *dcl,
                             struct DisplaySurface *new_surface)
 {
     SimpleSpiceDisplay *ssd = container_of(dcl, SimpleSpiceDisplay, dcl);
     EGLint stride, fourcc;
+    EGLuint64KHR modifier;
+    bool ret;
     int fd;
 
     if (ssd->ds) {
@@ -905,8 +959,14 @@ static void spice_gl_switch(DisplayChangeListener *dcl,
         surface_gl_create_texture(ssd->gls, ssd->ds);
         fd = egl_get_fd_for_texture(ssd->ds->texture,
                                     &stride, &fourcc,
-                                    NULL);
+                                    &modifier);
         if (fd < 0) {
+            surface_gl_destroy_texture(ssd->gls, ssd->ds);
+            return;
+        }
+
+        ret = spice_gl_replace_fd_texture(ssd, &stride, &fourcc, &modifier, &fd);
+        if (!ret) {
             surface_gl_destroy_texture(ssd->gls, ssd->ds);
             return;
         }
