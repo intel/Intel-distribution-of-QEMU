@@ -1,8 +1,8 @@
 From 541a67a1e10b4592e8ce9c7997cd478ff651ef2b Mon Sep 17 00:00:00 2001
 From: Helge Deller <deller@gmx.de>
 Date: Wed, 3 Jan 2024 20:54:18 +0100
-Subject: [PATCH 22/23] parisc: Enable power button switch and add option to
- disable it
+Subject: [PATCH 22/27] parisc: Enable power button switch and add option to disable it
+Forwarded: yes
 
 Due to a mismatch of memory mapping for PA2.0 with PSW.W=0,
 the power button was broken on 64-bit machines.

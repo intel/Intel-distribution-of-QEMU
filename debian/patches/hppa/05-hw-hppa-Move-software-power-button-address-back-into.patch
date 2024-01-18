@@ -1,7 +1,8 @@
-From 639acc2d4443e7ce98c5597eb6b2395216e785e7 Mon Sep 17 00:00:00 2001
+From ed35afcb331a972210816435d6b1b5de17fc7d4f Mon Sep 17 00:00:00 2001
 From: Helge Deller <deller@gmx.de>
 Date: Wed, 3 Jan 2024 20:10:01 +0100
-Subject: [PATCH 7/9] hw/hppa: Move software power button address back into PDC
+Subject: [PATCH 5/9] hw/hppa: Move software power button address back into PDC
+Forwarded: yes
 
 The various operating systems (e.g. Linux, NetBSD) have issues
 mapping the power button when it's stored in page zero.
@@ -15,12 +16,14 @@ sync) the power button can be moved back to PDC space.
 This patch fixes the power button on Linux, NetBSD and HP-UX.
 
 Signed-off-by: Helge Deller <deller@gmx.de>
+Tested-by: Bruno Haible <bruno@clisp.org>
+Reviewed-by: Richard Henderson <richard.henderson@linaro.org>
 ---
  hw/hppa/machine.c | 9 +++++----
  1 file changed, 5 insertions(+), 4 deletions(-)
 
 diff --git a/hw/hppa/machine.c b/hw/hppa/machine.c
-index 5d3284283b..da21ec85e2 100644
+index 54ca2fd91a..9e611620cc 100644
 --- a/hw/hppa/machine.c
 +++ b/hw/hppa/machine.c
 @@ -36,8 +36,8 @@

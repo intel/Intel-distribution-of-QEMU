@@ -1,7 +1,8 @@
 From b77d66680283670ccfb7277c61f0360752f04be1 Mon Sep 17 00:00:00 2001
 From: Helge Deller <deller@gmx.de>
 Date: Fri, 8 Dec 2023 20:23:02 +0100
-Subject: [PATCH 03/23] parisc/pciinit: Show if a PCI device is 64-bit device
+Subject: [PATCH 03/27] parisc/pciinit: Show if a PCI device is 64-bit device
+Forwarded: yes
 
 Signed-off-by: Helge Deller <deller@gmx.de>
 ---

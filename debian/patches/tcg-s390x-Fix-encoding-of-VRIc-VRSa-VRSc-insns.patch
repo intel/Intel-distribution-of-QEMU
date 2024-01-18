@@ -1,0 +1,56 @@
+From: Richard Henderson <richard.henderson@linaro.org>
+Date: Thu, 18 Jan 2024 08:36:45 +1100
+Subject: [PATCH 1/2] tcg/s390x: Fix encoding of VRIc, VRSa, VRSc insns
+Forwarded: yes
+
+While the format names the second vector register 'v3',
+it is still in the second position (bits 12-15) and
+the argument to RXB must match.
+
+Example error:
+ -   e7 00 00 10 2a 33       verllf  %v16,%v0,16
+ +   e7 00 00 10 2c 33       verllf  %v16,%v16,16
+
+Cc: qemu-stable@nongnu.org
+Reported-by: Michael Tokarev <mjt@tls.msk.ru>
+Fixes: 22cb37b4172 ("tcg/s390x: Implement vector shift operations")
+Fixes: 79cada8693d ("tcg/s390x: Implement tcg_out_dup*_vec")
+Signed-off-by: Richard Henderson <richard.henderson@linaro.org>
+---
+ tcg/s390x/tcg-target.c.inc | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/tcg/s390x/tcg-target.c.inc b/tcg/s390x/tcg-target.c.inc
+index fbee43d3b0..7f6b84aa2c 100644
+--- a/tcg/s390x/tcg-target.c.inc
++++ b/tcg/s390x/tcg-target.c.inc
+@@ -683,7 +683,7 @@ static void tcg_out_insn_VRIc(TCGContext *s, S390Opcode op,
+     tcg_debug_assert(is_vector_reg(v3));
+     tcg_out16(s, (op & 0xff00) | ((v1 & 0xf) << 4) | (v3 & 0xf));
+     tcg_out16(s, i2);
+-    tcg_out16(s, (op & 0x00ff) | RXB(v1, 0, v3, 0) | (m4 << 12));
++    tcg_out16(s, (op & 0x00ff) | RXB(v1, v3, 0, 0) | (m4 << 12));
+ }
+ 
+ static void tcg_out_insn_VRRa(TCGContext *s, S390Opcode op,
+@@ -738,7 +738,7 @@ static void tcg_out_insn_VRSa(TCGContext *s, S390Opcode op, TCGReg v1,
+     tcg_debug_assert(is_vector_reg(v3));
+     tcg_out16(s, (op & 0xff00) | ((v1 & 0xf) << 4) | (v3 & 0xf));
+     tcg_out16(s, b2 << 12 | d2);
+-    tcg_out16(s, (op & 0x00ff) | RXB(v1, 0, v3, 0) | (m4 << 12));
++    tcg_out16(s, (op & 0x00ff) | RXB(v1, v3, 0, 0) | (m4 << 12));
+ }
+ 
+ static void tcg_out_insn_VRSb(TCGContext *s, S390Opcode op, TCGReg v1,
+@@ -762,7 +762,7 @@ static void tcg_out_insn_VRSc(TCGContext *s, S390Opcode op, TCGReg r1,
+     tcg_debug_assert(is_vector_reg(v3));
+     tcg_out16(s, (op & 0xff00) | (r1 << 4) | (v3 & 0xf));
+     tcg_out16(s, b2 << 12 | d2);
+-    tcg_out16(s, (op & 0x00ff) | RXB(0, 0, v3, 0) | (m4 << 12));
++    tcg_out16(s, (op & 0x00ff) | RXB(0, v3, 0, 0) | (m4 << 12));
+ }
+ 
+ static void tcg_out_insn_VRX(TCGContext *s, S390Opcode op, TCGReg v1,
+-- 
+2.39.2
+

@@ -1,3 +1,17 @@
+qemu (1:8.2.0+ds-5) unstable; urgency=medium
+
+  * d/rules, d/run-qemu.mount: use dh_installsystemd to install run-qemu.mount
+    (Closes: #1060087)
+  * update hppa and seabios-hppa patch series
+  * ui-clipboard-avoid-crash-upon-request-when-clipboard-CVE-2023-6683.patch
+    (Closes: #1060749, CVE-2023-6683)
+  * +target-s390x-Fix-LAE-setting-a-wrong-access-register.patch
+  * +tcg-s390x-Fix-encoding-of-VRIc-VRSa-VRSc-insns.patch
+    fix chacha20 issue on s390x
+  * update hw-vfio-fix-iteration-over-global-VFIODevice-list.patch
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 18 Jan 2024 10:16:31 +0300
+
 qemu (1:8.2.0+ds-4) unstable; urgency=medium
 
   * d/rules: fix "tail -20" usage

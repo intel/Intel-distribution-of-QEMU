@@ -1,7 +1,8 @@
 From beb4c49cfb1c9c31f6cfc698e2baa744cbe0b646 Mon Sep 17 00:00:00 2001
 From: Helge Deller <deller@gmx.de>
 Date: Mon, 1 Jan 2024 23:47:08 +0100
-Subject: [PATCH 10/23] parisc/B160L: fix inw/outw/inl/outl for B160L
+Subject: [PATCH 10/27] parisc/B160L: fix inw/outw/inl/outl for B160L
+Forwarded: yes
 
 This fixes SeaBIOS boot from dc390 SCSI controller on B160L.
 

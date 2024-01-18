@@ -1,8 +1,8 @@
 From 426ed23a9bee9ad12b47b3129e135fe0a5685a04 Mon Sep 17 00:00:00 2001
 From: Helge Deller <deller@gmx.de>
 Date: Wed, 13 Dec 2023 20:57:51 +0100
-Subject: [PATCH 06/23] parisc/scsi: Set default max block size if not set by
- driver
+Subject: [PATCH 06/27] parisc/scsi: Set default max block size if not set by driver
+Forwarded: yes
 
 Signed-off-by: Helge Deller <deller@gmx.de>
 ---

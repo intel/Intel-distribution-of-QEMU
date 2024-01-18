@@ -1,10 +1,7 @@
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/9353b6da430f90e47f352dbf6dc31120c8914da6
 From: Volker Rümelin <vr_qemu@t-online.de>
 Date: Fri, 29 Dec 2023 21:38:54 +0100
-Subject: [PATCH] hw/vfio: fix iteration over global VFIODevice list
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Forwarded: yes, https://lists.nongnu.org/archive/html/qemu-devel/2023-12/msg03613.html
+Subject: hw/vfio: fix iteration over global VFIODevice list
 
 Commit 3d779abafe ("vfio/common: Introduce a global VFIODevice list")
 introduced a global VFIODevice list, but forgot to update the list
@@ -14,12 +11,15 @@ to use the correct list element field.
 Fixes: 3d779abafe ("vfio/common: Introduce a global VFIODevice list")
 Resolves: https://gitlab.com/qemu-project/qemu/-/issues/2061
 Signed-off-by: Volker Rümelin <vr_qemu@t-online.de>
+Reviewed-by: Zhenzhong Duan <zhenzhong.duan@intel.com>
+Reviewed-by: Cédric Le Goater <clg@redhat.com>
+Reviewed-by: Eric Auger <eric.auger@redhat.com>
 ---
  hw/vfio/common.c | 8 ++++----
  1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/hw/vfio/common.c b/hw/vfio/common.c
-index e70fdf5e0c..a5dfc2d27e 100644
+index 0d4d8b8416..0b3352f2a9 100644
 --- a/hw/vfio/common.c
 +++ b/hw/vfio/common.c
 @@ -73,7 +73,7 @@ bool vfio_mig_active(void)
@@ -40,7 +40,7 @@ index e70fdf5e0c..a5dfc2d27e 100644
          if (vbasedev->migration) {
              device_num++;
  
-@@ -1352,13 +1352,13 @@ void vfio_reset_handler(void *opaque)
+@@ -1366,13 +1366,13 @@ void vfio_reset_handler(void *opaque)
  {
      VFIODevice *vbasedev;
  

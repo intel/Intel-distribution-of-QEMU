@@ -1,8 +1,8 @@
 From 1307a05301e45f18abb1678c692f1122cd043b37 Mon Sep 17 00:00:00 2001
 From: Mark Cave-Ayland <mark.cave-ayland@ilande.co.uk>
 Date: Mon, 1 Jan 2024 14:09:26 +0100
-Subject: [PATCH 09/23] esp-scsi: terminate DMA transfer when ESP data transfer
- completes
+Subject: [PATCH 09/27] esp-scsi: terminate DMA transfer when ESP data transfer completes
+Forwarded: yes
 
 When the ESP data transfer completes indicated by the STAT_TC flag being set,
 terminate the DMA transfer by issuing a DMA IDLE command. Otherwise in the case

@@ -1,7 +1,8 @@
 From ca2a5bf30744a00a4bff39edee9d08d01350c036 Mon Sep 17 00:00:00 2001
 From: Helge Deller <deller@gmx.de>
 Date: Wed, 3 Jan 2024 11:59:27 +0100
-Subject: [PATCH 21/23] parisc: Fix FPU detection on NetBSD
+Subject: [PATCH 21/27] parisc: Fix FPU detection on NetBSD
+Forwarded: yes
 
 Signed-off-by: Helge Deller <deller@gmx.de>
 ---

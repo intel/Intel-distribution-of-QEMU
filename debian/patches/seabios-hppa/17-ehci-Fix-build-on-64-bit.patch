@@ -1,7 +1,8 @@
 From 6db8c1474b0cf71f1f53602349d927111b745278 Mon Sep 17 00:00:00 2001
 From: Helge Deller <deller@gmx.de>
 Date: Tue, 2 Jan 2024 23:46:14 +0100
-Subject: [PATCH 17/23] ehci: Fix build on 64-bit
+Subject: [PATCH 17/27] ehci: Fix build on 64-bit
+Forwarded: yes
 
 Signed-off-by: Helge Deller <deller@gmx.de>
 ---

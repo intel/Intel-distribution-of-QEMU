@@ -1,0 +1,34 @@
+From e4eac85880e8677f96d8b9e94de9f2eec9c0751f Mon Sep 17 00:00:00 2001
+From: Helge Deller <deller@gmx.de>
+Date: Sun, 7 Jan 2024 08:48:45 +0100
+Subject: [PATCH 27/27] parisc: SEABIOS_HPPA_VERSION 15
+Forwarded: yes
+
+Fixes and enhancements:
+- Fix OpenBSD 7.4 boot (PDC_MEM_MAP call returned wrong values)
+- Minor enhancements to show if a 64-bit SeaBIOS-hppa firmware
+  is used
+
+Signed-off-by: Helge Deller <deller@gmx.de>
+---
+ src/parisc/hppa.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/roms/seabios-hppa/src/parisc/hppa.h b/roms/seabios-hppa/src/parisc/hppa.h
+index 2a3cab9a..03cd9f9f 100644
+--- a/roms/seabios-hppa/src/parisc/hppa.h
++++ b/roms/seabios-hppa/src/parisc/hppa.h
+@@ -3,8 +3,8 @@
+ /* this file is included by x86.h */
+ 
+ /* version number of this SeaBIOS firmware */
+-#define SEABIOS_HPPA_VERSION 14
+-#define SEABIOS_HPPA_VERSION_STR  "14"
++#define SEABIOS_HPPA_VERSION 15
++#define SEABIOS_HPPA_VERSION_STR  "15"
+ 
+ #ifdef __LP64__
+ #define CONFIG_64BIT
+-- 
+2.39.2
+

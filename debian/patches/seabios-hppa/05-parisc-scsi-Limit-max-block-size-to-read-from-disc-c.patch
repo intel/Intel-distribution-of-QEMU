@@ -1,7 +1,8 @@
 From ca4199875d64327158b3706ac9d2832aaf6fe50e Mon Sep 17 00:00:00 2001
 From: Helge Deller <deller@gmx.de>
 Date: Sat, 9 Dec 2023 10:26:09 +0100
-Subject: [PATCH 05/23] parisc/scsi: Limit max block size to read from disc/cd.
+Subject: [PATCH 05/27] parisc/scsi: Limit max block size to read from disc/cd.
+Forwarded: yes
 
 Signed-off-by: Helge Deller <deller@gmx.de>
 ---

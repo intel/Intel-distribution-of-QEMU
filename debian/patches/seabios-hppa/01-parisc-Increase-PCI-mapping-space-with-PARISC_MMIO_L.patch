@@ -1,8 +1,8 @@
 From e4772c981329b1c5854f1e9c85598d6f5f0cb5f8 Mon Sep 17 00:00:00 2001
 From: Helge Deller <deller@gmx.de>
 Date: Thu, 7 Dec 2023 22:15:18 +0100
-Subject: [PATCH 01/23] parisc: Increase PCI mapping space with
- PARISC_MMIO_LIMIT
+Subject: [PATCH 01/27] parisc: Increase PCI mapping space with PARISC_MMIO_LIMIT
+Forwarded: yes
 
 Increase the limit for which the PCI memory region is mapped into
 shared memory. This fixes loading of megaraid-sas driver.

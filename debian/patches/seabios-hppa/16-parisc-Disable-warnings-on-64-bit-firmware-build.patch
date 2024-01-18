@@ -1,7 +1,8 @@
 From bc4933cc75dd144680beb42dade7f0ce93483f98 Mon Sep 17 00:00:00 2001
 From: Helge Deller <deller@gmx.de>
 Date: Tue, 2 Jan 2024 23:43:57 +0100
-Subject: [PATCH 16/23] parisc: Disable warnings on 64-bit firmware build
+Subject: [PATCH 16/27] parisc: Disable warnings on 64-bit firmware build
+Forwarded: yes
 
 Signed-off-by: Helge Deller <deller@gmx.de>
 ---

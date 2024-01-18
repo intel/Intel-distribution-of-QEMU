@@ -1,0 +1,43 @@
+From: Ilya Leoshkevich <iii@linux.ibm.com>
+Date: Thu, 11 Jan 2024 10:21:26 +0100
+Subject: target/s390x: Fix LAE setting a wrong access register
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/e358a25a97c71c39e3513d9b869cdb82052e50b8
+
+LAE should set the access register corresponding to the first operand,
+instead, it always modifies access register 1.
+
+Co-developed-by: Ido Plat <Ido.Plat@ibm.com>
+Cc: qemu-stable@nongnu.org
+Fixes: a1c7610a6879 ("target-s390x: implement LAY and LAEY instructions")
+Reviewed-by: David Hildenbrand <david@redhat.com>
+Signed-off-by: Ilya Leoshkevich <iii@linux.ibm.com>
+Message-ID: <20240111092328.929421-2-iii@linux.ibm.com>
+Signed-off-by: Thomas Huth <thuth@redhat.com>
+---
+ target/s390x/tcg/translate.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/target/s390x/tcg/translate.c b/target/s390x/tcg/translate.c
+index 62ab2be8b1..8df00b7df9 100644
+--- a/target/s390x/tcg/translate.c
++++ b/target/s390x/tcg/translate.c
+@@ -3221,6 +3221,7 @@ static DisasJumpType op_mov2e(DisasContext *s, DisasOps *o)
+ {
+     int b2 = get_field(s, b2);
+     TCGv ar1 = tcg_temp_new_i64();
++    int r1 = get_field(s, r1);
+ 
+     o->out = o->in2;
+     o->in2 = NULL;
+@@ -3244,7 +3245,7 @@ static DisasJumpType op_mov2e(DisasContext *s, DisasOps *o)
+         break;
+     }
+ 
+-    tcg_gen_st32_i64(ar1, tcg_env, offsetof(CPUS390XState, aregs[1]));
++    tcg_gen_st32_i64(ar1, tcg_env, offsetof(CPUS390XState, aregs[r1]));
+     return DISAS_NEXT;
+ }
+ 
+-- 
+2.39.2
+

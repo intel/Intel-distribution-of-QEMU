@@ -1,0 +1,79 @@
+From 3824e0d643f34ee09e0cc75190c0c4b60928b78c Mon Sep 17 00:00:00 2001
+From: Helge Deller <deller@gmx.de>
+Date: Thu, 11 Jan 2024 22:50:11 +0100
+Subject: [PATCH 7/9] target/hppa: Export function hppa_set_ior_and_isr()
+Forwarded: yes
+
+Move functionality to set IOR and ISR on fault into own
+function. This will be used by follow-up patches.
+
+Signed-off-by: Helge Deller <deller@gmx.de>
+Reviewed-by: Richard Henderson <richard.henderson@linaro.org>
+---
+ target/hppa/cpu.h        |  1 +
+ target/hppa/mem_helper.c | 23 ++++++++++++-----------
+ 2 files changed, 13 insertions(+), 11 deletions(-)
+
+diff --git a/target/hppa/cpu.h b/target/hppa/cpu.h
+index 8be45c69c9..9556e95fab 100644
+--- a/target/hppa/cpu.h
++++ b/target/hppa/cpu.h
+@@ -385,6 +385,7 @@ void hppa_cpu_dump_state(CPUState *cs, FILE *f, int);
+ #ifndef CONFIG_USER_ONLY
+ void hppa_ptlbe(CPUHPPAState *env);
+ hwaddr hppa_cpu_get_phys_page_debug(CPUState *cs, vaddr addr);
++void hppa_set_ior_and_isr(CPUHPPAState *env, vaddr addr, bool mmu_disabled);
+ bool hppa_cpu_tlb_fill(CPUState *cs, vaddr address, int size,
+                        MMUAccessType access_type, int mmu_idx,
+                        bool probe, uintptr_t retaddr);
+diff --git a/target/hppa/mem_helper.c b/target/hppa/mem_helper.c
+index 1387f4a64b..4fcc612754 100644
+--- a/target/hppa/mem_helper.c
++++ b/target/hppa/mem_helper.c
+@@ -305,14 +305,8 @@ hwaddr hppa_cpu_get_phys_page_debug(CPUState *cs, vaddr addr)
+     return excp == EXCP_DTLB_MISS ? -1 : phys;
+ }
+ 
+-G_NORETURN static void
+-raise_exception_with_ior(CPUHPPAState *env, int excp, uintptr_t retaddr,
+-                         vaddr addr, bool mmu_disabled)
++void hppa_set_ior_and_isr(CPUHPPAState *env, vaddr addr, bool mmu_disabled)
+ {
+-    CPUState *cs = env_cpu(env);
+-
+-    cs->exception_index = excp;
+-
+     if (env->psw & PSW_Q) {
+         /*
+          * For pa1.x, the offset and space never overlap, and so we
+@@ -339,16 +333,23 @@ raise_exception_with_ior(CPUHPPAState *env, int excp, uintptr_t retaddr,
+                  */
+                 uint64_t b;
+ 
+-                cpu_restore_state(cs, retaddr);
+-
+                 b = env->unwind_breg ? env->gr[env->unwind_breg] : 0;
+                 b >>= (env->psw & PSW_W ? 62 : 30);
+                 env->cr[CR_IOR] |= b << 62;
+-
+-                cpu_loop_exit(cs);
+             }
+         }
+     }
++}
++
++G_NORETURN static void
++raise_exception_with_ior(CPUHPPAState *env, int excp, uintptr_t retaddr,
++                         vaddr addr, bool mmu_disabled)
++{
++    CPUState *cs = env_cpu(env);
++
++    cs->exception_index = excp;
++    hppa_set_ior_and_isr(env, addr, mmu_disabled);
++
+     cpu_loop_exit_restore(cs, retaddr);
+ }
+ 
+-- 
+2.39.2
+

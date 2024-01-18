@@ -1,7 +1,8 @@
 From 52d63d583517a35b10b401e101f537643d88f5b2 Mon Sep 17 00:00:00 2001
 From: Helge Deller <deller@gmx.de>
 Date: Tue, 2 Jan 2024 23:15:19 +0100
-Subject: [PATCH 11/23] parisc: Prepare for builing a 64-bit firmware
+Subject: [PATCH 11/27] parisc: Prepare for builing a 64-bit firmware
+Forwarded: yes
 
 Signed-off-by: Helge Deller <deller@gmx.de>
 ---

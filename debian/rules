@@ -275,9 +275,7 @@ endif # x86
 		 debian/source_qemu.py
 endif # ubuntu
 
-# for --enable-module-upgrades to work in more environments
-	install -D -m 0644 debian/run-qemu.mount debian/qemu-block-extra/lib/systemd/system/run-qemu.mount
-
+# for --enable-module-upgrades to work (also see run-qemu.mount install)
 # save block-extra loadable modules on upgrades
 # other module types for now (5.0) can't be loaded at runtime, only at startup
 # the maintscript fragments include version string so we have to generate them
@@ -498,7 +496,7 @@ install-arch: pre-install-arch $(addprefix install-, ${qemu-builds})
 	dh_installudev -pqemu-guest-agent
 # default-enable /run/qemu mount only on ubuntu,
 # on debian let it be manually controlled and off by default
-	dh_installsystemd -pqemu-block-extra --no-restart-on-upgrade --name=run-qemu.mount \
+	dh_installsystemd -pqemu-block-extra --no-restart-on-upgrade --name=run-qemu \
 		$(if $(filter ${VENDOR},DEBIAN),--no-start --no-enable,)
 	dh_lintian -a
 	dh_strip_nondeterminism -a

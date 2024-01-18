@@ -1,0 +1,34 @@
+From 31efbe72c6cc54b9cbc2505d78870a8a87a8d392 Mon Sep 17 00:00:00 2001
+From: Helge Deller <deller@gmx.de>
+Date: Wed, 3 Jan 2024 19:51:13 +0100
+Subject: [PATCH 9/9] target/hppa: Fix IOR and ISR on error in probe
+Forwarded: yes
+
+Put correct values (depending on CPU arch) into IOR and ISR on fault.
+
+Signed-off-by: Helge Deller <deller@gmx.de>
+Reviewed-by: Richard Henderson <richard.henderson@linaro.org>
+---
+ target/hppa/op_helper.c | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
+
+diff --git a/target/hppa/op_helper.c b/target/hppa/op_helper.c
+index 7f607c3afd..ce15469465 100644
+--- a/target/hppa/op_helper.c
++++ b/target/hppa/op_helper.c
+@@ -351,11 +351,7 @@ target_ulong HELPER(probe)(CPUHPPAState *env, target_ulong addr,
+     excp = hppa_get_physical_address(env, addr, mmu_idx, 0, &phys,
+                                      &prot, NULL);
+     if (excp >= 0) {
+-        if (env->psw & PSW_Q) {
+-            /* ??? Needs tweaking for hppa64.  */
+-            env->cr[CR_IOR] = addr;
+-            env->cr[CR_ISR] = addr >> 32;
+-        }
++        hppa_set_ior_and_isr(env, addr, MMU_IDX_MMU_DISABLED(mmu_idx));
+         if (excp == EXCP_DTLB_MISS) {
+             excp = EXCP_NA_DTLB_MISS;
+         }
+-- 
+2.39.2
+

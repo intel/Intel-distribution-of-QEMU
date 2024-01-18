@@ -1,8 +1,8 @@
 From 5403344b6b23b847d71c282bfd912a5d88056a3a Mon Sep 17 00:00:00 2001
 From: Helge Deller <deller@gmx.de>
 Date: Tue, 2 Jan 2024 23:42:52 +0100
-Subject: [PATCH 15/23] parisc/sti: Static pointer initializations not possible
- on 64-bit build
+Subject: [PATCH 15/27] parisc/sti: Static pointer initializations not possible on 64-bit build
+Forwarded: yes
 
 Signed-off-by: Helge Deller <deller@gmx.de>
 ---

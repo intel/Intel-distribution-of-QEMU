@@ -1,7 +1,8 @@
 From a7efc718498cdbc1d547938bfbb308e177c45a8e Mon Sep 17 00:00:00 2001
 From: Helge Deller <deller@gmx.de>
 Date: Tue, 2 Jan 2024 23:49:11 +0100
-Subject: [PATCH 18/23] memmap: Fix 64-bit build
+Subject: [PATCH 18/27] memmap: Fix 64-bit build
+Forwarded: yes
 
 Signed-off-by: Helge Deller <deller@gmx.de>
 ---

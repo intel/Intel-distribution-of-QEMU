@@ -1,7 +1,8 @@
 From a3653ada7cc3474d0a6c4a0593b7517386921a8d Mon Sep 17 00:00:00 2001
 From: Helge Deller <deller@gmx.de>
 Date: Tue, 2 Jan 2024 23:22:19 +0100
-Subject: [PATCH 13/23] parisc: Move x86-only code inside ifdef
+Subject: [PATCH 13/27] parisc: Move x86-only code inside ifdef
+Forwarded: yes
 
 Signed-off-by: Helge Deller <deller@gmx.de>
 ---

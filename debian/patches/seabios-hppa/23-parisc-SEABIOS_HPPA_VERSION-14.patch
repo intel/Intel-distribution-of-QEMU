@@ -1,7 +1,8 @@
 From 72483458cc79161e39a8ac10e99fd24badb0b5db Mon Sep 17 00:00:00 2001
 From: Helge Deller <deller@gmx.de>
 Date: Thu, 4 Jan 2024 18:50:50 +0100
-Subject: [PATCH 23/23] parisc: SEABIOS_HPPA_VERSION 14
+Subject: [PATCH 23/27] parisc: SEABIOS_HPPA_VERSION 14
+Forwarded: yes
 
 Fixes and enhancements:
 - Fix 32-bit HP-UX crash (fix in PDC_FIND_MODULE call)

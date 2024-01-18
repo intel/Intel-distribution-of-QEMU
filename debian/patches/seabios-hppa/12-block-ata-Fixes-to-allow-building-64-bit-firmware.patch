@@ -1,7 +1,8 @@
 From 5b053e8ad63815c318f19642d25ae17160c280b5 Mon Sep 17 00:00:00 2001
 From: Helge Deller <deller@gmx.de>
 Date: Tue, 2 Jan 2024 23:20:58 +0100
-Subject: [PATCH 12/23] block/ata: Fixes to allow building 64-bit firmware
+Subject: [PATCH 12/27] block/ata: Fixes to allow building 64-bit firmware
+Forwarded: yes
 
 Signed-off-by: Helge Deller <deller@gmx.de>
 ---

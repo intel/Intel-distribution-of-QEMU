@@ -1,16 +1,17 @@
-From ef42ed133cb83838b33eeaa71cbb170a1018fb00 Mon Sep 17 00:00:00 2001
+From 3b57c15f02050227c5c73ca97fa0dfc02f154fe9 Mon Sep 17 00:00:00 2001
 From: Helge Deller <deller@gmx.de>
 Date: Wed, 3 Jan 2024 12:45:06 +0100
-Subject: [PATCH 3/9] hw/pci-host/astro: Add missing astro & elroy registers
- for NetBSD
+Subject: [PATCH 3/9] hw/pci-host/astro: Add missing astro & elroy registers for NetBSD
+Forwarded: yes
 
-NetBSD accesses some astro and elroy registers which aren't accesses
+NetBSD accesses some astro and elroy registers which aren't accessed
 by Linux yet. Add emulation for those registers to allow NetBSD to
 boot further.
 Please note that this patch is not sufficient to completely boot up
 NetBSD on the 64-bit C3700 machine yet.
 
 Signed-off-by: Helge Deller <deller@gmx.de>
+Tested-by: Bruno Haible <bruno@clisp.org>
 ---
  hw/pci-host/astro.c | 26 +++++++++++++++++++++++---
  1 file changed, 23 insertions(+), 3 deletions(-)

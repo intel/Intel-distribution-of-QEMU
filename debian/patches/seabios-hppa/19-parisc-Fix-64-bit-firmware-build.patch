@@ -1,7 +1,8 @@
 From 292ee73331f6f1e55122691a1b9bd59399a5c199 Mon Sep 17 00:00:00 2001
 From: Helge Deller <deller@gmx.de>
 Date: Wed, 3 Jan 2024 00:08:29 +0100
-Subject: [PATCH 19/23] parisc: Fix 64-bit firmware build
+Subject: [PATCH 19/27] parisc: Fix 64-bit firmware build
+Forwarded: yes
 
 Signed-off-by: Helge Deller <deller@gmx.de>
 ---

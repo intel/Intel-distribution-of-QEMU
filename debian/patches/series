@@ -28,10 +28,11 @@ hppa/01-hw-hppa-machine-Allow-up-to-3840-MB-total-memory.patch
 hppa/02-hw-hppa-machine-Disable-default-devices-with-nodefau.patch
 hppa/03-hw-pci-host-astro-Add-missing-astro-elroy-registers-.patch
 hppa/04-target-hppa-Fix-PDC-address-translation-on-PA2.0-wit.patch
-hppa/05-target-hppa-Strip-upper-32-bits-of-IOR-on-error-in-p.patch
-hppa/06-target-hppa-Strip-upper-32-bits-of-IOR-on-unaligned-.patch
-hppa/07-hw-hppa-Move-software-power-button-address-back-into.patch
-hppa/08-target-hppa-Avoid-accessing-gr0-when-raising-excepti.patch
+hppa/05-hw-hppa-Move-software-power-button-address-back-into.patch
+hppa/06-target-hppa-Avoid-accessing-gr0-when-raising-excepti.patch
+hppa/07-target-hppa-Export-function-hppa_set_ior_and_isr.patch
+hppa/08-target-hppa-Fix-IOR-and-ISR-on-unaligned-access-trap.patch
+hppa/09-target-hppa-Fix-IOR-and-ISR-on-error-in-probe.patch
 # a bunch of seabios-hppa patches:
 seabios-hppa/01-parisc-Increase-PCI-mapping-space-with-PARISC_MMIO_L.patch
 seabios-hppa/02-parisc-Fix-detection-of-mptsas-and-esp-scsi-drivers.patch
@@ -56,3 +57,10 @@ seabios-hppa/20-parisc-parisc64-Allow-booting-64-bit-kernel-up-into-.patch
 seabios-hppa/21-parisc-Fix-FPU-detection-on-NetBSD.patch
 seabios-hppa/22-parisc-Enable-power-button-switch-and-add-option-to-.patch
 seabios-hppa/23-parisc-SEABIOS_HPPA_VERSION-14.patch
+seabios-hppa/24-parisc-Fix-PDC_MEM_MAP-for-OpenBSD-7.4.patch
+seabios-hppa/25-parisc-Show-if-32-or-64-bit-SeaBIOS-version.patch
+seabios-hppa/26-parisc-Update-copyright-year-to-2024.patch
+seabios-hppa/27-parisc-SEABIOS_HPPA_VERSION-15.patch
+ui-clipboard-avoid-crash-upon-request-when-clipboard-CVE-2023-6683.patch
+target-s390x-Fix-LAE-setting-a-wrong-access-register.patch
+tcg-s390x-Fix-encoding-of-VRIc-VRSa-VRSc-insns.patch

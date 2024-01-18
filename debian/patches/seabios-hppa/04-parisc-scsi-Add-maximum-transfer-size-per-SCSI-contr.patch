@@ -1,8 +1,8 @@
 From b4d48fcdc3f73ec0d335024abd836bf13fea3959 Mon Sep 17 00:00:00 2001
 From: Helge Deller <deller@gmx.de>
 Date: Sat, 9 Dec 2023 10:24:54 +0100
-Subject: [PATCH 04/23] parisc/scsi: Add maximum transfer size per SCSI
- controller
+Subject: [PATCH 04/27] parisc/scsi: Add maximum transfer size per SCSI controller
+Forwarded: yes
 
 LSI controller allows up to 4MB transactions per call, the ESP controller only
 up to 64k per call.

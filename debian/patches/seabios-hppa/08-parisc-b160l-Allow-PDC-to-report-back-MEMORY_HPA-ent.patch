@@ -1,8 +1,8 @@
 From 11fa245a186a495f6cda3332482239f111cb37c8 Mon Sep 17 00:00:00 2001
 From: Helge Deller <deller@gmx.de>
 Date: Sat, 30 Dec 2023 14:47:00 +0100
-Subject: [PATCH 08/23] parisc/b160l: Allow PDC to report back MEMORY_HPA entry
- on B160L
+Subject: [PATCH 08/27] parisc/b160l: Allow PDC to report back MEMORY_HPA entry on B160L
+Forwarded: yes
 
 Tell calling operating system of the memory module.
 

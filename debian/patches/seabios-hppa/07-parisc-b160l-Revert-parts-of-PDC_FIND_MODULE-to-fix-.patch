@@ -1,8 +1,8 @@
 From cdb7a4846a4941520ddcf9acb8ac6c6b5ad4e7f3 Mon Sep 17 00:00:00 2001
 From: Helge Deller <deller@gmx.de>
 Date: Sat, 30 Dec 2023 13:08:53 +0100
-Subject: [PATCH 07/23] parisc/b160l: Revert parts of PDC_FIND_MODULE to fix
- 32-bit HP-UX bootup
+Subject: [PATCH 07/27] parisc/b160l: Revert parts of PDC_FIND_MODULE to fix 32-bit HP-UX bootup
+Forwarded: yes
 
 Report back additional addresses as in prior SeaBIOS firmware
 versions. This fixes 32-bit HP-UX on B160L.
