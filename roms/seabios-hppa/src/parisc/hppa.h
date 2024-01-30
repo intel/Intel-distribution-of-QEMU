@@ -3,8 +3,12 @@
 /* this file is included by x86.h */
 
 /* version number of this SeaBIOS firmware */
-#define SEABIOS_HPPA_VERSION 13
-#define SEABIOS_HPPA_VERSION_STR  "13"
+#define SEABIOS_HPPA_VERSION 15
+#define SEABIOS_HPPA_VERSION_STR  "15"
+
+#ifdef __LP64__
+#define CONFIG_64BIT
+#endif
 
 #include "parisc/hppa_hardware.h"
 
@@ -214,31 +218,33 @@ extern unsigned long hppa_port_pci_data;
 
 #define astro_ioport_addr(port) ((void *)(portaddr_t)(IOS_DIST_BASE_ADDR + port))
 
+/*  inb()/outb() accesses little-endian memory and does byteswapping to host endianess */
+
 static inline void outl(u32 value, portaddr_t port) {
     if (is_astro_ioport(port))
-        *(volatile u32 *)(astro_ioport_addr(port)) = value;
+        *(volatile u32 *)(astro_ioport_addr(port)) = cpu_to_le32(value);
     else
     if (!pci_ioport_addr(port)) {
         *(volatile u32 *)(port) = be32_to_cpu(value);
     } else {
 	/* write PCI I/O address to Dino's PCI_CONFIG_ADDR */
-	outl(port, DINO_HPA + 0x064);
+	*(volatile u32 *)(DINO_HPA + 0x064) = port;
 	/* write value to PCI_IO_DATA */
-	outl(value, DINO_HPA + 0x06c);
+	*(volatile u32 *)(DINO_HPA + 0x06c) = cpu_to_le32(value);
     }
 }
 
 static inline void outw(u16 value, portaddr_t port) {
     if (is_astro_ioport(port))
-        *(volatile u16 *)(astro_ioport_addr(port)) = value;
+        *(volatile u16 *)(astro_ioport_addr(port)) = cpu_to_le16(value);
     else
     if (!pci_ioport_addr(port)) {
         *(volatile u16 *)(port) = be16_to_cpu(value);
     } else {
 	/* write PCI I/O address to Dino's PCI_CONFIG_ADDR */
-	outl(port, DINO_HPA + 0x064);
+	*(volatile u32 *)(DINO_HPA + 0x064) = port;
 	/* write value to PCI_IO_DATA */
-	outw(value, DINO_HPA + 0x06c);
+	*(volatile u16 *)(DINO_HPA + 0x06c) = cpu_to_le16(value);
     }
 }
 
@@ -250,9 +256,9 @@ static inline void outb(u8 value, portaddr_t port) {
 	*(volatile u8 *)(port) = value;
     } else {
 	/* write PCI I/O address to Dino's PCI_CONFIG_ADDR */
-	outl(port & ~3U, DINO_HPA + 0x064);
+	*(volatile u32 *)(DINO_HPA + 0x064) = port & ~3U;
 	/* write value to PCI_IO_DATA */
-	outb(value, DINO_HPA + 0x06c + (port & 3));
+	*(volatile u8 *)(DINO_HPA + 0x06c + (port & 3)) = value;
     }
 }
 
@@ -264,36 +270,36 @@ static inline u8 inb(portaddr_t port) {
         return *(volatile u8 *)(port);
     } else {
 	/* write PCI I/O address to Dino's PCI_CONFIG_ADDR */
-	outl(port & ~3U, DINO_HPA + 0x064);
+	*(volatile u32 *)(DINO_HPA + 0x064) = port & ~3U;
 	/* read value to PCI_IO_DATA */
-	return inb(DINO_HPA + 0x06c + (port & 3));
+	return *(volatile u8 *)(DINO_HPA + 0x06c + (port & 3));
     }
 }
 
 static inline u16 inw(portaddr_t port) {
     if (is_astro_ioport(port))
-        return *(volatile u16 *)(astro_ioport_addr(port));
+        return le16_to_cpu(*(volatile u16 *)(astro_ioport_addr(port)));
     else
     if (!pci_ioport_addr(port)) {
         return *(volatile u16 *)(port);
     } else {
 	/* write PCI I/O address to Dino's PCI_CONFIG_ADDR */
-	outl(port & ~3U, DINO_HPA + 0x064);
+	*(volatile u32 *)(DINO_HPA + 0x064) = port & ~3U;
 	/* read value to PCI_IO_DATA */
-	return inw(DINO_HPA + 0x06c + (port & 3));
+	return le16_to_cpu(*(volatile u16 *)(DINO_HPA + 0x06c + (port & 3U)));
     }
 }
 static inline u32 inl(portaddr_t port) {
     if (is_astro_ioport(port))
-        return *(volatile u32 *)(astro_ioport_addr(port));
+        return le32_to_cpu(*(volatile u32 *)(astro_ioport_addr(port)));
     else
     if (!pci_ioport_addr(port)) {
         return *(volatile u32 *)(port);
     } else {
 	/* write PCI I/O address to Dino's PCI_CONFIG_ADDR */
-	outl(port & ~3U, DINO_HPA + 0x064);
+	*(volatile u32 *)(DINO_HPA + 0x064) = port;
 	/* read value to PCI_IO_DATA */
-	return inl(DINO_HPA + 0x06c + (port & 3));
+	return le32_to_cpu(*(volatile u32 *)(DINO_HPA + 0x06c));
     }
 }
 
@@ -303,17 +309,11 @@ static inline void insb(portaddr_t port, u8 *data, u32 count) {
 }
 static inline void insw(portaddr_t port, u16 *data, u32 count) {
     while (count--)
-	if (pci_ioport_addr(port))
-		*data++ = be16_to_cpu(inw(port));
-	else
-		*data++ = inw(port);
+        *data++ = inw(port);
 }
 static inline void insl(portaddr_t port, u32 *data, u32 count) {
     while (count--)
-	if (pci_ioport_addr(port))
-		*data++ = be32_to_cpu(inl(port));
-	else
-		*data++ = inl(port);
+        *data++ = inl(port);
 }
 // XXX - outs not limited to es segment
 static inline void outsb(portaddr_t port, u8 *data, u32 count) {
@@ -322,19 +322,13 @@ static inline void outsb(portaddr_t port, u8 *data, u32 count) {
 }
 static inline void outsw(portaddr_t port, u16 *data, u32 count) {
     while (count--) {
-	if (pci_ioport_addr(port))
-		outw(cpu_to_be16(*data), port);
-	else
-		outw(*data, port);
+        outw(*data, port);
 	data++;
     }
 }
 static inline void outsl(portaddr_t port, u32 *data, u32 count) {
     while (count--) {
-	if (pci_ioport_addr(port))
-		outl(cpu_to_be32(*data), port);
-	else
-		outl(*data, port);
+        outl(*data, port);
 	data++;
     }
 }

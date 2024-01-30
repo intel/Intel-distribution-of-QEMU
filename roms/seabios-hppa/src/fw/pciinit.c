@@ -513,7 +513,7 @@ static void mch_mem_addr_setup(struct pci_device *dev, void *arg)
  * parisc: If mmio bar is bigger than this size, map the bar it into the
  * directed ELMMIO instead of the distributed LMMIO region.
  */
-#define PARISC_MMIO_LIMIT       0x10000
+#define PARISC_MMIO_LIMIT       0x40000
 
 #if CONFIG_PARISC
 static int dino_pci_slot_get_irq(struct pci_device *pci, int pin)
@@ -1148,9 +1148,10 @@ pci_region_map_one_entry(struct pci_region_entry *entry, u64 addr)
 {
     if (entry->bar >= 0) {
         dprintf(1, "PCI: map device bdf=%pP"
-                "  bar %d, addr %08llx, size %08llx [%d: %s]\n",
+                "  bar %d, addr %08llx, size %08llx [%d: %s], 64bit:%d\n",
                 entry->dev,
-                entry->bar, addr, entry->size, entry->type, region_type_name[entry->type]);
+                entry->bar, addr, entry->size, entry->type,
+                region_type_name[entry->type], entry->is64);
 
         pci_set_io_region_addr(entry->dev, entry->bar, addr, entry->is64);
         return;

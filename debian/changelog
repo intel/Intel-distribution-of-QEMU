@@ -1,3 +1,14 @@
+qemu (1:8.2.1+ds-1) unstable; urgency=medium
+
+  * new upstream stable/bugfix release
+  * remove all upstream-applied patches
+  * d/patches/note-missing-module-pkg-name.diff: fixup
+  * replace fix for CVE-2023-6683 (A different fix from upstream)
+  * remove the mistakenly-added temp file in d/qemu-block-extra/
+  * d/.gitignore: refresh
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 30 Jan 2024 10:32:17 +0300
+
 qemu (1:8.2.0+ds-5) unstable; urgency=medium
 
   * d/rules, d/run-qemu.mount: use dh_installsystemd to install run-qemu.mount

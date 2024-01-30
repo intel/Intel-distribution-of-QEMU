@@ -147,6 +147,8 @@ esp_scsi_process_op(struct disk_op_s *op)
         /* At end of DMA TC is set again -> complete command.  */
         if (state == 1 && (stat & ESP_STAT_TC)) {
             state++;
+            /* Terminate esp_scsi_dma() command */
+            outb(0, iobase + ESP_DMA_CMD);
             continue;
         }
 
@@ -180,6 +182,7 @@ esp_scsi_init_lun(struct esp_lun_s *llun, struct pci_device *pci, u32 iobase,
 {
     memset(llun, 0, sizeof(*llun));
     llun->drive.type = DTYPE_ESP_SCSI;
+    llun->drive.max_bytes_transfer = 64*1024;   /* 64kb */
     llun->drive.cntl_id = pci->bdf;
     llun->pci = pci;
     llun->target = target;
