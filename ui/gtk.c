@@ -889,6 +889,8 @@ static gboolean gd_motion_event(GtkWidget *widget, GdkEventMotion *motion,
 {
     VirtualConsole *vc = opaque;
     GtkDisplayState *s = vc->s;
+    GdkDisplay *dpy = gtk_widget_get_display(vc->gfx.drawing_area);
+    GdkWindow *window = gtk_widget_get_window(vc->gfx.drawing_area);
     int x, y;
     int mx, my;
     int fbh, fbw;
@@ -938,8 +940,27 @@ static gboolean gd_motion_event(GtkWidget *widget, GdkEventMotion *motion,
                              0, surface_height(vc->gfx.ds));
         qemu_input_event_sync();
     } else if (s->last_set && s->ptr_owner == vc) {
-        qemu_input_queue_rel(vc->gfx.dcl.con, INPUT_AXIS_X, x - s->last_x);
-        qemu_input_queue_rel(vc->gfx.dcl.con, INPUT_AXIS_Y, y - s->last_y);
+        GdkMonitor *monitor = gdk_display_get_monitor_at_window(dpy, window);
+        int dx = x - s->last_x;
+        int dy = y - s->last_y;
+        GdkRectangle curr_geometry;
+
+        monitor = gdk_display_get_monitor_at_point(dpy, motion->x_root, motion->y_root);
+        gdk_monitor_get_geometry(monitor, &curr_geometry);
+
+        if (motion->x_root <= curr_geometry.x) {
+            dx = -5;
+        } else if (motion->x_root >= curr_geometry.x + curr_geometry.width - 1) {
+            dx = 5;
+        }
+
+        if (motion->y_root <= curr_geometry.y) {
+            dy = -5;
+        } else if (motion->y_root >= curr_geometry.y + curr_geometry.height - 1) {
+            dy = 5;
+        }
+        qemu_input_queue_rel(vc->gfx.dcl.con, INPUT_AXIS_X, dx);
+        qemu_input_queue_rel(vc->gfx.dcl.con, INPUT_AXIS_Y, dy);
         qemu_input_event_sync();
     }
     s->last_x = x;
@@ -948,7 +969,6 @@ static gboolean gd_motion_event(GtkWidget *widget, GdkEventMotion *motion,
 
     if (!qemu_input_is_absolute(vc->gfx.dcl.con) && s->ptr_owner == vc) {
         GdkScreen *screen = gtk_widget_get_screen(vc->gfx.drawing_area);
-        GdkDisplay *dpy = gtk_widget_get_display(widget);
         GdkWindow *win = gtk_widget_get_window(widget);
         GdkMonitor *monitor = gdk_display_get_monitor_at_window(dpy, win);
         GdkRectangle geometry;
