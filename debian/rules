@@ -68,7 +68,6 @@ enable-user-static = $(if $(filter qemu-user-static,${BUILD_PACKAGES}),y)
 
 QEMU_XEN = /usr/libexec/xen-qemu-system-i386
 PKGVERSION = Debian ${DEB_VERSION}
-SAVEMODDIR = /run/qemu/$(shell echo -n "${PKGVERSION}" | tr --complement '[:alnum:]+-.~' '_')
 sysdataidir = debian/qemu-system-data/usr/share/qemu
 libdir = /usr/lib/${DEB_HOST_MULTIARCH}
 FIRMWAREPATH = /usr/share/qemu:/usr/share/seabios:/usr/lib/ipxe/qemu
@@ -185,7 +184,7 @@ $(if $3,\
 	dh_link -p $1 usr/share/man/man1/$3.1 usr/share/man/man1/kvm.1
 )
 	echo 'qemu:Provides=$(if $3,qemu-kvm (=${DEB_VERSION})${comma})\
-	 $(patsubst %,qemu-system-% (=${DEB_VERSION})${comma}, any $2 $(foreach q,$2,${system-alias-$q}))' \
+	 $(patsubst %,qemu-system-% (=${DEB_VERSION})${comma}, any $(filter-out $1,$2 $(foreach q,$2,${system-alias-$q})))' \
 	    | tr _ - >> debian/$1.substvars
 # construct list `arch1 arch2 (alias) arch3..' for Description
 # and word-wrap it into two lines if too long
@@ -275,16 +274,8 @@ endif # x86
 		 debian/source_qemu.py
 endif # ubuntu
 
-# for --enable-module-upgrades to work (also see run-qemu.mount install)
-# save block-extra loadable modules on upgrades
-# other module types for now (5.0) can't be loaded at runtime, only at startup
-# the maintscript fragments include version string so we have to generate them
-	echo 'case $$1 in (upgrade|deconfigure) [ -d /run/qemu ] || exit 0; ! findmnt --noheadings --target /run/qemu/ | grep -q noexec || exit 0; mkdir -p ${SAVEMODDIR}; cp -p ${libdir}/qemu/block-*.so ${SAVEMODDIR}/;; esac' \
-	  >> debian/qemu-block-extra.prerm.debhelper
-	echo 'case $$1 in (remove) rm -f ${SAVEMODDIR}/block-*.so;; esac' \
-	  >> debian/qemu-block-extra.postrm.debhelper
-	echo 'case $$1 in (purge) if systemctl is-active -q run-qemu.mount; then systemctl stop run-qemu.mount || true; fi; rm -rf "/run/qemu";; esac' \
-	  >> debian/qemu-block-extra.postrm.debhelper
+# save loadable modules on upgrades for --enable-module-upgrades
+	sh debian/gen-module-upgrade.sh "${PKGVERSION}" ${libdir}
 
 endif # linux
 
@@ -494,10 +485,6 @@ install-arch: pre-install-arch $(addprefix install-, ${qemu-builds})
 	dh_installinit -pqemu-guest-agent
 	dh_installsystemd -pqemu-guest-agent --no-enable
 	dh_installudev -pqemu-guest-agent
-# default-enable /run/qemu mount only on ubuntu,
-# on debian let it be manually controlled and off by default
-	dh_installsystemd -pqemu-block-extra --no-restart-on-upgrade --name=run-qemu \
-		$(if $(filter ${VENDOR},DEBIAN),--no-start --no-enable,)
 	dh_lintian -a
 	dh_strip_nondeterminism -a
 	dh_compress -a
@@ -525,6 +512,40 @@ binary-arch: a=-a
 
 ##############################################
 ### firmware, qemu-user-data package
+
+### main qemu arch-indep build
+# we configure qemu in b/data with default options, so that various
+# subcomponents can be built from the main qemu source
+b/data/.configured: | b
+	rm -rf b/data; mkdir -p b/data
+	cd b/data && ../../configure --skip-meson
+	touch $@
+
+### x86 optionrom
+build-x86-optionrom: b/data/pc-bios/optionrom/.built
+b/data/pc-bios/optionrom/.built: b/data/.configured
+	make -C ${@D}
+	touch $@
+install-x86-optionrom: b/data/pc-bios/optionrom/.built
+	install -m 0644 -t ${sysdataidir} ${<D}/*.bin
+sysdata-components += x86-optionrom
+
+### s390x firmware in pc-bios/s390-ccw
+build-s390x-fw: b/data/pc-bios/s390-ccw/.built
+b/data/pc-bios/s390-ccw/.built: b/data/.configured
+	make -C ${@D} V=$V
+	touch $@
+install-s390x-fw: b/data/pc-bios/s390-ccw/.built
+	install -m 0644 -t ${sysdataidir} ${<D}/s390*.img
+sysdata-components += s390x-fw
+
+### vof.bin
+build-vof: b/data/pc-bios/vof/vof.bin
+b/data/pc-bios/vof/vof.bin: b/data/.configured
+	${MAKE} -C ${@D} V=$V ${@F}
+install-vof: b/data/pc-bios/vof/vof.bin
+	install -m 0644 -t ${sysdataidir} $<
+sysdata-components += vof
 
 ### openbios rules
 b/openbios/config-host.mak:
@@ -560,15 +581,6 @@ install-skiboot: b/skiboot/skiboot.lid
 	install -m 0644 -t ${sysdataidir} $<
 sysdata-components += skiboot
 
-build-vof: b/vof/vof.bin
-b/vof/vof.bin: | b
-	mkdir -p b/vof
-	printf 'CC=$${CROSS}gcc\nLD=$${CROSS}ld\nOBJCOPY=$${CROSS}objcopy\nEXTRA_CFLAGS=-m32 -mbig-endian' > b/vof/config.mak
-	${MAKE} -C b/vof CROSS=${PPC64_CROSSPFX} SRC_DIR=../../pc-bios/vof -f../../pc-bios/vof/Makefile
-install-vof: b/vof/vof.bin
-	install -m 0644 -t ${sysdataidir} $<
-sysdata-components += vof
-
 ### u-boot-e500 (u-boot.e500)
 build-u-boot-e500: b/u-boot/build-e500/u-boot
 b/u-boot/build-e500/u-boot: | b
@@ -591,16 +603,6 @@ b/u-boot-sam460ex/u-boot.bin: | b
 install-u-boot-sam460: b/u-boot-sam460ex/u-boot.bin | ${sysdataidir}
 	install -m 0644 $< ${sysdataidir}/u-boot-sam460-20100605.bin
 sysdata-components += u-boot-sam460
-
-### x86 optionrom
-build-x86-optionrom: b/optionrom/built
-b/optionrom/built:
-	mkdir -p b/optionrom
-	${MAKE} -f ${CURDIR}/debian/optionrom.mak -C b/optionrom SRC_PATH="${CURDIR}" all
-	touch $@
-install-x86-optionrom: build-x86-optionrom | ${sysdataidir}
-	${MAKE} -f ${CURDIR}/debian/optionrom.mak -C b/optionrom SRC_PATH="${CURDIR}" install DESTDIR="${CURDIR}/${sysdataidir}"
-sysdata-components += x86-optionrom
 
 ### qboot, aka bios-microvm
 build-qboot: b/qboot/bios.bin
@@ -632,16 +634,6 @@ b/SLOF/boot_rom.bin: | b
 install-slof: b/SLOF/boot_rom.bin
 	install -m 0644 $< ${sysdataidir}/slof.bin
 sysdata-components += slof
-
-### s390x firmware in pc-bios/s390-ccw
-build-s390x-fw: b/s390fw/built
-b/s390fw/built:
-	mkdir -p b/s390fw
-	${MAKE} -f debian/s390fw.mak OUT=b/s390fw/
-	touch $@
-install-s390x-fw: build-s390x-fw
-	install -m 0644 -t ${sysdataidir} b/s390fw/s390*.img
-sysdata-components += s390x-fw
 
 ### hppa-firmware (roms/seabios-hppa)
 build-hppa-fw: b/hppafw/hppa-firmware.img

@@ -1,3 +1,24 @@
+qemu (1:8.2.1+ds-2) unstable; urgency=medium
+
+  * rework module-upgrade handling: do not ship /run/qemu.mount unit
+    anymore, instead bind-mount-exec particular subdir in /run/qemu/
+    on upgrade only if some qemu-system-foo processes are running
+  * d/control: Rules-Requires-Root: no
+  * d/control: Standards-Version: 4.6.2
+  * d/rules: stop qemu-system-${arch} packages
+    from providing themselves (Closes: #1063233)
+  * d/rules: run ./configure in arch-indep build
+    and build some roms from there
+  * build x86 optionrom using qemu build rules
+  * d/rules: move fragments which builds firmware out of qemu
+    arch-indep subdir closer together (no code changes)
+  * d/control: clarify qemu-system-gui description:
+    this is not a management gui for qemu
+  * d/control: set minimum version for libpipewire (for bullseye)
+  * d/control: require recent python3 or separate tomli (for bullseye)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 24 Feb 2024 12:19:35 +0300
+
 qemu (1:8.2.1+ds-1) unstable; urgency=medium
 
   * new upstream stable/bugfix release
