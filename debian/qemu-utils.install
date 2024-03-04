@@ -1,10 +1,14 @@
 usr/bin/qemu-img
-usr/share/man/man1/qemu-img.1
+b/docs/qemu-img.1 usr/share/man/man1/
+b/docs/tools/qemu-img.html usr/share/doc/qemu-utils/
 usr/bin/qemu-nbd
-usr/share/man/man8/qemu-nbd.8
+b/docs/qemu-nbd.8 usr/share/man/man8/
+b/docs/tools/qemu-nbd.html usr/share/doc/qemu-utils/
 usr/bin/qemu-io
+debian/qemu-io.1 usr/share/man/man1/
 usr/bin/qemu-storage-daemon
-usr/share/man/man1/qemu-storage-daemon.1
-usr/share/man/man7/qemu-storage-daemon-qmp-ref.7
-
-usr/share/man/man7/qemu-block-drivers.7
+b/docs/qemu-storage-daemon.1 usr/share/man/man1/
+b/docs/tools/qemu-storage-daemon.html usr/share/doc/qemu-utils/
+b/docs/qemu-storage-daemon-qmp-ref.7 usr/share/man/man7/
+b/docs/interop/qemu-storage-daemon-qmp-ref.html usr/share/doc/qemu-utils/
+b/docs/qemu-block-drivers.7 usr/share/man/man7/

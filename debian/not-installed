@@ -14,6 +14,3 @@ usr/bin/qemu-edid
 usr/share/icons
 usr/share/applications/qemu.desktop
 usr/share/qemu/keymaps
-# these 2 are installed even if no user or system build is requested
-usr/share/doc/qemu/user/index.html
-usr/share/doc/qemu/user/main.html

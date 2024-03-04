@@ -1,0 +1,17 @@
+# install docs to qemu-system-common so its easier to find:
+b/docs/system usr/share/doc/qemu-system-common/
+b/docs/about usr/share/doc/qemu-system-common/
+b/docs/interop usr/share/doc/qemu-system-common/
+b/docs/specs usr/share/doc/qemu-system-common/
+
+docs/config usr/share/doc/qemu-system-common/
+
+b/docs/tools/qemu-pr-helper.html usr/share/doc/qemu-system-common/
+b/docs/interop/pr-helper.html usr/share/doc/qemu-system-common/
+
+docs/multiseat.txt usr/share/doc/qemu-system-common/
+docs/qdev-device-use.txt usr/share/doc/qemu-system-common/
+docs/qemupciserial.inf usr/share/doc/qemu-system-common/
+
+# linux-specific
+b/docs/tools/virtfs-proxy-helper.html usr/share/doc/qemu-system-common/

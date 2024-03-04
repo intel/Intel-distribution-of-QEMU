@@ -44,6 +44,8 @@ Files-Excluded:
 	pc-bios/vgabios.bin
 	pc-bios/vgabios-*.bin
 	pc-bios/vof.bin
+#
+	python/wheels/*.whl
 
 Files: *
 Copyright:

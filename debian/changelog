@@ -1,3 +1,23 @@
+qemu (1:8.2.2+ds-1) unstable; urgency=medium
+
+  * new upstream stable/bugfix release
+  * d/gen-module-upgrade.sh: change addfr() for clarity
+  * d/rules: stop qemu-system-${arch} packages from providing themselves
+    (different fix, really closes: #1063233)
+  * d/rules: ensure ${sysdataidir} is created in pre-install-indep
+  * d/control: stop build-depending on texinfo (not used)
+  * d/rules: build docs directly with sphinx, --disable-docs, install more docs
+  * move system docs to qemu-system-data
+  * d/rules: stop compressing config examples
+  * d/control: bc isn't needed for u-boot anymore
+  * d/copyright: exclude python/wheels/*.whl (not used on debian)
+  * remove patch included upstream now:
+    ui-clipboard-mark-type-as-not-available-when-no-data-CVE-2023-6683.patch
+  * d/rules: disable building qemu-system on x32
+  * remove disable-xen-on-x32.patch
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 04 Mar 2024 22:55:03 +0300
+
 qemu (1:8.2.1+ds-2) unstable; urgency=medium
 
   * rework module-upgrade handling: do not ship /run/qemu.mount unit

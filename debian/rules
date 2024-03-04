@@ -41,7 +41,7 @@ include /usr/share/dpkg/buildflags.mk
 # needs to be done for build deps and --enable options.
 system-arch-linux = \
 	amd64 arm arm64 armel armhf i386 mips mipsel mips64 mips64el \
-	powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64 x32
+	powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
 system-arch = ${system-arch-linux}
 user-arch = \
 	amd64 arm arm64 armel armhf i386 mips mipsel mips64 mips64el \
@@ -49,7 +49,7 @@ user-arch = \
 utils-arch = $(sort ${system-arch} ${user-arch} ia64 hppa m68k sh4 \
 	kfreebsd-amd64 kfreebsd-i386)
 # subset of system-arch
-spice-arch = amd64 i386 arm64 armel armhf mips64el mipsel ppc64el x32
+spice-arch = amd64 i386 arm64 armel armhf mips64el mipsel ppc64el
 
 # DEB_BUILD_OPTIONS=parallel=N
 MAKEFLAGS += $(subst parallel=,-j,$(filter parallel=%,${DEB_BUILD_OPTIONS}))
@@ -96,6 +96,7 @@ common_configure_opts = \
 	--localstatedir=/var \
 	--disable-download \
 	--disable-relocatable \
+	--disable-docs \
 
 # this disables building of qemu-keymap tool (!)
 # qemu-keymap might be helpful for qemu-system -k <lang>
@@ -183,8 +184,9 @@ $(if $3,\
 	dh_link -p $1 usr/bin/$3 usr/bin/kvm
 	dh_link -p $1 usr/share/man/man1/$3.1 usr/share/man/man1/kvm.1
 )
+# note: older make does not understand line-splitting inside $(functions ..)
 	echo 'qemu:Provides=$(if $3,qemu-kvm (=${DEB_VERSION})${comma})\
-	 $(patsubst %,qemu-system-% (=${DEB_VERSION})${comma}, any $(filter-out $1,$2 $(foreach q,$2,${system-alias-$q})))' \
+	 $(patsubst %,% (=${DEB_VERSION})${comma},$(filter-out $1, $(patsubst %, qemu-system-%, any $2 $(foreach q,$2,${system-alias-$q}))))' \
 	    | tr _ - >> debian/$1.substvars
 # construct list `arch1 arch2 (alias) arch3..' for Description
 # and word-wrap it into two lines if too long
@@ -246,15 +248,9 @@ install-qemu: b/qemu/built
 # remove qtest "accel" modules
 	rm -f debian/tmp${libdir}/qemu/accel-qtest-*.so
 
-# fixup the manpage
-# Note: with no enable-system, qemu-system manpage will not be installed.
-	sed -i 's/\\fBqemu(1)\\fP manual page/\\fBqemu-system(1)\\fP manual page (in qemu-system-common package)/' \
-		debian/tmp/usr/share/man/man1/qemu-storage-daemon.1
-
 ifeq (${enable-system},y)
 
 	# qemu-system subpackages
-	mv debian/tmp/usr/share/man/man1/qemu.1 debian/tmp/usr/share/man/man1/qemu-system.1
 	$(foreach p,${system-packages},\
 	    $(call install-system,qemu-system-$p,${system-archlist-$p}\
 	    ,$(if $(filter ${DEB_HOST_ARCH_CPU},${system-kvmcpus-$p}),qemu-system-${system-kvmlink-${DEB_HOST_ARCH_CPU}})))
@@ -297,7 +293,6 @@ b/microvm/configured: configure debian/microvm-devices.mak
 	cd b/microvm && \
 		../../configure ${common_configure_opts} \
 		--extra-cflags="${extra-cflags} -DCONFIG_MICROVM_DEFAULT=1" \
-		--disable-docs \
 		--without-default-features \
 		--target-list=x86_64-softmmu --enable-kvm --disable-tcg \
 		--enable-pixman --enable-vnc \
@@ -329,7 +324,7 @@ b/xen/configured: configure
 	rm -rf b/xen; mkdir -p b/xen
 	cd b/xen && \
 	    ../../configure ${common_configure_opts} \
-		--disable-install-blobs --disable-docs --disable-tools \
+		--disable-install-blobs --disable-tools \
 		--without-default-features \
 		--enable-avx2 \
 		--enable-xen --target-list=i386-softmmu \
@@ -440,6 +435,29 @@ install-user-static: b/user-static/built
 qemu-builds += $(if ${enable-user-static},user-static)
 
 ##############################################
+# docs: build it with sphinx directly
+# two sphinx should not run in parallel!
+docdir := b/docs
+sphinx-build = CONFDIR=/etc/qemu sphinx-build -j auto \
+   -Dversion="$$(cat VERSION)" -Drelease="${PKGVERSION}" \
+   -d ${docdir}/manual.p ${CURDIR}/docs ${docdir}
+${docdir}/qemu-system.1:
+	${sphinx-build} -b man
+# fixup the q-s-d manpage
+	sed -i 's/\\fBqemu(1)\\fP manual page/\\fBqemu-system(1)\\fP manual page (in qemu-system-common package)/' \
+		${docdir}/qemu-storage-daemon.1
+	mv ${docdir}/qemu.1 ${docdir}/qemu-system.1
+${docdir}/html-built:
+	${sphinx-build} -b html
+# remove links to user/* from the main index
+	sed -i '/href="user\//D' ${docdir}/index.html
+	touch $@
+build-html: ${docdir}/html-built
+install-html: build-html
+build-man: ${docdir}/qemu-system.1
+install-man: build-man
+
+##############################################
 # qemu-system-for-host dep-only package
 # find the qemu-system-foo package which contains the right binary:
 #qemu-system-for-host=$(strip \
@@ -461,6 +479,8 @@ qemu-builds += $(filter ${BUILD_PACKAGES},qemu-system-for-host)
 
 ##############################################
 # common rules
+
+qemu-builds += man html
 
 .PHONY: $(addprefix configure-, ${qemu-builds}) \
 	$(addprefix build-, ${qemu-builds}) \
@@ -696,6 +716,8 @@ install-misc: build-misc
 	 $$(ls -1 pc-bios/keymaps/* | fgrep -v /meson.build)
 sysdata-components += misc
 
+sysdata-components += html
+
 ${sysdataidir}:
 	mkdir -p -m 0755 $@
 b:
@@ -709,12 +731,14 @@ $(addprefix install-, ${sysdata-components}): | ${sysdataidir}
 build-indep: $(addprefix build-, ${sysdata-components})
 pre-install-indep:
 	dh_testroot
-	dh_prep -i
+# dh_prep might undo ${sysdataidir} creation, or even some install-foo?
+	dh_prep -i -v
+	mkdir -p -m 0755 ${sysdataidir}
 install-indep: pre-install-indep $(addprefix install-, ${sysdata-components})
-	dh_installdocs -i
+	dh_install -i
 	dh_installchangelogs -i
 	dh_lintian -i
-	dh_compress -i
+	dh_compress -i -Xusr/share/doc/qemu-system-common/config
 	dh_fixperms -i
 binary-indep: install-indep binary-helper
 binary-indep: a=-i

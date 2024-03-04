@@ -1,18 +1,18 @@
 debian/qemu-ifup etc/
 debian/qemu-ifdown etc/
 
-usr/share/man/man1/qemu-system.1
+b/docs/qemu-system.1 usr/share/man/man1/
+b/docs/qemu-qmp-ref.7 usr/share/man/man7/
+b/docs/qemu-cpu-models.7 usr/share/man/man7/
+
 usr/share/qemu/trace-events-all
 usr/bin/qemu-pr-helper
-usr/share/man/man8/qemu-pr-helper.8
-usr/share/man/man7/qemu-qmp-ref.7
-usr/share/man/man7/qemu-cpu-models.7
-usr/share/doc/qemu/system usr/share/doc/qemu-system-common
+b/docs/qemu-pr-helper.8 usr/share/man/man8/
 
 # linux-specific
 usr/lib/qemu/qemu-bridge-helper
 usr/lib/qemu/virtfs-proxy-helper
-usr/share/man/man1/virtfs-proxy-helper.1
+b/docs/virtfs-proxy-helper.1 usr/share/man/man1/
 
 # common modules. Other gui modules are in qemu-system-gui
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/accel-tcg-*.so

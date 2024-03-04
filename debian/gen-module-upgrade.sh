@@ -21,14 +21,16 @@ savedir=$savetopdir/$(echo -n "$pkgversion" |
                       tr --complement '[:alnum:]+-.~' '_')
 
 marker="### added by qemu/$0:"
-addfr() {
-  if ! grep -sq "^$marker$" $1; then
-    { echo "$marker"; cat; echo "### end added section"; } >> $1
+# add_maintscript_fragment package {preinst|postinst|prerm|postrm} < contents
+add_maintscript_fragment() {
+  maintscript=debian/$1.$2.debhelper
+  if ! grep -sq "^$marker$" $maintscript; then
+    { echo "$marker"; cat; echo "### end added section"; } >> $maintscript
   fi
 }
 
 
-addfr debian/qemu-block-extra.prerm.debhelper <<EOF
+add_maintscript_fragment qemu-block-extra prerm <<EOF
 case \$1 in
 (upgrade|deconfigure)
   # only save if qemu-system-* or kvm process running
@@ -46,7 +48,7 @@ case \$1 in
 esac
 EOF
 
-addfr debian/qemu-block-extra.postrm.debhelper <<EOF
+add_maintscript_fragment qemu-block-extra postrm <<EOF
 case \$1 in
 (remove)
   if [ -d $savedir ]; then
@@ -58,7 +60,7 @@ case \$1 in
 esac
 EOF
 
-addfr debian/qemu-block-extra.postinst.debhelper <<'EOF'
+add_maintscript_fragment qemu-block-extra postinst <<'EOF'
 if [ "$1" = configure -a -x /usr/bin/deb-systemd-helper ] &&
    dpkg --compare-versions -- "$2" lt-nl 1:8.2.1+ds-2~
 then

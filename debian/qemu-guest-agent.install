@@ -4,5 +4,9 @@ scripts/qemu-guest-agent/fsfreeze-hook /etc/qemu/
 
 # from staging area
 usr/bin/qemu-ga /usr/sbin/
-usr/share/man/man8/qemu-ga.8 /usr/share/man/man8/
-usr/share/man/man7/qemu-ga-ref.7 /usr/share/man/man7/
+
+# from build dir
+b/docs/qemu-ga.8 usr/share/man/man8/
+b/docs/interop/qemu-ga.html usr/share/doc/qemu-guest-agent/
+b/docs/qemu-ga-ref.7 usr/share/man/man7/
+b/docs/interop/qemu-qmp-ref.html usr/share/doc/qemu-guest-agent/
