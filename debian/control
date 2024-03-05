@@ -205,9 +205,9 @@ Multi-Arch: foreign
 Conflicts: sgabios, qemu-skiboot, openbios-sparc, openbios-ppc, qemu-slof,
 Replaces:  sgabios, openbios-sparc, openbios-ppc, qemu-slof,
  qemu-system-ppc (<< 1:6.1-4~),
- qemu-system-common (<< 8.2.1+ds-3~),
+ qemu-system-common (<< 1:8.2.2+ds-1~),
 Breaks: qemu-system-ppc (<< 1:6.1-4~),
- qemu-system-common (<< 8.2.1+ds-3~),
+ qemu-system-common (<< 1:8.2.2+ds-1~),
 Provides: qemu-keymaps, sgabios, qemu-skiboot, openbios-sparc, openbios-ppc, qemu-slof,
 Depends: ${misc:Depends}
 Description: QEMU full system emulation (data files)
@@ -472,7 +472,7 @@ Description: QEMU full system emulation (Xen helper package)
  This package is not useful by its own.
 
 Package: qemu-user
-Architecture: amd64 arm arm64 armel armhf i386 mips mips64 mips64el mipsel ppc64 ppc64el riscv64 s390x sparc sparc64 x32
+Architecture: amd64 arm arm64 armel armhf i386 mips mips64 mips64el mipsel ppc64 ppc64el riscv64 s390x sparc sparc64
 Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-user>
 Depends: ${shlibs:Depends}, ${misc:Depends}
@@ -495,7 +495,7 @@ Description: QEMU user mode emulation binaries
  qemu-user-static will register statically linked binfmt handlers instead.
 
 Package: qemu-user-static
-Architecture: amd64 arm arm64 armel armhf i386 mips mips64 mips64el mipsel ppc64 ppc64el riscv64 s390x sparc sparc64 x32
+Architecture: amd64 arm arm64 armel armhf i386 mips mips64 mips64el mipsel ppc64 ppc64el riscv64 s390x sparc sparc64
 Built-Using: ${built-using}
 Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-user-static>
@@ -520,7 +520,7 @@ Description: QEMU user mode emulation binaries (static version)
  directly.
 
 Package: qemu-user-binfmt
-Architecture: amd64 arm arm64 armel armhf i386 mips mips64 mips64el mipsel ppc64 ppc64el riscv64 s390x sparc sparc64 x32
+Architecture: amd64 arm arm64 armel armhf i386 mips mips64 mips64el mipsel ppc64 ppc64el riscv64 s390x sparc sparc64
 Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-user>
 Depends: ${misc:Depends}, qemu-user (= ${binary:Version})

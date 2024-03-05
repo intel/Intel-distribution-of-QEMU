@@ -211,9 +211,9 @@ Multi-Arch: foreign
 Conflicts: sgabios, qemu-skiboot, openbios-sparc, openbios-ppc, qemu-slof,
 Replaces:  sgabios, openbios-sparc, openbios-ppc, qemu-slof,
  qemu-system-ppc (<< 1:6.1-4~),
- qemu-system-common (<< 8.2.1+ds-3~),
+ qemu-system-common (<< 1:8.2.2+ds-1~),
 Breaks: qemu-system-ppc (<< 1:6.1-4~),
- qemu-system-common (<< 8.2.1+ds-3~),
+ qemu-system-common (<< 1:8.2.2+ds-1~),
 Provides: qemu-keymaps, sgabios, qemu-skiboot, openbios-sparc, openbios-ppc, qemu-slof,
 Depends: ${misc:Depends}
 Description: QEMU full system emulation (data files)

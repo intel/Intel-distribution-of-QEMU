@@ -1,3 +1,11 @@
+qemu (1:8.2.2+ds-2) unstable; urgency=medium
+
+  * d/control: fix qemu version in Breaks: to include the missing epoch
+    (Closes: #1065469)
+  * d/rules: remove x32 from qemu-user host arch list and add it to tools
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 05 Mar 2024 10:27:47 +0300
+
 qemu (1:8.2.2+ds-1) unstable; urgency=medium
 
   * new upstream stable/bugfix release
