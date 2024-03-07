@@ -208,3 +208,11 @@ static void __attribute__((__constructor__)) monitor_init_qmp_commands(void)
                          qmp_marshal_qmp_capabilities,
                          QCO_ALLOW_PRECONFIG, 0);
 }
+
+void qmp_toggle_audio_status(int64_t value, Error **errp)
+{
+    if (value > AUDIO_STATUS_ENABLE || value < AUDIO_STATUS_DISABLE)
+       return;
+
+    qemu_audio_status_change_notify(value);
+}

@@ -68,6 +68,7 @@ typedef struct HWVoiceOut {
     int pending_disable;
     struct audio_pcm_info info;
 
+    Volume out_set_vol;
     f_sample *clip;
     uint64_t ts_helper;
 
@@ -88,6 +89,7 @@ typedef struct HWVoiceIn {
     int poll_mode;
     struct audio_pcm_info info;
 
+    Volume in_set_vol;
     t_sample *conv;
 
     size_t total_samples_captured;

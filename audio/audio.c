@@ -1609,6 +1609,53 @@ static void audio_vm_change_state_handler (void *opaque, bool running,
     audio_reset_timer (s);
 }
 
+//This function handles Guest VM audio state during VM switch
+static void qemu_audio_status_change_handler (void *opaque, int status)
+{
+    AudioState *s = opaque;
+    HWVoiceOut *hwo = NULL;
+    HWVoiceIn *hwi = NULL;
+    Volume out_vol , in_vol ;
+
+    if (status > AUDIO_STATUS_ENABLE || status < AUDIO_STATUS_DISABLE)
+        return;
+
+    while ((hwo = audio_pcm_hw_find_any_enabled_out(s, hwo))) {
+        if (hwo->pcm_ops->enable_out) {
+            //This reference is taken from above vm_change_state
+            hwo->pcm_ops->enable_out(hwo, status);
+        }
+        else if (hwo->pcm_ops->volume_out) {
+            //paaudio doesn't support enable_out , hence muting out volume
+            memcpy(&out_vol,&(hwo->out_set_vol),sizeof(Volume));
+
+            if (status == AUDIO_STATUS_DISABLE)
+            {
+              //If disable then mute out volume
+               out_vol.mute = 1;
+            }
+            hwo->pcm_ops->volume_out(hwo,&out_vol);
+        }
+    }
+    while ((hwi = audio_pcm_hw_find_any_enabled_in(s, hwi))) {
+        if (hwi->pcm_ops->enable_in) {
+            //This reference is taken from above vm_change_state
+            hwi->pcm_ops->enable_in(hwi, status);
+        }
+        else if (hwi->pcm_ops->volume_in) {
+            //paaudio doesn't support enable_in , hence muting in volume
+            memcpy(&in_vol,&(hwi->in_set_vol),sizeof(Volume));
+            if (status == AUDIO_STATUS_DISABLE)
+            {
+                 //If disable then mute in volume
+                 in_vol.mute = 1;
+            }
+            hwi->pcm_ops->volume_in(hwi,&in_vol);
+        }
+    }
+    audio_reset_timer (s);
+}
+
 static void free_audio_state(AudioState *s)
 {
     HWVoiceOut *hwo, *hwon;
@@ -1721,6 +1768,7 @@ static AudioState *audio_init(Audiodev *dev, Error **errp)
     int done = 0;
     const char *drvname;
     VMChangeStateEntry *vmse;
+    qemu_audio_status_notifiers *q = NULL;
     AudioState *s;
     struct audio_driver *driver;
 
@@ -1780,6 +1828,12 @@ static AudioState *audio_init(Audiodev *dev, Error **errp)
     if (!vmse) {
         dolog ("warning: Could not register change state handler\n"
                "(Audio can continue looping even after stopping the VM)\n");
+    }
+
+    q = qemu_add_audio_status_change_notifier (qemu_audio_status_change_handler, s);
+    if (!q) {
+        dolog ("warning: Could not register audio change state handler\n"
+               "(Audio state toggle wont happen during VM switch)\n");
     }
 
     QTAILQ_INSERT_TAIL(&audio_states, s, list);
@@ -1959,6 +2013,11 @@ void audio_set_volume_out(SWVoiceOut *sw, Volume *vol)
         sw->vol.r = nominal_volume.l * vol->vol[vol->channels > 1 ? 1 : 0] /
             255;
 
+        hw->out_set_vol.mute = vol->mute;
+        hw->out_set_vol.channels = vol->channels;
+        hw->out_set_vol.vol[0] = vol->vol[0];
+        hw->out_set_vol.vol[1] = vol->vol[1];
+
         if (hw->pcm_ops->volume_out) {
             hw->pcm_ops->volume_out(hw, vol);
         }
@@ -1980,6 +2039,11 @@ void audio_set_volume_in(SWVoiceIn *sw, Volume *vol)
         sw->vol.l = nominal_volume.l * vol->vol[0] / 255;
         sw->vol.r = nominal_volume.r * vol->vol[vol->channels > 1 ? 1 : 0] /
             255;
+
+        hw->in_set_vol.mute = vol->mute;
+        hw->in_set_vol.channels = vol->channels;
+        hw->in_set_vol.vol[0] = vol->vol[0];
+        hw->in_set_vol.vol[1] = vol->vol[1];
 
         if (hw->pcm_ops->volume_in) {
             hw->pcm_ops->volume_in(hw, vol);
