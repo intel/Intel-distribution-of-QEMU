@@ -117,6 +117,7 @@ typedef struct VirtIODevice VirtIODevice;
 typedef struct Visitor Visitor;
 typedef struct VMChangeStateEntry VMChangeStateEntry;
 typedef struct VMStateDescription VMStateDescription;
+typedef struct qemu_audio_status_notifiers qemu_audio_status_notifiers;
 
 /*
  * Pointer types

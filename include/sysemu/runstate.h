@@ -4,6 +4,9 @@
 #include "qapi/qapi-types-run-state.h"
 #include "qemu/notify.h"
 
+#define AUDIO_STATUS_ENABLE (1)
+#define AUDIO_STATUS_DISABLE (0)
+
 bool runstate_check(RunState state);
 void runstate_set(RunState new_state);
 RunState runstate_get(void);
@@ -11,7 +14,12 @@ bool runstate_is_running(void);
 bool runstate_needs_reset(void);
 void runstate_replay_enable(void);
 
+typedef void qemu_audio_handler(void *opaque, int status);
 typedef void VMChangeStateHandler(void *opaque, bool running, RunState state);
+
+qemu_audio_status_notifiers* qemu_add_audio_status_change_notifier(
+                                   qemu_audio_handler *cb, void *opaque);
+void qemu_audio_status_change_notify(int status);
 
 VMChangeStateEntry *qemu_add_vm_change_state_handler(VMChangeStateHandler *cb,
                                                      void *opaque);

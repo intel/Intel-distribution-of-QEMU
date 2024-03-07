@@ -152,6 +152,25 @@
 { 'command': 'stop' }
 
 ##
+# @toggle-audio-status:
+#
+# @value: 1 for Enable , 0 for Disable
+#
+# TOGGLE_AUDIO_STATUS
+#
+# Since: 2.9
+#
+# .. note:: Enables audio functionality on or off for guest VM switch
+#    when done
+#
+# .. example::
+#
+#    -> { "execute": "toggle-audio-status","arguments": { "value": 1 } }
+#    <- { "return": {} }
+##
+{ 'command': 'toggle-audio-status', 'data': {'value': 'int'} }
+
+##
 # @cont:
 #
 # Resume guest VM execution.

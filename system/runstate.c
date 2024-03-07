@@ -293,6 +293,13 @@ void qemu_system_vmstop_request(RunState state)
     qemu_mutex_unlock(&vmstop_lock);
     qemu_notify_event();
 }
+
+struct qemu_audio_status_notifiers {
+    qemu_audio_handler *cb;
+    void *opaque;
+    QTAILQ_ENTRY(qemu_audio_status_notifiers) entries;
+};
+
 struct VMChangeStateEntry {
     VMChangeStateHandler *cb;
     VMChangeStateHandler *prepare_cb;
@@ -303,6 +310,32 @@ struct VMChangeStateEntry {
 
 static QTAILQ_HEAD(, VMChangeStateEntry) vm_change_state_head =
     QTAILQ_HEAD_INITIALIZER(vm_change_state_head);
+
+static QTAILQ_HEAD(, qemu_audio_status_notifiers) qemu_audio_status_notifiers_head =
+     QTAILQ_HEAD_INITIALIZER(qemu_audio_status_notifiers_head);
+
+qemu_audio_status_notifiers* qemu_add_audio_status_change_notifier(
+                                       qemu_audio_handler *cb, void *opaque)
+{
+       qemu_audio_status_notifiers *e = NULL;
+       e = g_malloc0(sizeof(*e));
+
+       if (e != NULL) {
+           e->cb = cb;
+           e->opaque = opaque;
+           QTAILQ_INSERT_TAIL(&qemu_audio_status_notifiers_head, e, entries);
+       }
+
+       return e;
+}
+
+void qemu_audio_status_change_notify(int status)
+{
+        qemu_audio_status_notifiers *e = NULL, *next = NULL;
+        QTAILQ_FOREACH_SAFE(e, &qemu_audio_status_notifiers_head, entries, next){
+                e->cb(e->opaque, status);
+        }
+}
 
 /**
  * qemu_add_vm_change_state_handler_prio:
