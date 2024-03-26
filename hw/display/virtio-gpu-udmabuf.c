@@ -18,6 +18,7 @@
 #include "ui/console.h"
 #include "hw/virtio/virtio-gpu.h"
 #include "hw/virtio/virtio-gpu-pixman.h"
+#include "hw/vfio/vfio-common.h"
 #include "trace.h"
 #include "exec/ramblock.h"
 #include "sysemu/hostmem.h"
@@ -25,6 +26,88 @@
 #include <linux/memfd.h>
 #include "qemu/memfd.h"
 #include "standard-headers/linux/udmabuf.h"
+
+static void vfio_create_dmabuf(struct virtio_gpu_simple_resource *res)
+{
+    g_autofree struct vfio_device_feature *feature;
+    struct vfio_device_feature_dma_buf *dma_buf;
+    VFIODevice *vbasedev = NULL;
+    VFIORegion *region = NULL;
+    ram_addr_t offset;
+    MemoryRegion *mr;
+    RAMBlock *rb;
+    size_t argsz;
+    int i;
+
+    if (res->iov_cnt <= 0) {
+        return;
+    }
+
+    argsz = sizeof(*feature) + sizeof (*dma_buf) +
+            sizeof(struct vfio_region_dma_range) * res->iov_cnt;
+    feature = g_malloc0(argsz);
+    dma_buf = (struct vfio_device_feature_dma_buf *)feature->data;
+
+    for (i = 0; i < res->iov_cnt; i++) {
+        rcu_read_lock();
+        rb = qemu_ram_block_from_host(res->iov[i].iov_base, false, &offset);
+        rcu_read_unlock();
+
+        if (!rb) {
+            return;
+        }
+
+        mr = rb->mr;
+        if (mr->ops != &vfio_region_ops) {
+            mr = mr->container;
+            if (mr->ops != &vfio_region_ops) {
+                return;
+            }
+        }
+
+        region = mr->opaque;
+
+        if (!region) {
+            return;
+        }
+
+        dma_buf->dma_ranges[i].region_index = region->nr;
+        dma_buf->dma_ranges[i].offset = offset;
+        dma_buf->dma_ranges[i].length = res->iov[i].iov_len;
+    }
+
+    dma_buf->nr_ranges = res->iov_cnt;
+    dma_buf->open_flags = O_RDONLY | O_CLOEXEC;
+    feature->argsz = argsz;
+    feature->flags = VFIO_DEVICE_FEATURE_GET | VFIO_DEVICE_FEATURE_DMA_BUF;
+
+    if (!vbasedev) {
+        vbasedev = region->vbasedev;
+    }
+
+    res->dmabuf_fd = ioctl(vbasedev->fd, VFIO_DEVICE_FEATURE, feature);
+
+    if (res->dmabuf_fd < 0) {
+        warn_report("%s: VFIO_DEVICE_FEATURE_DMA_BUF: %s", __func__,
+                    strerror(errno));
+    }
+}
+
+static bool is_device_owner_vfio(MemoryRegion *mr)
+{
+    VFIODevice *vdev;
+
+    if (QLIST_EMPTY(&vfio_device_list)) {
+        return false;
+    }
+
+    QLIST_FOREACH(vdev, &vfio_device_list, next) {
+        if (vdev->dev == mr->dev) {
+            return true;
+        }
+    }
+    return false;
+}
 
 static void virtio_gpu_create_udmabuf(struct virtio_gpu_simple_resource *res)
 {
@@ -129,6 +212,8 @@ bool virtio_gpu_have_udmabuf(void)
 
 void virtio_gpu_init_udmabuf(struct virtio_gpu_simple_resource *res)
 {
+    ram_addr_t offset;
+    RAMBlock *rb;
     void *pdata = NULL;
 
     res->dmabuf_fd = -1;
@@ -136,7 +221,17 @@ void virtio_gpu_init_udmabuf(struct virtio_gpu_simple_resource *res)
         res->iov[0].iov_len < 4096) {
         pdata = res->iov[0].iov_base;
     } else {
-        virtio_gpu_create_udmabuf(res);
+        rb = qemu_ram_block_from_host(res->iov[0].iov_base, false, &offset);
+        if (rb && memory_region_is_ram_device(rb->mr)) {
+            if (!is_device_owner_vfio(rb->mr)) {
+                warn_report("Could not find device to create dmabuf");
+                return;
+            }
+            vfio_create_dmabuf(res);
+        } else {
+            virtio_gpu_create_udmabuf(res);
+        }
+
         if (res->dmabuf_fd < 0) {
             return;
         }
