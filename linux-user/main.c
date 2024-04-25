@@ -1038,3 +1038,23 @@ int main(int argc, char **argv, char **envp)
     /* never exits */
     return 0;
 }
+
+#ifdef PROVIDE_STUBS_FOR_STATIC
+
+struct passwd *getpwuid(uid_t uid) {
+  return NULL;
+}
+
+int getpwnam_r(const char *name, struct passwd *pwd,
+               char buf[], size_t buflen,
+               struct passwd **result) {
+  return -1;
+}
+
+int getpwuid_r(uid_t uid, struct passwd *pwd,
+               char buf[], size_t buflen,
+               struct passwd **result) {
+  return -1;
+}
+
+#endif
