@@ -736,6 +736,7 @@ pre-install-indep:
 	mkdir -p -m 0755 ${sysdataidir}
 install-indep: pre-install-indep $(addprefix install-, ${sysdata-components})
 	dh_install -i
+	dh_installdocs -i
 	dh_installchangelogs -i
 	dh_lintian -i
 	dh_compress -i -Xusr/share/doc/qemu-system-common/config

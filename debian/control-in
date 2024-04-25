@@ -259,7 +259,7 @@ Description: QEMU full system emulation binaries (graphical display and audio mo
  and SDL) and audio backend modules for full system emulation (qemu-system-*)
  packages.
  .
- This packae is not a management/control/GUI interface for qemu, use something
+ This package is not a management/control/GUI interface for qemu, use something
  else (like virt-manager) for that.
 
 Package: qemu-system-modules-spice
