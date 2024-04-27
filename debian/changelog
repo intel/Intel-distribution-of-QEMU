@@ -1,8 +1,28 @@
+qemu (1:8.2.3+ds-2) unstable; urgency=medium
+
+  * d/changelog: add Closes: for security bugs fixed by 8.2.3
+  * static-linux-user-stubs: provide some stubs for static linux-user
+    build (this avoids ld warnings about getpw*())
+  * add 3 missing upstream commits to fix 8.2.3 breakage on riscv64
+    The broken commit is 1e4ec0958e "target/riscv/kvm: fix
+    timebase-frequency when using KVM acceleration", which requires
+    other changes in the same patch series:
+      target-riscv-kvm-change-KVM_REG_RISCV_FP_F-to-u32.patch
+      target-riscv-kvm-change-KVM_REG_RISCV_FP_D-to-u64.patch
+      target-riscv-kvm-change-timer-regs-size-to-u64.patch
+    (Closes: #1069892)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 27 Apr 2024 20:09:22 +0300
+
 qemu (1:8.2.3+ds-1) unstable; urgency=medium
 
   [ Michael Tokarev ]
 
   * new upstream stable/bugfix release
+    Closes: #1068819, CVE-2024-26327, CVE-2024-26328
+    Closes: #1068820, CVE-2024-3446
+    Closes: #1068821, CVE-2024-3447
+    Closes: #1068822, CVE-2024-3567
   * fix typo in newly added change (expection)
   * d/rules: run dh_installdocs for install-indep too
 

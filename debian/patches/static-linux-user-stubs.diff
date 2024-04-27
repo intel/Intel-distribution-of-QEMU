@@ -1,0 +1,54 @@
+Subject: static linux-user stubs
+From: Michael Tokarev <mjt@tls.msk.ru>
+Date: Thu, 25 Apr 2024 09:01:13 +0300
+Forwarded: not-needed
+
+When building a static linux-user binaries, ld complains:
+
+/usr/bin/ld: libglib-2.0.a(gutils.c.o): in function `g_get_user_database_entry':
+  warning: Using 'getpwuid' in statically linked applications requires...
+  warning: Using 'getpwnam_r' in statically linked applications requires...
+  warning: Using 'getpwuid_r' in statically linked applications requires...
+
+This is because glib, in their "misc utils" unit (gutils.c), has functions
+to return current user home directory and similar stuff, and this unit is
+almost always included into the link, even if these particular functions
+aren't used by the application.
+
+Ideally this should be fixed on the glib side, by splitting gutils.c into
+several files, so unused symbols wont be included in the link at all.
+But this requires extra efforts from glib side, and static linkage with
+glib is very rare.
+
+So just stub-out a few getpw* symbols here, - this will eliminate the
+warning and will make resulting binary quite a bit smaller.
+
+It would be nice to eliminate whole dlopen() too.
+
+diff --git a/linux-user/main.c b/linux-user/main.c
+--- a/linux-user/main.c
++++ b/linux-user/main.c
+@@ -1025,3 +1025,23 @@ int main(int argc, char **argv, char **envp)
+     /* never exits */
+     return 0;
+ }
++
++#ifdef PROVIDE_STUBS_FOR_STATIC
++
++struct passwd *getpwuid(uid_t uid) {
++  return NULL;
++}
++
++int getpwnam_r(const char *name, struct passwd *pwd,
++               char buf[], size_t buflen,
++               struct passwd **result) {
++  return -1;
++}
++
++int getpwuid_r(uid_t uid, struct passwd *pwd,
++               char buf[], size_t buflen,
++               struct passwd **result) {
++  return -1;
++}
++
++#endif

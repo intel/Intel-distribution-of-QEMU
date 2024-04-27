@@ -418,7 +418,7 @@ b/user-static/configured: configure
 	rm -rf b/user-static; mkdir -p b/user-static
 	cd b/user-static && \
 	    ../../configure ${common_configure_opts} \
-		--extra-cflags="${extra-cflags}" \
+		--extra-cflags="${extra-cflags} -DPROVIDE_STUBS_FOR_STATIC" \
 		--static \
 		$(if $(filter i386,${DEB_HOST_ARCH}),--disable-pie) \
 		--disable-plugins \
