@@ -39,6 +39,8 @@ Build-Depends-Arch:
 # --enable-attr
 # --enable-bpf	linux-any
  libbpf-dev	[linux-any],
+# --enable-blkio	arm64 amd64 mips64el ppc64 ppc64el riscv64 s390x
+ libblkio-dev	       [arm64 amd64 mips64el ppc64 ppc64el riscv64 s390x],
 # --enable-brlapi	:system-arch:
  libbrlapi-dev         [:system-arch:],
 # --enable-virtfs	linux-any
