@@ -1,0 +1,88 @@
+From 18ca3b74a7dca1b28cd9189bd6126758449df1af Mon Sep 17 00:00:00 2001
+From: Cindy Lu <lulu@redhat.com>
+Date: Wed, 22 May 2024 13:10:24 +0800
+Subject: virtio-pci: Fix the use of an uninitialized irqfd.
+Bug: https://gitlab.com/qemu-project/qemu/-/issues/2334
+Bug: https://gitlab.com/qemu-project/qemu/-/issues/2321
+Origin: upstream, https://lists.nongnu.org/archive/html/qemu-stable/2024-05/msg00113.html
+Forwarded: not-needed
+
+The crash was reported in MAC OS and NixOS, here is the link for this bug
+https://gitlab.com/qemu-project/qemu/-/issues/2334
+https://gitlab.com/qemu-project/qemu/-/issues/2321
+
+The root cause is that the function virtio_pci_set_guest_notifiers() only
+initializes the irqfd when the use_guest_notifier_mask and guest_notifier_mask
+are set.
+However, this check is missing in virtio_pci_set_vector().
+So the fix is to add this check.
+
+This fix is verified in vyatta,MacOS,NixOS,fedora system.
+
+The bt tree for this bug is:
+Thread 6 "CPU 0/KVM" received signal SIGSEGV, Segmentation fault.
+[Switching to Thread 0x7c817be006c0 (LWP 1269146)]
+kvm_virtio_pci_vq_vector_use () at ../qemu-9.0.0/hw/virtio/virtio-pci.c:817
+817	    if (irqfd->users == 0) {
+(gdb) thread apply all bt
+...
+Thread 6 (Thread 0x7c817be006c0 (LWP 1269146) "CPU 0/KVM"):
+0  kvm_virtio_pci_vq_vector_use () at ../qemu-9.0.0/hw/virtio/virtio-pci.c:817
+1  kvm_virtio_pci_vector_use_one () at ../qemu-9.0.0/hw/virtio/virtio-pci.c:893
+2  0x00005983657045e2 in memory_region_write_accessor () at ../qemu-9.0.0/system/memory.c:497
+3  0x0000598365704ba6 in access_with_adjusted_size () at ../qemu-9.0.0/system/memory.c:573
+4  0x0000598365705059 in memory_region_dispatch_write () at ../qemu-9.0.0/system/memory.c:1528
+5  0x00005983659b8e1f in flatview_write_continue_step.isra.0 () at ../qemu-9.0.0/system/physmem.c:2713
+6  0x000059836570ba7d in flatview_write_continue () at ../qemu-9.0.0/system/physmem.c:2743
+7  flatview_write () at ../qemu-9.0.0/system/physmem.c:2774
+8  0x000059836570bb76 in address_space_write () at ../qemu-9.0.0/system/physmem.c:2894
+9  0x0000598365763afe in address_space_rw () at ../qemu-9.0.0/system/physmem.c:2904
+10 kvm_cpu_exec () at ../qemu-9.0.0/accel/kvm/kvm-all.c:2917
+11 0x000059836576656e in kvm_vcpu_thread_fn () at ../qemu-9.0.0/accel/kvm/kvm-accel-ops.c:50
+12 0x0000598365926ca8 in qemu_thread_start () at ../qemu-9.0.0/util/qemu-thread-posix.c:541
+13 0x00007c8185bcd1cf in ??? () at /usr/lib/libc.so.6
+14 0x00007c8185c4e504 in clone () at /usr/lib/libc.so.6
+
+Fixes: 2ce6cff94d ("virtio-pci: fix use of a released vector")
+Cc: qemu-stable@nongnu.org
+
+Signed-off-by: Cindy Lu <lulu@redhat.com>
+---
+ hw/virtio/virtio-pci.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/hw/virtio/virtio-pci.c b/hw/virtio/virtio-pci.c
+index 08faefe29a..c10913ced2 100644
+--- a/hw/virtio/virtio-pci.c
++++ b/hw/virtio/virtio-pci.c
+@@ -1431,6 +1431,7 @@ static void virtio_pci_set_vector(VirtIODevice *vdev,
+ {
+     bool kvm_irqfd = (vdev->status & VIRTIO_CONFIG_S_DRIVER_OK) &&
+         msix_enabled(&proxy->pci_dev) && kvm_msi_via_irqfd_enabled();
++    VirtioDeviceClass *k = VIRTIO_DEVICE_GET_CLASS(vdev);
+ 
+     if (new_vector == old_vector) {
+         return;
+@@ -1441,7 +1442,8 @@ static void virtio_pci_set_vector(VirtIODevice *vdev,
+      * set, we need to release the old vector and set up the new one.
+      * Otherwise just need to set the new vector on the device.
+      */
+-    if (kvm_irqfd && old_vector != VIRTIO_NO_VECTOR) {
++    if (kvm_irqfd && old_vector != VIRTIO_NO_VECTOR &&
++        vdev->use_guest_notifier_mask && k->guest_notifier_mask) {
+         kvm_virtio_pci_vector_release_one(proxy, queue_no);
+     }
+     /* Set the new vector on the device. */
+@@ -1451,7 +1453,8 @@ static void virtio_pci_set_vector(VirtIODevice *vdev,
+         virtio_queue_set_vector(vdev, queue_no, new_vector);
+     }
+     /* If the new vector changed need to set it up. */
+-    if (kvm_irqfd && new_vector != VIRTIO_NO_VECTOR) {
++    if (kvm_irqfd && new_vector != VIRTIO_NO_VECTOR &&
++        vdev->use_guest_notifier_mask && k->guest_notifier_mask) {
+         kvm_virtio_pci_vector_use_one(proxy, queue_no);
+     }
+ }
+-- 
+2.39.2
+

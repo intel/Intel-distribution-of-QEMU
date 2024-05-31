@@ -6,19 +6,20 @@ Maintainer: Debian QEMU Team <pkg-qemu-devel@lists.alioth.debian.org>
 Uploaders: Michael Tokarev <mjt@tls.msk.ru>
 Build-Depends: debhelper-compat (= 13),
  python3:any,
- python3-venv,
+ python3-venv:any,
  python3:any (>> 3.11) | python3-tomli,
  meson (>> 0.63.0~), ninja-build,
  flex, bison,
-# for python3-sphinx:native see #995622
- python3-sphinx:native, python3-sphinx-rtd-theme,
+# for :native suffix see #995622
+ python3-sphinx:native, python3-sphinx-rtd-theme:native,
 Build-Depends-Arch:
 # In comments below we also specify (system-specific) arguments
 # to qemu's configure script, -- optional features which depend
 # on build-dependencies.
 # always needed
- libglib2.0-dev,
- zlib1g-dev,
+ pkgconf, libglib2.0-dev, zlib1g-dev,
+# target/hexagon/ builds a build-time (ie: native) tool using glib
+ pkgconf:native, libglib2.0-dev:native,
 # iasl (from acpica-tools) is used only in a single test these days, not for building
 # acpica-tools,
 # libcapstone is in universe in ubuntu
