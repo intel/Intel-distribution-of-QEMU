@@ -1020,20 +1020,34 @@ static void qemu_spice_gl_scanout_texture(DisplayChangeListener *dcl,
 {
     SimpleSpiceDisplay *ssd = container_of(dcl, SimpleSpiceDisplay, dcl);
     EGLint stride = 0, fourcc = 0;
+    EGLuint64KHR modifier = 0;
     int fd = -1;
 
     assert(tex_id);
-    fd = egl_get_fd_for_texture(tex_id, &stride, &fourcc, NULL);
+
+    fd = egl_get_fd_for_texture(tex_id, &stride, &fourcc, &modifier);
     if (fd < 0) {
         fprintf(stderr, "%s: failed to get fd for texture\n", __func__);
         return;
     }
     trace_qemu_spice_gl_scanout_texture(ssd->qxl.id, w, h, fourcc);
 
-    /* note: spice server will close the fd */
-    spice_qxl_gl_scanout(&ssd->qxl, fd, backing_width, backing_height,
-                         stride, fourcc, y_0_top);
-    qemu_spice_gl_monitor_config(ssd, x, y, w, h);
+    if (remote_client && modifier != DRM_FORMAT_MOD_LINEAR) {
+        egl_fb_destroy(&ssd->guest_fb);
+        egl_fb_setup_for_tex(&ssd->guest_fb,
+                             backing_width, backing_height,
+                             tex_id, false);
+        ssd->backing_y_0_top = y_0_top;
+        ssd->blit_scanout_texture = true;
+        ssd->new_scanout_texture = true;
+        close(fd);
+    } else {
+        /* note: spice server will close the fd */
+        spice_qxl_gl_scanout(&ssd->qxl, fd, backing_width, backing_height,
+                             stride, fourcc, y_0_top);
+        qemu_spice_gl_monitor_config(ssd, x, y, w, h);
+    }
+
     ssd->have_surface = false;
     ssd->have_scanout = true;
 }
@@ -1099,6 +1113,41 @@ static void qemu_spice_gl_release_dmabuf(DisplayChangeListener *dcl,
     egl_dmabuf_release_texture(dmabuf);
 }
 
+static bool spice_gl_blit_scanout_texture(SimpleSpiceDisplay *ssd)
+{
+    EGLint stride = 0, fourcc = 0;
+    int fd;
+
+    egl_fb_destroy(&ssd->blit_fb);
+    egl_fb_setup_for_tex(&ssd->blit_fb,
+                         surface_width(ssd->ds), surface_height(ssd->ds),
+                         ssd->ds->texture, false);
+    egl_fb_blit(&ssd->blit_fb, &ssd->guest_fb, false);
+    glFlush();
+
+    if (!ssd->new_scanout_texture) {
+        return true;
+    }
+
+    fd = egl_get_fd_for_texture(ssd->ds->texture,
+                                &stride, &fourcc,
+                                NULL);
+    if (fd < 0) {
+        fprintf(stderr, "%s: failed to get fd for texture\n", __func__);
+        return false;
+    }
+
+    spice_qxl_gl_scanout(&ssd->qxl, fd,
+                         surface_width(ssd->ds),
+                         surface_height(ssd->ds),
+                         stride, fourcc, ssd->backing_y_0_top);
+    qemu_spice_gl_monitor_config(ssd, 0, 0,
+                                 surface_width(ssd->ds),
+                                 surface_height(ssd->ds));
+    ssd->new_scanout_texture = false;
+    return true;
+}
+
 static void qemu_spice_gl_update(DisplayChangeListener *dcl,
                                  uint32_t x, uint32_t y, uint32_t w, uint32_t h)
 {
@@ -1106,6 +1155,7 @@ static void qemu_spice_gl_update(DisplayChangeListener *dcl,
     EGLint stride = 0, fourcc = 0;
     bool render_cursor = false;
     bool y_0_top = false; /* FIXME */
+    bool ret;
     int fd;
     uint32_t width, height, texture;
 
@@ -1178,6 +1228,13 @@ static void qemu_spice_gl_update(DisplayChangeListener *dcl,
         egl_texture_blend(ssd->gls, &ssd->blit_fb, &ssd->cursor_fb,
                           !y_0_top, ptr_x, ptr_y, 1.0, 1.0);
         glFlush();
+    }
+
+    if (remote_client && ssd->blit_scanout_texture) {
+        ret = spice_gl_blit_scanout_texture(ssd);
+        if (!ret) {
+            return;
+        }
     }
 
     trace_qemu_spice_gl_update(ssd->qxl.id, w, h, x, y);
