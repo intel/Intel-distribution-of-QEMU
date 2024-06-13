@@ -1,3 +1,13 @@
+qemu (1:8.2.5+ds-1) unstable; urgency=medium
+
+  * new upstream stable/bugfix release
+  * d/control: drop rbd support on ppc64 and sparc64
+    (it does not build there, always failing)
+  * d/control: fuse is linux-only
+  * d/control: ia64 is dead
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 13 Jun 2024 13:39:33 +0300
+
 qemu (1:8.2.4+ds-2) unstable; urgency=medium
 
   * d/control: build-depend on pkgconf
