@@ -32,32 +32,32 @@ Build-Depends-Arch:
 # --disable-sndio
 # --audio-drv-list=pipewire,pa,alsa,jack,oss,sdl	:system-arch-linux:
 ##--audio-drv-list=pa,oss	kfreebsd-any
- libjack-dev  [:system-arch-linux:],
- libpulse-dev,
+ libjack-dev    [:system-arch-linux:],
+ libpulse-dev   [:system-arch:],
  libasound2-dev [:system-arch-linux:],
  libpipewire-0.3-dev (>> 0.3.60) [:system-arch-linux:],
 # for virtfs (now in libc6)
 # --enable-attr
-# --enable-bpf	linux-any
- libbpf-dev	[linux-any],
-# --enable-blkio	arm64 amd64 mips64el ppc64 ppc64el riscv64 s390x
- libblkio-dev	       [arm64 amd64 mips64el ppc64 ppc64el riscv64 s390x],
+# --enable-bpf	 :system-arch-linux:
+ libbpf-dev	[:system-arch-linux:],
+# --enable-blkio	:system-arch-linux-64:
+ libblkio-dev	       [:system-arch-linux-64:],
 # --enable-brlapi	:system-arch:
  libbrlapi-dev         [:system-arch:],
-# --enable-virtfs	linux-any
+# --enable-virtfs	:system-arch-linux:
 # needed for virtfs
-# --enable-cap-ng	linux-any
- libcap-ng-dev         [linux-any],
+# --enable-cap-ng	:system-arch-linux:
+ libcap-ng-dev         [:system-arch-linux:],
 # --enable-curl
  libcurl4-gnutls-dev,
-# --enable-fdt
- libfdt-dev,
+# --enable-fdt	 :system-arch:
+ libfdt-dev	[:system-arch:],
 # --enable-fuse		 linux-any
  libfuse3-dev		[linux-any],
 # --enable-gnutls
  gnutls-dev,
 # --enable-gtk --enable-vte	:system-arch:
- libgtk-3-dev [:system-arch:],
+ libgtk-3-dev    [:system-arch:],
  libvte-2.91-dev [:system-arch:],
 # --enable-libiscsi
  libiscsi-dev,
@@ -67,62 +67,62 @@ Build-Depends-Arch:
  libvirglrenderer-dev          [:system-arch-linux:],
 # --enable-opengl	:system-arch-linux:
  libepoxy-dev [:system-arch-linux:],
- libdrm-dev [:system-arch-linux:],
- libgbm-dev [:system-arch-linux:],
+ libdrm-dev   [:system-arch-linux:],
+ libgbm-dev   [:system-arch-linux:],
 # --enable-libnfs
  libnfs-dev,
-# --enable-numa	i386 amd64 mips mipsel mips64 mips64el powerpc powerpcspe x32 ppc64 ppc64el arm64 sparc s390x riscv64
- libnuma-dev   [i386 amd64 mips mipsel mips64 mips64el powerpc powerpcspe x32 ppc64 ppc64el arm64 sparc s390x riscv64],
-# --enable-smartcard
- libcacard-dev,
-# --enable-pixman
- libpixman-1-dev,
-# --enable-rbd		amd64 arm64 mips64el ppc64el riscv64 s390x
- librbd-dev            [amd64 arm64 mips64el ppc64el riscv64 s390x],
+# --enable-numa	:system-arch-linux:
+ libnuma-dev   [:system-arch-linux:],
+# --enable-smartcard	 :system-arch:
+ libcacard-dev		[:system-arch:],
+# --enable-pixman	 :system-arch:
+ libpixman-1-dev	[:system-arch:],
+# --enable-rbd		amd64 arm64 loong64 mips64el ppc64el riscv64 s390x
+ librbd-dev            [amd64 arm64 loong64 mips64el ppc64el riscv64 s390x],
 # gluster is 64bit-only: #1039604
-# --enable-glusterfs	 amd64 arm64 ppc64el ppc64 riscv64 mips64el s390x sparc64
- libglusterfs-dev	[amd64 arm64 ppc64el ppc64 riscv64 mips64el s390x sparc64],
-# --enable-vnc-sasl
- libsasl2-dev,
+# --enable-glusterfs	 :system-arch-linux-64:
+ libglusterfs-dev	[:system-arch-linux-64:],
+# --enable-vnc-sasl	 :system-arch:
+ libsasl2-dev		[:system-arch:],
 # --enable-sdl	:system-arch:
  libsdl2-dev [:system-arch:],
-# --enable-seccomp	amd64 arm64 armel armhf i386 mips64el mipsel ppc64 ppc64el powerpc riscv64 s390x x32
- libseccomp-dev        [amd64 arm64 armel armhf i386 mips64el mipsel ppc64 ppc64el powerpc riscv64 s390x x32],
-# --enable-slirp
- libslirp-dev,
+# --enable-seccomp	amd64 arm64 armel armhf i386 loong64 mips64el mipsel ppc64 ppc64el powerpc riscv64 s390x
+ libseccomp-dev        [amd64 arm64 armel armhf i386 loong64 mips64el mipsel ppc64 ppc64el powerpc riscv64 s390x],
+# --enable-slirp	 :system-arch:
+ libslirp-dev		[:system-arch:],
 # --enable-spice	 :spice-arch:
  libspice-server-dev	[:spice-arch:],
 # --enable-rdma		linux-any
  librdmacm-dev [linux-any], libibverbs-dev [linux-any], libibumad-dev [linux-any],
 # --enable-linux-io-uring	linux-any
  liburing-dev                  [linux-any],
-# --enable-libusb	linux-any
- libusb-1.0-0-dev      [linux-any],
-# --enable-usb-redir	linux-any
- libusbredirparser-dev [linux-any],
+# --enable-libusb	:system-arch-linux:
+ libusb-1.0-0-dev      [:system-arch-linux:],
+# --enable-usb-redir	:system-arch-linux:
+ libusbredirparser-dev [:system-arch-linux:],
 # --enable-libssh
  libssh-dev,
 # --enable-zstd
  libzstd-dev,
 # vde is debian-only since ubuntu/vde2 is in universe
-:debian:# --enable-vde
-:debian: libvdeplug-dev,
+:debian:# --enable-vde	 :system-arch:
+:debian: libvdeplug-dev	[:system-arch:],
  libxen-dev [linux-amd64],
-# --enable-nettle
- nettle-dev,
+# --enable-nettle	 :system-arch:
+ nettle-dev		[:system-arch:],
 # other optional features we enable
 # --enable-libudev
 # needed for qga?
  libudev-dev [linux-any],
-# --enable-vnc
-# --enable-vnc-jpeg
- libjpeg-dev,
-# --enable-png
- libpng-dev,
+# --enable-vnc	 :system-arch:
+# --enable-vnc-jpeg	:system-arch:
+ libjpeg-dev	[:system-arch:],
+# --enable-png	 :system-arch:
+ libpng-dev	[:system-arch:],
 # --enable-libpmem	amd64 arm64
  libpmem-dev           [amd64 arm64],
-# --enable-kvm		linux-any
-# --enable-vhost-net	linux-any	# is it really linux-specific?
+# --enable-kvm		:system-arch-linux:
+# --enable-vhost-net	:system-arch-linux:	# is it really linux-specific?
 ##--enable-lzo todo, for (memory) dumps
 ##--enable-netmap todo bsd
 ##--enable-xen-pci-passthrough todo
@@ -197,6 +197,7 @@ Depends: ${misc:Depends}, ${shlibs:Depends},
  qemu-system-any (= ${binary:Version}) [:system-arch:] | qemu-utils (= ${binary:Version}),
 Enhances: qemu-utils, qemu-system-misc,
  qemu-system-arm, qemu-system-mips, qemu-system-sparc, qemu-system-x86,
+:debian:Provides: qemu-block-supplemental [amd64 arm64 ppc64el riscv64 s390x],
 Description: extra block backend modules for qemu-system and qemu-utils
  QEMU is a fast processor emulator: currently the package supports Alpha, ARM,
  CRIS, i386, LoongArch, M68k (ColdFire), MicroBlaze, MIPS, PowerPC, RISC-V,
@@ -207,6 +208,30 @@ Description: extra block backend modules for qemu-system and qemu-utils
  This package provides extra block device backend modules for qemu-system
  emulation and qemu-img from qemu-utils package, which are rarely used and
  has extra dependencies.
+:ubuntu:
+:ubuntu:Package: qemu-block-supplemental
+:ubuntu:Architecture: amd64 arm64 ppc64el riscv64 s390x
+:ubuntu:Multi-Arch: no
+:ubuntu:Depends: ${misc:Depends}, ${shlibs:Depends},
+:ubuntu:# we need to ensure qemu-block-supplemental is upgraded with qemu-system-* or qemu-utils
+:ubuntu: qemu-system-any (= ${binary:Version}) [amd64 arm64 armhf ppc64el riscv64 s390x] | qemu-utils (= ${binary:Version}),
+:ubuntu:Enhances: qemu-utils, qemu-system-misc,
+:ubuntu: qemu-system-arm, qemu-system-mips, qemu-system-sparc, qemu-system-x86,
+:ubuntu: qemu-system-s390x,
+:ubuntu:Breaks: qemu-block-extra (<< 1:8.2.0+ds-4ubuntu2~)
+:ubuntu:Replaces: qemu-block-extra (<< 1:8.2.0+ds-4ubuntu2~)
+:ubuntu:Description: supplemental block backend modules for qemu-system and qemu-utils
+:ubuntu: QEMU is a fast processor emulator: currently the package supports Alpha, ARM,
+:ubuntu: CRIS, i386, LoongArch, M68k (ColdFire), MicroBlaze, MIPS, PowerPC, RISC-V,
+:ubuntu: S390x, SH4, SPARC, x86-64, Xtensa and other emulations. By using dynamic
+:ubuntu: translation it achieves reasonable speed while being easy to port on new host
+:ubuntu: CPUs.
+:ubuntu: .
+:ubuntu: This package provides supplemental block device backend modules for qemu-system
+:ubuntu: emulation and qemu-img from qemu-utils package.
+:ubuntu: .
+:ubuntu: Currently, the following modules are shipped in this package:
+:ubuntu:  block-glusterfs block-blkio
 
 Package: qemu-system-data
 Architecture: all
@@ -289,7 +314,7 @@ Replaces: qemu-system-common (<< 1:8.1.0+ds-1~exp2~), qemu-system-gui (<< 1:8.1.
 Breaks:   qemu-system-common (<< 1:8.1.0+ds-1~exp2~), qemu-system-gui (<< 1:8.1.0+ds-1~exp2~)
 Description: QEMU full system emulation binaries (OpenGL display modules)
  This package provides optional OpenGL display support modules for QEMU full
- system emulation (qemu-system-*) packages.  It also provides dbus display type.
+ system emulation (qemu-system-*) packages.  It also provides D-Bus display type.
 
 Package: qemu-system-misc
 Architecture: :system-arch:

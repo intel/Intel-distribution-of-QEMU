@@ -1,3 +1,38 @@
+qemu (1:8.2.5+ds-2) unstable; urgency=medium
+
+  * d/gen-module-upgrade.sh: move removal of run-qemu.mount
+    to qemu-block-extra.postinst
+  * gen-modules-upgrade.sh &Co: extend to handle multiple packages
+  * add (ubuntu-specific) qemu-block-supplemental package
+    (with glusterfs module)
+  * d/control: qemu-block-extra Provides: qemu-block-supplemental
+    on debian to be compatible with ubuntu
+  * d/control: enable libblkio on sparc64 too
+    (becomes the same as gluster, all 64bit architectures)
+  * move block-blkio to qemu-block-supplemental on ubuntu like block-glusterfs
+  * note-missing-module-pkg-name.diff: refresh,
+    mention qemu-block-supplemental package
+  * qboot-Disable-LTO-for-ELF-binary-build-step.patch (from ubuntu)
+    (LP#1988710 LP#1921664 #1015607)
+  * d/rules: enable a few optional features for microvm build
+    virtfs: 9pfs, easier guest managing from local filesystem
+    linux-aio, linux-io-uring: scalability
+    numa (scalability)
+    seccomp (security)
+    Most of this (besides io-uring) has been enabled on ubuntu (LP#2045594)
+  * d/rules,d/control: add system-arch-linux-64 list
+  * d/control: enable numa on all system-arch-linux
+  * debian/rules: remove references to ia64 (it is dead)
+  * d/control: remove seccomp from x32 build (system is not built on x32)
+  * d/rule: make user-arch the same as system-arch-linux
+    (adds powerpc & powerpcspe)
+  * d/rules,d/control: enable loong64 (Closes: #1074513)
+  * d/control: mark more build-deps/--enable with system-arch[-linux]
+  * d/control: s/dbus/D-Bus/
+  * d/rules: simplify ${VENDOR} handling and lowercase it
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 30 Jun 2024 23:21:27 +0300
+
 qemu (1:8.2.5+ds-1) unstable; urgency=medium
 
   * new upstream stable/bugfix release

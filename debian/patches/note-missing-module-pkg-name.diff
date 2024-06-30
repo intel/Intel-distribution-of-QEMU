@@ -15,7 +15,7 @@ This is a hack, but it makes qemu packaged in debian
 more user-friendly.
 
 diff --git a/audio/audio.c b/audio/audio.c
-index 8d1e4ad922..15f1071bdc 100644
+index 7ac74f9e16..15f1071bdc 100644
 --- a/audio/audio.c
 +++ b/audio/audio.c
 @@ -1745,5 +1745,9 @@ static AudioState *audio_init(Audiodev *dev, Error **errp)
@@ -30,27 +30,38 @@ index 8d1e4ad922..15f1071bdc 100644
          }
          if (!done) {
 diff --git a/block.c b/block.c
-index a097772238..d5e7cb19bb 100644
+index bfb0861ec6..8de988961d 100644
 --- a/block.c
 +++ b/block.c
-@@ -476,4 +476,5 @@ BlockDriver *bdrv_find_format(const char *format_name)
+@@ -453,4 +453,10 @@ static BlockDriver *bdrv_do_find_format(const char *format_name)
+ }
+ 
++static void note_block_package_name(const char *b)
++{
++    error_report("Unable to load module %s. Perhaps you want to install qemu-block-extra or qemu-block-supplemental package?",
++                 b);
++}
++
+ BlockDriver *bdrv_find_format(const char *format_name)
+ {
+@@ -476,4 +482,5 @@ BlockDriver *bdrv_find_format(const char *format_name)
                  error_report_err(local_err);
              }
-+            else error_report("Unable to load block driver %s. Perhaps you want to install qemu-block-extra package?", block_driver_modules[i].library_name);
++            else note_block_package_name(block_driver_modules[i].library_name);
              break;
          }
-@@ -966,5 +967,8 @@ BlockDriver *bdrv_find_protocol(const char *filename,
+@@ -966,5 +973,8 @@ BlockDriver *bdrv_find_protocol(const char *filename,
                  return NULL;
              }
 -            break;
 +            else {
-+                error_setg(errp, "Unable to load block driver %s. Perhaps you want to install qemu-block-extra package?", block_driver_modules[i].library_name);
++                note_block_package_name(block_driver_modules[i].library_name);
 +                return NULL;
 +            }
          }
      }
 diff --git a/system/vl.c b/system/vl.c
-index 6b87bfa32c..dfa7f6a228 100644
+index e18fa3ce46..91019d6952 100644
 --- a/system/vl.c
 +++ b/system/vl.c
 @@ -1049,5 +1049,7 @@ static void select_vgahw(const MachineClass *machine_class, const char *p)
@@ -62,7 +73,7 @@ index 6b87bfa32c..dfa7f6a228 100644
 +                        !strcmp(ti->opt_name, "qxl") ? "qemu-system-modules-spice" : "qemu-system-modules-opengl");
                  exit(1);
              }
-@@ -3496,5 +3498,10 @@ void qemu_init(int argc, char **argv)
+@@ -3500,5 +3502,10 @@ void qemu_init(int argc, char **argv)
  #ifdef CONFIG_SPICE
              case QEMU_OPTION_spice:
 -                opts = qemu_opts_parse_noisily(qemu_find_opts("spice"), optarg, false);
@@ -75,16 +86,10 @@ index 6b87bfa32c..dfa7f6a228 100644
                  if (!opts) {
                      exit(1);
 diff --git a/ui/console.c b/ui/console.c
-index 7db921e3b7..07a473a385 100644
+index 832055675c..a930f88d68 100644
 --- a/ui/console.c
 +++ b/ui/console.c
-@@ -1644,5 +1644,4 @@ bool qemu_display_find_default(DisplayOptions *opts)
-     return false;
- }
--
- void qemu_display_early_init(DisplayOptions *opts)
- {
-@@ -1659,6 +1658,8 @@ void qemu_display_early_init(DisplayOptions *opts)
+@@ -1659,6 +1659,8 @@ void qemu_display_early_init(DisplayOptions *opts)
      }
      if (dpys[opts->type] == NULL) {
 -        error_report("Display '%s' is not available.",

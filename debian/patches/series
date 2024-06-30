@@ -4,6 +4,7 @@ linux-user-binfmt-P.diff
 note-missing-module-pkg-name.diff
 skip-unpack-edk2-blobs.patch
 qemu-bridge-helper-path.patch
+qboot-Disable-LTO-for-ELF-binary-build-step.patch
 u-boot-sam460ex-fdi.patch
 u-boot-sam460ex-mstring.patch
 openbios-array-bounds.diff
