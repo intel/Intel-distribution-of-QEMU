@@ -23,6 +23,7 @@ struct sbi_scratch;
 #define SBI_PMU_HW_CTR_MAX 32
 #define SBI_PMU_CTR_MAX	   (SBI_PMU_HW_CTR_MAX + SBI_PMU_FW_CTR_MAX)
 #define SBI_PMU_FIXED_CTR_MASK 0x07
+#define SBI_PMU_CY_IR_MASK	0x05
 
 struct sbi_pmu_device {
 	/** Name of the PMU platform device */
@@ -89,6 +90,12 @@ struct sbi_pmu_device {
 	 * Custom function returning the machine-specific irq-bit.
 	 */
 	int (*hw_counter_irq_bit)(void);
+
+	/**
+	 * Custom function to inhibit counting of events while in
+	 * specified mode.
+	 */
+	void (*hw_counter_filter_mode)(unsigned long flags, int counter_index);
 };
 
 /** Get the PMU platform device */

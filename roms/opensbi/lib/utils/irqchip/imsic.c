@@ -161,7 +161,7 @@ static int imsic_external_irqfn(struct sbi_trap_regs *regs)
 	return 0;
 }
 
-static void imsic_ipi_send(u32 target_hart)
+static void imsic_ipi_send(u32 hart_index)
 {
 	unsigned long reloff;
 	struct imsic_regs *regs;
@@ -169,7 +169,7 @@ static void imsic_ipi_send(u32 target_hart)
 	struct sbi_scratch *scratch;
 	int file;
 
-	scratch = sbi_hartid_to_scratch(target_hart);
+	scratch = sbi_hartindex_to_scratch(hart_index);
 	if (!scratch)
 		return;
 
@@ -186,8 +186,8 @@ static void imsic_ipi_send(u32 target_hart)
 	}
 
 	if (regs->size && (reloff < regs->size))
-		writel(IMSIC_IPI_ID,
-		       (void *)(regs->addr + reloff + IMSIC_MMIO_PAGE_LE));
+		writel_relaxed(IMSIC_IPI_ID,
+			(void *)(regs->addr + reloff + IMSIC_MMIO_PAGE_LE));
 }
 
 static struct sbi_ipi_device imsic_ipi_device = {

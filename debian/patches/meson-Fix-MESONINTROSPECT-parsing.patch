@@ -1,0 +1,49 @@
+From: Akihiko Odaki <akihiko.odaki@daynix.com>
+Cc: qemu-devel@nongnu.org,
+ =?UTF-8?q?Philippe=20Mathieu-Daud=C3=A9?= <philmd@linaro.org>,
+ Thomas Huth <thuth@redhat.com>,
+ =?UTF-8?q?Daniel=20P=2E=20Berrang=C3=A9?= <berrange@redhat.com>,
+ =?UTF-8?q?Marc-Andr=C3=A9=20Lureau?= <marcandre.lureau@redhat.com>,
+ Paolo Bonzini <pbonzini@redhat.com>, Cleber Rosa <crosa@redhat.com>,
+ John Snow <jsnow@redhat.com>, Akihiko Odaki <akihiko.odaki@daynix.com>,
+ Michael Tokarev <mjt@tls.msk.ru>
+Subject: [PATCH] meson: Fix MESONINTROSPECT parsing
+Date: Sat, 12 Aug 2023 15:15:38 +0900
+Message-ID: <20230812061540.5398-1-akihiko.odaki@daynix.com>
+
+The arguments in MESONINTROSPECT are quoted with shlex.quote() so it
+must be parsed with shlex.split().
+
+Fixes: cf60ccc330 ("cutils: Introduce bundle mechanism")
+Reported-by: Michael Tokarev <mjt@tls.msk.ru>
+Signed-off-by: Akihiko Odaki <akihiko.odaki@daynix.com>
+---
+ scripts/symlink-install-tree.py | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/scripts/symlink-install-tree.py b/scripts/symlink-install-tree.py
+index 8ed97e3c94..b72563895c 100644
+--- a/scripts/symlink-install-tree.py
++++ b/scripts/symlink-install-tree.py
+@@ -4,6 +4,7 @@
+ import errno
+ import json
+ import os
++import shlex
+ import subprocess
+ import sys
+ 
+@@ -14,7 +15,7 @@ def destdir_join(d1: str, d2: str) -> str:
+     return str(PurePath(d1, *PurePath(d2).parts[1:]))
+ 
+ introspect = os.environ.get('MESONINTROSPECT')
+-out = subprocess.run([*introspect.split(' '), '--installed'],
++out = subprocess.run([*shlex.split(introspect), '--installed'],
+                      stdout=subprocess.PIPE, check=True).stdout
+ for source, dest in json.loads(out).items():
+     bundle_dest = destdir_join('qemu-bundle', dest)
+-- 
+2.41.0
+
+
+

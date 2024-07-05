@@ -208,6 +208,13 @@ static void hmat_build_table_structs(GArray *table_data, NumaState *numa_state)
     build_append_int_noprefix(table_data, 0, 4); /* Reserved */
 
     for (i = 0; i < numa_state->num_nodes; i++) {
+        /*
+         * Linux rejects whole HMAT table if a node with no memory
+         * has one of these structures listing it as a target.
+         */
+        if (!numa_state->nodes[i].node_mem) {
+            continue;
+        }
         flags = 0;
 
         if (numa_state->nodes[i].initiator < MAX_NODES) {
@@ -218,7 +225,7 @@ static void hmat_build_table_structs(GArray *table_data, NumaState *numa_state)
     }
 
     for (i = 0; i < numa_state->num_nodes; i++) {
-        if (numa_state->nodes[i].has_cpu) {
+        if (numa_state->nodes[i].has_cpu || numa_state->nodes[i].has_gi) {
             initiator_list[num_initiator++] = i;
         }
     }

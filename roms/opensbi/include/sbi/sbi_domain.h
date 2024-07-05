@@ -43,6 +43,80 @@ struct sbi_domain_memregion {
 #define SBI_DOMAIN_MEMREGION_SU_WRITABLE	(1UL << 4)
 #define SBI_DOMAIN_MEMREGION_SU_EXECUTABLE	(1UL << 5)
 
+#define SBI_DOMAIN_MEMREGION_ACCESS_MASK	(0x3fUL)
+#define SBI_DOMAIN_MEMREGION_M_ACCESS_MASK	(0x7UL)
+#define SBI_DOMAIN_MEMREGION_SU_ACCESS_MASK	(0x38UL)
+
+#define SBI_DOMAIN_MEMREGION_SU_ACCESS_SHIFT	(3)
+
+#define SBI_DOMAIN_MEMREGION_SHARED_RDONLY		\
+		(SBI_DOMAIN_MEMREGION_M_READABLE |	\
+		 SBI_DOMAIN_MEMREGION_SU_READABLE)
+
+#define SBI_DOMAIN_MEMREGION_SHARED_SUX_MRX		\
+		(SBI_DOMAIN_MEMREGION_M_READABLE   |	\
+		 SBI_DOMAIN_MEMREGION_M_EXECUTABLE |	\
+		 SBI_DOMAIN_MEMREGION_SU_EXECUTABLE)
+
+#define SBI_DOMAIN_MEMREGION_SHARED_SUX_MX		\
+		(SBI_DOMAIN_MEMREGION_M_EXECUTABLE |	\
+		 SBI_DOMAIN_MEMREGION_SU_EXECUTABLE)
+
+#define SBI_DOMAIN_MEMREGION_SHARED_SURW_MRW		\
+		(SBI_DOMAIN_MEMREGION_M_READABLE |	\
+		 SBI_DOMAIN_MEMREGION_M_WRITABLE |	\
+		 SBI_DOMAIN_MEMREGION_SU_READABLE|	\
+		 SBI_DOMAIN_MEMREGION_SU_WRITABLE)
+
+#define SBI_DOMAIN_MEMREGION_SHARED_SUR_MRW		\
+		(SBI_DOMAIN_MEMREGION_M_READABLE |	\
+		 SBI_DOMAIN_MEMREGION_M_WRITABLE |	\
+		 SBI_DOMAIN_MEMREGION_SU_READABLE)
+
+	/* Shared read-only region between M and SU mode */
+#define SBI_DOMAIN_MEMREGION_IS_SUR_MR(__flags)			 \
+		((__flags & SBI_DOMAIN_MEMREGION_ACCESS_MASK) == \
+		 SBI_DOMAIN_MEMREGION_SHARED_RDONLY)
+
+	/* Shared region: SU execute-only and M read/execute */
+#define SBI_DOMAIN_MEMREGION_IS_SUX_MRX(__flags)		 \
+		((__flags & SBI_DOMAIN_MEMREGION_ACCESS_MASK) == \
+		 SBI_DOMAIN_MEMREGION_SHARED_SUX_MRX)
+
+	/* Shared region: SU and M execute-only */
+#define SBI_DOMAIN_MEMREGION_IS_SUX_MX(__flags)			 \
+		((__flags & SBI_DOMAIN_MEMREGION_ACCESS_MASK) == \
+		 SBI_DOMAIN_MEMREGION_SHARED_SUX_MX)
+
+	/* Shared region: SU and M read/write */
+#define SBI_DOMAIN_MEMREGION_IS_SURW_MRW(__flags)		 \
+		((__flags & SBI_DOMAIN_MEMREGION_ACCESS_MASK) == \
+		 SBI_DOMAIN_MEMREGION_SHARED_SURW_MRW)
+
+	/* Shared region: SU read-only and M read/write */
+#define SBI_DOMAIN_MEMREGION_IS_SUR_MRW(__flags)		 \
+		((__flags & SBI_DOMAIN_MEMREGION_ACCESS_MASK) == \
+		 SBI_DOMAIN_MEMREGION_SHARED_SUR_MRW)
+
+	/*
+	 * Check if region flags match with any of the above
+	 * mentioned shared region type
+	 */
+#define SBI_DOMAIN_MEMREGION_IS_SHARED(_flags)			\
+		(SBI_DOMAIN_MEMREGION_IS_SUR_MR(_flags)  ||	\
+		 SBI_DOMAIN_MEMREGION_IS_SUX_MRX(_flags) ||	\
+		 SBI_DOMAIN_MEMREGION_IS_SUX_MX(_flags)  ||	\
+		 SBI_DOMAIN_MEMREGION_IS_SURW_MRW(_flags)||	\
+		 SBI_DOMAIN_MEMREGION_IS_SUR_MRW(_flags))
+
+#define SBI_DOMAIN_MEMREGION_M_ONLY_ACCESS(__flags)			\
+		((__flags & SBI_DOMAIN_MEMREGION_M_ACCESS_MASK) &&	\
+		 !(__flags & SBI_DOMAIN_MEMREGION_SU_ACCESS_MASK))
+
+#define SBI_DOMAIN_MEMREGION_SU_ONLY_ACCESS(__flags)			\
+		((__flags & SBI_DOMAIN_MEMREGION_SU_ACCESS_MASK)  &&	\
+		 !(__flags & SBI_DOMAIN_MEMREGION_M_ACCESS_MASK))
+
 /** Bit to control if permissions are enforced on all modes */
 #define SBI_DOMAIN_MEMREGION_ENF_PERMISSIONS	(1UL << 6)
 
@@ -77,12 +151,6 @@ struct sbi_domain_memregion {
 #define SBI_DOMAIN_MEMREGION_ENF_EXECUTABLE	\
 				(SBI_DOMAIN_MEMREGION_SU_EXECUTABLE | \
 				 SBI_DOMAIN_MEMREGION_M_EXECUTABLE)
-
-#define SBI_DOMAIN_MEMREGION_ACCESS_MASK	(0x3fUL)
-#define SBI_DOMAIN_MEMREGION_M_ACCESS_MASK	(0x7UL)
-#define SBI_DOMAIN_MEMREGION_SU_ACCESS_MASK	(0x38UL)
-
-#define SBI_DOMAIN_MEMREGION_SU_ACCESS_SHIFT	(3)
 
 #define SBI_DOMAIN_MEMREGION_MMIO		(1UL << 31)
 	unsigned long flags;
@@ -129,12 +197,12 @@ struct sbi_domain {
 /** The root domain instance */
 extern struct sbi_domain root;
 
-/** Get pointer to sbi_domain from HART id */
-struct sbi_domain *sbi_hartid_to_domain(u32 hartid);
+/** Get pointer to sbi_domain from HART index */
+struct sbi_domain *sbi_hartindex_to_domain(u32 hartindex);
 
 /** Get pointer to sbi_domain for current HART */
 #define sbi_domain_thishart_ptr() \
-	sbi_hartid_to_domain(current_hartid())
+	sbi_hartindex_to_domain(sbi_hartid_to_hartindex(current_hartid()))
 
 /** Index to domain table */
 extern struct sbi_domain *domidx_to_domain_table[];

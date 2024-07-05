@@ -325,7 +325,7 @@ build-microvm: b/microvm/qemu-system-x86_64
 b/microvm/qemu-system-x86_64: b/microvm/configured
 	${NINJA} -C b/microvm qemu-system-x86_64
 install-microvm: b/microvm/qemu-system-x86_64
-	cp b/microvm/x86_64-softmmu/qemu-system-x86_64 debian/qemu-system-x86/usr/bin/qemu-system-x86_64-microvm
+	cp b/microvm/qemu-system-x86_64 debian/qemu-system-x86/usr/bin/qemu-system-x86_64-microvm
 	echo ".so man1/qemu-system.1" > debian/qemu-system-x86/usr/share/man/man1/qemu-system-x86_64-microvm.1
 # build microvm on amd64 only if system build is enabled
 qemu-builds += $(if $(filter ${DEB_HOST_ARCH}-${enable-system},amd64-y),microvm)
@@ -523,11 +523,7 @@ install-arch: pre-install-arch $(addprefix install-, ${qemu-builds})
 	dh_strip_nondeterminism -a
 	dh_compress -a
 	dh_fixperms -a
-#968670: skip dwz << 0.14 on these arches, remove in bookworm+1
-	v="$$(dwz --version 2>&1 | sed -n 's/^dwz version //p')"; case "$$v" in \
-	  (0.1[0123]) echo "Skipping dwz version $$v on ${DEB_HOST_ARCH}: #968670" ;; \
-	  (*) dh_dwz -a ;; \
-	esac
+	dh_dwz -a
 	dh_strip -a
 # qemu-user-static contains static binaries only, but they might be built
 # as static-pie executables and dpkg-shlibdeps complains. Just omit it here.
@@ -670,15 +666,18 @@ install-slof: b/SLOF/boot_rom.bin
 sysdata-components += slof
 
 ### hppa-firmware (roms/seabios-hppa)
-build-hppa-fw: b/hppafw/hppa-firmware.img
-b/hppafw/hppa-firmware.img:
-	mkdir -p b/hppafw
-	echo CONFIG_PARISC=y > roms/seabios-hppa/.config
-	${MAKE} -C roms/seabios-hppa olddefconfig
-	${MAKE} -C roms/seabios-hppa OUT=../../b/hppafw/ PYTHON=python3 parisc
-	hppa-linux-gnu-strip -R.note -R.comment $@
-install-hppa-fw: b/hppafw/hppa-firmware.img
-	install -m 0644 $< ${sysdataidir}
+build-hppa-fw: b/hppa-fw/.built
+b/hppa-fw/.built:
+	rm -rf $(dir $@)
+	cp -al roms/seabios-hppa $(dir $@)
+	${MAKE} -C $(dir $@) PYTHON=python3 parisc
+	hppa-linux-gnu-strip -R.note -R.comment $(dir $@)out/hppa-firmware.img
+	hppa64-linux-gnu-strip -R.note -R.comment $(dir $@)out-64/hppa-firmware64.img
+	touch $@
+install-hppa-fw: b/hppa-fw/.built
+	install -m 0644 -t ${sysdataidir} \
+	    $(dir $<)out/hppa-firmware.img \
+	    $(dir $<)out-64/hppa-firmware64.img
 sysdata-components += hppa-fw
 
 ### opensbi (riscv firmware)

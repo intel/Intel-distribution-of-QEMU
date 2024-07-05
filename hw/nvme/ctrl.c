@@ -5642,6 +5642,10 @@ static uint16_t nvme_identify_ns_descr_list(NvmeCtrl *n, NvmeRequest *req)
     } QEMU_PACKED uuid = {};
     struct {
         NvmeIdNsDescr hdr;
+        uint8_t v[NVME_NIDL_NGUID];
+    } QEMU_PACKED nguid = {};
+    struct {
+        NvmeIdNsDescr hdr;
         uint64_t v;
     } QEMU_PACKED eui64 = {};
     struct {
@@ -5666,6 +5670,14 @@ static uint16_t nvme_identify_ns_descr_list(NvmeCtrl *n, NvmeRequest *req)
         memcpy(uuid.v, ns->params.uuid.data, NVME_NIDL_UUID);
         memcpy(pos, &uuid, sizeof(uuid));
         pos += sizeof(uuid);
+    }
+
+    if (!nvme_nguid_is_null(&ns->params.nguid)) {
+        nguid.hdr.nidt = NVME_NIDT_NGUID;
+        nguid.hdr.nidl = NVME_NIDL_NGUID;
+        memcpy(nguid.v, ns->params.nguid.data, NVME_NIDL_NGUID);
+        memcpy(pos, &nguid, sizeof(nguid));
+        pos += sizeof(nguid);
     }
 
     if (ns->params.eui64) {
@@ -5882,7 +5894,7 @@ static uint16_t nvme_get_feature(NvmeCtrl *n, NvmeRequest *req)
     uint32_t dw10 = le32_to_cpu(cmd->cdw10);
     uint32_t dw11 = le32_to_cpu(cmd->cdw11);
     uint32_t nsid = le32_to_cpu(cmd->nsid);
-    uint32_t result;
+    uint32_t result = 0;
     uint8_t fid = NVME_GETSETFEAT_FID(dw10);
     NvmeGetFeatureSelect sel = NVME_GETFEAT_SELECT(dw10);
     uint16_t iv;
@@ -7113,10 +7125,6 @@ static void nvme_ctrl_reset(NvmeCtrl *n, NvmeResetType rst)
             for (i = 0; i < n->sec_ctrl_list.numcntl; i++) {
                 sctrl = &n->sec_ctrl_list.sec[i];
                 nvme_virt_set_state(n, le16_to_cpu(sctrl->scid), false);
-            }
-
-            if (rst != NVME_RESET_CONTROLLER) {
-                pcie_sriov_pf_disable_vfs(pci_dev);
             }
         }
 

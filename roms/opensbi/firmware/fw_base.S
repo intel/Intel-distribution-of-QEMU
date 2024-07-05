@@ -88,30 +88,8 @@ _try_lottery:
 	add	t5, t5, t2
 	add	t3, t3, t2
 	REG_S	t5, 0(t3)		/* store runtime address to the GOT entry */
-	j	5f
 
 3:
-	lla	t4, __dyn_sym_start
-
-4:
-	srli	t6, t5, SYM_INDEX	/* t6 <--- sym table index */
-	andi	t5, t5, 0xFF		/* t5 <--- relocation type */
-	li	t3, RELOC_TYPE
-	bne	t5, t3, 5f
-
-	/* address R_RISCV_64 or R_RISCV_32 cases*/
-	REG_L	t3, 0(t0)
-	li	t5, SYM_SIZE
-	mul	t6, t6, t5
-	add	s5, t4, t6
-	REG_L	t6, (REGBYTES * 2)(t0)	/* t0 <-- addend */
-	REG_L	t5, REGBYTES(s5)
-	add	t5, t5, t6
-	add	t5, t5, t2		/* t5 <-- location to fix up in RAM */
-	add	t3, t3, t2		/* t3 <-- location to fix up in RAM */
-	REG_S	t5, 0(t3)		/* store runtime address to the variable */
-
-5:
 	addi	t0, t0, (REGBYTES * 3)
 	blt	t0, t1, 2b
 	j	_relocate_done
@@ -309,8 +287,8 @@ _scratch_init:
 	REG_S	a5, SBI_SCRATCH_FW_SIZE_OFFSET(tp)
 
 	/* Store R/W section's offset in scratch space */
-	lla	a4, __fw_rw_offset
-	REG_L	a5, 0(a4)
+	lla	a5, _fw_rw_start
+	sub	a5, a5, a4
 	REG_S	a5, SBI_SCRATCH_FW_RW_OFFSET(tp)
 
 	/* Store fw_heap_offset and fw_heap_size in scratch space */
@@ -421,8 +399,8 @@ _fdt_reloc_done:
 	/* mark boot hart done */
 	li	t0, BOOT_STATUS_BOOT_HART_DONE
 	lla	t1, _boot_status
-	REG_S	t0, 0(t1)
 	fence	rw, rw
+	REG_S	t0, 0(t1)
 	j	_start_warm
 
 	/* waiting for boot hart to be done (_boot_status == 2) */
@@ -431,9 +409,9 @@ _wait_for_boot_hart:
 	lla	t1, _boot_status
 	REG_L	t1, 0(t1)
 	/* Reduce the bus traffic so that boot hart may proceed faster */
-	nop
-	nop
-	nop
+	div	t2, t2, zero
+	div	t2, t2, zero
+	div	t2, t2, zero
 	bne	t0, t1, _wait_for_boot_hart
 
 _start_warm:
@@ -536,8 +514,6 @@ _link_start:
 	RISCV_PTR	FW_TEXT_START
 _link_end:
 	RISCV_PTR	_fw_reloc_end
-__fw_rw_offset:
-	RISCV_PTR	_fw_rw_start - _fw_start
 
 	.section .entry, "ax", %progbits
 	.align 3

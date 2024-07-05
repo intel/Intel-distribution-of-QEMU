@@ -10,10 +10,13 @@
 #include <libfdt.h>
 #include <platform_override.h>
 #include <sbi/riscv_asm.h>
+#include <sbi/sbi_bitops.h>
 #include <sbi/sbi_hartmask.h>
+#include <sbi/sbi_heap.h>
 #include <sbi/sbi_platform.h>
 #include <sbi/sbi_string.h>
 #include <sbi/sbi_system.h>
+#include <sbi/sbi_tlb.h>
 #include <sbi_utils/fdt/fdt_domain.h>
 #include <sbi_utils/fdt/fdt_fixup.h>
 #include <sbi_utils/fdt/fdt_helper.h>
@@ -52,6 +55,18 @@ static void fw_platform_lookup_special(void *fdt, int root_offset)
 		generic_plat_match = match;
 		break;
 	}
+}
+
+static u32 fw_platform_calculate_heap_size(u32 hart_count)
+{
+	u32 heap_size;
+
+	heap_size = SBI_PLATFORM_DEFAULT_HEAP_SIZE(hart_count);
+
+	/* For TLB fifo */
+	heap_size += SBI_TLB_INFO_SIZE * (hart_count) * (hart_count);
+
+	return BIT_ALIGN(heap_size, HEAP_BASE_ALIGN);
 }
 
 extern struct sbi_platform platform;
@@ -115,7 +130,7 @@ unsigned long fw_platform_init(unsigned long arg0, unsigned long arg1,
 	}
 
 	platform.hart_count = hart_count;
-	platform.heap_size = SBI_PLATFORM_DEFAULT_HEAP_SIZE(hart_count);
+	platform.heap_size = fw_platform_calculate_heap_size(hart_count);
 	platform_has_mlevel_imsic = fdt_check_imsic_mlevel(fdt);
 
 	/* Return original FDT pointer */
@@ -188,12 +203,10 @@ static bool generic_vendor_ext_check(void)
 }
 
 static int generic_vendor_ext_provider(long funcid,
-				       const struct sbi_trap_regs *regs,
-				       unsigned long *out_value,
-				       struct sbi_trap_info *out_trap)
+				       struct sbi_trap_regs *regs,
+				       struct sbi_ecall_return *out)
 {
-	return generic_plat->vendor_ext_provider(funcid, regs,
-						 out_value, out_trap,
+	return generic_plat->vendor_ext_provider(funcid, regs, out,
 						 generic_plat_match);
 }
 
@@ -211,6 +224,15 @@ static void generic_final_exit(void)
 
 static int generic_extensions_init(struct sbi_hart_features *hfeatures)
 {
+	int rc;
+
+	/* Parse the ISA string from FDT and enable the listed extensions */
+	rc = fdt_parse_isa_extensions(fdt_get_address(), current_hartid(),
+				      hfeatures->extensions);
+
+	if (rc)
+		return rc;
+
 	if (generic_plat && generic_plat->extensions_init)
 		return generic_plat->extensions_init(generic_plat_match,
 						     hfeatures);
@@ -247,9 +269,28 @@ static u64 generic_tlbr_flush_limit(void)
 	return SBI_PLATFORM_TLB_RANGE_FLUSH_LIMIT_DEFAULT;
 }
 
+static u32 generic_tlb_num_entries(void)
+{
+	if (generic_plat && generic_plat->tlb_num_entries)
+		return generic_plat->tlb_num_entries(generic_plat_match);
+	return sbi_scratch_last_hartindex() + 1;
+}
+
 static int generic_pmu_init(void)
 {
-	return fdt_pmu_setup(fdt_get_address());
+	int rc;
+
+	if (generic_plat && generic_plat->pmu_init) {
+		rc = generic_plat->pmu_init(generic_plat_match);
+		if (rc)
+			return rc;
+	}
+
+	rc = fdt_pmu_setup(fdt_get_address());
+	if (rc && rc != SBI_ENOENT)
+		return rc;
+
+	return 0;
 }
 
 static uint64_t generic_pmu_xlate_to_mhpmevent(uint32_t event_idx,
@@ -299,6 +340,7 @@ const struct sbi_platform_operations platform_ops = {
 	.pmu_init		= generic_pmu_init,
 	.pmu_xlate_to_mhpmevent = generic_pmu_xlate_to_mhpmevent,
 	.get_tlbr_flush_limit	= generic_tlbr_flush_limit,
+	.get_tlb_num_entries	= generic_tlb_num_entries,
 	.timer_init		= fdt_timer_init,
 	.timer_exit		= fdt_timer_exit,
 	.vendor_ext_check	= generic_vendor_ext_check,

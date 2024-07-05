@@ -20,6 +20,7 @@ Files-Excluded:
 	pc-bios/efi-*.rom
 	pc-bios/pxe-*.rom
 	pc-bios/hppa-firmware.img
+	pc-bios/hppa-firmware64.img
 	pc-bios/kvmvapic.bin
 	pc-bios/linuxboot.bin
 	pc-bios/linuxboot_dma.bin

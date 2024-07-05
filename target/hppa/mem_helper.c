@@ -392,9 +392,29 @@ raise_exception_with_ior(CPUHPPAState *env, int excp, uintptr_t retaddr,
     CPUState *cs = env_cpu(env);
 
     cs->exception_index = excp;
+    cpu_restore_state(cs, retaddr);
     hppa_set_ior_and_isr(env, addr, mmu_disabled);
 
-    cpu_loop_exit_restore(cs, retaddr);
+    cpu_loop_exit(cs);
+}
+
+void hppa_cpu_do_transaction_failed(CPUState *cs, hwaddr physaddr,
+                                     vaddr addr, unsigned size,
+                                     MMUAccessType access_type,
+                                     int mmu_idx, MemTxAttrs attrs,
+                                     MemTxResult response, uintptr_t retaddr)
+{
+    CPUHPPAState *env = cpu_env(cs);
+
+    qemu_log_mask(LOG_GUEST_ERROR, "HPMC at " TARGET_FMT_lx ":" TARGET_FMT_lx
+                " while accessing I/O at %#08" HWADDR_PRIx "\n",
+                env->iasq_f, env->iaoq_f, physaddr);
+
+    /* FIXME: Enable HPMC exceptions when firmware has clean device probing */
+    if (0) {
+        raise_exception_with_ior(env, EXCP_HPMC, retaddr, addr,
+                                 MMU_IDX_MMU_DISABLED(mmu_idx));
+    }
 }
 
 bool hppa_cpu_tlb_fill(CPUState *cs, vaddr addr, int size,
@@ -562,7 +582,6 @@ void HELPER(iitlbt_pa20)(CPUHPPAState *env, target_ulong r1, target_ulong r2)
 /* Purge (Insn/Data) TLB. */
 static void ptlb_work(CPUState *cpu, run_on_cpu_data data)
 {
-    CPUHPPAState *env = cpu_env(cpu);
     vaddr start = data.target_ptr;
     vaddr end;
 
@@ -576,7 +595,7 @@ static void ptlb_work(CPUState *cpu, run_on_cpu_data data)
     end = (vaddr)TARGET_PAGE_SIZE << (2 * end);
     end = start + end - 1;
 
-    hppa_flush_tlb_range(env, start, end);
+    hppa_flush_tlb_range(cpu_env(cpu), start, end);
 }
 
 /* This is local to the current cpu. */
@@ -690,7 +709,7 @@ int hppa_artype_for_page(CPUHPPAState *env, target_ulong vaddr)
 void HELPER(diag_btlb)(CPUHPPAState *env)
 {
     unsigned int phys_page, len, slot;
-    int mmu_idx = cpu_mmu_index(env, 0);
+    int mmu_idx = cpu_mmu_index(env_cpu(env), 0);
     uintptr_t ra = GETPC();
     HPPATLBEntry *btlb;
     uint64_t virt_page;
@@ -709,7 +728,7 @@ void HELPER(diag_btlb)(CPUHPPAState *env)
     case 0:
         /* return BTLB parameters */
         qemu_log_mask(CPU_LOG_MMU, "PDC_BLOCK_TLB: PDC_BTLB_INFO\n");
-        vaddr = probe_access(env, env->gr[24], 4 * sizeof(target_ulong),
+        vaddr = probe_access(env, env->gr[24], 4 * sizeof(uint32_t),
                              MMU_DATA_STORE, mmu_idx, ra);
         if (vaddr == NULL) {
             env->gr[28] = -10; /* invalid argument */

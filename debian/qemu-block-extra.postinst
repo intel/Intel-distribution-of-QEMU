@@ -6,3 +6,5 @@ if [ "$1" = configure -a -x /usr/bin/deb-systemd-helper ] &&
 then
    deb-systemd-helper purge 'run-qemu.mount' >/dev/null || :
 fi
+
+#DEBHELPER#

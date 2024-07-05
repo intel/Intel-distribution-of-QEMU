@@ -149,8 +149,8 @@ Build-Depends-Indep:
  libssl-dev,
 # openbios
  gcc-sparc64-linux-gnu, fcode-utils, xsltproc,
-# hppa-firmware
- gcc-hppa-linux-gnu,
+# hppa-firmware (32 and 64 bit)
+ gcc-hppa-linux-gnu, gcc-hppa64-linux-gnu,
 # opensbi
  gcc-riscv64-linux-gnu,
 # vbootrom/npcm7xx_bootrom
@@ -314,7 +314,8 @@ Replaces: qemu-system-common (<< 1:8.1.0+ds-1~exp2~), qemu-system-gui (<< 1:8.1.
 Breaks:   qemu-system-common (<< 1:8.1.0+ds-1~exp2~), qemu-system-gui (<< 1:8.1.0+ds-1~exp2~)
 Description: QEMU full system emulation binaries (OpenGL display modules)
  This package provides optional OpenGL display support modules for QEMU full
- system emulation (qemu-system-*) packages.  It also provides D-Bus display type.
+ system emulation (qemu-system-*) packages.  It also provides D-Bus display
+ type.
 
 Package: qemu-system-misc
 Architecture: :system-arch:

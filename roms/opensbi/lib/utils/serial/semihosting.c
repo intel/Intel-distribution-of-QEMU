@@ -160,11 +160,6 @@ static long semihosting_write(long fd, const void *memp, size_t len)
 
 /* clang-format on */
 
-static void semihosting_putc(char ch)
-{
-	semihosting_trap(SYSWRITEC, &ch);
-}
-
 static unsigned long semihosting_puts(const char *str, unsigned long len)
 {
 	char ch;
@@ -199,7 +194,6 @@ static int semihosting_getc(void)
 
 static struct sbi_console_device semihosting_console = {
 	.name = "semihosting",
-	.console_putc = semihosting_putc,
 	.console_puts = semihosting_puts,
 	.console_getc = semihosting_getc
 };
