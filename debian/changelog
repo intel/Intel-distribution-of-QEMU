@@ -1,3 +1,12 @@
+qemu (1:9.0.2+ds-1) unstable; urgency=medium
+
+  * new upstream stable/bugfix release
+  * remove patches applied upstream (from the previous upload)
+  * + scsi-fix-regression-and-honor-bootindex-again-for-le.patch
+    (https://forum.proxmox.com/threads/149772/post-679433)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 17 Jul 2024 14:11:32 +0300
+
 qemu (1:9.0.1+ds-1) unstable; urgency=medium
 
   * new upstream release
