@@ -141,7 +141,7 @@ system-kvmlink-amd64 = x86_64
 system-kvmlink-i386 = x86_64
 
 system-archlist-misc = alpha avr cris hppa m68k loongarch64 \
-		microblaze microblazeel nios2 or1k riscv32 riscv64 rx sh4 sh4eb \
+		microblaze microblazeel or1k riscv32 riscv64 rx sh4 sh4eb \
 		$(if ${system-s390x},,s390x) \
 		tricore xtensa xtensaeb
 system-alias-loongarch64 = loong64

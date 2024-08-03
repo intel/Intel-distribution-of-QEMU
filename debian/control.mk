@@ -48,7 +48,6 @@ user-targets := \
  mipsel \
  mipsn32 \
  mipsn32el \
- nios2 \
  or1k \
  ppc \
  ppc64 \
