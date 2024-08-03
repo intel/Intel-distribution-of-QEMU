@@ -1,3 +1,13 @@
+qemu (1:9.0.2+ds-2) unstable; urgency=medium
+
+  A few internal helper binaries (qemu-bridge-helper, virtfs-proxy-helper)
+  has been moved from /usr/lib/qemu/ to /usr/libexec/qemu/, to better follow
+  FHS recommendations.  Compatibility wrappers still do exists in old location,
+  which will show a warning and delay execution for 15s.  Please update your
+  scripts if you use these tools directly.
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 03 Aug 2024 12:36:11 +0300
+
 qemu (1:8.0+dfsg-1) experimental; urgency=medium
 
    Qemu upstream dropped support of the C-language virtiofsd daemon

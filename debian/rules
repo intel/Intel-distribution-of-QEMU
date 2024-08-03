@@ -82,7 +82,7 @@ common_configure_opts = \
 	--prefix=/usr \
 	--sysconfdir=/etc \
 	--libdir=${libdir} \
-	--libexecdir=/usr/lib/qemu \
+	--libexecdir=/usr/libexec/qemu \
 	--firmwarepath=${FIRMWAREPATH} \
 	--localstatedir=/var \
 	--disable-install-blobs \
@@ -250,6 +250,14 @@ ifeq (${enable-system},y)
 	    ,$(if $(filter ${DEB_HOST_ARCH_CPU},${system-kvmcpus-$p}),qemu-system-${system-kvmlink-${DEB_HOST_ARCH_CPU}})))
 
 ifeq ($(DEB_HOST_ARCH_OS),linux)
+
+# remove for trixie+1:
+	install -pDm0755 debian/lib2libexec.sh \
+		debian/qemu-system-common/usr/lib/qemu/qemu-bridge-helper
+	install -pDm0755 debian/lib2libexec.sh \
+		debian/qemu-system-common/usr/lib/qemu/virtfs-proxy-helper
+	install -pDm0755 debian/lib2libexec.sh \
+		debian/qemu-system-gui/usr/lib/qemu/vhost-user-gpu
 
 ifeq (${VENDOR},ubuntu)
 ifneq ($(filter ${DEB_HOST_ARCH},amd64 i386),)
