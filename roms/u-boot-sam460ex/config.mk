@@ -191,6 +191,11 @@ endif
 
 CFLAGS += $(call cc-option,-fno-stack-protector)
 
+# this u-boot is an old bad code
+CFLAGS += $(call cc-option,-Wno-error=implicit-function-declaration)
+CFLAGS += $(call cc-option,-Wno-error=incompatible-pointer-types)
+CFLAGS += $(call cc-option,-Wno-error=int-conversion)
+
 # $(CPPFLAGS) sets -g, which causes gcc to pass a suitable -g<format>
 # option to the assembler.
 AFLAGS_DEBUG :=
