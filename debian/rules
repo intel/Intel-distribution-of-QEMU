@@ -70,7 +70,7 @@ ALPHAEV67_CROSSPFX = alpha-linux-gnu-
 PPC_CROSSPFX = powerpc-linux-gnu-
 PPC64_CROSSPFX = powerpc64-linux-gnu-
 RISCV64_CROSSPFX = riscv64-linux-gnu-
-ARM_CROSSPFX = arm-none-eabi-
+ARM_CROSSPFX = arm-linux-gnueabi-
 
 extra-cflags = ${CFLAGS} ${CPPFLAGS}
 extra-ldflags = ${LDFLAGS} -Wl,--as-needed

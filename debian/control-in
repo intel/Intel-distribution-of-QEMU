@@ -154,7 +154,7 @@ Build-Depends-Indep:
 # opensbi
  gcc-riscv64-linux-gnu,
 # vbootrom/npcm7xx_bootrom
- gcc-arm-none-eabi,
+ gcc-arm-linux-gnueabi, libc6-dev-armel-cross,
 Build-Conflicts: oss4-dev
 Standards-Version: 4.6.2
 Homepage: http://www.qemu.org/
