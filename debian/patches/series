@@ -7,6 +7,7 @@ qemu-bridge-helper-path.patch
 qboot-Disable-LTO-for-ELF-binary-build-step.patch
 u-boot-sam460ex-fdi.patch
 u-boot-sam460ex-mstring.patch
+u-boot-sam460ex-build.patch
 openbios-array-bounds.diff
 openbios-array-bounds-gcc12.patch
 openbios-use-source_date_epoch-in-makefile.patch
