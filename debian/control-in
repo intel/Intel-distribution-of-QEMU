@@ -9,7 +9,7 @@ Build-Depends: debhelper-compat (= 13),
  python3:any,
  python3-venv:any,
  python3:any (>> 3.11) | python3-tomli,
- meson (>> 0.63.0~), ninja-build,
+ meson (>> 1.1.0~), ninja-build,
  flex, bison,
 # for :native suffix see #995622
  python3-sphinx:native, python3-sphinx-rtd-theme:native,
