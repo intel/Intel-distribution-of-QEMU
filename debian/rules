@@ -66,11 +66,11 @@ sysdataidir = debian/qemu-system-data/usr/share/qemu
 libdir = /usr/lib/${DEB_HOST_MULTIARCH}
 FIRMWAREPATH = /usr/share/qemu:/usr/share/seabios:/usr/lib/ipxe/qemu
 
-ALPHAEV67_CROSSPFX = alpha-linux-gnu-
-PPC_CROSSPFX = powerpc-linux-gnu-
-PPC64_CROSSPFX = powerpc64-linux-gnu-
-RISCV64_CROSSPFX = riscv64-linux-gnu-
-ARM_CROSSPFX = arm-linux-gnueabi-
+export cross_prefix_alpha = alpha-linux-gnu-
+export cross_prefix_arm = arm-linux-gnueabi-
+export cross_prefix_ppc = powerpc-linux-gnu-
+export cross_prefix_ppc64 = powerpc64-linux-gnu-
+export cross_prefix_riscv64 = riscv64-linux-gnu-
 
 extra-cflags = ${CFLAGS} ${CPPFLAGS}
 extra-ldflags = ${LDFLAGS} -Wl,--as-needed
@@ -614,7 +614,7 @@ b/skiboot/skiboot.lid: | roms/skiboot/.version
 	${MAKE} -C b/skiboot -f ${CURDIR}/roms/skiboot/Makefile \
 	  SRC=${CURDIR}/roms/skiboot \
 	  OPTS='-Os -ffile-prefix-map="${CURDIR}/roms/skiboot/"=' \
-	  CROSS_COMPILE=${PPC64_CROSSPFX} V=${V}
+	  CROSS_COMPILE=${cross_prefix_ppc64} V=${V}
 install-skiboot: b/skiboot/skiboot.lid
 	install -m 0644 -t ${sysdataidir} $<
 sysdata-components += skiboot
@@ -623,9 +623,9 @@ sysdata-components += skiboot
 build-u-boot-e500: b/u-boot/build-e500/u-boot
 b/u-boot/build-e500/u-boot: | b
 	cp -alu roms/u-boot b/
-	${MAKE} -C b/u-boot CROSS_COMPILE=${PPC_CROSSPFX} O=build-e500 qemu-ppce500_config
-	${MAKE} -C b/u-boot CROSS_COMPILE=${PPC_CROSSPFX} O=build-e500 V=$V
-	${PPC_CROSSPFX}strip $@
+	${MAKE} -C b/u-boot CROSS_COMPILE=${cross_prefix_ppc} O=build-e500 qemu-ppce500_config
+	${MAKE} -C b/u-boot CROSS_COMPILE=${cross_prefix_ppc} O=build-e500 V=$V
+	${cross_prefix_ppc}strip $@
 install-u-boot-e500: b/u-boot/build-e500/u-boot
 	install -m 0644 $< ${sysdataidir}/u-boot.e500
 sysdata-components += u-boot-e500
@@ -634,10 +634,10 @@ sysdata-components += u-boot-e500
 build-u-boot-sam460: b/u-boot-sam460ex/u-boot.bin
 b/u-boot-sam460ex/u-boot.bin: | b
 	cp -alu roms/u-boot-sam460ex b/
-	${MAKE} -C b/u-boot-sam460ex CROSS_COMPILE=${PPC_CROSSPFX} Sam460ex_config
+	${MAKE} -C b/u-boot-sam460ex CROSS_COMPILE=${cross_prefix_ppc} Sam460ex_config
 	env -u LDFLAGS -u OBJCFLAGS \
-	${MAKE} -C b/u-boot-sam460ex CROSS_COMPILE=${PPC_CROSSPFX}
-#	${PPC_CROSSPFX}strip $@
+	${MAKE} -C b/u-boot-sam460ex CROSS_COMPILE=${cross_prefix_ppc}
+#	${cross_prefix_ppc}strip $@
 install-u-boot-sam460: b/u-boot-sam460ex/u-boot.bin | ${sysdataidir}
 	install -m 0644 $< ${sysdataidir}/u-boot-sam460-20100605.bin
 sysdata-components += u-boot-sam460
@@ -657,9 +657,9 @@ build-palcode-clipper: b/qemu-palcode/palcode-clipper
 b/qemu-palcode/palcode-clipper: | b
 	cp -al roms/qemu-palcode b/
 #XXX #1019011 (remove OPT= alternative when fixed)
-	${MAKE} -C b/qemu-palcode CROSS=${ALPHAEV67_CROSSPFX} -k || \
-	${MAKE} -C b/qemu-palcode CROSS=${ALPHAEV67_CROSSPFX} OPT=-O1
-	${ALPHAEV67_CROSSPFX}strip b/qemu-palcode/palcode-clipper
+	${MAKE} -C b/qemu-palcode CROSS=${cross_prefix_alpha} -k || \
+	${MAKE} -C b/qemu-palcode CROSS=${cross_prefix_alpha} OPT=-O1
+	${cross_prefix_alpha}strip b/qemu-palcode/palcode-clipper
 install-palcode-clipper: b/qemu-palcode/palcode-clipper
 	install -m 0644 $< ${sysdataidir}/palcode-clipper
 sysdata-components += palcode-clipper
@@ -668,7 +668,7 @@ sysdata-components += palcode-clipper
 build-slof: b/SLOF/boot_rom.bin
 b/SLOF/boot_rom.bin: | b
 	cp -al roms/SLOF b/
-	env -u LDFLAGS -u CFLAGS $(MAKE) -C b/SLOF qemu CROSS=${PPC64_CROSSPFX} V=${V}
+	env -u LDFLAGS -u CFLAGS $(MAKE) -C b/SLOF qemu CROSS=${cross_prefix_ppc64} V=${V}
 install-slof: b/SLOF/boot_rom.bin
 	install -m 0644 $< ${sysdataidir}/slof.bin
 sysdata-components += slof
@@ -693,8 +693,8 @@ sysdata-components += hppa-fw
 build-opensbi: b/opensbi/.built
 b/opensbi/.built:
 	mkdir -p b/opensbi
-	${MAKE} -C roms/opensbi O=../../b/opensbi CROSS_COMPILE=${RISCV64_CROSSPFX} V=${V} PLATFORM=generic
-	${RISCV64_CROSSPFX}strip --strip-unneeded -R.comment -R.note b/opensbi/platform/generic/firmware/fw_dynamic.elf
+	${MAKE} -C roms/opensbi O=../../b/opensbi CROSS_COMPILE=${cross_prefix_riscv64} V=${V} PLATFORM=generic
+	${cross_prefix_riscv64}strip --strip-unneeded -R.comment -R.note b/opensbi/platform/generic/firmware/fw_dynamic.elf
 	touch $@
 install-opensbi: build-opensbi
 	install -m 0644 b/opensbi/platform/generic/firmware/fw_dynamic.bin ${sysdataidir}/opensbi-riscv64-generic-fw_dynamic.bin
@@ -705,7 +705,7 @@ sysdata-components += opensbi
 build-vbootrom: b/vbootrom/.built
 b/vbootrom/.built: | b
 	cp -pa roms/vbootrom b/
-	${MAKE} -C b/vbootrom CROSS_COMPILE=${ARM_CROSSPFX}
+	${MAKE} -C b/vbootrom CROSS_COMPILE=${cross_prefix_arm}
 	touch $@
 install-vbootrom: build-vbootrom
 	install -m 0644 b/vbootrom/npcm7xx_bootrom.bin ${sysdataidir}/
