@@ -68,6 +68,8 @@ FIRMWAREPATH = /usr/share/qemu:/usr/share/seabios:/usr/lib/ipxe/qemu
 
 export cross_prefix_alpha = alpha-linux-gnu-
 export cross_prefix_arm = arm-linux-gnueabi-
+export cross_prefix_hppa = hppa-linux-gnu-
+export cross_prefix_hppa64 = hppa64-linux-gnu-
 export cross_prefix_ppc = powerpc-linux-gnu-
 export cross_prefix_ppc64 = powerpc64-linux-gnu-
 export cross_prefix_riscv64 = riscv64-linux-gnu-
@@ -678,14 +680,15 @@ build-hppa-fw: b/hppa-fw/.built
 b/hppa-fw/.built:
 	rm -rf $(dir $@)
 	cp -al roms/seabios-hppa $(dir $@)
-	${MAKE} -C $(dir $@) PYTHON=python3 parisc
-	hppa-linux-gnu-strip -R.note -R.comment $(dir $@)out/hppa-firmware.img
-	hppa64-linux-gnu-strip -R.note -R.comment $(dir $@)out-64/hppa-firmware64.img
+	${MAKE} PYTHON=python3 OUT=o32/ BITS=32 BIT_SUFFIX=   CROSS_PREFIX=${cross_prefix_hppa}   -C $(dir $@) -f Makefile.parisc all
+	${cross_prefix_hppa}strip   -R.note -R.comment $(dir $@)o32/hppa-firmware.img
+	${MAKE} PYTHON=python3 OUT=o64/ BITS=64 BIT_SUFFIX=64 CROSS_PREFIX=${cross_prefix_hppa64} -C $(dir $@) -f Makefile.parisc all
+	${cross_prefix_hppa64}strip -R.note -R.comment $(dir $@)o64/hppa-firmware64.img
 	touch $@
 install-hppa-fw: b/hppa-fw/.built
 	install -m 0644 -t ${sysdataidir} \
-	    $(dir $<)out/hppa-firmware.img \
-	    $(dir $<)out-64/hppa-firmware64.img
+	    $(dir $<)o32/hppa-firmware.img \
+	    $(dir $<)o64/hppa-firmware64.img
 sysdata-components += hppa-fw
 
 ### opensbi (riscv firmware)
