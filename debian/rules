@@ -615,7 +615,7 @@ sysdata-components += skiboot
 build-u-boot-e500: b/u-boot/build-e500/u-boot
 b/u-boot/build-e500/u-boot: | b
 	cp -alu roms/u-boot b/
-	${MAKE} -C b/u-boot O=build-e500 qemu-ppce500_config
+	${MAKE} -C b/u-boot CROSS_COMPILE=${PPC_CROSSPFX} O=build-e500 qemu-ppce500_config
 	${MAKE} -C b/u-boot CROSS_COMPILE=${PPC_CROSSPFX} O=build-e500 V=$V
 	${PPC_CROSSPFX}strip $@
 install-u-boot-e500: b/u-boot/build-e500/u-boot
@@ -626,7 +626,7 @@ sysdata-components += u-boot-e500
 build-u-boot-sam460: b/u-boot-sam460ex/u-boot.bin
 b/u-boot-sam460ex/u-boot.bin: | b
 	cp -alu roms/u-boot-sam460ex b/
-	${MAKE} -C b/u-boot-sam460ex Sam460ex_config
+	${MAKE} -C b/u-boot-sam460ex CROSS_COMPILE=${PPC_CROSSPFX} Sam460ex_config
 	env -u LDFLAGS -u OBJCFLAGS \
 	${MAKE} -C b/u-boot-sam460ex CROSS_COMPILE=${PPC_CROSSPFX}
 #	${PPC_CROSSPFX}strip $@
