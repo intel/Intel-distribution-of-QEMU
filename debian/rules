@@ -92,12 +92,6 @@ common_configure_opts = \
 # but is -k flag useful these days?
 common_configure_opts += --disable-xkbcommon
 
-# pvrdma is an extension/optimisation for vmxnet3 vmware virtual network
-# adapter. This piece of code seems to be buggy and poorly maintained,
-# resulting in numerous security issues which comes unfixed for long time.
-# This device isn't native for qemu.  # Just disable it for now.
-common_configure_opts += --disable-pvrdma
-
 # Cross compiling support
 ifneq ($(DEB_BUILD_GNU_TYPE), $(DEB_HOST_GNU_TYPE))
 common_configure_opts  += --cross-prefix=$(DEB_HOST_GNU_TYPE)-
