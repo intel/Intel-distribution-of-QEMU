@@ -34,7 +34,7 @@ Build-Depends-Arch:
  libjack-dev    [:system-arch-linux:],
  libpulse-dev   [:system-arch:],
  libasound2-dev [:system-arch-linux:],
- libpipewire-0.3-dev (>> 0.3.60) [:system-arch-linux:],
+ libpipewire-0.3-dev [:system-arch-linux:],
 # for virtfs (now in libc6)
 # --enable-attr
 # --enable-bpf	 :system-arch-linux:
