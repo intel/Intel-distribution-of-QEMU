@@ -1,3 +1,36 @@
+qemu (1:9.0.2+ds-2) unstable; urgency=medium
+
+  * d/rules: pass CROSS_COMPILE= to u-boot* config targets too,
+    not just build targets
+  * u-boot-sam460ex-build.patch: u-boot-sam460ex build fixes/workarounds
+    (hopefully Closes: #1075428)
+  * move helper binaries (qemu-bridge-helper, virtfs-proxy-helper,
+    vhost-user-gpu) from usr/lib/qemu to usr/libexec/qemu
+  * d/*.NEWS: use common indent of 2 spaces instead of sometimes-3
+  * move helper binaries (qemu-bridge-helper, virtfs-proxy-helper,
+    vhost-user-gpu) from usr/lib/qemu to usr/libexec/qemu
+  * d/*.NEWS: use common indent of 2 spaces instead of sometimes-3
+  * switch from gcc-arm-none-eabi to gcc-arm-linux-gnueabi
+    to build npcm7xx vbootrom
+  * d/rules: use the same cross_prefix_* variables in d/rules as
+    ./configure recognizes and export them for ./configure
+  * d/rules: expand seabios-hpppa build and use cross_prefix_hppa* vars
+  * d/rules: do not install opensbi-riscv64-generic-fw_dynamic.elf
+    (only .bin file is needed)
+  * rebuild linux-user vdso files during arch-indep build,
+    so no pre-built binaries are used:
+     - require all cross compilers in Build-Depend-Indep
+     - build vdso archive (build-vdso) and ship it in qemu-system-data
+     - Build-Depends-Arch: qemu-system-data (=source:Version)
+       (with vdso archive)
+     - pkg.qemu.use-upstream-vdso profile to avoid all this
+     - allow building and using vdso files in single arch+indep build
+       without using vdso archive from qemu-system-data
+     - pkg.qemu.omit-vdso-build-dep profile to omit the
+       dependency on qemu-system-data (for single arch+indep build)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 03 Aug 2024 19:23:13 +0300
+
 qemu (1:9.0.2+ds-1) unstable; urgency=medium
 
   * new upstream stable/bugfix release

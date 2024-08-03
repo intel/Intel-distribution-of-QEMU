@@ -133,6 +133,12 @@ Build-Depends-Arch:
 # ipxe-qemu [:system-arch-linux:] <!nocheck>,
 # various firmware files (kvmvapic.bin &Co), older qemu-system-data should work
 #XXX-cyclic-test-dep-dak-bug qemu-system-data [:system-arch-linux:] <!nocheck>,
+# vdso: by default Build-Depend-Arch on qemu-system-data with vdso-archive inside
+#  pkg.qemu.use-upstream-vdso - always use upstream pre-built linux-user/vdso files,
+#     do not embed vdso files into qemu-system-data binary package
+#  pkg.qemu.omit-vdso-build-dep - do not Build-Depend-Arch: qemu-user-data for vdso
+#     (allows to build and use vdso files with single arch+indep build)
+ qemu-system-data (= :pkgversion:) [:system-arch-linux:] <!pkg.qemu.use-upstream-vdso !pkg.qemu.omit-vdso-build-dep>,
 Build-Depends-Indep:
 # compiler used to build i386 firmware
  gcc-i686-linux-gnu,
@@ -154,7 +160,17 @@ Build-Depends-Indep:
 # opensbi
  gcc-riscv64-linux-gnu,
 # vbootrom/npcm7xx_bootrom
- gcc-arm-none-eabi,
+ gcc-arm-linux-gnueabi, libc6-dev-armel-cross,
+# vdso (configure:probe_target_compiler() needs libc too):
+ gcc-aarch64-linux-gnu <!pkg.qemu.use-upstream-vdso>, libc6-dev-arm64-cross <!pkg.qemu.use-upstream-vdso>,
+ gcc-arm-linux-gnueabi <!pkg.qemu.use-upstream-vdso>, libc6-dev-armel-cross <!pkg.qemu.use-upstream-vdso>,
+ gcc-hppa-linux-gnu <!pkg.qemu.use-upstream-vdso>, libc6-dev-hppa-cross <!pkg.qemu.use-upstream-vdso>,
+ gcc-i686-linux-gnu <!pkg.qemu.use-upstream-vdso>, libc6-dev-i386-cross <!pkg.qemu.use-upstream-vdso>,
+ gcc-loongarch64-linux-gnu <!pkg.qemu.use-upstream-vdso>, libc6-dev-loong64-cross <!pkg.qemu.use-upstream-vdso>,
+ gcc-powerpc64-linux-gnu <!pkg.qemu.use-upstream-vdso>, libc6-dev-ppc64-cross <!pkg.qemu.use-upstream-vdso>,
+ gcc-riscv64-linux-gnu <!pkg.qemu.use-upstream-vdso>, libc6-dev-riscv64-cross <!pkg.qemu.use-upstream-vdso>,
+ gcc-s390x-linux-gnu <!pkg.qemu.use-upstream-vdso>, libc6-dev-s390x-cross <!pkg.qemu.use-upstream-vdso>,
+ gcc-x86-64-linux-gnu <!pkg.qemu.use-upstream-vdso>,
 Build-Conflicts: oss4-dev
 Standards-Version: 4.6.2
 Homepage: http://www.qemu.org/

@@ -28,17 +28,17 @@ qemu (0.10.3-2) unstable; urgency=low
   * none: The host page cache is entirely avoided.
   * writeback (default in QEMU 0.9.x): Writeback caching reports data
     writes as completed as soon as the data is present in the host page
-    cache. This is safe as long as you trust your host. If your host 
-    crashes or loses power, then the guest may experience data 
+    cache. This is safe as long as you trust your host. If your host
+    crashes or loses power, then the guest may experience data
     corruption.
   * writethrough (default in QEMU 0.10.x): The host page cache is used
-    to read and write data but write notification is sent to the guest 
+    to read and write data but write notification is sent to the guest
     only when the data has been reported as written by the storage
     subsystem.
 
   Note that depending on your configuration (filesystem, encryption,
   kernel version, etc.), disk accesses can be very slow with the default
-  cache policy (writethrough). You can use the writeback cache policy 
+  cache policy (writethrough). You can use the writeback cache policy
   instead, but the data integrity is not assured anymore.
 
   See qemu(1) for more details.
