@@ -249,6 +249,16 @@ ifeq (${enable-system},y)
 
 	$(call install-all-system)
 
+ifneq ($(filter ${DEB_HOST_ARCH},amd64 i386),)
+# qemu-vmsr-helper is x86-specific
+	install -D -t debian/qemu-system-common/usr/bin/ \
+		debian/tmp/usr/bin/qemu-vmsr-helper
+	rm debian/tmp/usr/bin/qemu-vmsr-helper
+	install -p -D -t debian/qemu-system-common/usr/lib/systemd/system/ \
+		contrib/systemd/qemu-vmsr-helper.service \
+		contrib/systemd/qemu-vmsr-helper.socket
+endif
+
 ifeq ($(DEB_HOST_ARCH_OS),linux)
 
 # remove for trixie+1:
