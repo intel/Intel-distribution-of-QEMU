@@ -96,6 +96,7 @@ common_configure_opts = \
 	--disable-strip \
 	--localstatedir=/var \
 	--disable-download \
+	--disable-containers \
 	--disable-relocatable \
 	--disable-docs \
 
