@@ -744,14 +744,14 @@ install-hppa-fw: b/hppa-fw/.built
 sysdata-components += hppa-fw
 
 ### opensbi (riscv firmware)
-# we only build v64 variants, not v32
-build-opensbi: b/opensbi/.built
-b/opensbi/.built:
-	mkdir -p b/opensbi
-	${MAKE} -C roms/opensbi O=../../b/opensbi CROSS_COMPILE=${cross_prefix_riscv64} V=${V} PLATFORM=generic
+build-opensbi: b/opensbi32/.built b/opensbi64/.built
+b/opensbi%/.built:
+	mkdir -p ${@D}
+	${MAKE} -C roms/opensbi O=../../${@D} CROSS_COMPILE=${cross_prefix_riscv64} V=${V} PLATFORM=generic PLATFORM_RISCV_XLEN=$*
 	touch $@
 install-opensbi: build-opensbi
-	install -m 0644 b/opensbi/platform/generic/firmware/fw_dynamic.bin ${sysdataidir}/opensbi-riscv64-generic-fw_dynamic.bin
+	install -m 0644 b/opensbi32/platform/generic/firmware/fw_dynamic.bin ${sysdataidir}/opensbi-riscv32-generic-fw_dynamic.bin
+	install -m 0644 b/opensbi64/platform/generic/firmware/fw_dynamic.bin ${sysdataidir}/opensbi-riscv64-generic-fw_dynamic.bin
 sysdata-components += opensbi
 
 ### vbootrom (npcm7xx)
