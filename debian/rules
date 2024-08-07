@@ -291,7 +291,7 @@ endif # enable-system
 ifneq (,$(filter qemu-block-supplemental,${BUILD_PACKAGES}))
 	mkdir -p debian/qemu-block-supplemental/${libdir}/qemu
 	mv \
-	    debian/tmp/${libdir}/qemu/block-glusterfs.so \
+	    debian/tmp/${libdir}/qemu/block-gluster.so \
 	    debian/tmp/${libdir}/qemu/block-blkio.so \
 	         debian/qemu-block-supplemental/${libdir}/qemu
 ifeq (${enable-system},y)
