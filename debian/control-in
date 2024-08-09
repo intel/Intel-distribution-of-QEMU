@@ -131,8 +131,8 @@ Build-Depends-Arch:
 #
 # the testsuite:
 # ipxe-qemu [:system-arch-linux:] <!nocheck>,
- seabios (>> 1.17.0-1~) [:system-arch-linux:] <!nocheck>,
- qemu-system-data (>> 1:9.0) [:system-arch-linux:] <!nocheck !pkg.qemu.omit-system>,
+:debian: seabios (>> 1.17.0-1~) [:system-arch-linux:] <!nocheck>,
+:debian: qemu-system-data (>> 1:9.0) [:system-arch-linux:] <!nocheck !pkg.qemu.omit-system>,
 #
 # vdso: for linux-user, we need small arch-specific .so files to embed them
 #       into linux-user for many architectures.
@@ -148,8 +148,7 @@ Build-Depends-Arch:
 # Ubuntu builds both arch+indep parts (on amd64), so there this is irrelevant.
 #    Effectively it always enables pkg.qemu.omit-vdso-build-dep build-profile.
 # With each upstream, check if vdso code changed and bump the version:
-:debian: qemu-system-data (>> :vdso-version:) [:user-arch:]
-:debian:   <!pkg.qemu.use-upstream-vdso !pkg.qemu.omit-vdso-build-dep !pkg.qemu.omit-user>,
+:debian: qemu-system-data (>> 1:9.0.2+ds-2~) [:user-arch:] <!pkg.qemu.use-upstream-vdso !pkg.qemu.omit-vdso-build-dep>,
 Build-Depends-Indep:
 # x86_64 firmware
  gcc-x86-64-linux-gnu,

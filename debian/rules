@@ -26,6 +26,16 @@ ifneq ($(DEB_HOST_ARCH),amd64)
   export DEB_BUILD_MAINT_OPTIONS += optimize=-lto
 endif
 
+ifeq ($(VENDOR),ubuntu)
+  # Because we can't B-D on qemu-system-data, we can't run the
+  # upstream tests either.
+  export DEB_BUILD_PROFILES += nocheck
+
+  ifneq ($(DEB_HOST_ARCH),amd64)
+    export DEB_BUILD_PROFILES += pkg.qemu.use-upstream-vdso
+  endif
+endif
+
 # get CFLAGS LDFLAGS etc (should come after DEB_*MAINT*)
 include /usr/share/dpkg/buildflags.mk
 
