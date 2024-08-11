@@ -18,3 +18,4 @@ openbios-spelling-endianess.patch
 virtio-pci-Fix-the-use-of-an-uninitialized-irqfd.patch
 meson-Fix-MESONINTROSPECT-parsing.patch
 scsi-fix-regression-and-honor-bootindex-again-for-le.patch
+virtio-net-Ensure-queue-index-fits-with-RSS-CVE-2024-6505.patch
