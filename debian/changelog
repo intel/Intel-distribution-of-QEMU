@@ -1,3 +1,25 @@
+qemu (1:9.0.2+ds-3) unstable; urgency=medium
+
+  [ Sergio Durigan Junior ]
+  * d/rules: Install block-gluster.so (instead of block-glusterfs.so).
+
+  [ Michael Tokarev ]
+  * d/control: vdso is needed by qemu-USER targets, not system
+  * d/control, d/rules: instead of requiring the same version of
+    qemu-system-data for vdso, use a fixed version of last interest
+  * d/rules: build both opensbi64 and opensbi32 firmware (was 32bit only)
+  * d/rules: simplify openbios build rule with patsubst
+  * d/rules: --disable-containers
+  * +virtio-net-Ensure-queue-index-fits-with-RSS-CVE-2024-6505.patch
+    (Closes: #1075919, CVE-2024-6505)
+  * CVE-2024-7409 (nbd server DoS) fixes:
+    +nbd-server-Plumb-in-new-args-to-nbd_client_add.patch
+    +nbd-server-CVE-2024-7409-Cap-default-max-connections.patch
+    +nbd-server-CVE-2024-7409-Drop-non-negotiating-client.patch
+    +nbd-server-CVE-2024-7409-Close-stray-clients-at-serv.patch
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 12 Aug 2024 07:06:03 +0300
+
 qemu (1:9.0.2+ds-2) unstable; urgency=medium
 
   * d/rules: pass CROSS_COMPILE= to u-boot* config targets too,

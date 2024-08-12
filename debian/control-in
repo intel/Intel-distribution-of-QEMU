@@ -138,7 +138,8 @@ Build-Depends-Arch:
 #     do not embed vdso files into qemu-system-data binary package
 #  pkg.qemu.omit-vdso-build-dep - do not Build-Depend-Arch: qemu-user-data for vdso
 #     (allows to build and use vdso files with single arch+indep build)
- qemu-system-data (= :pkgversion:) [:system-arch-linux:] <!pkg.qemu.use-upstream-vdso !pkg.qemu.omit-vdso-build-dep>,
+# With each upstream, check if vdso code changed and bump the version:
+ qemu-system-data (>> 1:9.0.2+ds-2~) [:user-arch:] <!pkg.qemu.use-upstream-vdso !pkg.qemu.omit-vdso-build-dep>,
 Build-Depends-Indep:
 # compiler used to build i386 firmware
  gcc-i686-linux-gnu,
