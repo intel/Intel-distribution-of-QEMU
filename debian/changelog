@@ -1,3 +1,11 @@
+qemu (1:9.0.2+ds-4) unstable; urgency=medium
+
+  * d/rules: fix the brown-paper-bag bug in last upload
+  * d/changelog: remove "Closes #1075428" from the previous entry,
+    that issue has nothing to do with qemu
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 12 Aug 2024 08:05:39 +0300
+
 qemu (1:9.0.2+ds-3) unstable; urgency=medium
 
   [ Sergio Durigan Junior ]
