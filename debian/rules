@@ -644,10 +644,11 @@ sysdata-components += vof
 b/openbios/config-host.mak:
 	mkdir -p b/openbios
 	cd b/openbios && ../../roms/openbios/config/scripts/switch-arch builtin-ppc builtin-sparc32 builtin-sparc64
-build-openbios: $(patsubst %,b/openbios/obj-%/.built, ppc sparc32 sparc64))
+build-openbios: $(patsubst %,b/openbios/obj-%/.built, ppc sparc32 sparc64)
 b/openbios/obj-%/.built: b/openbios/config-host.mak
 	${MAKE} -C ${@D} V=${V} EXTRACFLAGS="-ffreestanding -fno-pic -fno-stack-protector"
 	@touch $@
+
 install-openbios: build-openbios
 	install -m 0644 b/openbios/obj-ppc/openbios-qemu.elf ${sysdataidir}/openbios-ppc
 	install -m 0644 b/openbios/obj-sparc32/openbios-builtin.elf ${sysdataidir}/openbios-sparc32
