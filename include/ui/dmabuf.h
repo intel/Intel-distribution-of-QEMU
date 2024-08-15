@@ -17,7 +17,8 @@ QemuDmaBuf *qemu_dmabuf_new(uint32_t width, uint32_t height,
                             uint32_t y, uint32_t backing_width,
                             uint32_t backing_height, uint32_t fourcc,
                             uint64_t modifier, int dmabuf_fd,
-                            bool allow_fences, bool y0_top);
+                            bool allow_fences, bool y0_top,
+                            bool render_sync);
 void qemu_dmabuf_free(QemuDmaBuf *dmabuf);
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(QemuDmaBuf, qemu_dmabuf_free);
@@ -39,6 +40,7 @@ bool qemu_dmabuf_get_y0_top(QemuDmaBuf *dmabuf);
 int32_t qemu_dmabuf_get_fence_fd(QemuDmaBuf *dmabuf);
 bool qemu_dmabuf_get_allow_fences(QemuDmaBuf *dmabuf);
 bool qemu_dmabuf_get_draw_submitted(QemuDmaBuf *dmabuf);
+bool qemu_dmabuf_get_render_sync(QemuDmaBuf *dmabuf);
 void qemu_dmabuf_set_texture(QemuDmaBuf *dmabuf, uint32_t texture);
 void qemu_dmabuf_set_fence_fd(QemuDmaBuf *dmabuf, int32_t fence_fd);
 void qemu_dmabuf_set_draw_submitted(QemuDmaBuf *dmabuf, bool draw_submitted);
