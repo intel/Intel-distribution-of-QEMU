@@ -1571,7 +1571,8 @@ static void gd_menu_untabify(GtkMenuItem *item, void *opaque)
         gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(s->grab_item),
                                        FALSE);
     }
-    if (!vc->window) {
+
+    if (!vc->window || (vc->window == s->window)) {
         gd_tab_window_create(vc);
     }
 }
