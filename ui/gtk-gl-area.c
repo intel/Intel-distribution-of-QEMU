@@ -322,6 +322,7 @@ void gd_gl_area_scanout_flush(DisplayChangeListener *dcl,
     }
 #endif
     gtk_gl_area_queue_render(GTK_GL_AREA(vc->gfx.drawing_area));
+    gd_gl_count_frame(&vc->gfx.dcl, 1);
 }
 
 void gd_gl_area_scanout_dmabuf(DisplayChangeListener *dcl,

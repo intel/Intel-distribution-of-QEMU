@@ -1355,7 +1355,10 @@
 #     VCs can have a same connector name. In this case, all of those
 #     VCs will be displayed on the same physical monitor. But multiple
 #     different connector names can't be assigned to one VC.
-#     (Since 9.1)
+#     (Since Pending)
+#
+# @show-fps: Enable showing frame update rate (default: off).
+#     (Since Pending)
 #
 # Since: 2.12
 ##
@@ -1364,7 +1367,8 @@
                 '*zoom-to-fit'   : 'bool',
                 '*show-tabs'     : 'bool',
                 '*show-menubar'  : 'bool',
-                '*connectors'    : ['str'] } }
+                '*connectors'    : ['str'],
+                '*show-fps'      : 'bool' } }
 
 ##
 # @DisplayEGLHeadless:

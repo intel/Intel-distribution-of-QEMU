@@ -554,6 +554,55 @@ static void gd_switch(DisplayChangeListener *dcl,
     }
 }
 
+void gd_gl_count_frame(DisplayChangeListener *dcl, bool ups)
+{
+    VirtualConsole *vc = container_of(dcl, VirtualConsole, gfx.dcl);
+    GtkDisplayState *s = vc->s;
+    gchar ups_fps_str[200];
+    static guint prev, curr, delta;
+    static guint status_bar_id;
+    struct timeval tv;
+    int offset = 0, i;
+
+    if (!s->opts->u.gtk.has_show_fps || !s->opts->u.gtk.show_fps) {
+        return;
+    }
+
+    if (prev == 0) {
+        gettimeofday(&tv, NULL);
+        prev = tv.tv_sec * 1000000 + tv.tv_usec;
+    }
+
+    if (ups) {
+        vc->gfx.ups_cnt++;
+    } else {
+        vc->gfx.fps_cnt++;
+    }
+
+    gettimeofday(&tv, NULL);
+    curr = tv.tv_sec * 1000000 + tv.tv_usec;
+
+    delta = curr - prev;
+    if (delta > 5000000) {
+        /* update rate is calculated and displayed at every 5 secs */
+        prev = curr;
+        for (i = 0; i < vc->s->nb_vcs; i++) {
+            vc = &s->vc[i];
+            offset += sprintf(ups_fps_str + offset,
+                              "%d [%0.2fu/s %0.2ff/s]  ", i,
+                              vc->gfx.ups_cnt * 1000000/(gfloat)delta,
+                              vc->gfx.fps_cnt * 1000000/(gfloat)delta);
+            vc->gfx.fps_cnt = 0;
+            vc->gfx.ups_cnt = 0;
+        }
+
+        status_bar_id = gtk_statusbar_get_context_id(GTK_STATUSBAR(vc->s->status_bar),
+                                                     "Display Update Rate");
+        gtk_statusbar_pop(GTK_STATUSBAR(vc->s->status_bar), status_bar_id);
+        gtk_statusbar_push(GTK_STATUSBAR(vc->s->status_bar), status_bar_id, ups_fps_str);
+     }
+}
+
 static const DisplayChangeListenerOps dcl_ops = {
     .dpy_name             = "gtk",
     .dpy_gfx_update       = gd_update,
@@ -605,6 +654,7 @@ void gd_hw_gl_flushed(void *vcon)
         close(fence_fd);
         qemu_dmabuf_set_fence_fd(dmabuf, -1);
         graphic_hw_gl_block(vc->gfx.dcl.con, false);
+        gd_gl_count_frame(&vc->gfx.dcl, 0);
     }
 }
 
@@ -2710,6 +2760,9 @@ static void gtk_display_init(DisplayState *ds, DisplayOptions *opts)
     s->vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     s->notebook = gtk_notebook_new();
     s->menu_bar = gtk_menu_bar_new();
+    if (opts->u.gtk.has_show_fps && opts->u.gtk.show_fps) {
+        s->status_bar = gtk_statusbar_new();
+    }
 
     s->free_scale = FALSE;
 
@@ -2750,6 +2803,9 @@ static void gtk_display_init(DisplayState *ds, DisplayOptions *opts)
 
     gtk_box_pack_start(GTK_BOX(s->vbox), s->menu_bar, FALSE, TRUE, 0);
     gtk_box_pack_start(GTK_BOX(s->vbox), s->notebook, TRUE, TRUE, 0);
+    if (opts->u.gtk.has_show_fps && opts->u.gtk.show_fps) {
+        gtk_box_pack_start(GTK_BOX(s->vbox), s->status_bar, FALSE, TRUE, 0);
+    }
 
     gtk_container_add(GTK_CONTAINER(s->window), s->vbox);
 

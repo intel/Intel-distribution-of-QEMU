@@ -390,11 +390,13 @@ void gd_egl_flush(DisplayChangeListener *dcl,
             qemu_dmabuf_set_draw_submitted(dmabuf, true);
             gtk_widget_queue_draw_area(area, x, y, w, h);
         }
+        gd_gl_count_frame(&vc->gfx.dcl, 1);
         return;
     }
 #endif
 
     gd_egl_scanout_flush(&vc->gfx.dcl, x, y, w, h);
+    gd_gl_count_frame(&vc->gfx.dcl, 1);
 }
 
 void gtk_egl_init(DisplayGLMode mode)
