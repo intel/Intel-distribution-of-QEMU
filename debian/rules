@@ -617,6 +617,7 @@ endif # !pkg.qemu.use-upstream-vdso
 ### x86 optionrom
 build-x86-optionrom: b/data/pc-bios/optionrom/.built
 b/data/pc-bios/optionrom/.built: b/data/.configured
+	env -u ELF_PACKAGE_METADATA \
 	make -C ${@D}
 	touch $@
 install-x86-optionrom: b/data/pc-bios/optionrom/.built
@@ -626,6 +627,7 @@ sysdata-components += x86-optionrom
 ### s390x firmware in pc-bios/s390-ccw
 build-s390x-fw: b/data/pc-bios/s390-ccw/.built
 b/data/pc-bios/s390-ccw/.built: b/data/.configured
+	env -u ELF_PACKAGE_METADATA \
 	make -C ${@D} V=$V
 	touch $@
 install-s390x-fw: b/data/pc-bios/s390-ccw/.built
@@ -635,6 +637,7 @@ sysdata-components += s390x-fw
 ### vof.bin
 build-vof: b/data/pc-bios/vof/vof.bin
 b/data/pc-bios/vof/vof.bin: b/data/.configured
+	env -u ELF_PACKAGE_METADATA \
 	${MAKE} -C ${@D} V=$V ${@F}
 install-vof: b/data/pc-bios/vof/vof.bin
 	install -m 0644 -t ${sysdataidir} $<
@@ -646,6 +649,7 @@ b/openbios/config-host.mak:
 	cd b/openbios && ../../roms/openbios/config/scripts/switch-arch builtin-ppc builtin-sparc32 builtin-sparc64
 build-openbios: $(patsubst %,b/openbios/obj-%/.built, ppc sparc32 sparc64)
 b/openbios/obj-%/.built: b/openbios/config-host.mak
+	env -u ELF_PACKAGE_METADATA \
 	${MAKE} -C ${@D} V=${V} EXTRACFLAGS="-ffreestanding -fno-pic -fno-stack-protector"
 	@touch $@
 
@@ -667,6 +671,7 @@ b/skiboot/skiboot.lid: | roms/skiboot/.version
 # Abuse OPTS= for this, with the default being -Os.
 	grep -q '^OPTS=-Os$$' roms/skiboot/Makefile.main || \
 	  { echo "review OPTS= in skiboot/Makefile.main"; false; }
+	env -u ELF_PACKAGE_METADATA \
 	${MAKE} -C b/skiboot -f ${CURDIR}/roms/skiboot/Makefile \
 	  SRC=${CURDIR}/roms/skiboot \
 	  OPTS='-Os -ffile-prefix-map="${CURDIR}/roms/skiboot/"=' \
@@ -680,6 +685,7 @@ build-u-boot-e500: b/u-boot/build-e500/u-boot
 b/u-boot/build-e500/u-boot: | b
 	cp -alu roms/u-boot b/
 	${MAKE} -C b/u-boot CROSS_COMPILE=${cross_prefix_ppc} O=build-e500 qemu-ppce500_config
+	env -u ELF_PACKAGE_METADATA \
 	${MAKE} -C b/u-boot CROSS_COMPILE=${cross_prefix_ppc} O=build-e500 V=$V
 	${cross_prefix_ppc}strip $@
 install-u-boot-e500: b/u-boot/build-e500/u-boot
@@ -691,7 +697,7 @@ build-u-boot-sam460: b/u-boot-sam460ex/u-boot.bin
 b/u-boot-sam460ex/u-boot.bin: | b
 	cp -alu roms/u-boot-sam460ex b/
 	${MAKE} -C b/u-boot-sam460ex CROSS_COMPILE=${cross_prefix_ppc} Sam460ex_config
-	env -u LDFLAGS -u OBJCFLAGS \
+	env -u LDFLAGS -u OBJCFLAGS -u ELF_PACKAGE_METADATA \
 	${MAKE} -C b/u-boot-sam460ex CROSS_COMPILE=${cross_prefix_ppc}
 #	${cross_prefix_ppc}strip $@
 install-u-boot-sam460: b/u-boot-sam460ex/u-boot.bin | ${sysdataidir}
@@ -703,6 +709,7 @@ build-qboot: b/qboot/bios.bin
 b/qboot/bios.bin: | b
 	rm -rf b/qboot
 	meson setup roms/qboot b/qboot
+	env -u ELF_PACKAGE_METADATA \
 	ninja -C b/qboot $(if $V,-v)
 install-qboot: b/qboot/bios.bin
 	install -m 0644 $< ${sysdataidir}/qboot.rom
@@ -713,6 +720,7 @@ build-palcode-clipper: b/qemu-palcode/palcode-clipper
 b/qemu-palcode/palcode-clipper: | b
 	cp -al roms/qemu-palcode b/
 #XXX #1019011 (remove OPT= alternative when fixed)
+	env -u ELF_PACKAGE_METADATA \
 	${MAKE} -C b/qemu-palcode CROSS=${cross_prefix_alpha} -k || \
 	${MAKE} -C b/qemu-palcode CROSS=${cross_prefix_alpha} OPT=-O1
 	${cross_prefix_alpha}strip b/qemu-palcode/palcode-clipper
@@ -724,7 +732,8 @@ sysdata-components += palcode-clipper
 build-slof: b/SLOF/boot_rom.bin
 b/SLOF/boot_rom.bin: | b
 	cp -al roms/SLOF b/
-	env -u LDFLAGS -u CFLAGS $(MAKE) -C b/SLOF qemu CROSS=${cross_prefix_ppc64} V=${V}
+	env -u LDFLAGS -u CFLAGS -u ELF_PACKAGE_METADATA \
+	$(MAKE) -C b/SLOF qemu CROSS=${cross_prefix_ppc64} V=${V}
 install-slof: b/SLOF/boot_rom.bin
 	install -m 0644 $< ${sysdataidir}/slof.bin
 sysdata-components += slof
@@ -734,8 +743,10 @@ build-hppa-fw: b/hppa-fw/.built
 b/hppa-fw/.built: | b
 	rm -rf $(dir $@)
 	cp -al roms/seabios-hppa $(dir $@)
+	env -u ELF_PACKAGE_METADATA \
 	${MAKE} PYTHON=python3 OUT=o32/ BITS=32 BIT_SUFFIX=   CROSS_PREFIX=${cross_prefix_hppa}   -C $(dir $@) -f Makefile.parisc all
 	${cross_prefix_hppa}strip   -R.note -R.comment $(dir $@)o32/hppa-firmware.img
+	env -u ELF_PACKAGE_METADATA \
 	${MAKE} PYTHON=python3 OUT=o64/ BITS=64 BIT_SUFFIX=64 CROSS_PREFIX=${cross_prefix_hppa64} -C $(dir $@) -f Makefile.parisc all
 	${cross_prefix_hppa64}strip -R.note -R.comment $(dir $@)o64/hppa-firmware64.img
 	touch $@
@@ -749,6 +760,7 @@ sysdata-components += hppa-fw
 build-opensbi: b/opensbi32/.built b/opensbi64/.built
 b/opensbi%/.built:
 	mkdir -p ${@D}
+	env -u ELF_PACKAGE_METADATA \
 	${MAKE} -C roms/opensbi O=../../${@D} CROSS_COMPILE=${cross_prefix_riscv64} V=${V} PLATFORM=generic PLATFORM_RISCV_XLEN=$*
 	touch $@
 install-opensbi: build-opensbi
@@ -760,6 +772,7 @@ sysdata-components += opensbi
 build-vbootrom: b/vbootrom/.built
 b/vbootrom/.built: | b
 	cp -pa roms/vbootrom b/
+	env -u ELF_PACKAGE_METADATA \
 	${MAKE} -C b/vbootrom CROSS_COMPILE=${cross_prefix_arm}
 	touch $@
 install-vbootrom: build-vbootrom
