@@ -1,3 +1,11 @@
+qemu (1:9.0.2+ds-5) UNRELEASED; urgency=medium
+
+  * d/rules: Unset ELF_PACKAGE_METADATA when building ROMs.
+    Ubuntu started setting ELF_PACKAGE_METADATA during builds, but that
+    can badly affect ROMs (see LP #2077431).
+
+ -- Sergio Durigan Junior <sergiodj@debian.org>  Wed, 21 Aug 2024 17:12:49 -0400
+
 qemu (1:9.0.2+ds-4) unstable; urgency=medium
 
   * d/rules: fix the brown-paper-bag bug in last upload
