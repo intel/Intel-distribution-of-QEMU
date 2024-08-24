@@ -31,7 +31,6 @@ Build-Depends-Arch:
 # libsndio is in universe in ubuntu
 # --disable-sndio
 # --audio-drv-list=pipewire,pa,alsa,jack,oss,sdl	:system-arch-linux:
-##--audio-drv-list=pa,oss	kfreebsd-any
  libjack-dev    [:system-arch-linux:],
  libpulse-dev   [:system-arch:],
  libasound2-dev [:system-arch-linux:],

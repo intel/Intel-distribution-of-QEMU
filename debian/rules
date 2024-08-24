@@ -40,8 +40,7 @@ system-arch-linux = $(sort ${system-arch-linux-64} \
 	arm armel armhf i386 mips mipsel powerpc powerpcspe sparc)
 system-arch = ${system-arch-linux}
 user-arch = ${system-arch-linux}
-utils-arch = $(sort ${system-arch} ${user-arch} alpha hppa m68k sh4 x32 \
-	kfreebsd-amd64 kfreebsd-i386)
+utils-arch = $(sort ${system-arch} ${user-arch} alpha hppa m68k sh4 x32)
 # subset of system-arch
 spice-arch = amd64 i386 arm64 armel armhf mips64el mipsel ppc64el
 
