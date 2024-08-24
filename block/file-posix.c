@@ -116,6 +116,10 @@
 #include <sys/ioctl.h>
 #endif
 
+#ifdef __GNU__
+#include <sys/ioctl.h>
+#endif
+
 /* OS X does not have O_DSYNC */
 #ifndef O_DSYNC
 #ifdef O_SYNC
@@ -2113,6 +2117,7 @@ static int handle_aiocb_write_zeroes_unmap(void *opaque)
 }
 
 #ifndef HAVE_COPY_FILE_RANGE
+#define copy_file_range qemu_copy_file_range
 #ifndef EMSCRIPTEN
 static
 #endif

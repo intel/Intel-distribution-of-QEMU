@@ -361,6 +361,8 @@ elif check_define __DragonFly__ ; then
   host_os=dragonfly
 elif check_define __NetBSD__; then
   host_os=netbsd
+elif check_define __GNU__; then
+  host_os=hurd
 elif check_define __APPLE__; then
   host_os=darwin
 elif check_define EMSCRIPTEN ; then

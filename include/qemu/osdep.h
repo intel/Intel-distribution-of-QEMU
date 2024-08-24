@@ -147,8 +147,15 @@ QEMU_EXTERN_C int daemon(int, int);
  */
 #undef FSCALE
 
+#if defined(__GNU__) && !defined(PATH_MAX) /* GNU Hurd */
+# define PATH_MAX 4096
+#endif
+
 #ifdef CONFIG_IOVEC
 #include <sys/uio.h>
+# if defined(__GNU__) && !defined(IOV_MAX) /* GNU Hurd */
+#  define IOV_MAX 1024
+# endif
 #endif
 
 #if defined(__linux__) && defined(__sparc__)
