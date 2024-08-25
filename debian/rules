@@ -441,7 +441,7 @@ b/user-static/configured: configure
 	cd b/user-static && \
 	    ../../configure ${common_configure_opts} \
 		--extra-cflags="${extra-cflags} -DPROVIDE_STUBS_FOR_STATIC" \
-		--extra-ldflags="${extra-ldflags}" \
+		--extra-ldflags="${extra-ldflags} -Wl,-Map=%.map,--no-print-map-discarded" \
 		--static \
 		$(if $(filter i386,${DEB_HOST_ARCH}),--disable-pie) \
 		--disable-plugins \
@@ -456,6 +456,18 @@ b/user-static/built: b/user-static/configured
 install-user-static: b/user-static/built
 	$(call install-user,-static)
 	./debian/binfmt-install qemu-user-static
+# build a Built-Using substvar:
+	echo "built-using=$$(\
+	  grep -h ^/usr/lib b/user-static/qemu-*.map ${# all system libs} | \
+	  cut -d'(' -f1 ${# strip trailing (file.o)} | \
+	  sort -u ${# unique filenames} | \
+	  xargs realpath ${# resolve ../} | \
+	  xargs dpkg-query -S ${# get package names} | \
+	  sed 's/: .*//' ${# strip trailing ': filename'} | \
+	  sort -u ${# unique packages} | \
+	  xargs dpkg-query -f '$${source:Package} (= $${source:Version}),' -W)" \
+	  > debian/qemu-user-static.substvars
+
 qemu-builds += $(if ${enable-user-static},user-static)
 
 ##############################################
@@ -538,15 +550,6 @@ install-arch: pre-install-arch $(addprefix install-, ${qemu-builds})
 # qemu-user-static contains static binaries only, but they might be built
 # as static-pie executables and dpkg-shlibdeps complains. Just omit it here.
 	dh_shlibdeps -a -Nqemu-user-static
-ifeq (${enable-user-static},y)
-# after shlibdeps finished, grab ${shlibs:Depends} from -user package
-# and transform it into Built-Using field for -user-static.
-	if [ -f debian/qemu-user.substvars ]; then \
-	  pkgs=$$(sed -n -e's/([^)]*)//g' -e's/,//g' -e's/^shlibs:Depends=//p' debian/qemu-user.substvars); \
-	  srcs="$$srcs $$(dpkg-query -f '$${source:Package} (= $${source:Version}),' -W $$pkgs)"; \
-	  echo "built-using=$$srcs" >> debian/qemu-user-static.substvars ; \
-	fi
-endif
 binary-arch: install-arch binary-helper
 binary-arch: a=-a
 
