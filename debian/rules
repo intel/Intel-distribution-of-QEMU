@@ -67,10 +67,10 @@ export cross_prefix_s390x = s390x-linux-gnu-
 
 extra-cflags = ${CFLAGS} ${CPPFLAGS}
 extra-ldflags = ${LDFLAGS} -Wl,--as-needed
+
 # we add another set of configure options from debian/control
 common_configure_opts = \
 	--with-pkgversion="$(PKGVERSION)" \
-	--extra-ldflags="${extra-ldflags}" \
 	--prefix=/usr \
 	--sysconfdir=/etc \
 	--libdir=${libdir} \
@@ -200,6 +200,7 @@ b/qemu/configured: configure
 	cd b/qemu && \
 	    ../../configure ${common_configure_opts} \
 		--extra-cflags="${extra-cflags}" \
+		--extra-ldflags="${extra-ldflags}" \
 		--$(if ${enable-system},enable,disable)-system \
 		--disable-user --disable-linux-user \
 		--enable-tools \
@@ -305,6 +306,7 @@ b/microvm/configured: configure debian/microvm-devices.mak
 	cd b/microvm && \
 		../../configure ${common_configure_opts} \
 		--extra-cflags="${extra-cflags} -DCONFIG_MICROVM_DEFAULT=1" \
+		--extra-ldflags="${extra-ldflags}" \
 		--without-default-features \
 		--target-list=x86_64-softmmu --enable-kvm --disable-tcg \
 		--enable-pixman --enable-vnc \
@@ -341,6 +343,7 @@ b/xen/configured: configure
 	cd b/xen && \
 	    ../../configure ${common_configure_opts} \
 		--extra-cflags="${extra-cflags}" \
+		--extra-ldflags="${extra-ldflags}" \
 		--disable-tools \
 		--without-default-features \
 		--enable-avx2 \
@@ -403,6 +406,7 @@ b/user/configured: configure
 	cd b/user && \
 	    ../../configure ${common_configure_opts} \
 		--extra-cflags="${extra-cflags}" \
+		--extra-ldflags="${extra-ldflags}" \
 		--disable-plugins \
 		--disable-bpf \
 		--target-list="$(addsuffix -linux-user,${user-targets})"
@@ -437,6 +441,7 @@ b/user-static/configured: configure
 	cd b/user-static && \
 	    ../../configure ${common_configure_opts} \
 		--extra-cflags="${extra-cflags} -DPROVIDE_STUBS_FOR_STATIC" \
+		--extra-ldflags="${extra-ldflags}" \
 		--static \
 		$(if $(filter i386,${DEB_HOST_ARCH}),--disable-pie) \
 		--disable-plugins \
