@@ -403,6 +403,7 @@ b/user/configured: configure
 	    ../../configure ${common_configure_opts} \
 		--extra-cflags="${extra-cflags}" \
 		--disable-plugins \
+		--disable-bpf \
 		--target-list="$(addsuffix -linux-user,${user-targets})"
 	touch $@
 build-user: b/user/built
@@ -438,6 +439,7 @@ b/user-static/configured: configure
 		--static \
 		$(if $(filter i386,${DEB_HOST_ARCH}),--disable-pie) \
 		--disable-plugins \
+		--disable-bpf \
 		--target-list="$(addsuffix -linux-user,${user-targets})"
 	touch $@
 build-user-static: b/user-static/built
