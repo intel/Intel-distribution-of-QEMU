@@ -31,20 +31,6 @@ endif
 # get CFLAGS LDFLAGS etc (should come after DEB_*MAINT*)
 include /usr/share/dpkg/buildflags.mk
 
-# Host architectures we produce packages for.
-# when changing this list, check d/control-in too, if any changes
-# needs to be done for build deps and --enable options.
-system-arch-linux-64 = \
-	amd64 arm64 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc64
-system-arch-linux = $(sort ${system-arch-linux-64} \
-	arm armel armhf i386 mips mipsel powerpc powerpcspe sparc)
-system-arch = ${system-arch-linux}
-user-arch = ${system-arch-linux}
-utils-arch = $(sort ${system-arch} ${user-arch} hppa m68k sh4 x32 \
-	kfreebsd-amd64 kfreebsd-i386)
-# subset of system-arch
-spice-arch = amd64 i386 arm64 armel armhf mips64el mipsel ppc64el
-
 # DEB_BUILD_OPTIONS=parallel=N
 MAKEFLAGS += $(subst parallel=,-j,$(filter parallel=%,${DEB_BUILD_OPTIONS}))
 
@@ -81,11 +67,10 @@ export cross_prefix_s390x = s390x-linux-gnu-
 
 extra-cflags = ${CFLAGS} ${CPPFLAGS}
 extra-ldflags = ${LDFLAGS} -Wl,--as-needed
+
 # we add another set of configure options from debian/control
 common_configure_opts = \
 	--with-pkgversion="$(PKGVERSION)" \
-	--extra-cflags="${extra-cflags}" \
-	--extra-ldflags="${extra-ldflags}" \
 	--prefix=/usr \
 	--sysconfdir=/etc \
 	--libdir=${libdir} \
@@ -214,6 +199,8 @@ b/qemu/configured: configure
 	rm -rf b/qemu; mkdir -p b/qemu
 	cd b/qemu && \
 	    ../../configure ${common_configure_opts} \
+		--extra-cflags="${extra-cflags}" \
+		--extra-ldflags="${extra-ldflags}" \
 		--$(if ${enable-system},enable,disable)-system \
 		--disable-user --disable-linux-user \
 		--enable-tools \
@@ -319,6 +306,7 @@ b/microvm/configured: configure debian/microvm-devices.mak
 	cd b/microvm && \
 		../../configure ${common_configure_opts} \
 		--extra-cflags="${extra-cflags} -DCONFIG_MICROVM_DEFAULT=1" \
+		--extra-ldflags="${extra-ldflags}" \
 		--without-default-features \
 		--target-list=x86_64-softmmu --enable-kvm --disable-tcg \
 		--enable-pixman --enable-vnc \
@@ -354,7 +342,9 @@ b/xen/configured: configure
 	rm -rf b/xen; mkdir -p b/xen
 	cd b/xen && \
 	    ../../configure ${common_configure_opts} \
-		--disable-install-blobs --disable-tools \
+		--extra-cflags="${extra-cflags}" \
+		--extra-ldflags="${extra-ldflags}" \
+		--disable-tools \
 		--without-default-features \
 		--enable-avx2 \
 		--enable-xen --target-list=i386-softmmu \
@@ -416,7 +406,9 @@ b/user/configured: configure
 	cd b/user && \
 	    ../../configure ${common_configure_opts} \
 		--extra-cflags="${extra-cflags}" \
+		--extra-ldflags="${extra-ldflags}" \
 		--disable-plugins \
+		--disable-bpf \
 		--target-list="$(addsuffix -linux-user,${user-targets})"
 	touch $@
 build-user: b/user/built
@@ -449,9 +441,11 @@ b/user-static/configured: configure
 	cd b/user-static && \
 	    ../../configure ${common_configure_opts} \
 		--extra-cflags="${extra-cflags} -DPROVIDE_STUBS_FOR_STATIC" \
+		--extra-ldflags="${extra-ldflags} -Wl,-Map=%.map,--no-print-map-discarded" \
 		--static \
 		$(if $(filter i386,${DEB_HOST_ARCH}),--disable-pie) \
 		--disable-plugins \
+		--disable-bpf \
 		--target-list="$(addsuffix -linux-user,${user-targets})"
 	touch $@
 build-user-static: b/user-static/built
@@ -462,6 +456,18 @@ b/user-static/built: b/user-static/configured
 install-user-static: b/user-static/built
 	$(call install-user,-static)
 	./debian/binfmt-install qemu-user-static
+# build a Built-Using substvar:
+	echo "built-using=$$(\
+	  grep -h ^/usr/lib b/user-static/qemu-*.map ${# all system libs} | \
+	  cut -d'(' -f1 ${# strip trailing (file.o)} | \
+	  sort -u ${# unique filenames} | \
+	  xargs realpath ${# resolve ../} | \
+	  xargs dpkg-query -S ${# get package names} | \
+	  sed 's/: .*//' ${# strip trailing ': filename'} | \
+	  sort -u ${# unique packages} | \
+	  xargs dpkg-query -f '$${source:Package} (= $${source:Version}),' -W)" \
+	  > debian/qemu-user-static.substvars
+
 qemu-builds += $(if ${enable-user-static},user-static)
 
 ##############################################
@@ -544,15 +550,6 @@ install-arch: pre-install-arch $(addprefix install-, ${qemu-builds})
 # qemu-user-static contains static binaries only, but they might be built
 # as static-pie executables and dpkg-shlibdeps complains. Just omit it here.
 	dh_shlibdeps -a -Nqemu-user-static
-ifeq (${enable-user-static},y)
-# after shlibdeps finished, grab ${shlibs:Depends} from -user package
-# and transform it into Built-Using field for -user-static.
-	if [ -f debian/qemu-user.substvars ]; then \
-	  pkgs=$$(sed -n -e's/([^)]*)//g' -e's/,//g' -e's/^shlibs:Depends=//p' debian/qemu-user.substvars); \
-	  srcs="$$srcs $$(dpkg-query -f '$${source:Package} (= $${source:Version}),' -W $$pkgs)"; \
-	  echo "built-using=$$srcs" >> debian/qemu-user-static.substvars ; \
-	fi
-endif
 binary-arch: install-arch binary-helper
 binary-arch: a=-a
 
@@ -617,6 +614,7 @@ endif # !pkg.qemu.use-upstream-vdso
 ### x86 optionrom
 build-x86-optionrom: b/data/pc-bios/optionrom/.built
 b/data/pc-bios/optionrom/.built: b/data/.configured
+	env -u ELF_PACKAGE_METADATA \
 	make -C ${@D}
 	touch $@
 install-x86-optionrom: b/data/pc-bios/optionrom/.built
@@ -626,6 +624,7 @@ sysdata-components += x86-optionrom
 ### s390x firmware in pc-bios/s390-ccw
 build-s390x-fw: b/data/pc-bios/s390-ccw/.built
 b/data/pc-bios/s390-ccw/.built: b/data/.configured
+	env -u ELF_PACKAGE_METADATA \
 	make -C ${@D} V=$V
 	touch $@
 install-s390x-fw: b/data/pc-bios/s390-ccw/.built
@@ -635,6 +634,7 @@ sysdata-components += s390x-fw
 ### vof.bin
 build-vof: b/data/pc-bios/vof/vof.bin
 b/data/pc-bios/vof/vof.bin: b/data/.configured
+	env -u ELF_PACKAGE_METADATA \
 	${MAKE} -C ${@D} V=$V ${@F}
 install-vof: b/data/pc-bios/vof/vof.bin
 	install -m 0644 -t ${sysdataidir} $<
@@ -646,6 +646,7 @@ b/openbios/config-host.mak:
 	cd b/openbios && ../../roms/openbios/config/scripts/switch-arch builtin-ppc builtin-sparc32 builtin-sparc64
 build-openbios: $(patsubst %,b/openbios/obj-%/.built, ppc sparc32 sparc64)
 b/openbios/obj-%/.built: b/openbios/config-host.mak
+	env -u ELF_PACKAGE_METADATA \
 	${MAKE} -C ${@D} V=${V} EXTRACFLAGS="-ffreestanding -fno-pic -fno-stack-protector"
 	@touch $@
 
@@ -667,6 +668,7 @@ b/skiboot/skiboot.lid: | roms/skiboot/.version
 # Abuse OPTS= for this, with the default being -Os.
 	grep -q '^OPTS=-Os$$' roms/skiboot/Makefile.main || \
 	  { echo "review OPTS= in skiboot/Makefile.main"; false; }
+	env -u ELF_PACKAGE_METADATA \
 	${MAKE} -C b/skiboot -f ${CURDIR}/roms/skiboot/Makefile \
 	  SRC=${CURDIR}/roms/skiboot \
 	  OPTS='-Os -ffile-prefix-map="${CURDIR}/roms/skiboot/"=' \
@@ -680,6 +682,7 @@ build-u-boot-e500: b/u-boot/build-e500/u-boot
 b/u-boot/build-e500/u-boot: | b
 	cp -alu roms/u-boot b/
 	${MAKE} -C b/u-boot CROSS_COMPILE=${cross_prefix_ppc} O=build-e500 qemu-ppce500_config
+	env -u ELF_PACKAGE_METADATA \
 	${MAKE} -C b/u-boot CROSS_COMPILE=${cross_prefix_ppc} O=build-e500 V=$V
 	${cross_prefix_ppc}strip $@
 install-u-boot-e500: b/u-boot/build-e500/u-boot
@@ -691,7 +694,7 @@ build-u-boot-sam460: b/u-boot-sam460ex/u-boot.bin
 b/u-boot-sam460ex/u-boot.bin: | b
 	cp -alu roms/u-boot-sam460ex b/
 	${MAKE} -C b/u-boot-sam460ex CROSS_COMPILE=${cross_prefix_ppc} Sam460ex_config
-	env -u LDFLAGS -u OBJCFLAGS \
+	env -u LDFLAGS -u OBJCFLAGS -u ELF_PACKAGE_METADATA \
 	${MAKE} -C b/u-boot-sam460ex CROSS_COMPILE=${cross_prefix_ppc}
 #	${cross_prefix_ppc}strip $@
 install-u-boot-sam460: b/u-boot-sam460ex/u-boot.bin | ${sysdataidir}
@@ -703,6 +706,7 @@ build-qboot: b/qboot/bios.bin
 b/qboot/bios.bin: | b
 	rm -rf b/qboot
 	meson setup roms/qboot b/qboot
+	env -u ELF_PACKAGE_METADATA \
 	ninja -C b/qboot $(if $V,-v)
 install-qboot: b/qboot/bios.bin
 	install -m 0644 $< ${sysdataidir}/qboot.rom
@@ -713,6 +717,7 @@ build-palcode-clipper: b/qemu-palcode/palcode-clipper
 b/qemu-palcode/palcode-clipper: | b
 	cp -al roms/qemu-palcode b/
 #XXX #1019011 (remove OPT= alternative when fixed)
+	env -u ELF_PACKAGE_METADATA \
 	${MAKE} -C b/qemu-palcode CROSS=${cross_prefix_alpha} -k || \
 	${MAKE} -C b/qemu-palcode CROSS=${cross_prefix_alpha} OPT=-O1
 	${cross_prefix_alpha}strip b/qemu-palcode/palcode-clipper
@@ -724,7 +729,8 @@ sysdata-components += palcode-clipper
 build-slof: b/SLOF/boot_rom.bin
 b/SLOF/boot_rom.bin: | b
 	cp -al roms/SLOF b/
-	env -u LDFLAGS -u CFLAGS $(MAKE) -C b/SLOF qemu CROSS=${cross_prefix_ppc64} V=${V}
+	env -u LDFLAGS -u CFLAGS -u ELF_PACKAGE_METADATA \
+	$(MAKE) -C b/SLOF qemu CROSS=${cross_prefix_ppc64} V=${V}
 install-slof: b/SLOF/boot_rom.bin
 	install -m 0644 $< ${sysdataidir}/slof.bin
 sysdata-components += slof
@@ -734,8 +740,10 @@ build-hppa-fw: b/hppa-fw/.built
 b/hppa-fw/.built: | b
 	rm -rf $(dir $@)
 	cp -al roms/seabios-hppa $(dir $@)
+	env -u ELF_PACKAGE_METADATA \
 	${MAKE} PYTHON=python3 OUT=o32/ BITS=32 BIT_SUFFIX=   CROSS_PREFIX=${cross_prefix_hppa}   -C $(dir $@) -f Makefile.parisc all
 	${cross_prefix_hppa}strip   -R.note -R.comment $(dir $@)o32/hppa-firmware.img
+	env -u ELF_PACKAGE_METADATA \
 	${MAKE} PYTHON=python3 OUT=o64/ BITS=64 BIT_SUFFIX=64 CROSS_PREFIX=${cross_prefix_hppa64} -C $(dir $@) -f Makefile.parisc all
 	${cross_prefix_hppa64}strip -R.note -R.comment $(dir $@)o64/hppa-firmware64.img
 	touch $@
@@ -749,6 +757,7 @@ sysdata-components += hppa-fw
 build-opensbi: b/opensbi32/.built b/opensbi64/.built
 b/opensbi%/.built:
 	mkdir -p ${@D}
+	env -u ELF_PACKAGE_METADATA \
 	${MAKE} -C roms/opensbi O=../../${@D} CROSS_COMPILE=${cross_prefix_riscv64} V=${V} PLATFORM=generic PLATFORM_RISCV_XLEN=$*
 	touch $@
 install-opensbi: build-opensbi
@@ -760,6 +769,7 @@ sysdata-components += opensbi
 build-vbootrom: b/vbootrom/.built
 b/vbootrom/.built: | b
 	cp -pa roms/vbootrom b/
+	env -u ELF_PACKAGE_METADATA \
 	${MAKE} -C b/vbootrom CROSS_COMPILE=${cross_prefix_arm}
 	touch $@
 install-vbootrom: build-vbootrom
@@ -838,16 +848,5 @@ clean:	debian/control
 
 ifneq (,$(wildcard debian/control-in))
 # only include rules for debian/control if debian/control-in is present
-debian/control: debian/control-in debian/rules
-	echo '# autogenerated file, please edit debian/control-in' > $@.tmp
-	sed -e 's/^:${VENDOR}://' \
-		-e '/^:[a-z]*:/D' \
-		-e 's/:system-arch-linux-64:/$(sort ${system-arch-linux-64})/g' \
-		-e 's/:system-arch-linux:/$(sort ${system-arch-linux})/g' \
-		-e 's/:system-arch:/$(sort ${system-arch})/g' \
-		-e 's/:spice-arch:/$(sort ${spice-arch})/g' \
-		-e 's/:user-arch:/$(sort ${user-arch})/g' \
-		-e 's/:utils-arch:/${utils-arch}/g' \
-		$< >> $@.tmp
-	mv -f $@.tmp $@
+include debian/control.mk
 endif

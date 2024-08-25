@@ -31,7 +31,6 @@ Build-Depends-Arch:
 # libsndio is in universe in ubuntu
 # --disable-sndio
 # --audio-drv-list=pipewire,pa,alsa,jack,oss,sdl	:system-arch-linux:
-##--audio-drv-list=pa,oss	kfreebsd-any
  libjack-dev    [:system-arch-linux:],
  libpulse-dev   [:system-arch:],
  libasound2-dev [:system-arch-linux:],
@@ -133,13 +132,22 @@ Build-Depends-Arch:
 # ipxe-qemu [:system-arch-linux:] <!nocheck>,
 # various firmware files (kvmvapic.bin &Co), older qemu-system-data should work
 #XXX-cyclic-test-dep-dak-bug qemu-system-data [:system-arch-linux:] <!nocheck>,
-# vdso: by default Build-Depend-Arch on qemu-system-data with vdso-archive inside
-#  pkg.qemu.use-upstream-vdso - always use upstream pre-built linux-user/vdso files,
-#     do not embed vdso files into qemu-system-data binary package
-#  pkg.qemu.omit-vdso-build-dep - do not Build-Depend-Arch: qemu-user-data for vdso
-#     (allows to build and use vdso files with single arch+indep build)
+# vdso: for linux-user, we need small arch-specific .so files to embed them
+#       into linux-user for many architectures.
+#    On debian, arch and indep parts are built separately, and cross-compilers
+#    to build all vdsos aren't available on all architectures.  So we build a
+#    tarball of them in indep build and place it in qemu-system-data.  When
+#    building both arch+indep parts in one go, d/rules has magic to always
+#    (re)build vdso files and use the result immediately.
+#  pkg.qemu.use-upstream-vdso - always use upstream pre-built vdso files,
+#    do not embed vdso files into qemu-system-data binary package
+#  pkg.qemu.omit-vdso-build-dep - do not Build-Depend-Arch: qemu-user-data for
+#    vdso (allows to build and use vdso files with single arch+indep build)
+# Ubuntu builds both arch+indep parts (on amd64), so there this is irrelevant.
+#    Effectively it always enables pkg.qemu.omit-vdso-build-dep build-profile.
 # With each upstream, check if vdso code changed and bump the version:
- qemu-system-data (>> 1:9.0.2+ds-2~) [:user-arch:] <!pkg.qemu.use-upstream-vdso !pkg.qemu.omit-vdso-build-dep>,
+:debian: qemu-system-data (>> 1:9.0.2+ds-2~) [:user-arch:]
+:debian:   <!pkg.qemu.use-upstream-vdso !pkg.qemu.omit-vdso-build-dep>,
 Build-Depends-Indep:
 # compiler used to build i386 firmware
  gcc-i686-linux-gnu,
@@ -290,6 +298,7 @@ Architecture: :system-arch:
 #XXX we'll deal with this if some actual need arises,
 #XXX by moving that binary back to q-s-common or packaging it separately
 #Multi-Arch: same
+Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${misc:Depends}, ${shlibs:Depends},
 # ui-* depends on ui-opengl
  qemu-system-modules-opengl (= ${binary:Version}),

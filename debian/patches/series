@@ -1,9 +1,9 @@
 microvm-default-machine-type.patch
 static-linux-user-stubs.diff
-linux-user-binfmt-P.diff
 note-missing-module-pkg-name.diff
 skip-unpack-edk2-blobs.patch
 qemu-bridge-helper-path.patch
+gnu-hurd.patch
 qboot-Disable-LTO-for-ELF-binary-build-step.patch
 u-boot-sam460ex-fdi.patch
 u-boot-sam460ex-mstring.patch
@@ -24,3 +24,5 @@ nbd-server-Plumb-in-new-args-to-nbd_client_add.patch
 nbd-server-CVE-2024-7409-Cap-default-max-connections.patch
 nbd-server-CVE-2024-7409-Drop-non-negotiating-client.patch
 nbd-server-CVE-2024-7409-Close-stray-clients-at-serv.patch
+nbd-server-CVE-2024-7409-Avoid-use-after-free-when-c.patch
+cap-OPEN_MAX.diff

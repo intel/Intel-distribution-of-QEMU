@@ -1,21 +1,30 @@
-From 18ca3b74a7dca1b28cd9189bd6126758449df1af Mon Sep 17 00:00:00 2001
+From a8e63ff289d137197ad7a701a587cc432872d798 Mon Sep 17 00:00:00 2001
 From: Cindy Lu <lulu@redhat.com>
-Date: Wed, 22 May 2024 13:10:24 +0800
-Subject: virtio-pci: Fix the use of an uninitialized irqfd.
+Date: Tue, 6 Aug 2024 17:37:12 +0800
+Subject: virtio-pci: Fix the use of an uninitialized irqfd
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/a8e63ff289d137197ad7a701a587cc432872d798
+Forwarded: yes
 Bug: https://gitlab.com/qemu-project/qemu/-/issues/2334
 Bug: https://gitlab.com/qemu-project/qemu/-/issues/2321
-Origin: upstream, https://lists.nongnu.org/archive/html/qemu-stable/2024-05/msg00113.html
-Forwarded: not-needed
 
 The crash was reported in MAC OS and NixOS, here is the link for this bug
 https://gitlab.com/qemu-project/qemu/-/issues/2334
 https://gitlab.com/qemu-project/qemu/-/issues/2321
 
-The root cause is that the function virtio_pci_set_guest_notifiers() only
-initializes the irqfd when the use_guest_notifier_mask and guest_notifier_mask
-are set.
-However, this check is missing in virtio_pci_set_vector().
-So the fix is to add this check.
+In this bug, they are using the virtio_input device. The guest notifier was
+not supported for this device, The function virtio_pci_set_guest_notifiers()
+was not called, and the vector_irqfd was not initialized.
+
+So the fix is adding the check for vector_irqfd in virtio_pci_get_notifier()
+
+The function virtio_pci_get_notifier() can be used in various devices.
+It could also be called when VIRTIO_CONFIG_S_DRIVER_OK is not set. In this situation,
+the vector_irqfd being NULL is acceptable. We can allow the device continue to boot
+
+If the vector_irqfd still hasn't been initialized after VIRTIO_CONFIG_S_DRIVER_OK
+is set, it means that the function set_guest_notifiers was not called before the
+driver started. This indicates that the device is not using the notifier.
+At this point, we will let the check fail.
 
 This fix is verified in vyatta,MacOS,NixOS,fedora system.
 
@@ -23,7 +32,7 @@ The bt tree for this bug is:
 Thread 6 "CPU 0/KVM" received signal SIGSEGV, Segmentation fault.
 [Switching to Thread 0x7c817be006c0 (LWP 1269146)]
 kvm_virtio_pci_vq_vector_use () at ../qemu-9.0.0/hw/virtio/virtio-pci.c:817
-817	    if (irqfd->users == 0) {
+817         if (irqfd->users == 0) {
 (gdb) thread apply all bt
 ...
 Thread 6 (Thread 0x7c817be006c0 (LWP 1269146) "CPU 0/KVM"):
@@ -45,44 +54,29 @@ Thread 6 (Thread 0x7c817be006c0 (LWP 1269146) "CPU 0/KVM"):
 
 Fixes: 2ce6cff94d ("virtio-pci: fix use of a released vector")
 Cc: qemu-stable@nongnu.org
-
 Signed-off-by: Cindy Lu <lulu@redhat.com>
+Message-Id: <20240806093715.65105-1-lulu@redhat.com>
+Acked-by: Jason Wang <jasowang@redhat.com>
+Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- hw/virtio/virtio-pci.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+ hw/virtio/virtio-pci.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
 diff --git a/hw/virtio/virtio-pci.c b/hw/virtio/virtio-pci.c
-index 08faefe29a..c10913ced2 100644
+index 9534730bba..524b63e5c7 100644
 --- a/hw/virtio/virtio-pci.c
 +++ b/hw/virtio/virtio-pci.c
-@@ -1431,6 +1431,7 @@ static void virtio_pci_set_vector(VirtIODevice *vdev,
- {
-     bool kvm_irqfd = (vdev->status & VIRTIO_CONFIG_S_DRIVER_OK) &&
-         msix_enabled(&proxy->pci_dev) && kvm_msi_via_irqfd_enabled();
-+    VirtioDeviceClass *k = VIRTIO_DEVICE_GET_CLASS(vdev);
+@@ -866,6 +866,9 @@ static int virtio_pci_get_notifier(VirtIOPCIProxy *proxy, int queue_no,
+     VirtIODevice *vdev = virtio_bus_get_device(&proxy->bus);
+     VirtQueue *vq;
  
-     if (new_vector == old_vector) {
-         return;
-@@ -1441,7 +1442,8 @@ static void virtio_pci_set_vector(VirtIODevice *vdev,
-      * set, we need to release the old vector and set up the new one.
-      * Otherwise just need to set the new vector on the device.
-      */
--    if (kvm_irqfd && old_vector != VIRTIO_NO_VECTOR) {
-+    if (kvm_irqfd && old_vector != VIRTIO_NO_VECTOR &&
-+        vdev->use_guest_notifier_mask && k->guest_notifier_mask) {
-         kvm_virtio_pci_vector_release_one(proxy, queue_no);
-     }
-     /* Set the new vector on the device. */
-@@ -1451,7 +1453,8 @@ static void virtio_pci_set_vector(VirtIODevice *vdev,
-         virtio_queue_set_vector(vdev, queue_no, new_vector);
-     }
-     /* If the new vector changed need to set it up. */
--    if (kvm_irqfd && new_vector != VIRTIO_NO_VECTOR) {
-+    if (kvm_irqfd && new_vector != VIRTIO_NO_VECTOR &&
-+        vdev->use_guest_notifier_mask && k->guest_notifier_mask) {
-         kvm_virtio_pci_vector_use_one(proxy, queue_no);
-     }
- }
++    if (!proxy->vector_irqfd && vdev->status & VIRTIO_CONFIG_S_DRIVER_OK)
++        return -1;
++
+     if (queue_no == VIRTIO_CONFIG_IRQ_IDX) {
+         *n = virtio_config_get_guest_notifier(vdev);
+         *vector = vdev->config_vector;
 -- 
 2.39.2
 
