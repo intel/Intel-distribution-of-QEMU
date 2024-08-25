@@ -24,3 +24,4 @@ nbd-server-Plumb-in-new-args-to-nbd_client_add.patch
 nbd-server-CVE-2024-7409-Cap-default-max-connections.patch
 nbd-server-CVE-2024-7409-Drop-non-negotiating-client.patch
 nbd-server-CVE-2024-7409-Close-stray-clients-at-serv.patch
+cap-OPEN_MAX.diff
