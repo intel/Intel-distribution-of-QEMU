@@ -70,7 +70,6 @@ extra-ldflags = ${LDFLAGS} -Wl,--as-needed
 # we add another set of configure options from debian/control
 common_configure_opts = \
 	--with-pkgversion="$(PKGVERSION)" \
-	--extra-cflags="${extra-cflags}" \
 	--extra-ldflags="${extra-ldflags}" \
 	--prefix=/usr \
 	--sysconfdir=/etc \
@@ -200,6 +199,7 @@ b/qemu/configured: configure
 	rm -rf b/qemu; mkdir -p b/qemu
 	cd b/qemu && \
 	    ../../configure ${common_configure_opts} \
+		--extra-cflags="${extra-cflags}" \
 		--$(if ${enable-system},enable,disable)-system \
 		--disable-user --disable-linux-user \
 		--enable-tools \
@@ -340,6 +340,7 @@ b/xen/configured: configure
 	rm -rf b/xen; mkdir -p b/xen
 	cd b/xen && \
 	    ../../configure ${common_configure_opts} \
+		--extra-cflags="${extra-cflags}" \
 		--disable-tools \
 		--without-default-features \
 		--enable-avx2 \
