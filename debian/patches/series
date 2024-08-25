@@ -1,6 +1,5 @@
 microvm-default-machine-type.patch
 static-linux-user-stubs.diff
-linux-user-binfmt-P.diff
 note-missing-module-pkg-name.diff
 skip-unpack-edk2-blobs.patch
 qemu-bridge-helper-path.patch
