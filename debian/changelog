@@ -1,10 +1,35 @@
-qemu (1:9.0.2+ds-5) UNRELEASED; urgency=medium
+qemu (1:9.0.2+ds-5) unstable; urgency=medium
 
+  [ Sergio Durigan Junior ]
   * d/rules: Unset ELF_PACKAGE_METADATA when building ROMs.
     Ubuntu started setting ELF_PACKAGE_METADATA during builds, but that
     can badly affect ROMs (see LP #2077431).
 
- -- Sergio Durigan Junior <sergiodj@debian.org>  Wed, 21 Aug 2024 17:12:49 -0400
+  [ Michael Tokarev ]
+  * d/control: add alpha to utils-arch
+  * d/control: remove kfreebsd-*
+  * +gnu-hurd.patch (test)
+  * d/rules: split-out d/control.mk
+  * d/binfmt-install: remove s390x leftover (covered by last "*" entry)
+  * d/rules: disable-bpf for qemu-user[-static] builds,
+    it is leaked into the link uselessly
+  * d/control: add the forgotten <!pkg.qemu.omit-system> for qemu-system-gui
+  * d/rules: remove --disable-install-blobs from xen build
+    (it is in common options already)
+  * d/rules: pass --extra-cflags explicitly to each build
+  * d/rules: pass --extra-ldflags to each build explicitly too
+  * d/rules: generate Built-Using: for qemu-user-static from a linker .map file
+  * d/patches,d/binfmt-install: stop patching qemu to support
+    old kernel binfmt interface (remove linux-user-binfmt-P.diff)
+  * refine build-depend-arch: qemu-system-data for ubuntu
+    and refine comment around this
+  * cap-OPEN_MAX.diff - temporary, Closes: #1078757 (fixed for good in 9.1)
+  * virtio-pci-Fix-the-use-of-an-uninitialized-irqfd.patch -
+    refresh from upstream
+  * +nbd-server-CVE-2024-7409-Avoid-use-after-free-when-c.patch -
+    one more fix for CVE-2024-7409
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 25 Aug 2024 18:50:52 +0300
 
 qemu (1:9.0.2+ds-4) unstable; urgency=medium
 
