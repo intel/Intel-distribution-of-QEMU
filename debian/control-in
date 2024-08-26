@@ -128,10 +128,10 @@ Build-Depends-Arch:
 ## auth-pam - for auth for vnc&Co using PAM
 #
 # the testsuite:
-#XXX-cyclic-test-dep-dak-bug seabios [:system-arch-linux:] <!nocheck>,
 # ipxe-qemu [:system-arch-linux:] <!nocheck>,
-# various firmware files (kvmvapic.bin &Co), older qemu-system-data should work
-#XXX-cyclic-test-dep-dak-bug qemu-system-data [:system-arch-linux:] <!nocheck>,
+ seabios (>> 1.16.3-1~) [:system-arch-linux:] <!nocheck>,
+ qemu-system-data (>> 1:9.0) [:system-arch-linux:] <!nocheck>,
+#
 # vdso: for linux-user, we need small arch-specific .so files to embed them
 #       into linux-user for many architectures.
 #    On debian, arch and indep parts are built separately, and cross-compilers

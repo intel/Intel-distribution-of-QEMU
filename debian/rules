@@ -216,19 +216,20 @@ b/qemu/built: b/qemu/configured
 	${NINJA} -C b/qemu
 	touch $@
 
+ifeq (,$(findstring nocheck, ${DEB_BUILD_OPTIONS} ${DEB_BUILD_PROFILES}))
+build-qemu: b/qemu/tested
+endif
+
 test-qemu: b/qemu/tested
 b/qemu/tested: b/qemu/built
-ifeq (${enable-system},y)
-# copy all firmware files. An alternative is to remove qemu-bundle
-#	cp -a /usr/share/seabios/* /usr/lib/ipxe/qemu/* /usr/share/qemu/* \
-#	    b/qemu/qemu-bundle/usr/share/qemu/
+	# ======== begin testing ========
 	rm -rf b/qemu/qemu-bundle
 	QEMU_MODULE_DIR=${CURDIR}/b/qemu \
 	    ${MAKE} -C b/qemu check-block
-endif
+	# ========= end testing =========
 	touch $@
 
-install-qemu: b/qemu/built
+install-qemu: build-qemu
 	DESTDIR=${CURDIR}/debian/tmp \
 	    ${NINJA} -C b/qemu install
 
@@ -515,9 +516,7 @@ qemu-builds += man html
 	configure-arch build-arch test-qemu \
 	pre-install-arch install-arch binary-arch
 configure-arch: $(addprefix configure-, ${qemu-builds})
-build-arch: $(addprefix build-, ${qemu-builds}) \
-
-#XXX-cyclic-test-dep-dak-bug	$(if $(findstring nocheck, ${DEB_BUILD_OPTIONS} ${DEB_BUILD_PROFILES}),, test-qemu)
+build-arch: $(addprefix build-, ${qemu-builds})
 
 pre-install-arch:
 	dh_testroot
