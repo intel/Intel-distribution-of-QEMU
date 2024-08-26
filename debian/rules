@@ -390,21 +390,9 @@ user-alias-ppc = powerpc
 user-alias-ppc64le = ppc64el
 user-alias-x86_64 = amd64
 
-# install-user [-static]
-define install-user
-	dh_installdirs -p qemu-user$1 \
-	    usr/bin usr/share/man/man1 usr/share/doc/qemu-user$1
-$(foreach t,${user-targets},\
-	cp -p b/user$1/qemu-$t debian/qemu-user$1/usr/bin/qemu-$t$1
-	ln -sf qemu-user$1.1   debian/qemu-user$1/usr/share/man/man1/qemu-$t$1.1
-$(foreach a,${user-alias-$t},\
-	ln -sf qemu-$t$1   debian/qemu-user$1/usr/bin/qemu-$a$1
-	ln -sf qemu-$t$1.1 debian/qemu-user$1/usr/share/man/man1/qemu-$a$1.1
-))
-endef
-
 ##############################################
 # user build (static)
+# user-targets is defined in d/control.mk
 configure-user: b/user/configured
 b/user/configured: configure
 # do not use debian/configure-opts here, all optional stuff will be enabled
@@ -430,7 +418,15 @@ b/user/built: b/user/configured
 	${NINJA} -C b/user $(addprefix qemu-,${user-targets})
 	touch $@
 install-user: b/user/built
-	$(call install-user,)
+	install -t debian/qemu-user/usr/bin/ -D \
+	    $(patsubst %,b/user/qemu-%,${user-targets})
+	dh_link -p qemu-user \
+ $(foreach t,${user-targets},\
+  ${man1dir}/qemu-user.1 ${man1dir}/qemu-$t.1 \
+  $(foreach a,${user-alias-$t},\
+    usr/bin/qemu-$t usr/bin/qemu-$a \
+    ${man1dir}/qemu-$t.1 ${man1dir}/qemu-$a.1\
+  ))
 	dh_installdocs -p qemu-user-binfmt --link-doc=qemu-user
 	./debian/binfmt-install
 # build a Built-Using substvar:
