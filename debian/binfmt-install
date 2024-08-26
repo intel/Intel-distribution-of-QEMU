@@ -95,6 +95,7 @@ esac
 
 mkdir -p debian/$PACKAGE/usr/lib/binfmt.d \
 	 debian/$DOC_PACKAGE/usr/share/doc/$DOC_PACKAGE \
+	 debian/$PACKAGE/usr/libexec/qemu-binfmt \
 
 for fmt in $fmts ; do
     eval "case $fmt in $omit) inst=;; *) inst=y;; esac; magic=\"\$${fmt}_magic\" mask=\"\$${fmt}_mask\""
@@ -104,7 +105,8 @@ for fmt in $fmts ; do
     if [ "$inst" ]; then inst=debian/$PACKAGE/usr/lib/binfmt.d
     else inst=debian/$DOC_PACKAGE/usr/share/doc/$DOC_PACKAGE
     fi
-    echo ":qemu-$fmt:M::$magic:$mask:/usr/bin/qemu-$fmt$SUFFIX:OCP${FIXB}" \
+    ln -sf ../../bin/qemu-$fmt$SUFFIX debian/$PACKAGE/usr/libexec/qemu-binfmt/$fmt-binfmt-P
+    echo ":qemu-$fmt:M::$magic:$mask:/usr/libexec/qemu-binfmt/$fmt-binfmt-P:OCP${FIXB}" \
 	>$inst/qemu-$fmt.conf
 done
 
