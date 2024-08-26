@@ -25,11 +25,10 @@ index 91a0aa64c6..12246a588d 100644
 +supported_oses = ['windows', 'freebsd', 'netbsd', 'openbsd', 'darwin', 'sunos', 'linux', 'hurd']
  supported_cpus = ['ppc', 'ppc64', 's390x', 'riscv32', 'riscv64', 'x86', 'x86_64',
 diff --git a/include/qemu/osdep.h b/include/qemu/osdep.h
-index c7053cdc2b..ce1bd88aa5 100644
+index c7053cdc2b..560ed59ac0 100644
 --- a/include/qemu/osdep.h
 +++ b/include/qemu/osdep.h
-@@ -134,4 +134,8 @@ QEMU_EXTERN_C int daemon(int, int);
- #include <signal.h>
+@@ -135,4 +135,11 @@ QEMU_EXTERN_C int daemon(int, int);
  
 +#if defined(__GNU__) && !defined(PATH_MAX) /* GNU Hurd */
 +# define PATH_MAX 4096
@@ -37,3 +36,7 @@ index c7053cdc2b..ce1bd88aa5 100644
 +
  #ifdef CONFIG_IOVEC
  #include <sys/uio.h>
++# if defined(__GNU__) && !defined(IOV_MAX) /* GNU Hurd */
++#  define IOV_MAX 1024
++# endif
+ #endif
