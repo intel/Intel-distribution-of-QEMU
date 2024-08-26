@@ -1,7 +1,9 @@
 #!/usr/bin/make -rRf
 SHELL = /bin/sh -e
 
-VENDOR ?= $(shell dpkg-vendor --derives-from Ubuntu && echo ubuntu || echo debian)
+VENDOR := $(shell dpkg-vendor --derives-from Ubuntu && \
+            echo ubuntu || echo debian)
+include /usr/share/dpkg/pkg-info.mk
 
 # Host architectures we produce packages for.
 # when changing this list, check d/control-in too, if any changes

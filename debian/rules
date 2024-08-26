@@ -8,10 +8,8 @@ export PYTHONDONTWRITEBYTECODE=1
 # of different targets in this d/rules but allow running parallel submakes
 .NOTPARALLEL:
 
-VENDOR := $(shell dpkg-vendor --derives-from Ubuntu && echo ubuntu || echo debian)
-
-# get DEB_VERSION
-include /usr/share/dpkg/pkg-info.mk
+# this includes pkg-info.mk and defines VENDOR (debian|ubuntu):
+include debian/control.mk
 
 ifeq ($(and ${DEB_HOST_MULTIARCH},${DEB_HOST_ARCH}),)
 # Fast version of dpkg/architecture.mk defining all vars in one go
@@ -845,8 +843,3 @@ clean:	debian/control
 		configs/devices/x86_64-softmmu/microvm.mak \
 
 .PHONY: build install binary binary-helper clean
-
-ifneq (,$(wildcard debian/control-in))
-# only include rules for debian/control if debian/control-in is present
-include debian/control.mk
-endif
