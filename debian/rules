@@ -432,7 +432,7 @@ b/user/built: b/user/configured
 install-user: b/user/built
 	$(call install-user,)
 	dh_installdocs -p qemu-user-binfmt --link-doc=qemu-user
-	./debian/binfmt-install qemu-user-binfmt
+	./debian/binfmt-install
 # build a Built-Using substvar:
 	echo "built-using=$$(\
 	  grep -h ^/usr/lib b/user/qemu-*.map ${# all system libs} | \
