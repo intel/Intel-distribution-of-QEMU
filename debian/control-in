@@ -579,59 +579,56 @@ Description: QEMU full system emulation (Xen helper package)
 Package: qemu-user
 Architecture: :user-arch:
 Multi-Arch: foreign
+Built-Using: ${built-using}
 Build-Profiles: <!pkg.qemu.omit-user>
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${misc:Depends}
+Breaks:   qemu-user-static (<< 1:9.1.0)
+Replaces: qemu-user-static (<< 1:9.1.0)
 Recommends: qemu-user-binfmt
-Description: QEMU user mode emulation binaries
+Description: QEMU user mode emulation (static binaries)
  QEMU is a fast processor emulator: currently the package supports Alpha, ARM,
  CRIS, i386, LoongArch, M68k (ColdFire), MicroBlaze, MIPS, PowerPC, RISC-V,
  S390x, SH4, SPARC, x86-64, Xtensa and other emulations. By using dynamic
  translation it achieves reasonable speed while being easy to port on new host
  CPUs.
  .
- This package provides the user mode emulation binaries. In this mode
- QEMU can launch Linux processes compiled for one CPU on another CPU.
+ This package provides statically linked user mode emulation binaries.
+ In user mode QEMU can launch Linux processes compiled for one CPU
+ on another CPU.
  .
  If qemu-user-binfmt package is also installed, it will register binary
- format handlers from this qemu-user package with the kernel so it will
- be possible to run foreign binaries directly.  However, this might not
- be suitable for using inside foreign chroots, in which case it is
- possible to use qemu-user-static package instead of qemu-user-binmft, --
- qemu-user-static will register statically linked binfmt handlers instead.
+ format handlers from this qemu-user package with the kernel automatically
+ so it will be possible to run foreign binaries directly.  Without
+ qemu-user-binfmt, it is possible to register certain binfmt(s) by using:
+     cat /usr/share/qemu/binfmt.d/qemu-ARCH.conf \
+       > /proc/sys/fs/binfmt_misc/register
 
 Package: qemu-user-static
 Architecture: :user-arch:
-Built-Using: ${built-using}
 Multi-Arch: foreign
-Build-Profiles: <!pkg.qemu.omit-user-static>
-Depends: ${misc:Depends}
-# Recommend systemd for binfmt-misc registration
-Recommends: systemd
-Provides: qemu-user-binfmt
-Conflicts: qemu-user-binfmt
-Description: QEMU user mode emulation binaries (static version)
- QEMU is a fast processor emulator: currently the package supports Alpha, ARM,
- CRIS, i386, LoongArch, M68k (ColdFire), MicroBlaze, MIPS, PowerPC, RISC-V,
- S390x, SH4, SPARC, x86-64, Xtensa and other emulations. By using dynamic
- translation it achieves reasonable speed while being easy to port on new host
- CPUs.
+Build-Profiles: <!pkg.qemu.omit-user>
+Depends: qemu-user (>= ${binary:Version}), qemu-user-binfmt (>= ${binary:Version})
+Section: oldlibs
+Description: QEMU user mode emulation (compat/transitional package)
+ In the past, this package provided statically-built qemu user-mode emulation
+ binaries. Now this functionality is provided by qemu-user package, and this
+ package just to help migration to qemu-user.
  .
- This package provides the user mode emulation binaries, built
- statically. In this mode QEMU can launch Linux processes compiled for
- one CPU on another CPU.
+ This package provides old/compatibility symlinks from qemu-user-static binaries
+ pointing to corresponding qemu-user binaries, and old qemu-debootstrap script.
+ Neither of these should be used in practice.
  .
- qemu-user-static package will register binary formats which the provided
- emulators can handle, so that it will be possible to run foreign binaries
- directly.
+ Please remove this package once you ensure nothing is using the old interfaces.
 
 Package: qemu-user-binfmt
 Architecture: :user-arch:
 Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-user>
 Depends: ${misc:Depends}, qemu-user (= ${binary:Version})
+Breaks:   qemu-user-static (<< 1:9.1.0)
+Replaces: qemu-user-static (<< 1:9.1.0)
 # Recommend systemd for binfmt-misc registration
 Recommends: systemd
-Conflicts: qemu-user-static
 Description: QEMU user mode binfmt registration for qemu-user
  QEMU is a fast processor emulator: currently the package supports Alpha, ARM,
  CRIS, i386, LoongArch, M68k (ColdFire), MicroBlaze, MIPS, PowerPC, RISC-V,
@@ -639,10 +636,11 @@ Description: QEMU user mode binfmt registration for qemu-user
  translation it achieves reasonable speed while being easy to port on new host
  CPUs.
  .
- This package provides binfmt support registration for the user mode
- emulation binaries from qemu-user.  This is an empty package, it does
- not contain any additional files, only registration scripts which run
- at install and remove times.
+ This package provides binfmt support registration for the user-mode emulation
+ binaries from qemu-user.  This package does not contain additional binaries,
+ just (sym)links to binfmt registration data in /usr/lib/binfmt.d/ so it is
+ picked up automatically by, eg, systemd.  Actual files are provided by
+ qemu-user package.
 
 Package: qemu-utils
 Architecture: :utils-arch:

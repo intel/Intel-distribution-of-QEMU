@@ -43,7 +43,6 @@ BUILD_PACKAGES := $(shell dh_listpackages)
 
 enable-system = $(if $(filter qemu-system,${BUILD_PACKAGES}),y)
 enable-user = $(if $(filter qemu-user,${BUILD_PACKAGES}),y)
-enable-user-static = $(if $(filter qemu-user-static,${BUILD_PACKAGES}),y)
 
 QEMU_XEN = /usr/libexec/xen-qemu-system-i386
 PKGVERSION = Debian ${DEB_VERSION}
@@ -405,16 +404,22 @@ $(foreach a,${user-alias-$t},\
 endef
 
 ##############################################
-# user build
+# user build (static)
 configure-user: b/user/configured
 b/user/configured: configure
 # do not use debian/configure-opts here, all optional stuff will be enabled
 # automatically, dependencies are already verified in the main build
+# See LP:#1908331 for --static-pie (the default in qemu) and #1053101
+# See https://sourceware.org/bugzilla/show_bug.cgi?id=29514
+# use --disable-pie on i386 for now due to #1056739
+# (maybe also add arm64 here for gcc12)
 	rm -rf b/user; mkdir -p b/user
 	cd b/user && \
 	    ../../configure ${common_configure_opts} \
-		--extra-cflags="${extra-cflags}" \
-		--extra-ldflags="${extra-ldflags}" \
+		--extra-cflags="${extra-cflags} -DPROVIDE_STUBS_FOR_STATIC" \
+		--extra-ldflags="${extra-ldflags} -Wl,-Map=%.map,--no-print-map-discarded" \
+		--static \
+		$(if $(filter i386,${DEB_HOST_ARCH}),--disable-pie) \
 		--disable-plugins \
 		--disable-bpf \
 		--target-list="$(addsuffix -linux-user,${user-targets})"
@@ -426,47 +431,11 @@ b/user/built: b/user/configured
 	touch $@
 install-user: b/user/built
 	$(call install-user,)
-	sed -e 's/qemu\\-user\\-static/qemu\\-user/g' \
-	    -e 's/ (static version)//' \
-	    debian/qemu-user-static.1 > debian/qemu-user/usr/share/man/man1/qemu-user.1
-	sed 's|-static||g' debian/qemu-user-static.README.Debian > \
-	    debian/qemu-user/usr/share/doc/qemu-user/README.Debian
 	dh_installdocs -p qemu-user-binfmt --link-doc=qemu-user
 	./debian/binfmt-install qemu-user-binfmt
-qemu-builds += $(if ${enable-user},user)
-
-##############################################
-# user-static build
-configure-user-static: b/user-static/configured
-b/user-static/configured: configure
-# do not use debian/configure-opts here, all optional stuff will be enabled
-# automatically, dependencies are already verified in the main build
-# See LP:#1908331 for --static-pie (the default in qemu) and #1053101
-# See https://sourceware.org/bugzilla/show_bug.cgi?id=29514
-# use --disable-pie on i386 for now due to #1056739
-# (maybe also add arm64 here for gcc12)
-	rm -rf b/user-static; mkdir -p b/user-static
-	cd b/user-static && \
-	    ../../configure ${common_configure_opts} \
-		--extra-cflags="${extra-cflags} -DPROVIDE_STUBS_FOR_STATIC" \
-		--extra-ldflags="${extra-ldflags} -Wl,-Map=%.map,--no-print-map-discarded" \
-		--static \
-		$(if $(filter i386,${DEB_HOST_ARCH}),--disable-pie) \
-		--disable-plugins \
-		--disable-bpf \
-		--target-list="$(addsuffix -linux-user,${user-targets})"
-	touch $@
-build-user-static: b/user-static/built
-b/user-static/built: b/user-static/configured
-	# we use this invocation to build just the binaries
-	${NINJA} -C b/user-static $(addprefix qemu-,${user-targets})
-	touch $@
-install-user-static: b/user-static/built
-	$(call install-user,-static)
-	./debian/binfmt-install qemu-user-static
 # build a Built-Using substvar:
 	echo "built-using=$$(\
-	  grep -h ^/usr/lib b/user-static/qemu-*.map ${# all system libs} | \
+	  grep -h ^/usr/lib b/user/qemu-*.map ${# all system libs} | \
 	  cut -d'(' -f1 ${# strip trailing (file.o)} | \
 	  sort -u ${# unique filenames} | \
 	  xargs realpath ${# resolve ../} | \
@@ -474,9 +443,8 @@ install-user-static: b/user-static/built
 	  sed 's/: .*//' ${# strip trailing ': filename'} | \
 	  sort -u ${# unique packages} | \
 	  xargs dpkg-query -f '$${source:Package} (= $${source:Version}),' -W)" \
-	  > debian/qemu-user-static.substvars
-
-qemu-builds += $(if ${enable-user-static},user-static)
+	  > debian/qemu-user.substvars
+qemu-builds += $(if ${enable-user},user)
 
 ##############################################
 # docs: build it with sphinx directly
@@ -553,9 +521,9 @@ install-arch: pre-install-arch $(addprefix install-, ${qemu-builds})
 	dh_fixperms -a
 	dh_dwz -a
 	dh_strip -a
-# qemu-user-static contains static binaries only, but they might be built
+# qemu-user contains static binaries only, but they might be built
 # as static-pie executables and dpkg-shlibdeps complains. Just omit it here.
-	dh_shlibdeps -a -Nqemu-user-static
+	dh_shlibdeps -a -Nqemu-user
 binary-arch: install-arch binary-helper
 binary-arch: a=-a
 
@@ -614,7 +582,7 @@ endif
 ifeq (,$(filter pkg.qemu.use-upstream-vdso, ${DEB_BUILD_PROFILES}))
 sysdata-components += vdso
 vdso-clean = ${vdso-files}
-b/user/configured b/user-static/configured: b/vdso-updated
+b/user/configured: b/vdso-updated
 endif # !pkg.qemu.use-upstream-vdso
 
 ### x86 optionrom

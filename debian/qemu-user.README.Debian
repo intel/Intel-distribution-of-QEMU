@@ -6,10 +6,10 @@ to name the binaries, debian used another, some architectures
 are named the same way, while for other architectures there's
 a difference.
 
-Starting with debian qemu-user-static package version 8.0, we
-provide debian-compatible naming scheme for qemu-$arch-static
-binaries, to be used as qemu-${DEB_HOST_ARCH}-static.  For
-example, qemu-armel-static is a symlink for qemu-arm-static.
+Starting with debian qemu-user package version 8.0, we
+provide debian-compatible naming scheme for qemu-$arch
+binaries, to be used as qemu-${DEB_HOST_ARCH}.  For
+example, qemu-armel is a symlink for qemu-arm.
 
 In particular, the following extra names are provided:
 
@@ -26,3 +26,8 @@ The other names do match between qemu and debian.
 There's another name which is also provided but which is
 neither in debian nor in qemu: it is ppc64le, which is
 the name used for this architecture in the linux kernel.
+
+starting with version 9.0.2+ds-7, qemu-user provides
+statically linked binaries which were previously provided
+by qemu-user-static, while dynamic binaries are not built
+anymore.
