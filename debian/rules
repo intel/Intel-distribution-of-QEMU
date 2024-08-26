@@ -366,13 +366,6 @@ qemu-builds += $(if $(filter qemu-system-xen,${BUILD_PACKAGES}),xen)
 
 ##############################
 
-# list of linux-user targets, from configs/targets/*-linux-user.mak
-user-targets = \
- aarch64 aarch64_be alpha arm armeb cris hexagon hppa i386 loongarch64 \
- m68k microblaze microblazeel mips mips64 mips64el mipsel mipsn32 mipsn32el \
- nios2 or1k ppc ppc64 ppc64le riscv32 riscv64 \
- s390x sh4 sh4eb sparc sparc32plus sparc64 \
- x86_64 xtensa xtensaeb
 # aliases for missing ${DEB_HOST_ARCH} names in qemu-user:
 user-alias-aarch64 = arm64
 user-alias-arm = armel armhf

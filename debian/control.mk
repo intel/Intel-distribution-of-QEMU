@@ -9,8 +9,57 @@ include /usr/share/dpkg/pkg-info.mk
 # ensure we have the expected qemu version, or else scream loudly
 checked-version := 9.0.2+ds
 
+user-targets := \
+ aarch64 \
+ aarch64_be \
+ alpha \
+ arm \
+ armeb \
+ cris \
+ hexagon \
+ hppa \
+ i386 \
+ loongarch64 \
+ m68k \
+ microblaze \
+ microblazeel \
+ mips \
+ mips64 \
+ mips64el \
+ mipsel \
+ mipsn32 \
+ mipsn32el \
+ nios2 \
+ or1k \
+ ppc \
+ ppc64 \
+ ppc64le \
+ riscv32 \
+ riscv64 \
+ s390x \
+ sh4 \
+ sh4eb \
+ sparc \
+ sparc32plus \
+ sparc64 \
+ x86_64 \
+ xtensa \
+ xtensaeb \
+#
+
 ifneq (${checked-version},${DEB_VERSION_UPSTREAM})
 $(warning Debian packaging is set up for version ${checked-version} while actual version is ${DEB_VERSION_UPSTREAM})
+
+actual-user-targets := $(sort $(shell \
+  ls -1 configs/targets/*-linux-user.mak \
+   | sed 's|.*/\(.*\)-linux-user\.mak$$|\1|'))
+ifneq ($(sort ${user-targets}),${actual-user-targets})
+$(warning user-targets list differs from actual, \
+  added: $(filter-out ${user-targets},${actual-user-targets}), \
+  removed: $(filter-out ${actual-user-targets},${user-targets}))
+$(warning Check binfmt setup too!)
+endif
+
 $(error verify everything is set up correctly)
 endif
 
