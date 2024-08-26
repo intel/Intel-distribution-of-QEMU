@@ -1,3 +1,28 @@
+qemu (1:9.0.2+ds-6) unstable; urgency=medium
+
+  * cap-OPEN_MAX.diff: update to include second case of the same code
+    (really closes: #1078757)
+  * gnu-hurd.patch: update to define PATH_MAX on hurd
+  * Revert "d/patches,d/binfmt-install: stop patching qemu to support old
+    kernel binfmt interface (remove linux-user-binfmt-P.diff)"
+    This change can be kept for longer to support bullseye and older kernels
+  * d/binfmt-install: add aarch6_be fmt
+  * d/binfmt-install: change a few \x7fELF into \x7f\x45\x4c\x46 in
+    magic strings to align with masks and be consistent (no actual changes)
+  * d/rules,d/control.mk: move some stuff from d/rules to d/control.mk
+    and include control.mk earlier
+  * d/control.mk: remember upstream version we built for and complain
+    if it is not the same
+  * d/rules: move user-targets definition to control.mk and verify
+    if the list is correct
+  * d/rules: move vdso list and handling to d/control.mk and verify
+    vdso hasn't changed since last version
+  * d/control, d/rules: enable the testsuite again (block only)
+    since we build-depend on qemu-system-data.
+    Add build-depends on seabios
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 26 Aug 2024 17:39:35 +0300
+
 qemu (1:9.0.2+ds-5) unstable; urgency=medium
 
   [ Sergio Durigan Junior ]

@@ -8,10 +8,8 @@ export PYTHONDONTWRITEBYTECODE=1
 # of different targets in this d/rules but allow running parallel submakes
 .NOTPARALLEL:
 
-VENDOR := $(shell dpkg-vendor --derives-from Ubuntu && echo ubuntu || echo debian)
-
-# get DEB_VERSION
-include /usr/share/dpkg/pkg-info.mk
+# this includes pkg-info.mk and defines VENDOR (debian|ubuntu):
+include debian/control.mk
 
 ifeq ($(and ${DEB_HOST_MULTIARCH},${DEB_HOST_ARCH}),)
 # Fast version of dpkg/architecture.mk defining all vars in one go
@@ -218,19 +216,20 @@ b/qemu/built: b/qemu/configured
 	${NINJA} -C b/qemu
 	touch $@
 
+ifeq (,$(findstring nocheck, ${DEB_BUILD_OPTIONS} ${DEB_BUILD_PROFILES}))
+build-qemu: b/qemu/tested
+endif
+
 test-qemu: b/qemu/tested
 b/qemu/tested: b/qemu/built
-ifeq (${enable-system},y)
-# copy all firmware files. An alternative is to remove qemu-bundle
-#	cp -a /usr/share/seabios/* /usr/lib/ipxe/qemu/* /usr/share/qemu/* \
-#	    b/qemu/qemu-bundle/usr/share/qemu/
+	# ======== begin testing ========
 	rm -rf b/qemu/qemu-bundle
 	QEMU_MODULE_DIR=${CURDIR}/b/qemu \
 	    ${MAKE} -C b/qemu check-block
-endif
+	# ========= end testing =========
 	touch $@
 
-install-qemu: b/qemu/built
+install-qemu: build-qemu
 	DESTDIR=${CURDIR}/debian/tmp \
 	    ${NINJA} -C b/qemu install
 
@@ -368,13 +367,6 @@ qemu-builds += $(if $(filter qemu-system-xen,${BUILD_PACKAGES}),xen)
 
 ##############################
 
-# list of linux-user targets, from configs/targets/*-linux-user.mak
-user-targets = \
- aarch64 aarch64_be alpha arm armeb cris hexagon hppa i386 loongarch64 \
- m68k microblaze microblazeel mips mips64 mips64el mipsel mipsn32 mipsn32el \
- nios2 or1k ppc ppc64 ppc64le riscv32 riscv64 \
- s390x sh4 sh4eb sparc sparc32plus sparc64 \
- x86_64 xtensa xtensaeb
 # aliases for missing ${DEB_HOST_ARCH} names in qemu-user:
 user-alias-aarch64 = arm64
 user-alias-arm = armel armhf
@@ -524,9 +516,7 @@ qemu-builds += man html
 	configure-arch build-arch test-qemu \
 	pre-install-arch install-arch binary-arch
 configure-arch: $(addprefix configure-, ${qemu-builds})
-build-arch: $(addprefix build-, ${qemu-builds}) \
-
-#XXX-cyclic-test-dep-dak-bug	$(if $(findstring nocheck, ${DEB_BUILD_OPTIONS} ${DEB_BUILD_PROFILES}),, test-qemu)
+build-arch: $(addprefix build-, ${qemu-builds})
 
 pre-install-arch:
 	dh_testroot
@@ -576,8 +566,8 @@ b/data/.configured: | b
 # Alternative is to enable pkg.qemu.omit-vdso-build-dep profile
 # and build both arch and indep parts in one go, so that a rebuild
 # of vdso files for arch-indep step is used in arch step too.
-vdso-subdirs = aarch64 arm hppa i386 loongarch64 ppc riscv s390x x86_64
-vdso-files = $(patsubst %,linux-user/%/vdso*.so,${vdso-subdirs})
+# ${vdso-files} are defined in d/control.mk
+vdso-subdirs := $(sort $(dir ${vdso-files}))
 vdso-archive = linux-user-vdso.tar.gz
 
 build-vdso: b/${vdso-archive}
@@ -586,7 +576,7 @@ define build-vdso
 	rm -f ${vdso-files}
 	$(foreach d,${vdso-subdirs},\
 	@echo == building vdso for $d:
-	+${MAKE} -f linux-user/$d/Makefile.vdso BUILD_DIR=b/data SRC_PATH=.
+	+${MAKE} -f $d/Makefile.vdso BUILD_DIR=b/data SRC_PATH=.
 )
 	tar -cvzf $@ --owner=0 --group=0 --numeric-owner ${vdso-files}
 endef
@@ -845,8 +835,3 @@ clean:	debian/control
 		configs/devices/x86_64-softmmu/microvm.mak \
 
 .PHONY: build install binary binary-helper clean
-
-ifneq (,$(wildcard debian/control-in))
-# only include rules for debian/control if debian/control-in is present
-include debian/control.mk
-endif

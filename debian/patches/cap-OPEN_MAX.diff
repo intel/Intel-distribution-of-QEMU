@@ -8,7 +8,7 @@ In qemu 9.1, this is fixed by using close_range().
 Fix this prob in 9.0 for now while 9.1 is in RC stage.
 
 diff --git a/net/tap.c b/net/tap.c
-index baaa2f7a9a..66abb1cb73 100644
+index baaa2f7a9a..cd8fd74554 100644
 --- a/net/tap.c
 +++ b/net/tap.c
 @@ -462,4 +462,7 @@ static void launch_script(const char *setup_script, const char *ifname,
@@ -19,3 +19,11 @@ index baaa2f7a9a..66abb1cb73 100644
 +
          for (i = 3; i < open_max; i++) {
              if (i != fd) {
+@@ -555,4 +558,7 @@ static int net_bridge_run_helper(const char *helper, const char *bridge,
+         char *helper_cmd = NULL;
+ 
++	/* #1078757 - cap for now, fixed for good in 9.1 */
++        open_max = MIN(open_max, 1024*1024);
++
+         for (i = 3; i < open_max; i++) {
+             if (i != sv[1]) {
