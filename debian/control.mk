@@ -5,6 +5,15 @@ VENDOR := $(shell dpkg-vendor --derives-from Ubuntu && \
             echo ubuntu || echo debian)
 include /usr/share/dpkg/pkg-info.mk
 
+# since some files and/or lists differ from version to version,
+# ensure we have the expected qemu version, or else scream loudly
+checked-version := 9.0.2+ds
+
+ifneq (${checked-version},${DEB_VERSION_UPSTREAM})
+$(warning Debian packaging is set up for version ${checked-version} while actual version is ${DEB_VERSION_UPSTREAM})
+$(error verify everything is set up correctly)
+endif
+
 # Host architectures we produce packages for.
 # when changing this list, check d/control-in too, if any changes
 # needs to be done for build deps and --enable options.
