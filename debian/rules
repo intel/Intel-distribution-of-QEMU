@@ -567,8 +567,8 @@ b/data/.configured: | b
 # Alternative is to enable pkg.qemu.omit-vdso-build-dep profile
 # and build both arch and indep parts in one go, so that a rebuild
 # of vdso files for arch-indep step is used in arch step too.
-vdso-subdirs = aarch64 arm hppa i386 loongarch64 ppc riscv s390x x86_64
-vdso-files = $(patsubst %,linux-user/%/vdso*.so,${vdso-subdirs})
+# ${vdso-files} are defined in d/control.mk
+vdso-subdirs := $(sort $(dir ${vdso-files}))
 vdso-archive = linux-user-vdso.tar.gz
 
 build-vdso: b/${vdso-archive}
@@ -577,7 +577,7 @@ define build-vdso
 	rm -f ${vdso-files}
 	$(foreach d,${vdso-subdirs},\
 	@echo == building vdso for $d:
-	+${MAKE} -f linux-user/$d/Makefile.vdso BUILD_DIR=b/data SRC_PATH=.
+	+${MAKE} -f $d/Makefile.vdso BUILD_DIR=b/data SRC_PATH=.
 )
 	tar -cvzf $@ --owner=0 --group=0 --numeric-owner ${vdso-files}
 endef
