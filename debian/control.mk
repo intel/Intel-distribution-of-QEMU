@@ -69,6 +69,8 @@ user-targets := \
 ifneq (${checked-version},${DEB_VERSION_UPSTREAM})
 $(warning Debian packaging is set up for version ${checked-version} while actual version is ${DEB_VERSION_UPSTREAM})
 
+$(warning remove --disable-bpf for user targets in d/rules for 9.1+)
+
 actual-vdso-files := $(sort $(shell \
  for f in linux-user/*/Makefile.vdso ; do \
    sed -n "s|^\\\$$(SUBDIR)/\(.*\):.*|$${f%/*}/\1|p" $$f; \
