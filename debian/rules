@@ -166,10 +166,10 @@ endef
 # install kvm link to qemu-system-${kvm-link} if it is not empty
 # fills in qemu:Provides and qemu:archlist substvars
 define install-system
-	# ==== installing $1 ===
-	dh_installdirs -p $1 usr/bin
-	mv -t debian/$1/usr/bin/ $(addprefix debian/tmp/usr/bin/qemu-system-, $2)
-	dh_link -p $1 \
+# ==== installing $1 ===
+dh_installdirs -p $1 usr/bin
+mv -t debian/$1/usr/bin/ $(addprefix debian/tmp/usr/bin/qemu-system-, $2)
+dh_link -p $1 \
  $(foreach q, $2, \
    ${man1dir}/qemu-system.1 ${man1dir}/qemu-system-$q.1 \
    $(if $3, usr/bin/$3 usr/bin/kvm ${man1dir}/$3.1 ${man1dir}/kvm.1) \
@@ -178,18 +178,18 @@ define install-system
      ${man1dir}/qemu-system-$q.1 ${man1dir}/qemu-system-$a.1 \
   ))
 ${# note: older make does not understand line-splitting inside $(functions ..)}
-	echo 'qemu:Provides=$(if $3,qemu-kvm (=${DEB_VERSION})${comma})\
-	 $(patsubst %,% (=${DEB_VERSION})${comma},$(filter-out $1, $(patsubst %, qemu-system-%, any $2 $(foreach q,$2,${system-alias-$q}))))' \
-	    | tr _ - >> debian/$1.substvars
+echo 'qemu:Provides=$(if $3,qemu-kvm (=${DEB_VERSION})${comma})\
+ $(patsubst %,% (=${DEB_VERSION})${comma},$(filter-out $1, $(patsubst %, qemu-system-%, any $2 $(foreach q,$2,${system-alias-$q}))))' \
+    | tr _ - >> debian/$1.substvars
 ${# construct list `arch1 arch2 (alias) arch3..' for Description and word-wrap it}
-	list='$(foreach q,$2,$q$(if ${system-alias-$q}, (${system-alias-$q})))'; \
-	  len2=$$(($${#list}/2)); \
-	  if [ $$len2 -gt 36 ]; then \
-	    while expr substr "$$list" $$len2 1 != " " >/dev/null; do len2=$$(($$len2+1)); done; \
-	    list="$$(expr substr "$$list" 1 $$(($$len2-1)))\$${Newline} $$(expr substr "$$list" $$(($$len2+1)) $$len2)"; \
-	  fi; \
-	  echo "qemu:archlist=$$list" >> debian/$1.substvars
-	dh_installdocs -p $1 --link-doc=qemu-system-common
+list='$(foreach q,$2,$q$(if ${system-alias-$q}, (${system-alias-$q})))'; \
+  len2=$$(($${#list}/2)); \
+  if [ $$len2 -gt 36 ]; then \
+    while expr substr "$$list" $$len2 1 != " " >/dev/null; do len2=$$(($$len2+1)); done; \
+    list="$$(expr substr "$$list" 1 $$(($$len2-1)))\$${Newline} $$(expr substr "$$list" $$(($$len2+1)) $$len2)"; \
+  fi; \
+  echo "qemu:archlist=$$list" >> debian/$1.substvars
+dh_installdocs -p $1 --link-doc=qemu-system-common
 ${# keep empty line at the end }
 endef
 
