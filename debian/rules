@@ -380,16 +380,6 @@ install-xen: b/xen/built
 	  debian/qemu-system-xen${QEMU_XEN}
 qemu-builds += $(if $(filter qemu-system-xen,${BUILD_PACKAGES}),xen)
 
-##############################
-
-# aliases for missing ${DEB_HOST_ARCH} names in qemu-user:
-user-alias-aarch64 = arm64
-user-alias-arm = armel armhf
-user-alias-loongarch64 = loong64
-user-alias-ppc = powerpc
-user-alias-ppc64le = ppc64el
-user-alias-x86_64 = amd64
-
 ##############################################
 # user build (static)
 # user-targets is defined in d/control.mk
@@ -417,6 +407,15 @@ b/user/built: b/user/configured
 	# we use this invocation to build just the binaries
 	${NINJA} -C b/user $(addprefix qemu-,${user-targets})
 	touch $@
+
+# aliases for missing ${DEB_HOST_ARCH} names in qemu-user:
+user-alias-aarch64 = arm64
+user-alias-arm = armel armhf
+user-alias-loongarch64 = loong64
+user-alias-ppc = powerpc
+user-alias-ppc64le = ppc64el
+user-alias-x86_64 = amd64
+
 install-user: b/user/built
 	install -t debian/qemu-user/usr/bin/ -D \
 	    $(patsubst %,b/user/qemu-%,${user-targets})
