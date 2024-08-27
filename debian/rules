@@ -49,6 +49,8 @@ PKGVERSION = Debian ${DEB_VERSION}
 sysdatadir = /usr/share/qemu
 sysdataidir = debian/qemu-system-data${sysdatadir}
 libdir = /usr/lib/${DEB_HOST_MULTIARCH}
+mandir = /usr/share/man
+man1dir = ${mandir}/man1
 FIRMWAREPATH = /usr/share/qemu:/usr/share/seabios:/usr/lib/ipxe/qemu
 
 export cross_prefix_alpha = alpha-linux-gnu-
@@ -75,6 +77,7 @@ common_configure_opts = \
 	--libexecdir=/usr/libexec/qemu \
 	--firmwarepath=${FIRMWAREPATH} \
 	--localstatedir=/var \
+	--mandir=${mandir} \
 	--disable-install-blobs \
 	--disable-strip \
 	--localstatedir=/var \
