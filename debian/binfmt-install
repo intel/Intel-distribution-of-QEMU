@@ -79,22 +79,24 @@ sparc32plus_magic='\x7f\x45\x4c\x46\x01\x02\x01\x00\x00\x00\x00\x00\x00\x00\x00\
 # find which fmts needs to be filtered out, which is arch-dependent.
 # Drop support for emulating amd64 on i386, http://bugs.debian.org/604712
 case "$DEB_HOST_ARCH" in
-  amd64 | i386 | x32) omit="i386|x86_64|x32" ;;
-  arm | armel | armhf | arm64) omit="arm|aarch64" ;;
+  amd64 | i386 | x32) omit="i386 x86_64 x32" ;;
+  arm | armel | armhf | arm64) omit="arm aarch64" ;;
   loong64) omit="loongarch64" ;;
-  ppc64 | powerpc) omit="ppc|ppc64|ppc64abi32" ;;
+  ppc64 | powerpc) omit="ppc ppc64 ppc64abi32" ;;
   ppc64el) omit="ppc64le" ;;
-  riscv64) omit="riscv32|riscv64" ;;
-  sparc | sparc64) omit="sparc|sparc32plus|sparc64" ;;
+  riscv64) omit="riscv32 riscv64" ;;
+  sparc | sparc64) omit="sparc sparc32plus sparc64" ;;
   *) omit="$DEB_HOST_ARCH" ;;
 esac
 
-mkdir -p debian/qemu-user-binfmt/usr/lib/binfmt.d \
-	 debian/qemu-user/usr/share/qemu/binfmt.d \
-	 debian/qemu-user/usr/libexec/qemu-binfmt \
+mkdir -p \
+  debian/qemu-user-binfmt/usr/lib/binfmt.d \
+  debian/qemu-user/usr/share/qemu/binfmt.d \
+  debian/qemu-user/usr/libexec/qemu-binfmt \
+#
 
 for fmt in $fmts ; do
-    eval "case $fmt in $omit) inst=;; *) inst=y;; esac; magic=\"\$${fmt}_magic\" mask=\"\$${fmt}_mask\""
+    eval "magic=\"\$${fmt}_magic\" mask=\"\$${fmt}_mask\""
     if [ ! "$magic" -o ! "$mask" ]; then
       echo "$0: unknown format $fmt (no magic/mask)" >&2; exit 1
     fi
@@ -102,9 +104,16 @@ for fmt in $fmts ; do
     ln -sf ../../bin/qemu-$fmt debian/qemu-user/usr/libexec/qemu-binfmt/$fmt-binfmt-P
     echo ":qemu-$fmt:M::$magic:$mask:/usr/libexec/qemu-binfmt/$fmt-binfmt-P:OCPF" \
 	>debian/qemu-user/usr/share/qemu/binfmt.d/qemu-$fmt.conf
-    [ ! "$inst" ] ||
+
+    case " $omit " in
+      (*" $fmt "*)
+	;;
+      (*)
 	ln -sf ../../share/qemu/binfmt.d/qemu-$fmt.conf \
-	    debian/qemu-user-binfmt/usr/lib/binfmt.d/qemu-$fmt.conf
+	    debian/qemu-user-binfmt/usr/lib/binfmt.d/
+	;;
+    esac
+
 done
 
 # generate postinst script to unregister all from binfmt-support
