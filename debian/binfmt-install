@@ -94,6 +94,11 @@ mkdir -p \
   debian/qemu-user/usr/share/qemu/binfmt.d \
   debian/qemu-user/usr/libexec/qemu-binfmt \
 #
+# compat:
+mkdir -p \
+  debian/qemu-user-static/usr/share/doc/qemu-user-static \
+  debian/qemu-user-binfmt/usr/share/doc/qemu-user-binfmt \
+#
 
 for fmt in $fmts ; do
     eval "magic=\"\$${fmt}_magic\" mask=\"\$${fmt}_mask\""
@@ -107,6 +112,11 @@ for fmt in $fmts ; do
 
     case " $omit " in
       (*" $fmt "*)
+	# compat symlinks (shipped in debian between 8.0 and 9.1~):
+	ln -sf ../../qemu/binfmt.d/qemu-$fmt.conf \
+	    debian/qemu-user-static/usr/share/doc/qemu-user-static/
+	ln -sf ../../qemu/binfmt.d/qemu-$fmt.conf \
+	    debian/qemu-user-binfmt/usr/share/doc/qemu-user-binfmt/
 	;;
       (*)
 	ln -sf ../../share/qemu/binfmt.d/qemu-$fmt.conf \
