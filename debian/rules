@@ -31,11 +31,12 @@ include /usr/share/dpkg/buildflags.mk
 
 # DEB_BUILD_OPTIONS=parallel=N
 MAKEFLAGS += $(subst parallel=,-j,$(filter parallel=%,${DEB_BUILD_OPTIONS}))
-
+NUMJOBS := $(lastword 1 $(subst -j,,$(filter -j%,${MAKEFLAGS})))
 # verbose build
-V = $(if $(filter terse, ${DEB_BUILD_OPTIONS}),,1)
+V := $(if $(filter terse, ${DEB_BUILD_OPTIONS}),,1)
 
-NINJA = ninja $(if $V,-v) $(or $(filter -j%,${MAKEFLAGS}),-j1)
+NINJA = ninja $(if $V,-v) -j${NUMJOBS}
+MESON = meson
 
 # list of packages we're supposed to build
 BUILD_PACKAGES := $(shell dh_listpackages)
@@ -49,6 +50,8 @@ PKGVERSION = Debian ${DEB_VERSION}
 sysdatadir = /usr/share/qemu
 sysdataidir = debian/qemu-system-data${sysdatadir}
 libdir = /usr/lib/${DEB_HOST_MULTIARCH}
+mandir = /usr/share/man
+man1dir = ${mandir}/man1
 FIRMWAREPATH = /usr/share/qemu:/usr/share/seabios:/usr/lib/ipxe/qemu
 
 export cross_prefix_alpha = alpha-linux-gnu-
@@ -75,6 +78,7 @@ common_configure_opts = \
 	--libexecdir=/usr/libexec/qemu \
 	--firmwarepath=${FIRMWAREPATH} \
 	--localstatedir=/var \
+	--mandir=${mandir} \
 	--disable-install-blobs \
 	--disable-strip \
 	--localstatedir=/var \
@@ -151,38 +155,43 @@ system-kvmcpus-misc = $(if ${system-s390x},,s390x)
 
 system-packages = arm mips ppc sparc x86 ${system-s390x} misc
 
+# qemu-system subpackages
+define install-all-system
+$(foreach p,${system-packages},\
+  $(call install-system,qemu-system-$p,${system-archlist-$p}\
+  ,$(if $(filter ${DEB_HOST_ARCH_CPU},${system-kvmcpus-$p}),qemu-system-${system-kvmlink-${DEB_HOST_ARCH_CPU}})))
+endef
+
 # install-system qemu-system-$pkg, ${system-archlist-$pkg}, kvm-link
 # install qemu-arch-list binaries with manpages and aliases into pkg
 # install kvm link to qemu-system-${kvm-link} if it is not empty
 # fills in qemu:Provides and qemu:archlist substvars
 define install-system
-	# installing $1
-	dh_installdirs -p $1 usr/bin usr/share/man/man1
-	mv -t debian/$1/usr/bin/ $(addprefix debian/tmp/usr/bin/qemu-system-,$2)
-$(foreach q,$2,\
-	@echo ".so man1/qemu-system.1" > debian/$1/usr/share/man/man1/qemu-system-$q.1
-    $(foreach a,${system-alias-$q},\
-	dh_link -p $1 usr/bin/qemu-system-$q usr/bin/qemu-system-$a
-	dh_link -p $1 usr/share/man/man1/qemu-system-$q.1 usr/share/man/man1/qemu-system-$a.1
-))
-$(if $3,\
-	dh_link -p $1 usr/bin/$3 usr/bin/kvm
-	dh_link -p $1 usr/share/man/man1/$3.1 usr/share/man/man1/kvm.1
-)
-# note: older make does not understand line-splitting inside $(functions ..)
-	echo 'qemu:Provides=$(if $3,qemu-kvm (=${DEB_VERSION})${comma})\
-	 $(patsubst %,% (=${DEB_VERSION})${comma},$(filter-out $1, $(patsubst %, qemu-system-%, any $2 $(foreach q,$2,${system-alias-$q}))))' \
-	    | tr _ - >> debian/$1.substvars
-# construct list `arch1 arch2 (alias) arch3..' for Description
-# and word-wrap it into two lines if too long
-	list='$(foreach q,$2,$q$(if ${system-alias-$q}, (${system-alias-$q})))'; \
-	  len2=$$(($${#list}/2)); \
-	  if [ $$len2 -gt 36 ]; then \
-	    while expr substr "$$list" $$len2 1 != " " >/dev/null; do len2=$$(($$len2+1)); done; \
-	    list="$$(expr substr "$$list" 1 $$(($$len2-1)))\$${Newline} $$(expr substr "$$list" $$(($$len2+1)) $$len2)"; \
-	  fi; \
-	  echo "qemu:archlist=$$list" >> debian/$1.substvars
-	dh_installdocs -p $1 --link-doc=qemu-system-common
+# ==== installing $1 ===
+dh_installdirs -p $1 usr/bin
+mv -t debian/$1/usr/bin/ $(addprefix debian/tmp/usr/bin/qemu-system-, $2)
+dh_link -p $1 \
+ $(foreach q, $2, \
+   ${man1dir}/qemu-system.1 ${man1dir}/qemu-system-$q.1 \
+   $(if $3, usr/bin/$3 usr/bin/kvm ${man1dir}/$3.1 ${man1dir}/kvm.1) \
+   $(foreach a, ${system-alias-$q}, \
+     usr/bin/qemu-system-$q usr/bin/qemu-system-$a \
+     ${man1dir}/qemu-system-$q.1 ${man1dir}/qemu-system-$a.1 \
+  ))
+${# note: older make does not understand line-splitting inside $(functions ..)}
+echo 'qemu:Provides=$(if $3,qemu-kvm (=${DEB_VERSION})${comma})\
+ $(patsubst %,% (=${DEB_VERSION})${comma},$(filter-out $1, $(patsubst %, qemu-system-%, any $2 $(foreach q,$2,${system-alias-$q}))))' \
+    | tr _ - >> debian/$1.substvars
+${# construct list `arch1 arch2 (alias) arch3..' for Description and word-wrap it}
+list='$(foreach q,$2,$q$(if ${system-alias-$q}, (${system-alias-$q})))'; \
+  len2=$$(($${#list}/2)); \
+  if [ $$len2 -gt 36 ]; then \
+    while expr substr "$$list" $$len2 1 != " " >/dev/null; do len2=$$(($$len2+1)); done; \
+    list="$$(expr substr "$$list" 1 $$(($$len2-1)))\$${Newline} $$(expr substr "$$list" $$(($$len2+1)) $$len2)"; \
+  fi; \
+  echo "qemu:archlist=$$list" >> debian/$1.substvars
+dh_installdocs -p $1 --link-doc=qemu-system-common
+${# keep empty line at the end }
 endef
 
 sysdata-components :=
@@ -217,7 +226,9 @@ b/qemu/built: b/qemu/configured
 	touch $@
 
 ifeq (,$(findstring nocheck, ${DEB_BUILD_OPTIONS} ${DEB_BUILD_PROFILES}))
+ifeq (${enable-system},y)
 build-qemu: b/qemu/tested
+endif
 endif
 
 test-qemu: b/qemu/tested
@@ -225,7 +236,9 @@ b/qemu/tested: b/qemu/built
 	# ======== begin testing ========
 	rm -rf b/qemu/qemu-bundle
 	QEMU_MODULE_DIR=${CURDIR}/b/qemu \
-	    ${MAKE} -C b/qemu check-block
+	    ${MESON} test -C b/qemu --suite=block \
+		--num-processes=${NUMJOBS} --no-rebuild --print-errorlogs \
+		$(if $(filter riscv64,${DEB_BUILD_ARCH}),-t2)
 	# ========= end testing =========
 	touch $@
 
@@ -238,10 +251,7 @@ install-qemu: build-qemu
 
 ifeq (${enable-system},y)
 
-	# qemu-system subpackages
-	$(foreach p,${system-packages},\
-	    $(call install-system,qemu-system-$p,${system-archlist-$p}\
-	    ,$(if $(filter ${DEB_HOST_ARCH_CPU},${system-kvmcpus-$p}),qemu-system-${system-kvmlink-${DEB_HOST_ARCH_CPU}})))
+	$(call install-all-system)
 
 ifeq ($(DEB_HOST_ARCH_OS),linux)
 
@@ -697,7 +707,7 @@ b/qboot/bios.bin: | b
 	rm -rf b/qboot
 	meson setup roms/qboot b/qboot
 	env -u ELF_PACKAGE_METADATA \
-	ninja -C b/qboot $(if $V,-v)
+	${NINJA} -C b/qboot
 install-qboot: b/qboot/bios.bin
 	install -m 0644 $< ${sysdataidir}/qboot.rom
 sysdata-components += qboot
