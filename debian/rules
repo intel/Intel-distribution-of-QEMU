@@ -31,11 +31,11 @@ include /usr/share/dpkg/buildflags.mk
 
 # DEB_BUILD_OPTIONS=parallel=N
 MAKEFLAGS += $(subst parallel=,-j,$(filter parallel=%,${DEB_BUILD_OPTIONS}))
-
+NUMJOBS := $(lastword 1 $(subst -j,,$(filter -j%,${MAKEFLAGS})))
 # verbose build
-V = $(if $(filter terse, ${DEB_BUILD_OPTIONS}),,1)
+V := $(if $(filter terse, ${DEB_BUILD_OPTIONS}),,1)
 
-NINJA = ninja $(if $V,-v) $(or $(filter -j%,${MAKEFLAGS}),-j1)
+NINJA = ninja $(if $V,-v) -j${NUMJOBS}
 
 # list of packages we're supposed to build
 BUILD_PACKAGES := $(shell dh_listpackages)
