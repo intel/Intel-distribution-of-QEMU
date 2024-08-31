@@ -704,7 +704,7 @@ b/qboot/bios.bin: | b
 	rm -rf b/qboot
 	meson setup roms/qboot b/qboot
 	env -u ELF_PACKAGE_METADATA \
-	ninja -C b/qboot $(if $V,-v)
+	${NINJA} -C b/qboot
 install-qboot: b/qboot/bios.bin
 	install -m 0644 $< ${sysdataidir}/qboot.rom
 sysdata-components += qboot
