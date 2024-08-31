@@ -237,7 +237,8 @@ b/qemu/tested: b/qemu/built
 	rm -rf b/qemu/qemu-bundle
 	QEMU_MODULE_DIR=${CURDIR}/b/qemu \
 	    ${MESON} test -C b/qemu --suite=block \
-		--num-processes=${NUMJOBS} --no-rebuild --print-errorlogs
+		--num-processes=${NUMJOBS} --no-rebuild --print-errorlogs \
+		$(if $(filter riscv64,${DEB_BUILD_ARCH}),-t2)
 	# ========= end testing =========
 	touch $@
 
