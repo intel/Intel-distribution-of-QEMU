@@ -36,6 +36,7 @@ NUMJOBS := $(lastword 1 $(subst -j,,$(filter -j%,${MAKEFLAGS})))
 V := $(if $(filter terse, ${DEB_BUILD_OPTIONS}),,1)
 
 NINJA = ninja $(if $V,-v) -j${NUMJOBS}
+MESON = meson
 
 # list of packages we're supposed to build
 BUILD_PACKAGES := $(shell dh_listpackages)
@@ -235,7 +236,8 @@ b/qemu/tested: b/qemu/built
 	# ======== begin testing ========
 	rm -rf b/qemu/qemu-bundle
 	QEMU_MODULE_DIR=${CURDIR}/b/qemu \
-	    ${MAKE} -C b/qemu check-block
+	    ${MESON} test -C b/qemu --suite=block \
+		--num-processes=${NUMJOBS} --no-rebuild --print-errorlogs
 	# ========= end testing =========
 	touch $@
 
