@@ -1,3 +1,16 @@
+qemu (1:9.0.2+ds-7) unstable; urgency=medium
+
+  * d/rules: make check actually needs system (disable testsuite if !system)
+  * d/patches/gnu-hurd.patch: add IOV_MAX define too
+  * d/rules: add mandir and man1dir variables to shorten things
+  * d/rules: simplify/streamline install-system macro a little bit
+  * d/rules: install-system macro: no need for leading tabs
+  * d/binfmt-install: omit loongarch64 binfmt on loong64 (Closes: #1080085)
+  * d/rules: use meson instead of make to run tests
+  * d/rules: increase test timeout by a factor of 2 on riscv64 build
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 31 Aug 2024 08:56:40 +0300
+
 qemu (1:9.0.2+ds-6) unstable; urgency=medium
 
   * cap-OPEN_MAX.diff: update to include second case of the same code
