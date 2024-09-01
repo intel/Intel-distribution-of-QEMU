@@ -168,11 +168,13 @@ endef
 # fills in qemu:Provides and qemu:archlist substvars
 define install-system
 # ==== installing $1 ===
-dh_installdirs -p $1 usr/bin
+dh_installdirs -p $1 usr/bin ${man1dir}
 mv -t debian/$1/usr/bin/ $(addprefix debian/tmp/usr/bin/qemu-system-, $2)
+$(foreach q, $2,\
+ echo ".so man1/qemu-system.1" > debian/$1${man1dir}/qemu-system-$q.1
+)
 dh_link -p $1 \
  $(foreach q, $2, \
-   ${man1dir}/qemu-system.1 ${man1dir}/qemu-system-$q.1 \
    $(if $3, usr/bin/$3 usr/bin/kvm ${man1dir}/$3.1 ${man1dir}/kvm.1) \
    $(foreach a, ${system-alias-$q}, \
      usr/bin/qemu-system-$q usr/bin/qemu-system-$a \
