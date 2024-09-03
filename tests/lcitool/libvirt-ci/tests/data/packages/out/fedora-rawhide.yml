@@ -9,8 +9,9 @@ native:
 - autoconf
 - automake
 - bash
-- bash-completion
+- bash-completion-devel
 - bc
+- bindgen-cli
 - bison
 - brlapi-devel
 - bzip2
@@ -27,6 +28,7 @@ native:
 - cloud-init
 - cloud-utils-growpart
 - codespell
+- compiler-rt
 - cpp
 - cppi
 - ctags
@@ -62,6 +64,7 @@ native:
 - glibc-devel
 - glibc-langpack-en
 - glibc-static
+- glibc-utils
 - glusterfs-api-devel
 - gnutls-devel
 - gnutls-utils
@@ -222,6 +225,7 @@ native:
 - pulseaudio-libs-devel
 - python3
 - python3-PyYAML
+- python3-black
 - python3-boto3
 - python3-build
 - python3-dbus
@@ -254,6 +258,7 @@ native:
 - ruby-devel
 - rubygem-rake
 - rust
+- rust-std-static
 - sanlock-devel
 - screen
 - scrub

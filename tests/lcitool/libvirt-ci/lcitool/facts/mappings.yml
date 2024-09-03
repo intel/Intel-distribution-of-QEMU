@@ -117,8 +117,6 @@ mappings:
     deb: ant-optional
     pkg: apache-ant
     rpm: ant-junit
-    AlmaLinux8:
-    CentOSStream8:
 
   apparmor:
     deb: libapparmor-dev
@@ -160,13 +158,35 @@ mappings:
 
   bash-completion:
     default: bash-completion
+    rpm: bash-completion-devel
+    AlmaLinux9: bash-completion
+    CentOSStream9: bash-completion
+    Fedora39: bash-completion
+    Fedora40: bash-completion
 
   bc:
     default: bc
     pkg:
 
+  # currently OpenSUSE only packages bindgen in Tumbleweed
+  bindgen:
+    default: bindgen
+    apk: rust-bindgen
+    pkg: rust-bindgen-cli
+    rpm: bindgen-cli
+    OpenSUSELeap15:
+    OpenSUSETumbleweed: rust-bindgen
+
   bison:
     default: bison
+
+  black:
+    default: black
+    pkg: py311-black
+    rpm: python3-black
+    AlmaLinux:
+    CentOS:
+    OpenSUSELeap15:
 
   brlapi:
     deb: libbrlapi-dev
@@ -177,7 +197,6 @@ mappings:
     apk: util-linux
     deb: bsdextrautils
     rpm: util-linux
-    Ubuntu2004: bsdmainutils
 
   bzip2:
     default: bzip2
@@ -239,7 +258,7 @@ mappings:
 
   cloud-init:
     default: cloud-init
-    pkg: py39-cloud-init
+    pkg: py311-cloud-init
     MacOS:
 
   cloud-init-growpart:
@@ -277,10 +296,6 @@ mappings:
   ctags:
     default: ctags
     deb: exuberant-ctags
-    AlmaLinux:
-    CentOS:
-    AlmaLinux8: ctags
-    CentOSStream8: ctags
 
   cyrus-sasl:
     apk: cyrus-sasl-dev
@@ -361,9 +376,8 @@ mappings:
   flake8:
     default: flake8
     apk: py3-flake8
-    pkg: py39-flake8
+    pkg: py311-flake8
     rpm: python3-flake8
-    OpenSUSETumbleweed: python39-flake8
 
   flex:
     default: flex
@@ -454,10 +468,8 @@ mappings:
     apk: cdrkit
     deb: genisoimage
     pkg: cdrkit-genisoimage
-    Fedora: genisoimage
+    rpm: genisoimage
     OpenSUSE: mkisofs
-    AlmaLinux8: genisoimage
-    CentOSStream8: genisoimage
 
   gettext:
     default: gettext
@@ -505,8 +517,15 @@ mappings:
     deb: libglusterfs-dev
     Fedora: glusterfs-api-devel
     OpenSUSE: glusterfs-devel
-    AlmaLinux8: glusterfs-api-devel
-    CentOSStream8: glusterfs-api-devel
+    armv6l-Debian:
+    armv6l-Debian11: libglusterfs-dev
+    armv6l-Debian12: libglusterfs-dev
+    armv7l-Debian:
+    armv7l-Debian11: libglusterfs-dev
+    armv7l-Debian12: libglusterfs-dev
+    i686-Debian:
+    i686-Debian11: libglusterfs-dev
+    i686-Debian12: libglusterfs-dev
     cross-policy-default: foreign
 
   gnutls:
@@ -577,9 +596,10 @@ mappings:
     apk: gtk-vnc-dev
     deb: libgtk-vnc-2.0-dev
     rpm: gtk-vnc2-devel
-    AlmaLinux:
-    CentOS:
     OpenSUSE: gtk-vnc-devel
+    # Temporary limitation until this gets shipped in RHEL-9
+    AlmaLinux9:
+    CentOSStream9:
 
   gzip:
     default: gzip
@@ -588,7 +608,6 @@ mappings:
     apk: hexdump
     deb: bsdextrautils
     rpm: util-linux
-    Ubuntu2004: bsdmainutils
 
   hostname:
     default: hostname
@@ -623,11 +642,9 @@ mappings:
     apk: cdrkit
     deb: genisoimage
     pkg: cdrkit
-    Fedora: genisoimage
+    rpm: genisoimage
     MacOS: cdrtools
     OpenSUSE: mkisofs
-    AlmaLinux8: genisoimage
-    CentOSStream8: genisoimage
 
   java:
     apk: openjdk11-jdk
@@ -666,8 +683,6 @@ mappings:
   junit:
     default: junit
     MacOS:
-    AlmaLinux8:
-    CentOSStream8:
 
   libacl:
     apk: acl-dev
@@ -722,7 +737,6 @@ mappings:
     apk: libbpf-dev
     deb: libbpf-dev
     rpm: libbpf-devel
-    Ubuntu2004:
     cross-policy-default: foreign
 
   libc:
@@ -731,6 +745,12 @@ mappings:
     rpm: glibc-devel
     cross-mingw32-rpm: mingw32-headers
     cross-mingw64-rpm: mingw64-headers
+    cross-policy-default: foreign
+
+  libc-malloc-debug:
+    default:
+    Fedora: glibc-utils
+    Fedora39: glibc
     cross-policy-default: foreign
 
   libc-static:
@@ -742,10 +762,6 @@ mappings:
   libcacard:
     deb: libcacard-dev
     rpm: libcacard-devel
-    AlmaLinux:
-    CentOS:
-    AlmaLinux8: libcacard-devel
-    CentOSStream8: libcacard-devel
     cross-policy-default: foreign
 
   libcap-ng:
@@ -758,6 +774,13 @@ mappings:
     apk: clang-dev
     deb: libclang-dev
     rpm: clang-devel
+
+  libclang-rt:
+    deb: libclang-rt-dev
+    rpm: compiler-rt
+    OpenSUSE: clang-devel
+    Debian11: libclang-dev
+    Ubuntu2204: libclang-dev
 
   libcmpiutil:
     rpm: libcmpiutil-devel
@@ -800,10 +823,6 @@ mappings:
     apk: libev-dev
     deb: libev-dev
     rpm: libev-devel
-    AlmaLinux:
-    CentOS:
-    AlmaLinux8: libev-devel
-    CentOSStream8: libev-devel
     cross-policy-default: foreign
 
   libfdt:
@@ -857,11 +876,7 @@ mappings:
   libiscsi:
     deb: libiscsi-dev
     rpm: libiscsi-devel
-    AlmaLinux:
-    CentOS:
     MacOS: libiscsi
-    AlmaLinux8: libiscsi-devel
-    CentOSStream8: libiscsi-devel
     cross-policy-default: foreign
 
   libjemalloc:
@@ -900,16 +915,12 @@ mappings:
     apk: libnfs-dev
     deb: libnfs-dev
     rpm: libnfs-devel
-    # FIXME Drop once EPEL for AlmaLinux 9 / CentOS Stream 9 adds the package
-    AlmaLinux9:
-    CentOSStream9:
     cross-policy-default: foreign
 
   libnbd:
     deb: libnbd-dev
     rpm: libnbd-devel
     Debian11:
-    Ubuntu2004:
 
   libnl3:
     apk: libnl3-dev
@@ -954,7 +965,6 @@ mappings:
     apk: pipewire-dev
     deb: libpipewire-0.3-dev
     rpm: pipewire-devel
-    Ubuntu2004:
     cross-policy-default: foreign
 
   libpmem:
@@ -1012,10 +1022,6 @@ mappings:
     apk: libslirp-dev
     deb: libslirp-dev
     rpm: libslirp-devel
-    AlmaLinux:
-    CentOS:
-    AlmaLinux8: libslirp-devel
-    CentOSStream8: libslirp-devel
     cross-policy-default: foreign
 
   libsoup:
@@ -1094,11 +1100,6 @@ mappings:
     apk: liburing-dev
     deb: liburing-dev
     rpm: liburing-devel
-    AlmaLinux:
-    CentOS:
-    AlmaLinux8: liburing-devel
-    CentOSStream8: liburing-devel
-    Ubuntu2004:
     cross-policy-default: foreign
 
   libusbx:
@@ -1138,7 +1139,6 @@ mappings:
     Fedora: libvirt-gobject-devel
     MacOS: libvirt-glib
     OpenSUSE: libvirt-glib-devel
-    AlmaLinux8: libvirt-gobject-devel
     cross-policy-default: foreign
 
   libxml2:
@@ -1156,7 +1156,6 @@ mappings:
     rpm: libxdp-devel
     Debian11:
     OpenSUSELeap15:
-    Ubuntu2004:
     Ubuntu2204:
     cross-policy-default: foreign
 
@@ -1205,7 +1204,6 @@ mappings:
     pkg: lua54
     rpm: lua-devel
     MacOS: lua
-    Ubuntu2004: lua5.3
 
   lvm2:
     default: lvm2
@@ -1233,7 +1231,10 @@ mappings:
 
   meson:
     default: meson
-    Ubuntu2004:
+
+  mingw-w64-tools:
+    cross-mingw64-rpm: mingw-w64-tools
+    cross-policy-default: foreign
 
   mkisofs:
     apk: cdrkit
@@ -1285,8 +1286,6 @@ mappings:
     apk:
     pkg:
     MacOS:
-    OpenSUSE:
-    Ubuntu2004:
 
   ncursesw:
     default: ncurses
@@ -1303,10 +1302,7 @@ mappings:
 
   netcf:
     apk: netcf-dev
-    AlmaLinux8: netcf-devel
-    CentOSStream8: netcf-devel
     Debian11: libnetcf-dev
-    Ubuntu2004: libnetcf-dev
     cross-policy-default: skip
 
   net-snmp:
@@ -1396,8 +1392,6 @@ mappings:
     apk: perl
     pkg: perl5
     MacOS: perl
-    AlmaLinux8: perl
-    CentOSStream8: perl
 
   perl-App-cpanminus:
     apk: perl-app-cpanminus
@@ -1509,8 +1503,6 @@ mappings:
     rpm: perl-Sys-Hostname
     MacOS: perl
     OpenSUSE: perl-base
-    AlmaLinux8: perl
-    CentOSStream8: perl
 
   perl-TAP-Formatter-HTML:
     deb: libtap-formatter-html-perl
@@ -1607,13 +1599,13 @@ mappings:
     OpenSUSE:
 
   php:
-    apk: php81-dev
+    apk: php83-dev
     deb: php-dev
     pkg: php74
     rpm: php-devel
 
   php-imagick:
-    apk: php81-pecl-imagick
+    apk: php83-pecl-imagick
     deb: php-imagick
     pkg: php74-pecl-imagick
     Fedora: php-pecl-imagick
@@ -1664,28 +1656,31 @@ mappings:
   python3-PyYAML:
     apk: py3-yaml
     deb: python3-yaml
-    pkg: py39-yaml
+    pkg: py311-yaml
     rpm: python3-PyYAML
 
   python3-build:
     apk: py3-build
     deb: python3-build
-    pkg: py39-build
-    Fedora: python3-build
+    pkg: py311-build
+    rpm: python3-build
     MacOS: python-build
-    Ubuntu:
+    OpenSUSELeap15:
+    # Present but broken for our needs
+    #  https://bugs.launchpad.net/ubuntu/+source/python-build/+bug/1992108
+    Ubuntu2204:
 
   python3-dbus:
     default: python3-dbus
     apk: py3-dbus
-    pkg: py39-dbus
+    pkg: py311-dbus
     MacOS:
     OpenSUSE: python3-dbus-python
 
   python3-boto3:
     default: python3-boto3
     apk: py3-boto3
-    pkg: py39-boto3
+    pkg: py311-boto3
     MacOS:
 
   python3-devel:
@@ -1697,31 +1692,35 @@ mappings:
   python3-docutils:
     default: python3-docutils
     apk: py3-docutils
-    pkg: py39-docutils
+    pkg: py311-docutils
     MacOS: docutils
 
   python3-gobject:
     apk: py3-gobject3
     deb: python3-gi
-    pkg: py39-gobject3
+    pkg: py311-gobject3
     rpm: python3-gobject
+
+  python3-imp:
+    Fedora39: python3-zombie-imp
+    Fedora40: python3-zombie-imp
 
   python3-libxml2:
     default: python3-libxml2
     apk: py3-libxml2
-    pkg: py39-libxml2
+    pkg: py311-libxml2
     MacOS:
 
   python3-lxml:
     default: python3-lxml
     apk: py3-lxml
-    pkg: py39-lxml
+    pkg: py311-lxml
     MacOS:
 
   python3-numpy:
     default: python3-numpy
     apk: py3-numpy
-    pkg: py39-numpy
+    pkg: py311-numpy
     MacOS:
 
   python3-opencv:
@@ -1735,30 +1734,26 @@ mappings:
   python3-pillow:
     default: python3-pillow
     apk: py3-pillow
-    pkg: py39-pillow
-    AlmaLinux:
-    CentOS:
+    pkg: py311-pillow
     MacOS:
     OpenSUSE: python3-Pillow
-    AlmaLinux8: python3-pillow
-    CentOSStream8: python3-pillow
 
   python3-pip:
     default: python3-pip
     apk: py3-pip
-    pkg: py39-pip
+    pkg: py311-pip
     MacOS: python3
 
   python3-pytest:
     default: python3-pytest
     apk: py3-pytest
-    pkg: py39-pytest
+    pkg: py311-pytest
     MacOS:
 
   python3-requests:
     default: python3-requests
     apk: py3-requests
-    pkg: py39-requests
+    pkg: py311-requests
     MacOS:
 
   python3-selinux:
@@ -1772,20 +1767,20 @@ mappings:
   python3-setuptools:
     default: python3-setuptools
     apk: py3-setuptools
-    pkg: py39-setuptools
+    pkg: py311-setuptools
     MacOS: python3
 
   python3-sphinx:
     default: python3-sphinx
     apk: py3-sphinx
-    pkg: py39-sphinx
+    pkg: py311-sphinx
     MacOS:
     OpenSUSE: python3-Sphinx
 
   python3-sphinx-rtd-theme:
     apk: py3-sphinx_rtd_theme
     deb: python3-sphinx-rtd-theme
-    pkg: py39-sphinx_rtd_theme
+    pkg: py311-sphinx_rtd_theme
     rpm: python3-sphinx_rtd_theme
 
   python3-venv:
@@ -1796,7 +1791,7 @@ mappings:
   python3-wheel:
     default: python3-wheel
     apk: py3-wheel
-    pkg: py39-wheel
+    pkg: py311-wheel
     MacOS: python3
 
   qemu:
@@ -1868,6 +1863,17 @@ mappings:
   rust:
     default: rust
     deb: rustc
+
+  rust-std:
+    apk: rust
+    deb: libstd-rust-dev
+    pkg: rust
+    rpm: rust-std-static
+    MacOS: rust
+    OpenSUSE: rust
+    cross-mingw32-rpm: rust-std-static-i686-pc-windows-gnu
+    cross-mingw64-rpm: rust-std-static-x86_64-pc-windows-gnu
+    cross-policy-default: foreign
 
   sanlock:
     deb: libsanlock-dev
@@ -1952,8 +1958,6 @@ mappings:
     Fedora: spice-gtk3-devel
     MacOS: spice-gtk
     OpenSUSE: spice-gtk-devel
-    AlmaLinux8: spice-gtk3-devel
-    CentOSStream8: spice-gtk3-devel
     cross-mingw32-rpm: mingw32-spice-gtk3
     cross-mingw64-rpm: mingw64-spice-gtk3
     cross-policy-default: foreign
@@ -1969,8 +1973,6 @@ mappings:
     pkg: libspice-server
     Fedora: spice-server-devel
     OpenSUSE: libspice-server-devel
-    AlmaLinux8: spice-server-devel
-    CentOSStream8: spice-server-devel
     mips-deb:
     s390x-deb:
     cross-policy-default: foreign
@@ -2001,7 +2003,6 @@ mappings:
     # Revisit mid-october 2023 after the next quarterly release.
     FreeBSD:
     Debian11:
-    Ubuntu2004:
 
   systemd:
     deb: libsystemd-dev
@@ -2055,10 +2056,9 @@ mappings:
   python3-tomli:
     default: python3-tomli
     apk: py3-tomli
-    pkg: py39-tomli
+    pkg: py311-tomli
     MacOS:
     Debian11:
-    Ubuntu2004:
 
   unzip:
     default: unzip
@@ -2105,8 +2105,6 @@ mappings:
   libguestfs-tools:
     deb: libguestfs-tools
     rpm: guestfs-tools
-    AlmaLinux8: libguestfs-tools-c
-    CentOSStream8: libguestfs-tools-c
 
   vte:
     default: vte3
@@ -2204,6 +2202,9 @@ mappings:
 # with the meson package.
 
 pypi_mappings:
+
+  black:
+    default: black
 
   # Dependencies of this in turn need various native
   # devel header packages & toolchains that may not
