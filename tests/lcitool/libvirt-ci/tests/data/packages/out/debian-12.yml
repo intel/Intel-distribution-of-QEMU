@@ -9,7 +9,9 @@ native:
 - bash
 - bash-completion
 - bc
+- bindgen
 - bison
+- black
 - bsdextrautils
 - bzip2
 - ca-certificates
@@ -79,6 +81,7 @@ native:
 - libcap-ng-dev
 - libcapstone-dev
 - libclang-dev
+- libclang-rt-dev
 - libcmocka-dev
 - libconfig-dev
 - libcpan-changes-perl
@@ -164,6 +167,7 @@ native:
 - libspice-server-dev
 - libssh-gcrypt-dev
 - libssh2-1-dev
+- libstd-rust-dev
 - libsub-uplevel-perl
 - libsystemd-dev
 - libtap-formatter-html-perl

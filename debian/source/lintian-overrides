@@ -1,4 +1,5 @@
-# deliberate spacing to align Replaces
+# deliberate spacing to align Breaks & Replaces
+qemu source: debian-control-has-unusual-field-spacing Breaks *
 qemu source: debian-control-has-unusual-field-spacing Replaces *
 # we have a ton of files with long lines, just shut up this warning
 qemu source: very-long-line-length-in-source-file *

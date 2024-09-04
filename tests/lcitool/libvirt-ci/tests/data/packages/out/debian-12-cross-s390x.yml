@@ -78,6 +78,7 @@ cross:
 - libspice-client-gtk-3.0-dev:s390x
 - libssh-gcrypt-dev:s390x
 - libssh2-1-dev:s390x
+- libstd-rust-dev:s390x
 - libsystemd-dev:s390x
 - libtasn1-6-dev:s390x
 - libtirpc-dev:s390x
@@ -112,7 +113,9 @@ native:
 - bash
 - bash-completion
 - bc
+- bindgen
 - bison
+- black
 - bsdextrautils
 - bzip2
 - ca-certificates
@@ -164,6 +167,7 @@ native:
 - libarchive-tar-perl
 - libc-dev-bin
 - libclang-dev
+- libclang-rt-dev
 - libcpan-changes-perl
 - libdigest-perl
 - libdigest-perl-md5-perl
