@@ -1,3 +1,36 @@
+qemu (1:9.1.0~rc+ds-1) UNRELEASED; urgency=medium
+
+  * new upstream release (9.1):
+   - debian/gbp.conf: switch to 9.1 (experimental)
+   - remove patches which are applied upstream:
+     nbd-server-CVE-2024-7409-*
+     scsi-fix-regression-and-honor-bootindex-again-for-le.patch
+     virtio-net-Ensure-queue-index-fits-with-RSS-CVE-2024-6505.patch
+     virtio-pci-Fix-the-use-of-an-uninitialized-irqfd.patch
+   - cap-OPEN_MAX.diff: remove, not needed anymore (new code is different)
+   - d/rules: stop --disable-pvrdma (it is removed)
+   - d/control: bump meson build dep to >>1.1.0
+   - d/control: drop version requirement for libpipewire
+   - d/rules,d/control.mk: remove nios2 targets (dropped upstream)
+   - revert-hw-virtio-move-stubs-out-of-stubs.patch: temp,
+   - to work around upstream minimal microvm build breaklage
+   - d/rules: install (x86-specific) qemu-vmsr-helper
+     (binary and systemd units)
+  * d/rules: switch system manpages from symlinks back to .so
+    (cross-package symlinks to manpages are not handled by dh_installman)
+  * merge qemu-user-static binaries into qemu-user package, making
+    making qemu-user-static to be a helper/compatibility/transitional only:
+   - d/binfmt-install: work on fixed packages
+   - d/rules: expand $(install-user)
+   - d/rules: move user-alias-* definitions closer to usage
+   - d/rules install -static compat symlinks for qemu-user-static package
+   - d/source/lintian-overrides: add unusual-field-spacing: Breaks
+   - d/binfmt-install: little rework for $omit handling
+   - d/binfmt-install: ship links to native-family binfmts in
+     /usr/share/doc/$pkg for compatibility with 8.0..9.1~
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 03 Sep 2024 12:03:05 +0300
+
 qemu (1:9.0.2+ds-7) unstable; urgency=medium
 
   * d/rules: make check actually needs system (disable testsuite if !system)
