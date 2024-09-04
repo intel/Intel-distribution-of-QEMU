@@ -1,4 +1,4 @@
-qemu (1:9.1.0~rc+ds-1) UNRELEASED; urgency=medium
+qemu (1:9.1.0+ds-1) unstable; urgency=medium
 
   * new upstream release (9.1):
    - debian/gbp.conf: switch to 9.1 (experimental)
@@ -29,7 +29,7 @@ qemu (1:9.1.0~rc+ds-1) UNRELEASED; urgency=medium
    - d/binfmt-install: ship links to native-family binfmts in
      /usr/share/doc/$pkg for compatibility with 8.0..9.1~
 
- -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 03 Sep 2024 12:03:05 +0300
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 05 Sep 2024 00:16:01 +0300
 
 qemu (1:9.0.2+ds-7) unstable; urgency=medium
 
