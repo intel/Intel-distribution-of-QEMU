@@ -97,7 +97,6 @@ mkdir -p \
 # compat:
 mkdir -p \
   debian/qemu-user-static/usr/share/doc/qemu-user-static \
-  debian/qemu-user-binfmt/usr/share/doc/qemu-user-binfmt \
 #
 
 for fmt in $fmts ; do
@@ -115,8 +114,6 @@ for fmt in $fmts ; do
 	# compat symlinks (shipped in debian between 8.0 and 9.1~):
 	ln -sf ../../qemu/binfmt.d/qemu-$fmt.conf \
 	    debian/qemu-user-static/usr/share/doc/qemu-user-static/
-	ln -sf ../../qemu/binfmt.d/qemu-$fmt.conf \
-	    debian/qemu-user-binfmt/usr/share/doc/qemu-user-binfmt/
 	;;
       (*)
 	ln -sf ../../share/qemu/binfmt.d/qemu-$fmt.conf \
