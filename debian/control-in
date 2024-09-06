@@ -607,7 +607,8 @@ Package: qemu-user-static
 Architecture: :user-arch:
 Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-user>
-Depends: qemu-user (>= ${binary:Version}), qemu-user-binfmt (>= ${binary:Version})
+Depends: ${misc:Depends},
+ qemu-user (>= ${binary:Version}), qemu-user-binfmt (>= ${binary:Version})
 Section: oldlibs
 Description: QEMU user mode emulation (compat/transitional package)
  In the past, this package provided statically-built qemu user-mode emulation
