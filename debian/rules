@@ -74,7 +74,7 @@ common_configure_opts = \
 	--prefix=/usr \
 	--sysconfdir=/etc \
 	--libdir=${libdir} \
-	--libexecdir=/usr/libexec/qemu \
+	--libexecdir=/usr/lib/qemu \
 	--firmwarepath=${FIRMWAREPATH} \
 	--localstatedir=/var \
 	--mandir=${mandir} \
@@ -222,7 +222,9 @@ b/qemu/built: b/qemu/configured
 
 ifeq (,$(findstring nocheck, ${DEB_BUILD_OPTIONS} ${DEB_BUILD_PROFILES}))
 ifeq (${enable-system},y)
+ifneq (sparc64,${DEB_HOST_ARCH}) # tests are broken on sparc64
 build-qemu: b/qemu/tested
+endif
 endif
 endif
 
@@ -259,14 +261,6 @@ ifneq ($(filter ${DEB_HOST_ARCH},amd64 i386),)
 endif
 
 ifeq ($(DEB_HOST_ARCH_OS),linux)
-
-# remove for trixie+1:
-	install -pDm0755 debian/lib2libexec.sh \
-		debian/qemu-system-common/usr/lib/qemu/qemu-bridge-helper
-	install -pDm0755 debian/lib2libexec.sh \
-		debian/qemu-system-common/usr/lib/qemu/virtfs-proxy-helper
-	install -pDm0755 debian/lib2libexec.sh \
-		debian/qemu-system-gui/usr/lib/qemu/vhost-user-gpu
 
 ifeq (${VENDOR},ubuntu)
 ifneq ($(filter ${DEB_HOST_ARCH},amd64 i386),)

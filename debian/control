@@ -533,7 +533,8 @@ Package: qemu-user-static
 Architecture: amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
 Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-user>
-Depends: qemu-user (>= ${binary:Version}), qemu-user-binfmt (>= ${binary:Version})
+Depends: ${misc:Depends},
+ qemu-user (>= ${binary:Version}), qemu-user-binfmt (>= ${binary:Version})
 Section: oldlibs
 Description: QEMU user mode emulation (compat/transitional package)
  In the past, this package provided statically-built qemu user-mode emulation

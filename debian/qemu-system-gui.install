@@ -1,6 +1,6 @@
 usr/share/locale/*/LC_MESSAGES/qemu.mo
 usr/share/qemu/vhost-user/50-qemu-gpu.json
-usr/libexec/qemu/vhost-user-gpu
+usr/lib/qemu/vhost-user-gpu
 # modules
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/ui-gtk.so
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/ui-sdl.so

@@ -10,8 +10,8 @@ usr/bin/qemu-pr-helper
 b/docs/qemu-pr-helper.8 usr/share/man/man8/
 
 # linux-specific
-usr/libexec/qemu/qemu-bridge-helper
-usr/libexec/qemu/virtfs-proxy-helper
+usr/lib/qemu/qemu-bridge-helper
+usr/lib/qemu/virtfs-proxy-helper
 b/docs/virtfs-proxy-helper.1 usr/share/man/man1/
 
 # common modules. Other gui modules are in qemu-system-gui
