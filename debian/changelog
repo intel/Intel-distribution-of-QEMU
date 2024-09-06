@@ -148,9 +148,6 @@ qemu (1:9.0.2+ds-2) unstable; urgency=medium
   * move helper binaries (qemu-bridge-helper, virtfs-proxy-helper,
     vhost-user-gpu) from usr/lib/qemu to usr/libexec/qemu
   * d/*.NEWS: use common indent of 2 spaces instead of sometimes-3
-  * move helper binaries (qemu-bridge-helper, virtfs-proxy-helper,
-    vhost-user-gpu) from usr/lib/qemu to usr/libexec/qemu
-  * d/*.NEWS: use common indent of 2 spaces instead of sometimes-3
   * switch from gcc-arm-none-eabi to gcc-arm-linux-gnueabi
     to build npcm7xx vbootrom
   * d/rules: use the same cross_prefix_* variables in d/rules as
