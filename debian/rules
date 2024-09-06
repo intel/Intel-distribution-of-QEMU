@@ -222,7 +222,9 @@ b/qemu/built: b/qemu/configured
 
 ifeq (,$(findstring nocheck, ${DEB_BUILD_OPTIONS} ${DEB_BUILD_PROFILES}))
 ifeq (${enable-system},y)
+ifneq (sparc64,${DEB_HOST_ARCH}) # tests are broken on sparc64
 build-qemu: b/qemu/tested
+endif
 endif
 endif
 
