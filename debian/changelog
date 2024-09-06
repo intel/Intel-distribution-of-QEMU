@@ -1,3 +1,26 @@
+qemu (1:9.1.0+ds-3) unstable; urgency=medium
+
+  * revert the move of the helper binaries (qemu-bridge-helper,
+    virtfs-proxy-helper, vhost-user-gpu) to /usr/libexec/qemu/,
+    moving them back to /usr/lib/qemu/ where they had always been.
+    This restores suid-root dpkg-statoverride for qemu-bridge-helper if the
+    user enabled it, and makes common tools like libvirt to work correctly
+    again.  Such change needs more thinking. Closes: #1080456.
+  * d/microvm-devices.mak: disable VIRTIO_MEM and VIRTIO_PMEM devices
+    These are PCI-only devices but PCI is disabled for microvm.
+  * d/patches: remove revert-hw-virtio-move-stubs-out-of-stubs.patch after
+    disabling virtio-mem and virtio-pmem.
+  * d/microvm-devices.mak: disable Q35 machine type now when it is possible
+    (in version 6.1 where microvm has been enabled it didn't work).
+  * d/qemu-user-static.NEWS: write a news entry about qemu-user-static
+    merge to qemu-user package
+  * d/changelog: mention closing of #1079603 by 9.1.0+ds-1 (qemu-user merge)
+  * d/changelog: fix a typo in old (7.2+dfsg-4) entry
+  * d/changelog: remove duplicate entries from 9.0.2+ds-2 log
+  * d/rules: disable tests on sparc64 (it fails there)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 06 Sep 2024 14:33:28 +0300
+
 qemu (1:9.1.0+ds-2) unstable; urgency=medium
 
   * d/binfmt-install: do not install old/compat binfmt symlinks
