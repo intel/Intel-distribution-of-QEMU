@@ -35,6 +35,7 @@ qemu (1:9.1.0+ds-1) unstable; urgency=medium
    - d/binfmt-install: little rework for $omit handling
    - d/binfmt-install: ship links to native-family binfmts in
      /usr/share/doc/$pkg for compatibility with 8.0..9.1~
+   Closes: #1079603
 
  -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 05 Sep 2024 00:16:01 +0300
 
