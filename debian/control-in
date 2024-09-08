@@ -603,6 +603,7 @@ Description: QEMU user mode emulation (static binaries)
      cat /usr/share/qemu/binfmt.d/qemu-ARCH.conf \
        > /proc/sys/fs/binfmt_misc/register
 
+# remove this package in favour of qemu-user-binfmt in the future
 Package: qemu-user-static
 Architecture: :user-arch:
 Multi-Arch: foreign
@@ -630,6 +631,9 @@ Breaks:   qemu-user-static (<< 1:9.1.0)
 Replaces: qemu-user-static (<< 1:9.1.0)
 # Recommend systemd for binfmt-misc registration
 Recommends: systemd
+# When qemu-user-static is removed, this package should provide it,
+# since the old user-static provided automatic binfmt registration
+#Provides: qemu-user-static
 Description: QEMU user mode binfmt registration for qemu-user
  QEMU is a fast processor emulator: currently the package supports Alpha, ARM,
  CRIS, i386, LoongArch, M68k (ColdFire), MicroBlaze, MIPS, PowerPC, RISC-V,
