@@ -166,7 +166,6 @@ Build-Depends-Indep:
  gcc-sparc64-linux-gnu, fcode-utils, xsltproc,
 # hppa-firmware (32 and 64 bit)
  gcc-hppa-linux-gnu, gcc-hppa64-linux-gnu,
-# opensbi
  gcc-riscv64-linux-gnu,
 # vbootrom/npcm7xx_bootrom
  gcc-arm-linux-gnueabi, libc6-dev-armel-cross,
@@ -347,7 +346,11 @@ Package: qemu-system-misc
 Architecture: :system-arch:
 Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-system>
-Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
+Depends: ${shlibs:Depends}, ${misc:Depends},
+ qemu-system-common (= ${binary:Version}),
+ qemu-system-data (>> ${source:Upstream-Version}~),
+# for qemu-system-riscv32 & qemu-system-riscv64:
+ opensbi (>> 1.5.1-1),
 Recommends: qemu-utils,
 # alpha uses vgabios
 # alpha m68k sh4 uses bootroms
@@ -358,6 +361,9 @@ Recommends: qemu-utils,
  qemu-system-modules-opengl (= ${binary:Version}),
  qemu-block-extra (= ${binary:Version}),
 Suggests: samba, vde2,
+# opensbi firmware was in qemu-system-data up to 9.1.0+ds-3:
+Breaks:   qemu-system-data (<< 1:9.1.0+ds-4~)
+Replaces: qemu-system-data (<< 1:9.1.0+ds-4~)
 Provides: ${qemu:Provides}
 Description: QEMU full system emulation binaries (miscellaneous)
  QEMU is a fast processor emulator: currently the package supports Alpha, ARM,
