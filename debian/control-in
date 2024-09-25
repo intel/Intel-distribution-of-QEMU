@@ -585,7 +585,7 @@ Description: QEMU full system emulation (Xen helper package)
 Package: qemu-user
 Architecture: :user-arch:
 Multi-Arch: foreign
-Built-Using: ${built-using}
+Static-Built-Using: ${built-using}
 Build-Profiles: <!pkg.qemu.omit-user>
 Depends: ${misc:Depends}
 Breaks:   qemu-user-static (<< 1:9.1.0)
