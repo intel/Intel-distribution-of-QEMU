@@ -350,7 +350,7 @@ Depends: ${shlibs:Depends}, ${misc:Depends},
  qemu-system-common (= ${binary:Version}),
  qemu-system-data (>> ${source:Upstream-Version}~),
 # for qemu-system-riscv32 & qemu-system-riscv64:
- opensbi (>> 1.5.1-1),
+ opensbi (>> 1.5.1-1~),
 Recommends: qemu-utils,
 # alpha uses vgabios
 # alpha m68k sh4 uses bootroms
