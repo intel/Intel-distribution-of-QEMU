@@ -140,7 +140,7 @@ Build-Depends-Arch:
 #    (re)build vdso files and use the result immediately.
 #  pkg.qemu.use-upstream-vdso - always use upstream pre-built vdso files,
 #    do not embed vdso files into qemu-system-data binary package
-#  pkg.qemu.omit-vdso-build-dep - do not Build-Depend-Arch: qemu-user-data for
+#  pkg.qemu.omit-vdso-build-dep - do not Build-Depend-Arch: qemu-system-data for
 #    vdso (allows to build and use vdso files with single arch+indep build)
 # Ubuntu builds both arch+indep parts (on amd64), so there this is irrelevant.
 #    Effectively it always enables pkg.qemu.omit-vdso-build-dep build-profile.
@@ -165,7 +165,6 @@ Build-Depends-Indep:
  gcc-sparc64-linux-gnu, fcode-utils, xsltproc,
 # hppa-firmware (32 and 64 bit)
  gcc-hppa-linux-gnu, gcc-hppa64-linux-gnu,
-# opensbi
  gcc-riscv64-linux-gnu,
 # vbootrom/npcm7xx_bootrom
  gcc-arm-linux-gnueabi, libc6-dev-armel-cross,
@@ -316,7 +315,11 @@ Package: qemu-system-misc
 Architecture: amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
 Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-system>
-Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
+Depends: ${shlibs:Depends}, ${misc:Depends},
+ qemu-system-common (= ${binary:Version}),
+ qemu-system-data (>> ${source:Upstream-Version}~),
+# for qemu-system-riscv32 & qemu-system-riscv64:
+ opensbi (>> 1.5.1-1),
 Recommends: qemu-utils,
 # alpha uses vgabios
 # alpha m68k sh4 uses bootroms
@@ -327,6 +330,9 @@ Recommends: qemu-utils,
  qemu-system-modules-opengl (= ${binary:Version}),
  qemu-block-extra (= ${binary:Version}),
 Suggests: samba, vde2,
+# opensbi firmware was in qemu-system-data up to 9.1.0+ds-3:
+Breaks:   qemu-system-data (<< 1:9.1.0+ds-4~)
+Replaces: qemu-system-data (<< 1:9.1.0+ds-4~)
 Provides: ${qemu:Provides}
 Description: QEMU full system emulation binaries (miscellaneous)
  QEMU is a fast processor emulator: currently the package supports Alpha, ARM,
@@ -505,7 +511,7 @@ Description: QEMU full system emulation (Xen helper package)
 Package: qemu-user
 Architecture: amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
 Multi-Arch: foreign
-Built-Using: ${built-using}
+Static-Built-Using: ${built-using}
 Build-Profiles: <!pkg.qemu.omit-user>
 Depends: ${misc:Depends}
 Breaks:   qemu-user-static (<< 1:9.1.0)
@@ -529,6 +535,7 @@ Description: QEMU user mode emulation (static binaries)
      cat /usr/share/qemu/binfmt.d/qemu-ARCH.conf \
        > /proc/sys/fs/binfmt_misc/register
 
+# remove this package in favour of qemu-user-binfmt in the future
 Package: qemu-user-static
 Architecture: amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
 Multi-Arch: foreign
@@ -556,6 +563,9 @@ Breaks:   qemu-user-static (<< 1:9.1.0)
 Replaces: qemu-user-static (<< 1:9.1.0)
 # Recommend systemd for binfmt-misc registration
 Recommends: systemd
+# When qemu-user-static is removed, this package should provide it,
+# since the old user-static provided automatic binfmt registration
+#Provides: qemu-user-static
 Description: QEMU user mode binfmt registration for qemu-user
  QEMU is a fast processor emulator: currently the package supports Alpha, ARM,
  CRIS, i386, LoongArch, M68k (ColdFire), MicroBlaze, MIPS, PowerPC, RISC-V,
