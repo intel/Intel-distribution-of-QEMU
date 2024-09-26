@@ -1,4 +1,2 @@
-usr/share/qemu/opensbi-riscv32-generic-fw_dynamic.bin \
-	usr/lib/riscv32-linux-gnu/opensbi/generic/fw_dynamic.bin
-usr/share/qemu/opensbi-riscv64-generic-fw_dynamic.bin \
-	usr/lib/riscv64-linux-gnu/opensbi/generic/fw_dynamic.bin
+usr/lib/riscv32-linux-gnu/opensbi/generic/fw_dynamic.bin usr/share/qemu/opensbi-riscv32-generic-fw_dynamic.bin
+usr/lib/riscv64-linux-gnu/opensbi/generic/fw_dynamic.bin usr/share/qemu/opensbi-riscv64-generic-fw_dynamic.bin
