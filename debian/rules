@@ -252,10 +252,10 @@ ifeq (${enable-system},y)
 
 ifneq ($(filter ${DEB_HOST_ARCH},amd64 i386),)
 # qemu-vmsr-helper is x86-specific
-	install -D -t debian/qemu-system-common/usr/bin/ \
+	install -m0755 -D -t debian/qemu-system-common/usr/bin/ \
 		debian/tmp/usr/bin/qemu-vmsr-helper
 	rm debian/tmp/usr/bin/qemu-vmsr-helper
-	install -p -D -t debian/qemu-system-common/usr/lib/systemd/system/ \
+	install -m0644 -p -D -t debian/qemu-system-common/usr/lib/systemd/system/ \
 		contrib/systemd/qemu-vmsr-helper.service \
 		contrib/systemd/qemu-vmsr-helper.socket
 endif
@@ -266,12 +266,12 @@ ifeq (${VENDOR},ubuntu)
 ifneq ($(filter ${DEB_HOST_ARCH},amd64 i386),)
 # on ubuntu *-spice existed, may be used in libvirt xml and scripts - keep links for compatibility
 # The sunset for this will be when Ubuntu-Bionic goes out of support which is expected to happen in 2028
-	install -p -t debian/qemu-system-x86/usr/bin debian/kvm-spice debian/qemu-system-x86_64-spice
-	install -p -t debian/qemu-system-x86/usr/share/man/man1/ debian/kvm-spice.1
+	install -m0644 -p -t debian/qemu-system-x86/usr/bin debian/kvm-spice debian/qemu-system-x86_64-spice
+	install -m0644 -p -t debian/qemu-system-x86/usr/share/man/man1/ debian/kvm-spice.1
 	echo ".so man1/kvm-spice.1" > debian/qemu-system-x86/usr/share/man/man1/qemu-system-x86_64-spice.1
 endif # x86
 # apport hook is ubuntu-specific
-	install -p -D -t debian/qemu-system-common/usr/share/apport/package-hooks/ \
+	install -m0644 -p -D -t debian/qemu-system-common/usr/share/apport/package-hooks/ \
 		 debian/source_qemu.py
 endif # ubuntu
 
@@ -370,7 +370,7 @@ b/xen/built: b/xen/configured
 	${NINJA} -C b/xen qemu-system-i386
 	touch $@
 install-xen: b/xen/built
-	install -D b/xen/qemu-system-i386 \
+	install -m0755 -D b/xen/qemu-system-i386 \
 	  debian/qemu-system-xen${QEMU_XEN}
 qemu-builds += $(if $(filter qemu-system-xen,${BUILD_PACKAGES}),xen)
 
@@ -411,7 +411,7 @@ user-alias-ppc64le = ppc64el
 user-alias-x86_64 = amd64
 
 install-user: b/user/built
-	install -t debian/qemu-user/usr/bin/ -D \
+	install -m0755 -t debian/qemu-user/usr/bin/ -D \
 	    $(patsubst %,b/user/qemu-%,${user-targets})
 	dh_link -p qemu-user \
  $(foreach t,${user-targets},\
@@ -566,7 +566,7 @@ endef
 b/${vdso-archive}: b/data/.configured
 	$(call build-vdso)
 install-vdso: b/${vdso-archive}
-	install -t ${sysdataidir} $<
+	install -m0644 -t ${sysdataidir} $<
 ifneq (,$(filter $(patsubst %,% %-indep,build install binary), ${MAKECMDGOALS}))
 # if we were asked to produce both indep and arch targets, use vdso from local build
 b/vdso-updated: b/${vdso-archive}
@@ -591,7 +591,7 @@ b/data/pc-bios/optionrom/.built: b/data/.configured
 	make -C ${@D}
 	touch $@
 install-x86-optionrom: b/data/pc-bios/optionrom/.built
-	install -m 0644 -t ${sysdataidir} ${<D}/*.bin
+	install -m0644 -t ${sysdataidir} ${<D}/*.bin
 sysdata-components += x86-optionrom
 
 ### s390x firmware in pc-bios/s390-ccw
@@ -601,7 +601,7 @@ b/data/pc-bios/s390-ccw/.built: b/data/.configured
 	make -C ${@D} V=$V
 	touch $@
 install-s390x-fw: b/data/pc-bios/s390-ccw/.built
-	install -m 0644 -t ${sysdataidir} ${<D}/s390*.img
+	install -m0644 -t ${sysdataidir} ${<D}/s390*.img
 sysdata-components += s390x-fw
 
 ### vof.bin
@@ -610,7 +610,7 @@ b/data/pc-bios/vof/vof.bin: b/data/.configured
 	env -u ELF_PACKAGE_METADATA \
 	${MAKE} -C ${@D} V=$V ${@F}
 install-vof: b/data/pc-bios/vof/vof.bin
-	install -m 0644 -t ${sysdataidir} $<
+	install -m0644 -t ${sysdataidir} $<
 sysdata-components += vof
 
 ### openbios rules
@@ -624,10 +624,10 @@ b/openbios/obj-%/.built: b/openbios/config-host.mak
 	@touch $@
 
 install-openbios: build-openbios
-	install -m 0644 b/openbios/obj-ppc/openbios-qemu.elf ${sysdataidir}/openbios-ppc
-	install -m 0644 b/openbios/obj-sparc32/openbios-builtin.elf ${sysdataidir}/openbios-sparc32
-	install -m 0644 b/openbios/obj-sparc64/openbios-builtin.elf ${sysdataidir}/openbios-sparc64
-	install -m 0644 -t ${sysdataidir} \
+	install -m0644 b/openbios/obj-ppc/openbios-qemu.elf ${sysdataidir}/openbios-ppc
+	install -m0644 b/openbios/obj-sparc32/openbios-builtin.elf ${sysdataidir}/openbios-sparc32
+	install -m0644 b/openbios/obj-sparc64/openbios-builtin.elf ${sysdataidir}/openbios-sparc64
+	install -m0644 -t ${sysdataidir} \
 		b/openbios/obj-sparc32/QEMU,tcx.bin \
 		b/openbios/obj-sparc32/QEMU,cgthree.bin \
 		b/openbios/obj-sparc64/QEMU,VGA.bin
@@ -647,7 +647,7 @@ b/skiboot/skiboot.lid: | roms/skiboot/.version
 	  OPTS='-Os -ffile-prefix-map="${CURDIR}/roms/skiboot/"=' \
 	  CROSS_COMPILE=${cross_prefix_ppc64} V=${V}
 install-skiboot: b/skiboot/skiboot.lid
-	install -m 0644 -t ${sysdataidir} $<
+	install -m0644 -t ${sysdataidir} $<
 sysdata-components += skiboot
 
 ### u-boot-e500 (u-boot.e500)
@@ -659,7 +659,7 @@ b/u-boot/build-e500/u-boot: | b
 	${MAKE} -C b/u-boot CROSS_COMPILE=${cross_prefix_ppc} O=build-e500 V=$V
 	${cross_prefix_ppc}strip $@
 install-u-boot-e500: b/u-boot/build-e500/u-boot
-	install -m 0644 $< ${sysdataidir}/u-boot.e500
+	install -m0644 $< ${sysdataidir}/u-boot.e500
 sysdata-components += u-boot-e500
 
 ### u-boot-sam460 (u-boot-sam460-20100605.bin)
@@ -671,7 +671,7 @@ b/u-boot-sam460ex/u-boot.bin: | b
 	${MAKE} -C b/u-boot-sam460ex CROSS_COMPILE=${cross_prefix_ppc}
 #	${cross_prefix_ppc}strip $@
 install-u-boot-sam460: b/u-boot-sam460ex/u-boot.bin | ${sysdataidir}
-	install -m 0644 $< ${sysdataidir}/u-boot-sam460-20100605.bin
+	install -m0644 $< ${sysdataidir}/u-boot-sam460-20100605.bin
 sysdata-components += u-boot-sam460
 
 ### qboot, aka bios-microvm
@@ -682,7 +682,7 @@ b/qboot/bios.bin: | b
 	env -u ELF_PACKAGE_METADATA \
 	${NINJA} -C b/qboot
 install-qboot: b/qboot/bios.bin
-	install -m 0644 $< ${sysdataidir}/qboot.rom
+	install -m0644 $< ${sysdataidir}/qboot.rom
 sysdata-components += qboot
 
 ### alpha firmware in roms/palcode-clipper
@@ -695,7 +695,7 @@ b/qemu-palcode/palcode-clipper: | b
 	${MAKE} -C b/qemu-palcode CROSS=${cross_prefix_alpha} OPT=-O1
 	${cross_prefix_alpha}strip b/qemu-palcode/palcode-clipper
 install-palcode-clipper: b/qemu-palcode/palcode-clipper
-	install -m 0644 $< ${sysdataidir}/palcode-clipper
+	install -m0644 $< ${sysdataidir}/palcode-clipper
 sysdata-components += palcode-clipper
 
 ### SLOF
@@ -705,7 +705,7 @@ b/SLOF/boot_rom.bin: | b
 	env -u LDFLAGS -u CFLAGS -u ELF_PACKAGE_METADATA \
 	$(MAKE) -C b/SLOF qemu CROSS=${cross_prefix_ppc64} V=${V}
 install-slof: b/SLOF/boot_rom.bin
-	install -m 0644 $< ${sysdataidir}/slof.bin
+	install -m0644 $< ${sysdataidir}/slof.bin
 sysdata-components += slof
 
 ### hppa-firmware (roms/seabios-hppa)
@@ -721,7 +721,7 @@ b/hppa-fw/.built: | b
 	${cross_prefix_hppa64}strip -R.note -R.comment $(dir $@)o64/hppa-firmware64.img
 	touch $@
 install-hppa-fw: b/hppa-fw/.built
-	install -m 0644 -t ${sysdataidir} \
+	install -m0644 -t ${sysdataidir} \
 	    $(dir $<)o32/hppa-firmware.img \
 	    $(dir $<)o64/hppa-firmware64.img
 sysdata-components += hppa-fw
@@ -734,7 +734,7 @@ b/vbootrom/.built: | b
 	${MAKE} -C b/vbootrom CROSS_COMPILE=${cross_prefix_arm}
 	touch $@
 install-vbootrom: build-vbootrom
-	install -m 0644 b/vbootrom/npcm7xx_bootrom.bin ${sysdataidir}/
+	install -m0644 b/vbootrom/npcm7xx_bootrom.bin ${sysdataidir}/
 sysdata-components += vbootrom
 
 ### misc firmware
@@ -747,9 +747,9 @@ b/misc/.built:
 	dtc -o b/misc/petalogix-s3adsp1800.dtb pc-bios/petalogix-s3adsp1800.dts
 	touch $@
 install-misc: build-misc
-	install -m 0644 b/misc/bamboo.dtb b/misc/canyonlands.dtb \
+	install -m0644 b/misc/bamboo.dtb b/misc/canyonlands.dtb \
 		-D -t ${sysdataidir}
-	install -m 0644 b/misc/petalogix-ml605.dtb b/misc/petalogix-s3adsp1800.dtb \
+	install -m0644 b/misc/petalogix-ml605.dtb b/misc/petalogix-s3adsp1800.dtb \
 		-D -t debian/qemu-system-misc/usr/share/qemu/
 # icon for gtk ui
 	install -Dp -m0644 ui/icons/qemu.svg \
@@ -766,7 +766,7 @@ sysdata-components += misc
 sysdata-components += html
 
 ${sysdataidir}:
-	mkdir -p -m 0755 $@
+	mkdir -p -m0755 $@
 b:
 	mkdir -p $@
 
@@ -780,7 +780,7 @@ pre-install-indep:
 	dh_testroot
 # dh_prep might undo ${sysdataidir} creation, or even some install-foo?
 	dh_prep -i -v
-	mkdir -p -m 0755 ${sysdataidir}
+	mkdir -p -m0755 ${sysdataidir}
 install-indep: pre-install-indep $(addprefix install-, ${sysdata-components})
 	dh_install -i
 	dh_installdocs -i
