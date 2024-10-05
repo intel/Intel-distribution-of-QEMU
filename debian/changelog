@@ -1,3 +1,15 @@
+qemu (1:9.1.0+ds-9~exp0) experimental; urgency=medium
+
+  * d/tests/test-qemu-img.sh: print diagnostics on ppc64el
+    where the test fails (temporary)
+  * d/control-in: expand Enhances: list for qemu-block-extra
+    (and qemu-block-supplemental on Ubuntu)
+  * make qemu-system-s390x a separate package, just like on ubuntu
+  * split out qemu-system-riscv* from qemu-system-misc to qemu-system-riscv
+  * d/qemu-system-misc.NEWS: add NEWS item about s390x and riscv split
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 05 Oct 2024 12:53:34 +0300
+
 qemu (1:9.1.0+ds-8) unstable; urgency=medium
 
   * d/qemu-user.lintian-overrides: add statically-linked-binary override

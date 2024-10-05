@@ -1,0 +1,23 @@
+qemu (1:9.1.0+ds-9) unstable; urgency=medium
+
+  In this version of qemu in Debian, qemu-system-s390x binary has been split
+  from qemu-system-misc to its own separate package, qemu-system-s390x, as
+  has been done long ago in Ubuntu.
+
+  Additionally, qemu-system-riscv32 and qemu-system-riscv64 binaries has been
+  split into their own separate package, qemu-system-riscv.
+
+  This makes every CPU family in the list of release architectures in Debian,
+  to be its own separate binary package, with qemu-system-misc containing
+  non-release architectures only.
+
+  If you had installed qemu-system-misc package to have system emulators for
+  s390x, riscv32 or riscv64, please install qemu-system-s390x package or
+  qemu-system-riscv package instead.
+
+  The name `qemu-system-s390x`, with the `x` at the end instead of using a
+  cpu family `s390`, like for all other qemu-system-ARCH packages, has been
+  choosen due to historical compatibility reasons with Ubuntu, where this
+  package has always been named like this.
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 05 Oct 2024 11:55:24 +0300

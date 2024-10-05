@@ -125,13 +125,13 @@ system-kvmlink-ppc64 = ppc64
 system-kvmlink-ppc64el = ppc64
 system-kvmlink-powerpc = ppc
 
-system-archlist-sparc = sparc sparc64
+system-archlist-riscv = riscv32 riscv64
 
-system-s390x = $(if $(filter ${VENDOR},ubuntu),s390x)
-
-system-archlist-s390x = ${system-s390x}
+system-archlist-s390x = s390x
 system-kvmcpus-s390x = s390x
 system-kvmlink-s390x = s390x
+
+system-archlist-sparc = sparc sparc64
 
 system-archlist-x86 = i386 x86_64
 system-alias-x86_64 = amd64
@@ -140,13 +140,11 @@ system-kvmlink-amd64 = x86_64
 system-kvmlink-i386 = x86_64
 
 system-archlist-misc = alpha avr cris hppa m68k loongarch64 \
-		microblaze microblazeel or1k riscv32 riscv64 rx sh4 sh4eb \
-		$(if ${system-s390x},,s390x) \
+		microblaze microblazeel or1k rx sh4 sh4eb \
 		tricore xtensa xtensaeb
 system-alias-loongarch64 = loong64
-system-kvmcpus-misc = $(if ${system-s390x},,s390x)
 
-system-packages = arm mips ppc sparc x86 ${system-s390x} misc
+system-packages = arm mips ppc riscv s390x sparc x86 misc
 
 # qemu-system subpackages
 define install-all-system

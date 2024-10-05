@@ -198,9 +198,10 @@ Depends: ${misc:Depends},
  qemu-system-arm,
  qemu-system-mips,
  qemu-system-ppc,
+ qemu-system-riscv,
+ qemu-system-s390x,
  qemu-system-sparc,
  qemu-system-x86,
-:ubuntu: qemu-system-s390x,
  qemu-system-misc
 Description: QEMU full system emulation binaries
  QEMU is a fast processor emulator: currently the package supports Alpha, ARM,
@@ -219,8 +220,15 @@ Multi-Arch: no
 Depends: ${misc:Depends}, ${shlibs:Depends},
 # we need to ensure qemu-block-extra is upgraded with qemu-system-* or qemu-utils
  qemu-system-any (= ${binary:Version}) [:system-arch:] | qemu-utils (= ${binary:Version}),
-Enhances: qemu-utils, qemu-system-misc,
- qemu-system-arm, qemu-system-mips, qemu-system-sparc, qemu-system-x86,
+Enhances: qemu-utils,
+ qemu-system-arm,
+ qemu-system-mips,
+ qemu-system-ppc,
+ qemu-system-riscv,
+ qemu-system-s390x,
+ qemu-system-sparc,
+ qemu-system-x86,
+ qemu-system-misc,
 :debian:Provides: qemu-block-supplemental [amd64 arm64 ppc64el riscv64 s390x],
 Description: extra block backend modules for qemu-system and qemu-utils
  QEMU is a fast processor emulator: currently the package supports Alpha, ARM,
@@ -239,9 +247,15 @@ Description: extra block backend modules for qemu-system and qemu-utils
 :ubuntu:Depends: ${misc:Depends}, ${shlibs:Depends},
 :ubuntu:# we need to ensure qemu-block-supplemental is upgraded with qemu-system-* or qemu-utils
 :ubuntu: qemu-system-any (= ${binary:Version}) [amd64 arm64 armhf ppc64el riscv64 s390x] | qemu-utils (= ${binary:Version}),
-:ubuntu:Enhances: qemu-utils, qemu-system-misc,
-:ubuntu: qemu-system-arm, qemu-system-mips, qemu-system-sparc, qemu-system-x86,
+:ubuntu:Enhances: qemu-utils,
+:ubuntu: qemu-system-arm,
+:ubuntu: qemu-system-mips,
+:ubuntu: qemu-system-ppc,
+:ubuntu: qemu-system-riscv,
 :ubuntu: qemu-system-s390x,
+:ubuntu: qemu-system-sparc,
+:ubuntu: qemu-system-x86,
+:ubuntu: qemu-system-misc,
 :ubuntu:Breaks: qemu-block-extra (<< 1:8.2.0+ds-4ubuntu2~)
 :ubuntu:Replaces: qemu-block-extra (<< 1:8.2.0+ds-4ubuntu2~)
 :ubuntu:Description: supplemental block backend modules for qemu-system and qemu-utils
@@ -349,8 +363,6 @@ Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${shlibs:Depends}, ${misc:Depends},
  qemu-system-common (= ${binary:Version}),
  qemu-system-data (>> ${source:Upstream-Version}~),
-# for qemu-system-riscv32 & qemu-system-riscv64:
- opensbi (>> 1.5.1-1~),
 Recommends: qemu-utils,
 # alpha uses vgabios
 # alpha m68k sh4 uses bootroms
@@ -361,9 +373,6 @@ Recommends: qemu-utils,
  qemu-system-modules-opengl (= ${binary:Version}),
  qemu-block-extra (= ${binary:Version}),
 Suggests: samba, vde2,
-# opensbi firmware was in qemu-system-data up to 9.1.0+ds-3:
-Breaks:   qemu-system-data (<< 1:9.1.0+ds-4~)
-Replaces: qemu-system-data (<< 1:9.1.0+ds-4~)
 Provides: ${qemu:Provides}
 Description: QEMU full system emulation binaries (miscellaneous)
  QEMU is a fast processor emulator: currently the package supports Alpha, ARM,
@@ -466,6 +475,54 @@ Description: QEMU full system emulation binaries (ppc)
  code.  It can also be used to provide virtual hosting of several virtual
  machines on a single server.
 
+Package: qemu-system-riscv
+Architecture: :system-arch:
+Multi-Arch: foreign
+Build-Profiles: <!pkg.qemu.omit-system>
+Depends: ${shlibs:Depends}, ${misc:Depends},
+ qemu-system-common (= ${binary:Version}),
+ qemu-system-data (>> ${source:Upstream-Version}~),
+ opensbi (>> 1.5.1-1~),
+Recommends: qemu-utils,
+ ipxe-qemu,
+Breaks:   qemu-system-data (<< 1:9.1.0+ds-4~), qemu-system-misc (<< 1:9.1.0+ds-9~)
+Replaces: qemu-system-data (<< 1:9.1.0+ds-4~), qemu-system-misc (<< 1:9.1.0+ds-9~)
+Suggests: samba, vde2,
+Provides: ${qemu:Provides}
+Description: QEMU full system emulation binaries (riscv)
+ QEMU is a fast processor emulator: currently the package supports
+ riscv emulation. By using dynamic translation it achieves
+ reasonable speed while being easy to port on new host CPUs.
+ .
+ This package provides the full system emulation binaries to emulate
+ the following riscv hardware: ${qemu:archlist}.
+
+Package: qemu-system-s390x
+Architecture: :system-arch:
+Multi-Arch: foreign
+Build-Profiles: <!pkg.qemu.omit-system>
+Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
+Recommends: qemu-utils,
+ qemu-system-gui (= ${binary:Version}),
+ qemu-system-modules-spice (= ${binary:Version}) [:spice-arch:],
+ qemu-system-modules-opengl (= ${binary:Version}),
+ qemu-block-extra (= ${binary:Version}),
+:debian:Breaks:   qemu-system-misc (<< 1:9.1.0+ds-9~)
+:debian:Replaces: qemu-system-misc (<< 1:9.1.0+ds-9~)
+Provides: ${qemu:Provides}
+Description: QEMU full system emulation binaries (s390x)
+ QEMU is a fast processor emulator: currently the package supports
+ s390x emulation. By using dynamic translation it achieves reasonable
+ speed while being easy to port on new host CPUs.
+ .
+ This package provides the full system emulation binaries to emulate
+ the following s390x hardware: ${qemu:archlist}.
+ .
+ In system emulation mode QEMU emulates a full system, including a processor
+ and various peripherals.  It enables easier testing and debugging of system
+ code.  It can also be used to provide virtual hosting of several virtual
+ machines on a single server.
+
 Package: qemu-system-sparc
 Architecture: :system-arch:
 Multi-Arch: foreign
@@ -493,31 +550,7 @@ Description: QEMU full system emulation binaries (sparc)
  and various peripherals.  It enables easier testing and debugging of system
  code.  It can also be used to provide virtual hosting of several virtual
  machines on a single server.
-:ubuntu:
-:ubuntu:Package: qemu-system-s390x
-:ubuntu:Architecture: :system-arch:
-:ubuntu:Multi-Arch: foreign
-:ubuntu:Build-Profiles: <!pkg.qemu.omit-system>
-:ubuntu:Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
-:ubuntu:Recommends: qemu-utils,
-:ubuntu: qemu-system-gui (= ${binary:Version}),
-:ubuntu: qemu-system-modules-spice (= ${binary:Version}) [:spice-arch:],
-:ubuntu: qemu-system-modules-opengl (= ${binary:Version}),
-:ubuntu: qemu-block-extra (= ${binary:Version}),
-:ubuntu:Provides: ${qemu:Provides}
-:ubuntu:Description: QEMU full system emulation binaries (s390x)
-:ubuntu: QEMU is a fast processor emulator: currently the package supports
-:ubuntu: s390x emulation. By using dynamic translation it achieves reasonable
-:ubuntu: speed while being easy to port on new host CPUs.
-:ubuntu: .
-:ubuntu: This package provides the full system emulation binaries to emulate
-:ubuntu: the following s390x hardware: ${qemu:archlist}.
-:ubuntu: .
-:ubuntu: In system emulation mode QEMU emulates a full system, including a processor
-:ubuntu: and various peripherals.  It enables easier testing and debugging of system
-:ubuntu: code.  It can also be used to provide virtual hosting of several virtual
-:ubuntu: machines on a single server.
-:ubuntu:
+
 :ubuntu:# xen support generally is disabled on ubuntu, for a while we used
 :ubuntu:# an extra build with xen enabled. In the meantime Debian followed that
 :ubuntu:# approach but with a different name, so add a transitional until
