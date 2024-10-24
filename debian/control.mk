@@ -7,7 +7,7 @@ include /usr/share/dpkg/pkg-info.mk
 
 # since some files and/or lists differ from version to version,
 # ensure we have the expected qemu version, or else scream loudly
-checked-version := 9.1.0+ds
+checked-version := 9.1.1+ds
 # version of last vdso change for d/control:
 vdso-version := 1:9.0.2+ds-2~
 

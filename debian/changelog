@@ -1,3 +1,11 @@
+qemu (1:9.1.1+ds-1) unstable; urgency=medium
+
+  * new upstream stable/bugfix release
+    Closes: #1081849, #1081850
+    Includes a change listed as a fix for #1082406 (CVE-2024-8612)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 24 Oct 2024 21:41:12 +0300
+
 qemu (1:9.1.0+ds-9~exp0) experimental; urgency=medium
 
   * d/tests/test-qemu-img.sh: print diagnostics on ppc64el

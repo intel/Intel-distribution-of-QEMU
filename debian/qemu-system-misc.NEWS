@@ -1,4 +1,4 @@
-qemu (1:9.1.0+ds-9) unstable; urgency=medium
+qemu (1:9.1.1+ds-1) unstable; urgency=medium
 
   In this version of qemu in Debian, qemu-system-s390x binary has been split
   from qemu-system-misc to its own separate package, qemu-system-s390x, as
