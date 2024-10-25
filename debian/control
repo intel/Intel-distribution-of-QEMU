@@ -327,6 +327,11 @@ Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${shlibs:Depends}, ${misc:Depends},
  qemu-system-common (= ${binary:Version}),
  qemu-system-data (>> ${source:Upstream-Version}~),
+# depends on qemu-system-riscv & -s390x since 9.1.1 for now to avoid breaking
+# existing setups which used to get riscv&s390 binaries from -misc.
+# Downgrade to Recommends for one release cycle once tests are fixed
+ qemu-system-riscv,
+ qemu-system-s390x,
 Recommends: qemu-utils,
 # alpha uses vgabios
 # alpha m68k sh4 uses bootroms

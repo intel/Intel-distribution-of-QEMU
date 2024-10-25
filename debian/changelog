@@ -1,3 +1,14 @@
+qemu (1:9.1.1+ds-2) unstable; urgency=medium
+
+  * linux-user-elf-endianness.diff: remove the temp workaround
+    the fix is in upstream qemu now, double fix breaks again.
+  * d/control: temporarily add Depends: qemu-system-riscv,
+    qemu-system-s390x (debain only) for qemu-system-misc to
+    compensate for the split.  Should downgrade this to
+    Recommends once the tests are fixed (#1086026, #1086024, edk2 !17)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 25 Oct 2024 16:22:29 +0300
+
 qemu (1:9.1.1+ds-1) unstable; urgency=medium
 
   * new upstream stable/bugfix release
