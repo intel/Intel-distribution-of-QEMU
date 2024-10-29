@@ -450,28 +450,55 @@ static void gd_mouse_set(DisplayChangeListener *dcl,
                          int x, int y, bool visible)
 {
     VirtualConsole *vc = container_of(dcl, VirtualConsole, gfx.dcl);
+    GtkDisplayState *s = vc->s;
     GdkDisplay *dpy;
     gint x_root, y_root;
+    gint x_origin, y_origin;
+    int new_cursor_x;
+    int new_cursor_y;
+    bool hw_cursor = s->opts->u.gtk.has_hw_cursor && s->opts->u.gtk.hw_cursor;
 
     if (!gtk_widget_get_realized(vc->gfx.drawing_area) ||
-        qemu_input_is_absolute(dcl->con)) {
+        (!hw_cursor && qemu_input_is_absolute(dcl->con))) {
         return;
     }
 
     dpy = gtk_widget_get_display(vc->gfx.drawing_area);
+
     gdk_window_get_root_coords(gtk_widget_get_window(vc->gfx.drawing_area),
-                               x, y, &x_root, &y_root);
-    gdk_device_warp(gd_get_pointer(dpy),
-                    gtk_widget_get_screen(vc->gfx.drawing_area),
-                    x_root, y_root);
-    vc->s->last_x = x;
-    vc->s->last_y = y;
+                               x * vc->gfx.scale_x, y * vc->gfx.scale_y,
+                               &x_root, &y_root);
+
+    gdk_window_get_origin(gtk_widget_get_window(vc->gfx.drawing_area),
+                          &x_origin, &y_origin);
+
+    if (hw_cursor) {
+        new_cursor_x = x_root - x_origin;
+        new_cursor_y = y_root - y_origin;
+
+        if (vc->gfx.cursor_x != new_cursor_x ||
+            vc->gfx.cursor_y != new_cursor_y) {
+            vc->gfx.cursor_moved = true;
+            vc->gfx.cursor_x = new_cursor_x;
+            vc->gfx.cursor_y = new_cursor_y;
+        }
+    } else {
+        dpy = gtk_widget_get_display(vc->gfx.drawing_area);
+
+        gdk_device_warp(gd_get_pointer(dpy),
+                        gtk_widget_get_screen(vc->gfx.drawing_area),
+                        x_root, y_root);
+
+        vc->s->last_x = x;
+        vc->s->last_y = y;
+    }
 }
 
 static void gd_cursor_define(DisplayChangeListener *dcl,
                              QEMUCursor *c)
 {
     VirtualConsole *vc = container_of(dcl, VirtualConsole, gfx.dcl);
+    GtkDisplayState *s = vc->s;
     GdkPixbuf *pixbuf;
     GdkCursor *cursor;
 
@@ -479,16 +506,23 @@ static void gd_cursor_define(DisplayChangeListener *dcl,
         return;
     }
 
-    pixbuf = gdk_pixbuf_new_from_data((guchar *)(c->data),
-                                      GDK_COLORSPACE_RGB, true, 8,
-                                      c->width, c->height, c->width * 4,
-                                      NULL, NULL);
-    cursor = gdk_cursor_new_from_pixbuf
-        (gtk_widget_get_display(vc->gfx.drawing_area),
-         pixbuf, c->hot_x, c->hot_y);
-    gdk_window_set_cursor(gtk_widget_get_window(vc->gfx.drawing_area), cursor);
-    g_object_unref(pixbuf);
-    g_object_unref(cursor);
+    if (s->opts->u.gtk.has_hw_cursor && s->opts->u.gtk.hw_cursor) {
+        vc->gfx.cursor_image = c->data;
+        vc->gfx.cursor_fb.width = c->width;
+        vc->gfx.cursor_fb.height = c->height;
+        vc->gfx.new_cursor = true;
+    } else {
+        pixbuf = gdk_pixbuf_new_from_data((guchar *)(c->data),
+                                          GDK_COLORSPACE_RGB, true, 8,
+                                          c->width, c->height, c->width * 4,
+                                          NULL, NULL);
+        cursor = gdk_cursor_new_from_pixbuf
+            (gtk_widget_get_display(vc->gfx.drawing_area),
+             pixbuf, c->hot_x, c->hot_y);
+        gdk_window_set_cursor(gtk_widget_get_window(vc->gfx.drawing_area), cursor);
+        g_object_unref(pixbuf);
+        g_object_unref(cursor);
+    }
 }
 
 static void gd_switch(DisplayChangeListener *dcl,
