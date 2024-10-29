@@ -1360,6 +1360,9 @@
 # @show-fps: Enable showing frame update rate (default: off).
 #     (Since Pending)
 #
+# @hw-cursor: Blend guest cursor plane (default: off).
+#     (Since: Pending)
+#
 # Since: 2.12
 ##
 { 'struct'  : 'DisplayGTK',
@@ -1368,7 +1371,8 @@
                 '*show-tabs'     : 'bool',
                 '*show-menubar'  : 'bool',
                 '*connectors'    : ['str'],
-                '*show-fps'      : 'bool' } }
+                '*show-fps'      : 'bool',
+                '*hw-cursor'     : 'bool' } }
 
 ##
 # @DisplayEGLHeadless:

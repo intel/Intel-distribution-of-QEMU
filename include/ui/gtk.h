@@ -52,6 +52,9 @@ typedef struct VirtualGfxConsole {
     egl_fb guest_fb;
     egl_fb win_fb;
     egl_fb cursor_fb;
+    uint32_t *cursor_image;
+    bool cursor_moved;
+    bool new_cursor;
     int cursor_x;
     int cursor_y;
     bool y0_top;

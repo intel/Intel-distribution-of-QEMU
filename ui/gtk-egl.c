@@ -130,9 +130,31 @@ void gd_egl_update(DisplayChangeListener *dcl,
                    EGL_NO_SURFACE, EGL_NO_CONTEXT);
 }
 
+static void gd_egl_cursor_texture(VirtualConsole *vc)
+{
+#ifdef CONFIG_GBM
+    uint32_t texture;
+
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glPixelStorei(GL_UNPACK_ROW_LENGTH_EXT, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, vc->gfx.cursor_fb.width,
+                 vc->gfx.cursor_fb.height, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                 vc->gfx.cursor_image);
+
+    egl_fb_setup_for_tex(&vc->gfx.cursor_fb, vc->gfx.cursor_fb.width,
+                         vc->gfx.cursor_fb.height, texture, true);
+#endif
+}
+
 void gd_egl_refresh(DisplayChangeListener *dcl)
 {
     VirtualConsole *vc = container_of(dcl, VirtualConsole, gfx.dcl);
+    bool cursor_updated = vc->gfx.cursor_image &&
+                          (vc->gfx.cursor_moved || vc->gfx.new_cursor);
 
 #ifdef CONFIG_GBM
     QemuDmaBuf *dmabuf = vc->gfx.guest_fb.dmabuf;
@@ -145,6 +167,31 @@ void gd_egl_refresh(DisplayChangeListener *dcl)
     if (dmabuf && qemu_dmabuf_get_draw_submitted(dmabuf) &&
         qemu_dmabuf_get_render_sync(dmabuf)) {
         gd_egl_draw(vc);
+        return;
+    }
+
+    if (cursor_updated) {
+        eglMakeCurrent(qemu_egl_display, vc->gfx.esurface,
+                       vc->gfx.esurface, vc->gfx.ectx);
+
+        egl_fb_blit(&vc->gfx.win_fb, &vc->gfx.guest_fb, !vc->gfx.y0_top);
+        if (vc->gfx.cursor_x > 0 &&
+            vc->gfx.cursor_x < vc->gfx.win_fb.width - 1 &&
+            vc->gfx.cursor_y > 0 &&
+            vc->gfx.cursor_y < vc->gfx.win_fb.height - 1) {
+            if (vc->gfx.new_cursor) {
+                gd_egl_cursor_texture(vc);
+                vc->gfx.new_cursor = false;
+            }
+
+            egl_texture_blend(vc->gfx.gls, &vc->gfx.win_fb,
+                              &vc->gfx.cursor_fb, vc->gfx.y0_top,
+                              vc->gfx.cursor_x, vc->gfx.cursor_y,
+                              vc->gfx.scale_x, vc->gfx.scale_y);
+        }
+
+        eglSwapBuffers(qemu_egl_display, vc->gfx.esurface);
+        vc->gfx.cursor_moved = false;
         return;
     }
 #endif
@@ -349,15 +396,22 @@ void gd_egl_scanout_flush(DisplayChangeListener *dcl,
     ww = gdk_window_get_width(window) * ws;
     wh = gdk_window_get_height(window) * ws;
     egl_fb_setup_default(&vc->gfx.win_fb, ww, wh);
-    if (vc->gfx.cursor_fb.texture) {
-        egl_texture_blit(vc->gfx.gls, &vc->gfx.win_fb, &vc->gfx.guest_fb,
-                         vc->gfx.y0_top);
-        egl_texture_blend(vc->gfx.gls, &vc->gfx.win_fb, &vc->gfx.cursor_fb,
-                          vc->gfx.y0_top,
+    egl_fb_blit(&vc->gfx.win_fb, &vc->gfx.guest_fb, !vc->gfx.y0_top);
+    if (vc->gfx.cursor_image &&
+        vc->gfx.cursor_x > 0 &&
+        vc->gfx.cursor_x < vc->gfx.win_fb.width - 1 &&
+        vc->gfx.cursor_y > 0 &&
+        vc->gfx.cursor_y < vc->gfx.win_fb.height - 1) {
+        if (vc->gfx.new_cursor) {
+            gd_egl_cursor_texture(vc);
+            vc->gfx.new_cursor = false;
+        }
+
+        egl_texture_blend(vc->gfx.gls, &vc->gfx.win_fb,
+                          &vc->gfx.cursor_fb, vc->gfx.y0_top,
                           vc->gfx.cursor_x, vc->gfx.cursor_y,
                           vc->gfx.scale_x, vc->gfx.scale_y);
-    } else {
-        egl_fb_blit(&vc->gfx.win_fb, &vc->gfx.guest_fb, !vc->gfx.y0_top);
+        vc->gfx.cursor_moved = false;
     }
 
 #ifdef CONFIG_GBM
