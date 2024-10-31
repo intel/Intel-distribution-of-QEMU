@@ -1361,7 +1361,11 @@
 #     (Since Pending)
 #
 # @hw-cursor: Blend guest cursor plane (default: off).
-#     (Since: Pending)
+#     (Since Pending)
+#
+# @input: Don't let host's HID devices control the guest. Defaults to
+#     "on" so they can control the guest.
+#     (Since Pending)
 #
 # Since: 2.12
 ##
@@ -1372,7 +1376,8 @@
                 '*show-menubar'  : 'bool',
                 '*connectors'    : ['str'],
                 '*show-fps'      : 'bool',
-                '*hw-cursor'     : 'bool' } }
+                '*hw-cursor'     : 'bool',
+                '*input'         : 'bool' } }
 
 ##
 # @DisplayEGLHeadless:

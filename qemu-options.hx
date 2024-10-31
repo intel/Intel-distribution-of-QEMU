@@ -2101,6 +2101,7 @@ DEF("display", HAS_ARG, QEMU_OPTION_display,
     "            [,show-menubar=on|off][,zoom-to-fit=on|off]\n"
     "            [,connectors.<index>=<connector name>]\n"
     "            [,show-fps=on|off][,hw-cursor=on|off]\n"
+    "            [,input=on|off]\n"
 #endif
 #if defined(CONFIG_VNC)
     "-display vnc=<display>[,<optargs>]\n"
@@ -2206,6 +2207,9 @@ SRST
 
         ``hw-cursor=on|off`` : Blend cursor plane from the guest with the guest display
                                output.
+
+        ``input=on|off``        : Don't let host's HID devices control the guest
+                                  if set to "off", defaults to "on"
 
     ``curses[,charset=<encoding>]``
         Display video output via curses. For graphics device models
