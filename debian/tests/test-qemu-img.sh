@@ -23,18 +23,10 @@ doit "Testing if qemu-img creates images" \
 doit "Testing for correct image size" \
 	"ls -l q.raw" '*\ 12884901888\ *'
 
-host=$(dpkg --print-architecture)
-if [ "$host" = ppc64el ]; then
-  echo PPC64EL:
-  ls -s q.raw
-  echo filesystem:
-  stat -f .
-  echo file:
-  stat q.raw
-else
+fsblock=$(stat -f --format=%S q.raw)
+
 doit "Testing if file is sparse" \
-	'ls -s q.raw' '[04]\ *'
-fi
+	'ls -s --block-size=$fsblock q.raw' "[01]\ *'
 
 doit "Testing if conversion to a qcow2 image works" \
 	"qemu-img convert -f raw -O qcow2 q.raw q.qcow2"

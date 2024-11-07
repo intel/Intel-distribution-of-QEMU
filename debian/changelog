@@ -1,3 +1,12 @@
+qemu (1:9.1.1+ds-3) unstable; urgency=medium
+
+  * d/tests/test-qemu-img.sh: use filesystem block size for ls -s,
+    remove temp code for ppc64el
+  * hw-audio-hda-avoid-unnecessary-re-open-stream-on-rec.patch
+    fixing https://gitlab.com/qemu-project/qemu/-/issues/2639 (hopefully)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 07 Nov 2024 13:51:24 +0300
+
 qemu (1:9.1.1+ds-2) unstable; urgency=medium
 
   * linux-user-elf-endianness.diff: remove the temp workaround
