@@ -290,13 +290,15 @@ void gd_gl_area_scanout_flush(DisplayChangeListener *dcl,
 #ifdef CONFIG_GBM
     QemuDmaBuf *dmabuf = vc->gfx.guest_fb.dmabuf;
 
-    if (dmabuf && !qemu_dmabuf_get_draw_submitted(dmabuf)) {
+    if (dmabuf && !qemu_dmabuf_get_draw_submitted(dmabuf) &&
+        vc->gfx.guest_fb.framebuffer) {
         gtk_gl_area_make_current(GTK_GL_AREA(vc->gfx.drawing_area));
         graphic_hw_gl_block(vc->gfx.dcl.con, true);
         qemu_dmabuf_set_draw_submitted(dmabuf, true);
         gtk_gl_area_set_scanout_mode(vc, true);
         if (!qemu_dmabuf_get_render_sync(dmabuf)) {
-            int ws = gdk_window_get_scale_factor(gtk_widget_get_window(vc->gfx.drawing_area));
+            int ws = gdk_window_get_scale_factor(gtk_widget_get_window(
+                                                 vc->gfx.drawing_area));
             int ww = gtk_widget_get_allocated_width(vc->gfx.drawing_area) * ws;
             int wh = gtk_widget_get_allocated_height(vc->gfx.drawing_area) * ws;
             int y1 = vc->gfx.y0_top ? 0 : vc->gfx.h;
