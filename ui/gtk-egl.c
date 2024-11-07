@@ -96,7 +96,8 @@ void gd_egl_draw(VirtualConsole *vc)
             }
 
             if (!dmabuf ||
-                (dmabuf && qemu_dmabuf_get_render_sync(dmabuf))) {
+                (dmabuf && qemu_dmabuf_get_render_sync(dmabuf) &&
+                vc->gfx.guest_fb.framebuffer)) {
                 gd_egl_scanout_flush(&vc->gfx.dcl, 0, 0, vc->gfx.w, vc->gfx.h);
             }
         }
@@ -435,7 +436,8 @@ void gd_egl_flush(DisplayChangeListener *dcl,
 #ifdef CONFIG_GBM
     QemuDmaBuf *dmabuf = vc->gfx.guest_fb.dmabuf;
     if (dmabuf) {
-        if (!qemu_dmabuf_get_draw_submitted(dmabuf)) {
+        if (!qemu_dmabuf_get_draw_submitted(dmabuf) &&
+            vc->gfx.guest_fb.framebuffer) {
             graphic_hw_gl_block(vc->gfx.dcl.con, true);
             gtk_egl_set_scanout_mode(vc, true);
             if (!qemu_dmabuf_get_render_sync(dmabuf)) {
