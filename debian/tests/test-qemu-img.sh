@@ -26,7 +26,7 @@ doit "Testing for correct image size" \
 fsblock=$(stat -f --format=%S q.raw)
 
 doit "Testing if file is sparse" \
-	'ls -s --block-size=$fsblock q.raw' "[01]\ *'
+	"ls -s --block-size=$fsblock q.raw" '[01]\ *'
 
 doit "Testing if conversion to a qcow2 image works" \
 	"qemu-img convert -f raw -O qcow2 q.raw q.qcow2"

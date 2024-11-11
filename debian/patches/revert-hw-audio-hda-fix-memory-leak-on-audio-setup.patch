@@ -1,0 +1,85 @@
+From 4240bfa68bace297b872248861e3f7b3ff5076cc Mon Sep 17 00:00:00 2001
+From: Michael Tokarev <mjt@tls.msk.ru>
+Date: Fri, 8 Nov 2024 20:44:02 +0300
+Subject: Revert "hw/audio/hda: fix memory leak on audio setup"
+Origin: upstream
+Forwarded: not-needed
+
+This reverts commit 6d03242a7e47815ed56687ecd13f683d8da3f2fe.
+
+Let's revert this one for now.  It is a revert of a commit picked
+to 9.1.x from master 6d6e23361fc732e4fe36a8bc5873b85f264ed53a,
+restoring the status quo with audio for now.
+
+See https://gitlab.com/qemu-project/qemu/-/issues/2639 for details.
+
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+---
+ hw/audio/hda-codec.c | 33 +++++++++++++--------------------
+ 1 file changed, 13 insertions(+), 20 deletions(-)
+
+diff --git a/hw/audio/hda-codec.c b/hw/audio/hda-codec.c
+index 4373565371..ee3d0a7dec 100644
+--- a/hw/audio/hda-codec.c
++++ b/hw/audio/hda-codec.c
+@@ -472,24 +472,6 @@ static void hda_audio_set_amp(HDAAudioStream *st)
+     }
+ }
+ 
+-static void hda_close_stream(HDAAudioState *a, HDAAudioStream *st)
+-{
+-    if (st->node == NULL) {
+-        return;
+-    }
+-    if (a->use_timer) {
+-        timer_free(st->buft);
+-        st->buft = NULL;
+-    }
+-    if (st->output) {
+-        AUD_close_out(&a->card, st->voice.out);
+-        st->voice.out = NULL;
+-    } else {
+-        AUD_close_in(&a->card, st->voice.in);
+-        st->voice.in = NULL;
+-    }
+-}
+-
+ static void hda_audio_setup(HDAAudioStream *st)
+ {
+     bool use_timer = st->state->use_timer;
+@@ -502,7 +484,6 @@ static void hda_audio_setup(HDAAudioStream *st)
+     trace_hda_audio_format(st->node->name, st->as.nchannels,
+                            fmt2name[st->as.fmt], st->as.freq);
+ 
+-    hda_close_stream(st->state, st);
+     if (st->output) {
+         if (use_timer) {
+             cb = hda_audio_output_cb;
+@@ -760,11 +741,23 @@ static void hda_audio_init(HDACodecDevice *hda,
+ static void hda_audio_exit(HDACodecDevice *hda)
+ {
+     HDAAudioState *a = HDA_AUDIO(hda);
++    HDAAudioStream *st;
+     int i;
+ 
+     dprint(a, 1, "%s\n", __func__);
+     for (i = 0; i < ARRAY_SIZE(a->st); i++) {
+-        hda_close_stream(a, a->st + i);
++        st = a->st + i;
++        if (st->node == NULL) {
++            continue;
++        }
++        if (a->use_timer) {
++            timer_free(st->buft);
++        }
++        if (st->output) {
++            AUD_close_out(&a->card, st->voice.out);
++        } else {
++            AUD_close_in(&a->card, st->voice.in);
++        }
+     }
+     AUD_remove_card(&a->card);
+ }
+-- 
+2.39.5
+

@@ -1,3 +1,13 @@
+qemu (1:9.1.1+ds-4) unstable; urgency=medium
+
+  * d/tests/test-qemu-img.sh: fix syntax error in recent change
+  * remove hw-audio-hda-avoid-unnecessary-re-open-stream-on-rec.patch
+    (does not solve the issue)
+  * +revert-hw-audio-hda-fix-memory-leak-on-audio-setup.patch
+    revert the upstream change for now, til a better solution is found
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 11 Nov 2024 10:37:00 +0300
+
 qemu (1:9.1.1+ds-3) unstable; urgency=medium
 
   * d/tests/test-qemu-img.sh: use filesystem block size for ls -s,
