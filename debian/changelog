@@ -1,3 +1,12 @@
+qemu (1:9.1.1+ds-5) unstable; urgency=medium
+
+  * upload to rebuild with fixed libiscsi
+  * move "addd" lintian-override from qemu-system-misc to qemu-system-riscv
+  * d/qemu-user-static.lintian-overrides: remove "statically-linked-binary"
+    override (not emitted anymore?)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 15 Nov 2024 09:30:28 +0300
+
 qemu (1:9.1.1+ds-4) unstable; urgency=medium
 
   * d/tests/test-qemu-img.sh: fix syntax error in recent change
