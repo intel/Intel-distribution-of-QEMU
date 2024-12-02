@@ -145,7 +145,7 @@ Build-Depends-Arch:
 # Ubuntu builds both arch+indep parts (on amd64), so there this is irrelevant.
 #    Effectively it always enables pkg.qemu.omit-vdso-build-dep build-profile.
 # With each upstream, check if vdso code changed and bump the version:
- qemu-system-data (>> 1:9.0.2+ds-2~) [amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64]
+ qemu-system-data (>> 1:9.1.2+ds-1~) [amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64]
    <!pkg.qemu.use-upstream-vdso !pkg.qemu.omit-vdso-build-dep>,
 Build-Depends-Indep:
 # compiler used to build i386 firmware

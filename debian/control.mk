@@ -7,14 +7,15 @@ include /usr/share/dpkg/pkg-info.mk
 
 # since some files and/or lists differ from version to version,
 # ensure we have the expected qemu version, or else scream loudly
-checked-version := 9.1.1+ds
-# version of last vdso change for d/control:
-vdso-version := 1:9.0.2+ds-2~
+checked-version := 9.1.2+ds
+# version of last vdso change for d/control Depends field:
+vdso-version := 1:9.1.2+ds-1~
 
 vdso-files := \
  linux-user/aarch64/vdso-be.so \
  linux-user/aarch64/vdso-le.so \
- linux-user/arm/vdso-be.so \
+ linux-user/arm/vdso-be32.so \
+ linux-user/arm/vdso-be8.so \
  linux-user/arm/vdso-le.so \
  linux-user/hppa/vdso.so \
  linux-user/i386/vdso.so \
@@ -64,6 +65,54 @@ user-targets := \
  xtensa \
  xtensaeb \
 #
+
+# qemu-system (softmmu) targets, in multiple packages
+# For each package:
+#  system-archlist-$pkg - list qemu architectues which should go to this pkg
+#  system-kvmcpus-$pkg  - list of ${DEB_HOST_ARCH_CPU}s where we create
+#                         kvm link for this package
+# For each of ${system-archlist-*}, optional:
+#  system-alias-$qcpu   - aliases for this qemu architecture
+# For each of ${system-kvmcpus-*}, mandatory:
+#  system-kvmlink-$dcpu - where to point kvm link for this ${DEB_HOST_ARCH_CPU}
+
+system-packages := arm mips ppc riscv s390x sparc x86 misc
+
+system-archlist-arm := aarch64 arm
+system-alias-aarch64 := arm64
+system-alias-arm := armel armhf
+system-kvmcpus-arm := arm64 arm
+system-kvmlink-arm64 := aarch64
+system-kvmlink-arm := arm
+
+system-archlist-mips := mips mipsel mips64 mips64el
+
+system-archlist-ppc := ppc ppc64
+system-alias-ppc := powerpc
+system-alias-ppc64 := ppc64le ppc64el
+system-kvmcpus-ppc := ppc64 ppc64el powerpc
+system-kvmlink-ppc64 := ppc64
+system-kvmlink-ppc64el := ppc64
+system-kvmlink-powerpc := ppc
+
+system-archlist-riscv := riscv32 riscv64
+
+system-archlist-s390x := s390x
+system-kvmcpus-s390x := s390x
+system-kvmlink-s390x := s390x
+
+system-archlist-sparc := sparc sparc64
+
+system-archlist-x86 := i386 x86_64
+system-alias-x86_64 := amd64
+system-kvmcpus-x86 := amd64 i386
+system-kvmlink-amd64 := x86_64
+system-kvmlink-i386 := x86_64
+
+system-archlist-misc := alpha avr cris hppa m68k loongarch64 \
+                microblaze microblazeel or1k rx sh4 sh4eb \
+                tricore xtensa xtensaeb
+system-alias-loongarch64 := loong64
 
 ifneq (${checked-version},${DEB_VERSION_UPSTREAM})
 $(warning Debian packaging is set up for version ${checked-version} while actual version is ${DEB_VERSION_UPSTREAM})

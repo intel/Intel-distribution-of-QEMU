@@ -98,53 +98,8 @@ endif
 
 comma:=,
 
-# qemu-system (softmmu) targets, in multiple packages
-# For each package:
-#  system-archlist-$pkg - list qemu architectues which should go to this pkg
-#  system-kvmcpus-$pkg  - list of ${DEB_HOST_ARCH_CPU}s where we create
-#                         kvm link for this package
-# For each of ${system-archlist-*}, optional:
-#  system-alias-$qcpu   - aliases for this qemu architecture
-# For each of ${system-kvmcpus-*}, mandatory:
-#  system-kvmlink-$dcpu - where to point kvm link for this ${DEB_HOST_ARCH_CPU}
-
-system-archlist-arm = aarch64 arm
-system-alias-aarch64 = arm64
-system-alias-arm = armel armhf
-system-kvmcpus-arm = arm64 arm
-system-kvmlink-arm64 = aarch64
-system-kvmlink-arm = arm
-
-system-archlist-mips = mips mipsel mips64 mips64el
-
-system-archlist-ppc = ppc ppc64
-system-alias-ppc = powerpc
-system-alias-ppc64 = ppc64le ppc64el
-system-kvmcpus-ppc = ppc64 ppc64el powerpc
-system-kvmlink-ppc64 = ppc64
-system-kvmlink-ppc64el = ppc64
-system-kvmlink-powerpc = ppc
-
-system-archlist-riscv = riscv32 riscv64
-
-system-archlist-s390x = s390x
-system-kvmcpus-s390x = s390x
-system-kvmlink-s390x = s390x
-
-system-archlist-sparc = sparc sparc64
-
-system-archlist-x86 = i386 x86_64
-system-alias-x86_64 = amd64
-system-kvmcpus-x86 = amd64 i386
-system-kvmlink-amd64 = x86_64
-system-kvmlink-i386 = x86_64
-
-system-archlist-misc = alpha avr cris hppa m68k loongarch64 \
-		microblaze microblazeel or1k rx sh4 sh4eb \
-		tricore xtensa xtensaeb
-system-alias-loongarch64 = loong64
-
-system-packages = arm mips ppc riscv s390x sparc x86 misc
+# system-packages, system-archlist-$pkg, system-alias-$arch, system-kvmlink-$arch
+# are defined in d/control.mk
 
 # qemu-system subpackages
 define install-all-system

@@ -1,3 +1,13 @@
+qemu (1:9.1.2+ds-1) unstable; urgency=medium
+
+  * new upstream stable/bugfix release
+  * remove revert-hw-audio-hda-fix-memory-leak-on-audio-setup.patch
+  * add lintian-overrides for "wTH" spelling-error-in-binary for
+    qemu-system-arm, qemu-system-mips, qemu-system-ppc and qemu-user
+  * d/rules: move system package definitions to d/control.mk
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 02 Dec 2024 11:29:54 +0300
+
 qemu (1:9.1.1+ds-5) unstable; urgency=medium
 
   * upload to rebuild with fixed libiscsi
