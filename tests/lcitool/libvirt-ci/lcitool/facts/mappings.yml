@@ -174,8 +174,7 @@ mappings:
     apk: rust-bindgen
     pkg: rust-bindgen-cli
     rpm: bindgen-cli
-    OpenSUSELeap15:
-    OpenSUSETumbleweed: rust-bindgen
+    OpenSUSE: rust-bindgen
 
   bison:
     default: bison
@@ -343,7 +342,13 @@ mappings:
 
   dtrace:
     deb: systemtap-sdt-dev
-    rpm: systemtap-sdt-devel
+    rpm: systemtap-sdt-dtrace
+    OpenSUSE: systemtap-dtrace
+    AlmaLinux9: systemtap-sdt-devel
+    CentOSStream9: systemtap-sdt-devel
+    Fedora39: systemtap-sdt-devel
+    Fedora40: systemtap-sdt-devel
+    OpenSUSELeap15: systemtap-sdt-devel
     cross-policy-default: foreign
 
   dwarves:
@@ -600,6 +605,9 @@ mappings:
     # Temporary limitation until this gets shipped in RHEL-9
     AlmaLinux9:
     CentOSStream9:
+    cross-mingw32-rpm: mingw32-gtk-vnc2
+    cross-mingw64-rpm: mingw64-gtk-vnc2
+    cross-policy-default: foreign
 
   gzip:
     default: gzip
@@ -768,6 +776,15 @@ mappings:
     apk: libcap-ng-dev
     deb: libcap-ng-dev
     rpm: libcap-ng-devel
+    cross-policy-default: foreign
+
+  libcbor:
+    apk: libcbor-dev
+    deb: libcbor-dev
+    rpm: libcbor-devel
+    AlmaLinux:
+    CentOS:
+    MacOS: libcbor
     cross-policy-default: foreign
 
   libclang:
@@ -1079,6 +1096,7 @@ mappings:
     # homebrew has libtorrent-rasterbar, but pkg-config doesn't pick
     # up proper references to compile with boost
     MacOS:
+    cross-policy-default: foreign
 
   libubsan:
     deb: libubsan1
@@ -1310,6 +1328,7 @@ mappings:
     apk: net-snmp-dev
     deb: libsnmp-dev
     rpm: net-snmp-devel
+    cross-policy-default: foreign
 
   net-tools:
     default: net-tools
@@ -1386,6 +1405,7 @@ mappings:
     deb: libpcre2-dev
     rpm: pcre-static
     OpenSUSE: pcre-devel-static
+    cross-policy-default: foreign
 
   perl:
     default: perl-base
@@ -1621,6 +1641,12 @@ mappings:
     cross-mingw64-rpm: mingw64-pixman
     cross-policy-default: foreign
 
+  pkcheck:
+    default: polkit
+    deb: polkitd
+    MacOS:
+    Debian11: policykit-1
+
   pkg-config:
     default: pkgconf
     rpm: pkgconfig
@@ -1628,11 +1654,6 @@ mappings:
     cross-mingw32-rpm: mingw32-pkg-config
     cross-mingw64-rpm: mingw64-pkg-config
     cross-policy-rpm: foreign
-
-  polkit:
-    default: polkit
-    deb: policykit-1
-    MacOS:
 
   portablexdr:
     cross-mingw32-rpm: mingw32-portablexdr
@@ -1656,7 +1677,7 @@ mappings:
   python3-PyYAML:
     apk: py3-yaml
     deb: python3-yaml
-    pkg: py311-yaml
+    pkg: py311-pyyaml
     rpm: python3-PyYAML
 
   python3-build:
@@ -1941,6 +1962,7 @@ mappings:
     deb: libsndio-dev
     pkg: sndio
     OpenSUSE: sndio-devel
+    cross-policy-default: foreign
 
   socat:
     default: socat
@@ -1966,6 +1988,7 @@ mappings:
     default: spice-protocol
     deb: libspice-protocol-dev
     OpenSUSE: spice-protocol-devel
+    cross-policy-default: foreign
 
   spice-server:
     apk: spice-dev
@@ -2011,6 +2034,13 @@ mappings:
 
   systemd-rpm-macros:
     rpm: systemd-rpm-macros
+
+  systemtap:
+    deb: systemtap-sdt-dev
+    rpm: systemtap-sdt-devel
+    OpenSUSE: systemtap-headers
+    OpenSUSELeap15: systemtap-sdt-devel
+    cross-policy-default: foreign
 
   tar:
     default: tar

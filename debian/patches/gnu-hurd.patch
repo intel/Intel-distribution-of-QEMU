@@ -1,6 +1,7 @@
 From: Michael Tokarev <mjt@tls.msk.ru>
 Date: Sat, 24 Aug 2024 08:00:35 +0300
-Subject: Add OS detection for GNU/Hurd
+Updated: Mon, 02 Dec 2024 17:14:04 +0300
+Subject: Add OS detection and support for GNU/Hurd
 Forwarded: not-needed
 
 Adds minimal (just OS detection) "support" for
@@ -40,3 +41,21 @@ index c7053cdc2b..560ed59ac0 100644
 +#  define IOV_MAX 1024
 +# endif
  #endif
+diff --git a/block/file-posix.c b/block/file-posix.c
+index ff928b5e85..bf165a5a71 100644
+--- a/block/file-posix.c
++++ b/block/file-posix.c
+@@ -85,4 +85,7 @@
+ #endif
+ #endif
++#ifdef __GNU__
++#include <sys/ioctl.h>
++#endif
+ #if defined(CONFIG_FALLOCATE_PUNCH_HOLE) || defined(CONFIG_FALLOCATE_ZERO_RANGE)
+ #include <linux/falloc.h>
+@@ -2004,4 +2007,5 @@ static int handle_aiocb_write_zeroes_unmap(void *opaque)
+ 
+ #ifndef HAVE_COPY_FILE_RANGE
++#define copy_file_range qemu_copy_file_range
+ static off_t copy_file_range(int in_fd, off_t *in_off, int out_fd,
+                              off_t *out_off, size_t len, unsigned int flags)

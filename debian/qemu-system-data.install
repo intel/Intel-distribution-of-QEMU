@@ -12,6 +12,3 @@ b/docs/interop/pr-helper.html usr/share/doc/qemu-system-common/
 docs/multiseat.txt usr/share/doc/qemu-system-common/
 docs/qdev-device-use.txt usr/share/doc/qemu-system-common/
 docs/qemupciserial.inf usr/share/doc/qemu-system-common/
-
-# linux-specific
-b/docs/tools/virtfs-proxy-helper.html usr/share/doc/qemu-system-common/

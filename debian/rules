@@ -157,6 +157,7 @@ b/qemu/configured: configure
 		--extra-cflags="${extra-cflags}" \
 		--extra-ldflags="${extra-ldflags}" \
 		--$(if ${enable-system},enable,disable)-system \
+		--$(if $(filter qemu-guest-agent,${BUILD_PACKAGES}),enable,disable)-guest-agent \
 		--disable-user --disable-linux-user \
 		--enable-tools \
 		--disable-xen \
@@ -234,6 +235,8 @@ else  # !enable-system
 
 # qemu-system manpage is built regardless of system target
 	rm -fv debian/tmp/usr/share/man/man1/qemu.1
+# vmsr-helper is built even if --disable-system
+	rm -fv debian/tmp/usr/bin/qemu-vmsr-helper
 
 endif # enable-system
 
@@ -346,7 +349,6 @@ b/user/configured: configure
 		--static \
 		$(if $(filter i386,${DEB_HOST_ARCH}),--disable-pie) \
 		--disable-plugins \
-		--disable-bpf \
 		--target-list="$(addsuffix -linux-user,${user-targets})"
 	touch $@
 build-user: b/user/built

@@ -108,6 +108,7 @@ packages:
 - libc-static
 - libcacard
 - libcap-ng
+- libcbor
 - libclang
 - libclang-rt
 - libcmpiutil
@@ -245,8 +246,8 @@ packages:
 - php
 - php-imagick
 - pixman
+- pkcheck
 - pkg-config
-- polkit
 - portablexdr
 - publican
 - pulseaudio
@@ -308,6 +309,7 @@ packages:
 - swtpm
 - systemd
 - systemd-rpm-macros
+- systemtap
 - tar
 - tc
 - tcl

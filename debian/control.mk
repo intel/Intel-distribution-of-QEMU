@@ -7,9 +7,9 @@ include /usr/share/dpkg/pkg-info.mk
 
 # since some files and/or lists differ from version to version,
 # ensure we have the expected qemu version, or else scream loudly
-checked-version := 9.1.2+ds
+checked-version := 9.2.0+ds
 # version of last vdso change for d/control Depends field:
-vdso-version := 1:9.1.2+ds-1~
+vdso-version := 1:9.2.0~rc3+ds-1~
 
 vdso-files := \
  linux-user/aarch64/vdso-be.so \
@@ -35,7 +35,6 @@ user-targets := \
  alpha \
  arm \
  armeb \
- cris \
  hexagon \
  hppa \
  i386 \
@@ -109,15 +108,13 @@ system-kvmcpus-x86 := amd64 i386
 system-kvmlink-amd64 := x86_64
 system-kvmlink-i386 := x86_64
 
-system-archlist-misc := alpha avr cris hppa m68k loongarch64 \
+system-archlist-misc := alpha avr hppa m68k loongarch64 \
                 microblaze microblazeel or1k rx sh4 sh4eb \
                 tricore xtensa xtensaeb
 system-alias-loongarch64 := loong64
 
 ifneq (${checked-version},${DEB_VERSION_UPSTREAM})
 $(warning Debian packaging is set up for version ${checked-version} while actual version is ${DEB_VERSION_UPSTREAM})
-
-$(warning remove --disable-bpf for user targets in d/rules for 9.1+)
 
 actual-vdso-files := $(sort $(shell \
  for f in linux-user/*/Makefile.vdso ; do \

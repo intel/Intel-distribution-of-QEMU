@@ -102,6 +102,7 @@ native:
 - libbpf-devel
 - libcacard-devel
 - libcap-ng-devel
+- libcbor-devel
 - libcmocka-devel
 - libcmpiutil-devel
 - libconfig-devel
@@ -275,6 +276,7 @@ native:
 - systemd-devel
 - systemd-rpm-macros
 - systemtap-sdt-devel
+- systemtap-sdt-dtrace
 - tar
 - tcl-devel
 - tcpdump

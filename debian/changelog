@@ -1,3 +1,30 @@
+qemu (1:9.2.0+ds-1~exp1) experimental; urgency=medium
+
+  * new upstream version
+  * d/gbp.conf: switch to upstream-9.2 branch
+  * d/copyright: stop removing pc-bios/s390-netboot.img (not shipped anymore)
+  * d/copyright: remove roms/opensbi (not used anymore)
+  * d/copyright: remove vendored rust crates
+    (mk-origtargz does not handle Files-Included: correctly)
+  * d/control: break old qemu-system-s390x (due to dropped s390x-netboot)
+  * d/control.mk: remove cris architecture (dropped upstream)
+  * remove openbios-spelling-endianess.patch
+  * d/control: minimum meson version is 1.5 now
+  * remove meson-Fix-MESONINTROSPECT-parsing.patch
+  * d/rules: remove --disable-bpf for linux-user (fixed upstream)
+  * d/control.mk: vdso-version=9.2.0~rc3+ds-1~
+  * d/control.mk: checked-version=9.2.0+ds
+  * d/control: new build dependency: python3-pycotap
+  * d/qemu-system-common.*: virtfs-proxy-helper is gone
+  * d/qemu-system-arm.lintian-overrides: remove "wTH" override
+  * d/rules: remove qemu-vmsr-helper if !system (dh_missing complains about it)
+  * gnu-hurd.patch: add more fixes
+  * d/qemu-user.lintian-overrides: add statically-linked-binary override
+  * d/control: qemu-guest-agent is linux-any for now (does not work on hurd)
+  * d/rules: enable/disable guest agent explicitly at configure time
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 11 Dec 2024 20:26:36 +0300
+
 qemu (1:9.1.2+ds-1) unstable; urgency=medium
 
   * new upstream stable/bugfix release

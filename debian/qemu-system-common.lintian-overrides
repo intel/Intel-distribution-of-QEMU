@@ -6,4 +6,3 @@ qemu-system-common: hardening-no-fortify-functions [usr/lib/*/qemu/audio-alsa.so
 qemu-system-common: hardening-no-fortify-functions [usr/lib/*/qemu/audio-oss.so]
 # this is a common/generic manpage used by all qemu-system-*  binaries
 qemu-system-common: spare-manual-page [usr/share/man/man1/qemu-system.1.gz]
-qemu-system-common: spare-manual-page [usr/share/man/man1/virtfs-proxy-helper.1.gz]

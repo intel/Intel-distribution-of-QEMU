@@ -98,6 +98,7 @@ native:
 - libbz2-devel
 - libcacard-devel
 - libcap-ng-devel
+- libcbor-devel
 - libcmocka-devel
 - libcmpiutil-devel
 - libconfig-devel
@@ -245,6 +246,7 @@ native:
 - ruby
 - ruby-devel
 - rust
+- rust-bindgen
 - sanlock-devel
 - screen
 - scrub

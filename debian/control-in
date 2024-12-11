@@ -9,10 +9,11 @@ Build-Depends: debhelper-compat (= 13),
  python3:any,
  python3-venv:any,
  python3:any (>> 3.11) | python3-tomli,
- meson (>> 1.1.0~), ninja-build,
+ meson (>> 1.5.0~), ninja-build,
  flex, bison,
 # for :native suffix see #995622
  python3-sphinx:native, python3-sphinx-rtd-theme:native,
+ python3-pycotap:native,
 Build-Depends-Arch:
 # In comments below we also specify (system-specific) arguments
 # to qemu's configure script, -- optional features which depend
@@ -280,6 +281,9 @@ Replaces:  sgabios, openbios-sparc, openbios-ppc, qemu-slof,
  qemu-system-common (<< 1:8.2.2+ds-1~),
 Breaks: qemu-system-ppc (<< 1:6.1-4~),
  qemu-system-common (<< 1:8.2.2+ds-1~),
+# s390x-netboot dropped in 9.2, breaks qemu-system-s390x
+:debian: qemu-system-misc (<< 1:9.1.1+ds-1~),
+ qemu-system-s390x (<< 1:9.2.0~),
 Provides: qemu-keymaps, sgabios, qemu-skiboot, openbios-sparc, openbios-ppc, qemu-slof,
 Depends: ${misc:Depends}
 Description: QEMU full system emulation (data files)
@@ -715,7 +719,7 @@ Description: QEMU utilities
   * qemu-nbd: QEMU disk network block device server
 
 Package: qemu-guest-agent
-Architecture: any
+Architecture: linux-any
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Pre-Depends: ${misc:Pre-Depends}
