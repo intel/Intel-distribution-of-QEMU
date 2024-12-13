@@ -1,3 +1,12 @@
+qemu (1:9.2.0+ds-1) unstable; urgency=medium
+
+  * add 3 patches queued for stable from upstream master branch
+   9pfs-fix-regression-regarding-CVE-2023-2861.patch
+   tcg-Reset-free_temps-before-tcg_optimize.patch
+   tcg-riscv-Fix-StoreStore-barrier-generation.patch
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 13 Dec 2024 17:00:51 +0300
+
 qemu (1:9.2.0+ds-1~exp1) experimental; urgency=medium
 
   * new upstream version

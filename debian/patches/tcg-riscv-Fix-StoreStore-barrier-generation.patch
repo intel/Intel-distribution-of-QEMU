@@ -1,0 +1,38 @@
+From: Roman Artemev <roman.artemev@syntacore.com>
+Date: Wed, 11 Dec 2024 07:40:04 +0000
+Subject: tcg/riscv: Fix StoreStore barrier generation
+Forwarded: not-needed
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/b438362a142527b97b638b7f0f35ebe11911a8d5
+
+On RISC-V to StoreStore barrier corresponds
+`fence w, w` not `fence r, r`
+
+Cc: qemu-stable@nongnu.org
+Fixes: efbea94c76b ("tcg/riscv: Add slowpath load and store instructions")
+Reviewed-by: Richard Henderson <richard.henderson@linaro.org>
+Signed-off-by: Denis Tomashev <denis.tomashev@syntacore.com>
+Signed-off-by: Roman Artemev <roman.artemev@syntacore.com>
+Message-ID: <e2f2131e294a49e79959d4fa9ec02cf4@syntacore.com>
+Signed-off-by: Richard Henderson <richard.henderson@linaro.org>
+(cherry picked from commit b438362a142527b97b638b7f0f35ebe11911a8d5)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+---
+ tcg/riscv/tcg-target.c.inc | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tcg/riscv/tcg-target.c.inc b/tcg/riscv/tcg-target.c.inc
+index f8331e4688..96f9a7e348 100644
+--- a/tcg/riscv/tcg-target.c.inc
++++ b/tcg/riscv/tcg-target.c.inc
+@@ -1624,7 +1624,7 @@ static void tcg_out_mb(TCGContext *s, TCGArg a0)
+         insn |= 0x02100000;
+     }
+     if (a0 & TCG_MO_ST_ST) {
+-        insn |= 0x02200000;
++        insn |= 0x01100000;
+     }
+     tcg_out32(s, insn);
+ }
+-- 
+2.39.5
+
