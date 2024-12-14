@@ -144,7 +144,7 @@ ifneq ($(sort ${user-targets}),${actual-user-targets})
 $(warning user-targets list differs from actual, \
   added: $(filter-out ${user-targets},${actual-user-targets}), \
   removed: $(filter-out ${actual-user-targets},${user-targets}))
-$(warning Check binfmt setup too!)
+$(warning Check debian/binfmt-install too!)
 endif
 
 $(error verify everything is set up correctly)

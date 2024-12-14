@@ -1,3 +1,24 @@
+qemu (1:9.2.0+ds-2) unstable; urgency=medium
+
+  * d/binfmt-install: remove forgotten cris linux-user target registration
+    (Closes: #1089851)
+  * d/rules,d/binfmt-install: pass list of targets on command line
+    to catch errors like the previous one
+  * d/binfmt-install: add 2 forgotten architectures: microblazeel and or1k
+  * d/binfmt-install: note when we dropped binfmt-support registration
+  * d/binfmt-install: drop compat symlinks for same-family binfmts from
+    qemu-user-static doc dir.  Between [8.0 .. 9.1) (during trixie release
+    cycle), we shipped /usr/share/doc/qemu-user-static/qemu-x86_64.conf etc
+    on x86 (all architectures for the host cpu family) instead of enabling
+    them, because it is too risky to enable emulation for same-family arch.
+    These files were used by the user to manually register the binfmts from
+    /etc/binfmt.d.  This does not work anymore, - if you used this setup,
+    manually registering a binfmt for an architecture from the same family
+    as your host CPU, please reconfigure them to point to the correct
+    location, which is /usr/share/qemu/binfmt.d/.
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 14 Dec 2024 10:03:36 +0300
+
 qemu (1:9.2.0+ds-1) unstable; urgency=medium
 
   * add 3 patches queued for stable from upstream master branch

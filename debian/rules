@@ -376,7 +376,7 @@ install-user: b/user/built
     ${man1dir}/qemu-$t.1 ${man1dir}/qemu-$a.1\
   ))
 	dh_installdocs -p qemu-user-binfmt --link-doc=qemu-user
-	./debian/binfmt-install
+	./debian/binfmt-install ${user-targets}
 # build a Built-Using substvar:
 	echo "built-using=$$(\
 	  grep -h ^/usr/lib b/user/qemu-*.map ${# all system libs} | \
