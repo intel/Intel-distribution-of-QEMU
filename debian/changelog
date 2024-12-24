@@ -1,3 +1,11 @@
+qemu (1:9.2.0+ds-3) unstable; urgency=medium
+
+  * d/changelog: mention #924667, #1027781, #1016810 for previous entry
+  * d/rules: use 2 timeout multiplier for tests on all platforms,
+    not just riscv64 (Closes: #1089870)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 24 Dec 2024 19:28:22 +0300
+
 qemu (1:9.2.0+ds-2) unstable; urgency=medium
 
   * d/binfmt-install: remove forgotten cris linux-user target registration
@@ -16,6 +24,7 @@ qemu (1:9.2.0+ds-2) unstable; urgency=medium
     manually registering a binfmt for an architecture from the same family
     as your host CPU, please reconfigure them to point to the correct
     location, which is /usr/share/qemu/binfmt.d/.
+    (cf: #924667, #1027781, #1016810)
 
  -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 14 Dec 2024 10:03:36 +0300
 
