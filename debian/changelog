@@ -1,3 +1,13 @@
+qemu (1:9.2.0+ds-4) unstable; urgency=medium
+
+  * d/source/lintian-overrides: field-too-long Build-Depends-Arch override
+  * d/control: add gcc-x86-64-linux-gnu to Build-Depends-Indep.  This makes
+    not much sense but lets the build to succeed hopefully on any platform
+    where all cross-compilers are available (Closes: #1091586)
+  * add qemu-img-options.patch (qemu-img options rework)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 05 Jan 2025 00:24:25 +0300
+
 qemu (1:9.2.0+ds-3) unstable; urgency=medium
 
   * d/changelog: mention #924667, #1027781, #1016810 for previous entry

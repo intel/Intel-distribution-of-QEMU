@@ -150,6 +150,8 @@ Build-Depends-Arch:
 :debian: qemu-system-data (>> :vdso-version:) [:user-arch:]
 :debian:   <!pkg.qemu.use-upstream-vdso !pkg.qemu.omit-vdso-build-dep>,
 Build-Depends-Indep:
+# x86_64 firmware
+ gcc-x86-64-linux-gnu,
 # compiler used to build i386 firmware
  gcc-i686-linux-gnu,
 # pc-bios/*.dts => *.dtb (PPC firmware)
