@@ -1,3 +1,15 @@
+qemu (1:9.2.0+ds-5) unstable; urgency=medium
+
+  * d/rules,d/control: add Conflicts: qemu-kvm when it Provides: qemu-kvm
+  * remove openbios-array-bounds.diff & openbios-array-bounds-gcc12.patch
+    (not needed anymore)
+  * d/patches/u-boot-sam460ex-*: forward, add metadata
+  * disable-pycotap.patch: disable usage of pycotap, - it is only used in tests
+    which we do not run
+  * d/rules: add Provides: qemu-system-native
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 12 Jan 2025 13:21:46 +0300
+
 qemu (1:9.2.0+ds-4) unstable; urgency=medium
 
   * d/source/lintian-overrides: field-too-long Build-Depends-Arch override

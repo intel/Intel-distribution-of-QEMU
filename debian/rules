@@ -128,8 +128,10 @@ dh_link -p $1 \
   ))
 ${# note: older make does not understand line-splitting inside $(functions ..)}
 echo 'qemu:Provides=$(if $3,qemu-kvm (=${DEB_VERSION})${comma})\
+ $(if $(filter ${DEB_HOST_ARCH},$2 $(foreach q,$2,${system-alias-$q})),qemu-system-native (=${DEB_VERSION})${comma})\
  $(patsubst %,% (=${DEB_VERSION})${comma},$(filter-out $1, $(patsubst %, qemu-system-%, any $2 $(foreach q,$2,${system-alias-$q}))))' \
     | tr _ - >> debian/$1.substvars
+echo 'qemu:Conflicts=$(if $3,qemu-kvm)' >> debian/$1.substvars
 ${# construct list `arch1 arch2 (alias) arch3..' for Description and word-wrap it}
 list='$(foreach q,$2,$q$(if ${system-alias-$q}, (${system-alias-$q})))'; \
   len2=$$(($${#list}/2)); \

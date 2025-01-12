@@ -12,7 +12,7 @@ Build-Depends: debhelper-compat (= 13),
  flex, bison,
 # for :native suffix see #995622
  python3-sphinx:native, python3-sphinx-rtd-theme:native,
- python3-pycotap:native,
+# python3-pycotap:native,
 Build-Depends-Arch:
 # In comments below we also specify (system-specific) arguments
 # to qemu's configure script, -- optional features which depend
@@ -349,6 +349,7 @@ Recommends: qemu-utils,
  qemu-block-extra (= ${binary:Version}),
 Suggests: samba, vde2,
 Provides: ${qemu:Provides}
+Conflicts: ${qemu:Conflicts}
 Description: QEMU full system emulation binaries (miscellaneous)
  QEMU is a fast processor emulator: currently the package supports Alpha, ARM,
  CRIS, i386, LoongArch, M68k (ColdFire), MicroBlaze, MIPS, PowerPC, RISC-V,
@@ -381,6 +382,7 @@ Recommends: qemu-utils,
  qemu-block-extra (= ${binary:Version}),
 Suggests: samba, vde2,
 Provides: ${qemu:Provides}
+Conflicts: ${qemu:Conflicts}
 Description: QEMU full system emulation binaries (arm)
  QEMU is a fast processor emulator: currently the package supports
  ARM emulation. By using dynamic translation it achieves
@@ -409,6 +411,7 @@ Recommends: qemu-utils,
  qemu-block-extra (= ${binary:Version}),
 Suggests: samba, vde2,
 Provides: ${qemu:Provides}
+Conflicts: ${qemu:Conflicts}
 Description: QEMU full system emulation binaries (mips)
  QEMU is a fast processor emulator: currently the package supports
  MIPS emulation. By using dynamic translation it achieves
@@ -437,6 +440,7 @@ Recommends: qemu-utils,
  qemu-block-extra (= ${binary:Version}),
 Suggests: samba, vde2,
 Provides: ${qemu:Provides}
+Conflicts: ${qemu:Conflicts}
 Description: QEMU full system emulation binaries (ppc)
  QEMU is a fast processor emulator: currently the package supports
  PowerPC emulation. By using dynamic translation it achieves
@@ -464,6 +468,7 @@ Breaks:   qemu-system-data (<< 1:9.1.0+ds-4~), qemu-system-misc (<< 1:9.1.0+ds-9
 Replaces: qemu-system-data (<< 1:9.1.0+ds-4~), qemu-system-misc (<< 1:9.1.0+ds-9~)
 Suggests: samba, vde2,
 Provides: ${qemu:Provides}
+Conflicts: ${qemu:Conflicts}
 Description: QEMU full system emulation binaries (riscv)
  QEMU is a fast processor emulator: currently the package supports
  riscv emulation. By using dynamic translation it achieves
@@ -485,6 +490,7 @@ Recommends: qemu-utils,
 Breaks:   qemu-system-misc (<< 1:9.1.0+ds-9~)
 Replaces: qemu-system-misc (<< 1:9.1.0+ds-9~)
 Provides: ${qemu:Provides}
+Conflicts: ${qemu:Conflicts}
 Description: QEMU full system emulation binaries (s390x)
  QEMU is a fast processor emulator: currently the package supports
  s390x emulation. By using dynamic translation it achieves reasonable
@@ -513,6 +519,7 @@ Recommends: qemu-utils,
  qemu-block-extra (= ${binary:Version}),
 Suggests: samba, vde2,
 Provides: ${qemu:Provides}
+Conflicts: ${qemu:Conflicts}
 Description: QEMU full system emulation binaries (sparc)
  QEMU is a fast processor emulator: currently the package supports
  SPARC emulation. By using dynamic translation it achieves
@@ -542,6 +549,7 @@ Recommends: qemu-utils,
  qemu-block-extra (= ${binary:Version}),
 Suggests: samba, vde2,
 Provides: ${qemu:Provides}
+Conflicts: ${qemu:Conflicts}
 Description: QEMU full system emulation binaries (x86)
  QEMU is a fast processor emulator: currently the package supports
  i386 and x86-64 emulation. By using dynamic translation it achieves
