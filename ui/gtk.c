@@ -2195,10 +2195,11 @@ static gboolean gd_configure(GtkWidget *widget,
 
     info = *dpy_get_ui_info(vc->gfx.dcl.con);
 
-    if (info.width || info.height) {
-        gd_set_ui_size(vc, cfg->width, cfg->height);
+    if (vc->s->opts->u.gtk.has_connectors && !info.width && !info.height) {
+        return FALSE;
     }
 
+    gd_set_ui_size(vc, cfg->width, cfg->height);
     return FALSE;
 }
 
