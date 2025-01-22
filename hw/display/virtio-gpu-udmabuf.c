@@ -245,18 +245,31 @@ void virtio_gpu_init_udmabuf(struct virtio_gpu_simple_resource *res)
     res->blob = pdata;
 }
 
-void virtio_gpu_fini_udmabuf(struct virtio_gpu_simple_resource *res)
+void virtio_gpu_fini_udmabuf(VirtIOGPU *g, struct virtio_gpu_simple_resource *res)
 {
-    if (res->remapped) {
-        virtio_gpu_destroy_udmabuf(res);
+    int i;
+
+    for (i = 0; i < g->parent_obj.conf.max_outputs; i++) {
+        if (g->dmabuf.primary[i] &&
+            qemu_dmabuf_get_fd(g->dmabuf.primary[i]->buf) == res->dmabuf_fd) {
+            virtio_gpu_free_dmabuf(g, g->dmabuf.primary[i]);
+            g->dmabuf.primary[i] = NULL;
+        }
     }
+
+    virtio_gpu_destroy_udmabuf(res);
 }
 
-static void virtio_gpu_free_dmabuf(VirtIOGPU *g, VGPUDMABuf *dmabuf)
+void virtio_gpu_free_dmabuf(VirtIOGPU *g, VGPUDMABuf *dmabuf)
 {
     struct virtio_gpu_scanout *scanout;
 
     scanout = &g->parent_obj.scanout[dmabuf->scanout_id];
+
+    if (!scanout->con || !dmabuf->buf) {
+        return;
+    }
+
     dpy_gl_release_dmabuf(scanout->con, dmabuf->buf);
     g_clear_pointer(&dmabuf->buf, qemu_dmabuf_free);
     QTAILQ_REMOVE(&g->dmabuf.bufs, dmabuf, next);

@@ -936,7 +936,7 @@ void virtio_gpu_cleanup_mapping(VirtIOGPU *g,
     res->addrs = NULL;
 
     if (res->blob) {
-        virtio_gpu_fini_udmabuf(res);
+        virtio_gpu_fini_udmabuf(g, res);
         res->blob = NULL;
         res->blob_size = 0;
     }
@@ -1621,7 +1621,7 @@ void virtio_gpu_reset(VirtIODevice *vdev)
     }
 
     for (i = 0; i < g->parent_obj.conf.max_outputs; i++) {
-         dpy_gfx_replace_surface(g->parent_obj.scanout[i].con, NULL);
+        dpy_gfx_replace_surface(g->parent_obj.scanout[i].con, NULL);
     }
 
     virtio_gpu_base_reset(VIRTIO_GPU_BASE(vdev));

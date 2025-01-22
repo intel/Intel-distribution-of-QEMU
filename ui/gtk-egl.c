@@ -171,7 +171,7 @@ void gd_egl_refresh(DisplayChangeListener *dcl)
         return;
     }
 
-    if (cursor_updated) {
+    if (dmabuf && cursor_updated) {
         eglMakeCurrent(qemu_egl_display, vc->gfx.esurface,
                        vc->gfx.esurface, vc->gfx.ectx);
 
