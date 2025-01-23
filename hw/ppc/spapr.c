@@ -4750,6 +4750,42 @@ static void spapr_machine_latest_class_options(MachineClass *mc)
 #define DEFINE_SPAPR_MACHINE(major, minor) \
     DEFINE_SPAPR_MACHINE_IMPL(false, major, minor)
 
+/* Ubuntu TODO: Come up with a cleaner way to have Ubuntu-specific machine types
+   here.
+
+   The reason why we need a separate macro for Ubuntu is because of
+   the TypeInfo.name member, which needs to be calculated differently.  */
+#define DEFINE_SPAPR_UBUNTU_MACHINE_IMPL(latest, prefix, machinename, ...) \
+    static void MACHINE_VER_SYM(class_init, prefix, __VA_ARGS__)(     \
+        ObjectClass *oc,                                             \
+        const void *data)                                                  \
+    {                                                                \
+        MachineClass *mc = MACHINE_CLASS(oc);                        \
+        MACHINE_VER_SYM(class_options, spapr, __VA_ARGS__)(mc);      \
+        MACHINE_VER_DEPRECATION(__VA_ARGS__);                        \
+        if (latest) {                                                \
+            spapr_machine_latest_class_options(mc);                  \
+        }                                                            \
+    }                                                                \
+    static const TypeInfo MACHINE_VER_SYM(info, prefix, __VA_ARGS__) = \
+    {                                                                \
+        .name = machinename TYPE_MACHINE_SUFFIX,       \
+        .parent = TYPE_SPAPR_MACHINE,                                \
+        .class_init = MACHINE_VER_SYM(class_init, prefix, __VA_ARGS__), \
+    };                                                               \
+    static void MACHINE_VER_SYM(register, prefix, __VA_ARGS__)(void)  \
+    {                                                                \
+        MACHINE_VER_DELETION(__VA_ARGS__);                           \
+        type_register_static(&MACHINE_VER_SYM(info, prefix, __VA_ARGS__));   \
+    }                                                                \
+    type_init(MACHINE_VER_SYM(register, prefix, __VA_ARGS__))
+
+#define DEFINE_SPAPR_UBUNTU_MACHINE_AS_LATEST(release, major, minor) \
+    DEFINE_SPAPR_UBUNTU_MACHINE_IMPL(true, spapr_ubuntu_##release, "pseries-" #release, major, minor)
+#define DEFINE_SPAPR_UBUNTU_MACHINE(release, major, minor) \
+    DEFINE_SPAPR_UBUNTU_MACHINE_IMPL(false, spapr_ubuntu_##release, "pseries-" #release, major, minor)
+
+
 /*
  * pseries-10.2
  */
@@ -4758,7 +4794,7 @@ static void spapr_machine_10_2_class_options(MachineClass *mc)
     /* Defaults for the latest behaviour inherited from the base class */
 }
 
-DEFINE_SPAPR_MACHINE_AS_LATEST(10, 2);
+DEFINE_SPAPR_MACHINE(10, 2);
 
 /*
  * pseries-10.1
@@ -4975,3 +5011,16 @@ static void spapr_machine_register_types(void)
 }
 
 type_init(spapr_machine_register_types)
+
+DEFINE_SPAPR_UBUNTU_MACHINE(groovy, 5, 0);
+DEFINE_SPAPR_UBUNTU_MACHINE(hirsute, 5, 2);
+DEFINE_SPAPR_UBUNTU_MACHINE(impish, 6, 0);
+DEFINE_SPAPR_UBUNTU_MACHINE(jammy, 6, 2);
+DEFINE_SPAPR_UBUNTU_MACHINE(kinetic, 6, 2);
+DEFINE_SPAPR_UBUNTU_MACHINE(lunar, 7, 2);
+DEFINE_SPAPR_UBUNTU_MACHINE(mantic, 8, 0);
+DEFINE_SPAPR_UBUNTU_MACHINE(noble, 8, 2);
+DEFINE_SPAPR_UBUNTU_MACHINE(oracular, 9, 0);
+DEFINE_SPAPR_UBUNTU_MACHINE(plucky, 9, 2);
+DEFINE_SPAPR_UBUNTU_MACHINE(questing, 10, 1);
+DEFINE_SPAPR_UBUNTU_MACHINE_AS_LATEST(resolute, 10, 2);

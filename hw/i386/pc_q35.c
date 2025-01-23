@@ -349,6 +349,23 @@ static void pc_q35_init(MachineState *machine)
 #define DEFINE_Q35_MACHINE_BUGFIX(major, minor, micro) \
     DEFINE_PC_VER_MACHINE(pc_q35, "pc-q35", pc_q35_init, false, NULL, major, minor, micro);
 
+#define DEFINE_UBUNTU_Q35_MACHINE_NAMED(release, name) \
+    DEFINE_PC_MACHINE(pc_q35_##release, "pc-q35-" name, pc_q35_init, \
+                      pc_q35_##release##_machine_options);
+
+#define DEFINE_UBUNTU_Q35_MACHINE(release) \
+    DEFINE_UBUNTU_Q35_MACHINE_NAMED(release, #release)
+#define DEFINE_UBUNTU_Q35_HPB_MACHINE(release) \
+    DEFINE_UBUNTU_Q35_MACHINE_NAMED(release##_hpb, #release "-hpb")
+
+#define DEFINE_UBUNTU_Q35_MAXCPUS_MACHINE(release) \
+    DEFINE_UBUNTU_Q35_MACHINE_NAMED(release##_maxcpus, #release "-maxcpus")
+#define DEFINE_UBUNTU_Q35_HPB_MAXCPUS_MACHINE(release) \
+    DEFINE_UBUNTU_Q35_MACHINE_NAMED(release##_hpb_maxcpus, #release "-hpb-maxcpus")
+
+#define DEFINE_UBUNTU_VERSION_MACHINE(release, ver)                  \
+    DEFINE_UBUNTU_Q35_MACHINE_NAMED(release##_##ver, #release "-" #ver)
+
 static void pc_q35_machine_options(MachineClass *m)
 {
     PCMachineClass *pcmc = PC_MACHINE_CLASS(m);
@@ -695,3 +712,319 @@ static void pc_q35_machine_2_6_options(MachineClass *m)
 }
 
 DEFINE_Q35_MACHINE(2, 6);
+
+/* Ubuntu machine types */
+static void pc_q35_yakkety_machine_options(MachineClass *m)
+{
+    pc_q35_machine_2_6_options(m);
+    m->desc = "Ubuntu 16.10 PC (Q35 + ICH9, 2009)";
+}
+DEFINE_UBUNTU_Q35_MACHINE(yakkety);
+
+static void pc_q35_zesty_machine_options(MachineClass *m)
+{
+    pc_q35_machine_2_8_options(m);
+    m->desc = "Ubuntu 17.04 PC (Q35 + ICH9, 2009)";
+}
+DEFINE_UBUNTU_Q35_MACHINE(zesty);
+
+static void pc_q35_artful_machine_options(MachineClass *m)
+{
+    pc_q35_machine_2_10_options(m);
+    m->desc = "Ubuntu 17.10 PC (Q35 + ICH9, 2009)";
+}
+DEFINE_UBUNTU_Q35_MACHINE(artful);
+
+static void pc_q35_bionic_machine_options(MachineClass *m)
+{
+    pc_q35_machine_2_11_options(m);
+    m->desc = "Ubuntu 18.04 PC (Q35 + ICH9, 2009)";
+}
+DEFINE_UBUNTU_Q35_MACHINE(bionic);
+
+static void pc_q35_bionic_hpb_machine_options(MachineClass *m)
+{
+    pc_q35_machine_2_11_options(m);
+    m->desc = "Ubuntu 18.04 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
+    compat_props_add(m->compat_props,
+        host_phys_bits_compat, host_phys_bits_compat_len);
+}
+DEFINE_UBUNTU_Q35_HPB_MACHINE(bionic);
+
+static void pc_q35_cosmic_machine_options(MachineClass *m)
+{
+    /* yes that is "wrong" but has to stay that way for compatibility */
+    pc_q35_machine_2_11_options(m);
+    m->desc = "Ubuntu 18.10 PC (Q35 + ICH9, 2009)";
+}
+DEFINE_UBUNTU_Q35_MACHINE(cosmic);
+
+static void pc_q35_cosmic_hpb_machine_options(MachineClass *m)
+{
+    pc_q35_machine_2_12_options(m);
+    m->desc = "Ubuntu 18.10 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
+    compat_props_add(m->compat_props,
+        host_phys_bits_compat, host_phys_bits_compat_len);
+}
+DEFINE_UBUNTU_Q35_HPB_MACHINE(cosmic);
+
+static void pc_q35_disco_machine_options(MachineClass *m)
+{
+    pc_q35_machine_3_1_options(m);
+    m->desc = "Ubuntu 19.04 PC (Q35 + ICH9, 2009)";
+}
+DEFINE_UBUNTU_Q35_MACHINE(disco);
+
+static void pc_q35_disco_hpb_machine_options(MachineClass *m)
+{
+    pc_q35_machine_3_1_options(m);
+    m->desc = "Ubuntu 19.04 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
+    compat_props_add(m->compat_props,
+        host_phys_bits_compat, host_phys_bits_compat_len);
+}
+DEFINE_UBUNTU_Q35_HPB_MACHINE(disco);
+
+static void pc_q35_eoan_machine_options(MachineClass *m)
+{
+    pc_q35_machine_4_0_options(m);
+    m->desc = "Ubuntu 19.10 PC (Q35 + ICH9, 2009)";
+    /*
+     * [1] introduced a major regression into the 4.0 types by setting split
+     * irqchip to be the default. This was corrected by [2] and the fix further
+     * modified by [3] which overall adds a 4.0.1 machine type in qemu 4.1 (not
+     * yet released) and probably eventually stable branches.
+     * We will follow upstream with the upstream types, but the Ubuntu types so
+     * far didn't release a 4.0 type yet so for us we can fix it on the initial
+     * release right away.
+     * [1]: https://git.qemu.org/?p=qemu.git;a=commit;h=b2fc91db
+     * [2]: https://git.qemu.org/?p=qemu.git;a=commit;h=c87759ce
+     * [3]: https://git.qemu.org/?p=qemu.git;a=commit;h=8e8cbed0
+     */
+    m->default_kernel_irqchip_split = false;
+}
+DEFINE_UBUNTU_Q35_MACHINE(eoan);
+
+static void pc_q35_eoan_hpb_machine_options(MachineClass *m)
+{
+    pc_q35_eoan_machine_options(m);
+    m->desc = "Ubuntu 19.10 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
+    compat_props_add(m->compat_props,
+        host_phys_bits_compat, host_phys_bits_compat_len);
+}
+DEFINE_UBUNTU_Q35_HPB_MACHINE(eoan);
+
+static void pc_q35_focal_machine_options(MachineClass *m)
+{
+    pc_q35_machine_4_2_options(m);
+    m->desc = "Ubuntu 20.04 PC (Q35 + ICH9, 2009)";
+}
+DEFINE_UBUNTU_Q35_MACHINE(focal);
+
+static void pc_q35_focal_hpb_machine_options(MachineClass *m)
+{
+    pc_q35_focal_machine_options(m);
+    m->desc = "Ubuntu 20.04 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
+    compat_props_add(m->compat_props,
+        host_phys_bits_compat, host_phys_bits_compat_len);
+}
+DEFINE_UBUNTU_Q35_HPB_MACHINE(focal);
+
+static void pc_q35_groovy_machine_options(MachineClass *m)
+{
+    pc_q35_machine_5_0_options(m);
+    m->desc = "Ubuntu 20.10 PC (Q35 + ICH9, 2009)";
+}
+DEFINE_UBUNTU_Q35_MACHINE(groovy);
+
+static void pc_q35_groovy_hpb_machine_options(MachineClass *m)
+{
+    pc_q35_groovy_machine_options(m);
+    m->desc = "Ubuntu 20.10 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
+    compat_props_add(m->compat_props,
+        host_phys_bits_compat, host_phys_bits_compat_len);
+}
+DEFINE_UBUNTU_Q35_HPB_MACHINE(groovy);
+
+static void pc_q35_hirsute_machine_options(MachineClass *m)
+{
+    pc_q35_machine_5_2_options(m);
+    m->desc = "Ubuntu 21.04 PC (Q35 + ICH9, 2009)";
+}
+DEFINE_UBUNTU_Q35_MACHINE(hirsute);
+
+static void pc_q35_hirsute_hpb_machine_options(MachineClass *m)
+{
+    pc_q35_hirsute_machine_options(m);
+    m->desc = "Ubuntu 21.04 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
+    compat_props_add(m->compat_props,
+        host_phys_bits_compat, host_phys_bits_compat_len);
+}
+DEFINE_UBUNTU_Q35_HPB_MACHINE(hirsute);
+
+static void pc_q35_impish_machine_options(MachineClass *m)
+{
+    pc_q35_machine_6_0_options(m);
+    m->desc = "Ubuntu 21.10 PC (Q35 + ICH9, 2009)";
+}
+DEFINE_UBUNTU_Q35_MACHINE(impish);
+
+static void pc_q35_impish_hpb_machine_options(MachineClass *m)
+{
+    pc_q35_impish_machine_options(m);
+    m->desc = "Ubuntu 21.10 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
+    compat_props_add(m->compat_props,
+        host_phys_bits_compat, host_phys_bits_compat_len);
+}
+DEFINE_UBUNTU_Q35_HPB_MACHINE(impish);
+
+static void pc_q35_jammy_machine_options(MachineClass *m)
+{
+    pc_q35_machine_6_2_options(m);
+    m->desc = "Ubuntu 22.04 PC (Q35 + ICH9, 2009)";
+}
+DEFINE_UBUNTU_Q35_MACHINE(jammy);
+
+static void pc_q35_jammy_hpb_machine_options(MachineClass *m)
+{
+    pc_q35_jammy_machine_options(m);
+    m->desc = "Ubuntu 22.04 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
+    compat_props_add(m->compat_props,
+        host_phys_bits_compat, host_phys_bits_compat_len);
+}
+DEFINE_UBUNTU_Q35_HPB_MACHINE(jammy);
+
+static void pc_q35_jammy_maxcpus_machine_options(MachineClass *m)
+{
+    pc_q35_jammy_machine_options(m);
+    m->desc = "Ubuntu 22.04 PC (Q35 + ICH9, maxcpus=1024, 2009)";
+    m->max_cpus = 1024;
+}
+DEFINE_UBUNTU_Q35_MAXCPUS_MACHINE(jammy);
+
+static void pc_q35_jammy_hpb_maxcpus_machine_options(MachineClass *m)
+{
+    pc_q35_jammy_hpb_machine_options(m);
+    m->desc = "Ubuntu 22.04 PC (Q35 + ICH9, +host-phys-bits=true, maxcpus=1024, 2009)";
+    m->max_cpus = 1024;
+}
+DEFINE_UBUNTU_Q35_HPB_MAXCPUS_MACHINE(jammy);
+
+static void pc_q35_kinetic_machine_options(MachineClass *m)
+{
+    pc_q35_machine_7_0_options(m);
+    m->desc = "Ubuntu 22.10 PC (Q35 + ICH9, 2009)";
+}
+DEFINE_UBUNTU_Q35_MACHINE(kinetic);
+
+static void pc_q35_kinetic_hpb_machine_options(MachineClass *m)
+{
+    pc_q35_kinetic_machine_options(m);
+    m->desc = "Ubuntu 22.10 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
+    compat_props_add(m->compat_props,
+        host_phys_bits_compat, host_phys_bits_compat_len);
+}
+DEFINE_UBUNTU_Q35_HPB_MACHINE(kinetic);
+
+static void pc_q35_lunar_machine_options(MachineClass *m)
+{
+    pc_q35_machine_7_2_options(m);
+    m->desc = "Ubuntu 23.04 PC (Q35 + ICH9, 2009)";
+}
+DEFINE_UBUNTU_Q35_MACHINE(lunar);
+
+static void pc_q35_lunar_hpb_machine_options(MachineClass *m)
+{
+    pc_q35_lunar_machine_options(m);
+    m->desc = "Ubuntu 23.04 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
+    compat_props_add(m->compat_props,
+        host_phys_bits_compat, host_phys_bits_compat_len);
+}
+DEFINE_UBUNTU_Q35_HPB_MACHINE(lunar);
+
+static void pc_q35_mantic_machine_options(MachineClass *m)
+{
+    pc_q35_machine_8_0_options(m);
+    m->desc = "Ubuntu 23.10 PC (Q35 + ICH9, 2009)";
+}
+DEFINE_UBUNTU_Q35_MACHINE(mantic);
+
+static void pc_q35_mantic_hpb_machine_options(MachineClass *m)
+{
+    pc_q35_mantic_machine_options(m);
+    m->desc = "Ubuntu 23.10 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
+    compat_props_add(m->compat_props,
+        host_phys_bits_compat, host_phys_bits_compat_len);
+}
+DEFINE_UBUNTU_Q35_HPB_MACHINE(mantic);
+
+static void pc_q35_mantic_maxcpus_machine_options(MachineClass *m)
+{
+    pc_q35_mantic_machine_options(m);
+    m->desc = "Ubuntu 23.10 PC (Q35 + ICH9, maxcpus=1024, 2009)";
+    m->max_cpus = 1024;
+}
+DEFINE_UBUNTU_Q35_MAXCPUS_MACHINE(mantic);
+
+static void pc_q35_mantic_hpb_maxcpus_machine_options(MachineClass *m)
+{
+    pc_q35_mantic_hpb_machine_options(m);
+    m->desc = "Ubuntu 23.10 PC (Q35 + ICH9, +host-phys-bits=true, maxcpus=1024, 2009)";
+    m->max_cpus = 1024;
+}
+DEFINE_UBUNTU_Q35_HPB_MAXCPUS_MACHINE(mantic);
+
+/* Ubuntu: From Noble onwards, we do not add the -hpb machine variants
+ * because they are not needed by OpenStack anymore.  For more information, see:
+ *
+ * https://bugs.launchpad.net/ubuntu/+source/qemu/+bug/1769053
+ * https://bugs.launchpad.net/ubuntu/+source/qemu/+bug/2045592
+ */
+
+static void pc_q35_noble_machine_options(MachineClass *m)
+{
+    pc_q35_machine_8_2_options(m);
+    m->desc = "Ubuntu 24.04 PC (Q35 + ICH9, 2009)";
+}
+DEFINE_UBUNTU_Q35_MACHINE(noble);
+
+static void pc_q35_noble_v2_machine_options(MachineClass *m)
+{
+    pc_q35_noble_machine_options(m);
+    m->desc = "Ubuntu 24.04 PC v2 (Q35 + ICH9, arch-caps fix, 2009)";
+
+    compat_props_add(m->compat_props, \
+                     ubuntu_v2_override_arch_caps, \
+                     ubuntu_v2_override_arch_caps_len);
+}
+DEFINE_UBUNTU_VERSION_MACHINE(noble, v2);
+
+static void pc_q35_oracular_machine_options(MachineClass *m)
+{
+    pc_q35_machine_9_0_options(m);
+    m->desc = "Ubuntu 24.10 PC (Q35 + ICH9, 2009)";
+}
+DEFINE_UBUNTU_Q35_MACHINE(oracular);
+
+static void pc_q35_plucky_machine_options(MachineClass *m)
+{
+    pc_q35_machine_9_1_options(m);
+    m->desc = "Ubuntu 25.04 PC (Q35 + ICH9, 2009)";
+}
+DEFINE_UBUNTU_Q35_MACHINE(plucky);
+
+static void pc_q35_questing_machine_options(MachineClass *m)
+{
+    pc_q35_machine_10_1_options(m);
+    m->desc = "Ubuntu 25.10 PC (Q35 + ICH9, 2009)";
+}
+DEFINE_UBUNTU_Q35_MACHINE(questing);
+
+static void pc_q35_resolute_machine_options(MachineClass *m)
+{
+    pc_q35_machine_10_2_options(m);
+    m->desc = "Ubuntu 26.04 PC (Q35 + ICH9, 2009)";
+    /* The ubuntu alias and default is on the i440fx type. The
+     * ubuntu-q35 alias auto-picks the most recent ubuntu q35 type */
+    m->alias = "ubuntu-q35";
+}
+DEFINE_UBUNTU_Q35_MACHINE(resolute);

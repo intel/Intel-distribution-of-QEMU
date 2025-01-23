@@ -185,6 +185,11 @@ const size_t pc_compat_4_1_len = G_N_ELEMENTS(pc_compat_4_1);
 GlobalProperty pc_compat_4_0[] = {};
 const size_t pc_compat_4_0_len = G_N_ELEMENTS(pc_compat_4_0);
 
+GlobalProperty host_phys_bits_compat[] = {
+    { TYPE_X86_CPU, "host-phys-bits", "on" },
+};
+const size_t host_phys_bits_compat_len = G_N_ELEMENTS(host_phys_bits_compat);
+
 GlobalProperty pc_compat_3_1[] = {
     { "intel-iommu", "dma-drain", "off" },
     { "Opteron_G3" "-" TYPE_X86_CPU, "rdtscp", "off" },
@@ -269,6 +274,17 @@ GlobalProperty pc_compat_2_6[] = {
     { "apic-common", "legacy-instance-id", "on", }
 };
 const size_t pc_compat_2_6_len = G_N_ELEMENTS(pc_compat_2_6);
+
+/* Across ubuntu releases before 25.10 questing we have to fix (LP: #2131822)
+ * the handling of arch-caps. But doing so would break existing guests, therefore
+ * this new behavior is gated by newly created -v2 ubuntu machine types.
+ * These types and handling needs to be known to subsequent releases to ensure
+ * they can continue to host these guests e.g. in migrations
+ */
+GlobalProperty ubuntu_v2_override_arch_caps[] = {
+    { TYPE_X86_CPU, "x-arch-cap-always-on", "false" },
+};
+const size_t ubuntu_v2_override_arch_caps_len = G_N_ELEMENTS(ubuntu_v2_override_arch_caps);
 
 /*
  * @PC_FW_DATA:

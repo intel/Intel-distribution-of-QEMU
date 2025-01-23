@@ -889,6 +889,58 @@ static const TypeInfo ccw_machine_info = {
 #define DEFINE_CCW_MACHINE(major, minor) \
     DEFINE_CCW_MACHINE_IMPL(false, major, minor)
 
+/* Ubuntu TODO: Come up with a cleaner way to have Ubuntu-specific machine types
+   here.
+
+   The reason why we need a separate macro for Ubuntu is because of
+   the TypeInfo.name member, which needs to be calculated differently.
+
+   If there is no deviation from the upstream types the ubuntu names
+   just are putting down the very same structures via macros and for
+   instance_options and class_options use "ccw" instead of our named prefix
+   to refer to the very same implementing functions that are used in general.
+   Other architectures have examples of such deviation in which we changed
+   settings in those _options functions using our own derivatives.
+   */
+#define DEFINE_CCW_UBUNTU_MACHINE_IMPL(latest, prefix, machinename, ...)      \
+    static void MACHINE_VER_SYM(mach_init, prefix, __VA_ARGS__)(MachineState *mach) \
+    {                                                                         \
+        MACHINE_VER_SYM(instance_options, ccw, __VA_ARGS__)(mach);            \
+        ccw_init(mach);                                                       \
+    }                                                                         \
+    static void MACHINE_VER_SYM(class_init, prefix, __VA_ARGS__)(                \
+        ObjectClass *oc,                                                      \
+        const void *data)                                                           \
+    {                                                                         \
+        MachineClass *mc = MACHINE_CLASS(oc);                                 \
+        MACHINE_VER_SYM(class_options, ccw, __VA_ARGS__)(mc);                 \
+        mc->desc = "Virtual s390x machine (version " machinename "-" MACHINE_VER_STR(__VA_ARGS__) ")"; \
+        mc->init = MACHINE_VER_SYM(mach_init, prefix, __VA_ARGS__);              \
+        MACHINE_VER_DEPRECATION(__VA_ARGS__);                                 \
+        if (latest) {                                                         \
+            mc->alias = "s390-ccw-virtio";                                    \
+            mc->is_default = true;                                            \
+        }                                                                     \
+    }                                                                         \
+    static const TypeInfo MACHINE_VER_SYM(info, prefix, __VA_ARGS__) =           \
+    {                                                                         \
+        .name = machinename TYPE_MACHINE_SUFFIX,        \
+        .parent = TYPE_S390_CCW_MACHINE,                                      \
+        .class_init = MACHINE_VER_SYM(class_init, prefix, __VA_ARGS__),          \
+    };                                                                        \
+    static void MACHINE_VER_SYM(register, prefix, __VA_ARGS__)(void)             \
+    {                                                                         \
+        MACHINE_VER_DELETION(__VA_ARGS__);                                    \
+        type_register_static(&MACHINE_VER_SYM(info, prefix, __VA_ARGS__));       \
+    }                                                                         \
+    type_init(MACHINE_VER_SYM(register, prefix, __VA_ARGS__))
+
+#define DEFINE_CCW_UBUNTU_MACHINE(release, major, minor) \
+    DEFINE_CCW_UBUNTU_MACHINE_IMPL(false, ccw_ubuntu_##release, \
+                                   "s390-ccw-virtio-" #release, major, minor)
+#define DEFINE_CCW_UBUNTU_MACHINE_AS_LATEST(release, major, minor) \
+    DEFINE_CCW_UBUNTU_MACHINE_IMPL(true, ccw_ubuntu_##release, \
+                                   "s390-ccw-virtio-" #release, major, minor)
 
 static void ccw_machine_10_2_instance_options(MachineState *machine)
 {
@@ -897,7 +949,7 @@ static void ccw_machine_10_2_instance_options(MachineState *machine)
 static void ccw_machine_10_2_class_options(MachineClass *mc)
 {
 }
-DEFINE_CCW_MACHINE_AS_LATEST(10, 2);
+DEFINE_CCW_MACHINE(10, 2);
 
 static void ccw_machine_10_1_instance_options(MachineState *machine)
 {
@@ -1144,6 +1196,21 @@ static void ccw_machine_5_0_class_options(MachineClass *mc)
     compat_props_add(mc->compat_props, hw_compat_5_0, hw_compat_5_0_len);
 }
 DEFINE_CCW_MACHINE(5, 0);
+
+
+/* Ubuntu machine types */
+DEFINE_CCW_UBUNTU_MACHINE(groovy, 5, 0);
+DEFINE_CCW_UBUNTU_MACHINE(hirsute, 5, 2);
+DEFINE_CCW_UBUNTU_MACHINE(impish, 6, 0);
+DEFINE_CCW_UBUNTU_MACHINE(jammy, 6, 2);
+DEFINE_CCW_UBUNTU_MACHINE(kinetic, 6, 2);
+DEFINE_CCW_UBUNTU_MACHINE(lunar, 7, 2);
+DEFINE_CCW_UBUNTU_MACHINE(mantic, 8, 0);
+DEFINE_CCW_UBUNTU_MACHINE(noble, 8, 2);
+DEFINE_CCW_UBUNTU_MACHINE(oracular, 9, 0);
+DEFINE_CCW_UBUNTU_MACHINE(plucky, 9, 2);
+DEFINE_CCW_UBUNTU_MACHINE(questing, 10, 1);
+DEFINE_CCW_UBUNTU_MACHINE_AS_LATEST(resolute, 10, 2);
 
 static void ccw_machine_register_types(void)
 {

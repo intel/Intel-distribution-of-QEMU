@@ -274,6 +274,9 @@ extern const size_t pc_compat_4_1_len;
 extern GlobalProperty pc_compat_4_0[];
 extern const size_t pc_compat_4_0_len;
 
+extern GlobalProperty host_phys_bits_compat[];
+extern const size_t host_phys_bits_compat_len;
+
 extern GlobalProperty pc_compat_3_1[];
 extern const size_t pc_compat_3_1_len;
 
@@ -300,6 +303,9 @@ extern const size_t pc_compat_2_7_len;
 
 extern GlobalProperty pc_compat_2_6[];
 extern const size_t pc_compat_2_6_len;
+
+extern GlobalProperty ubuntu_v2_override_arch_caps[];
+extern const size_t ubuntu_v2_override_arch_caps_len;
 
 #define DEFINE_PC_MACHINE(suffix, namestr, initfn, optsfn) \
     static void pc_machine_##suffix##_class_init(ObjectClass *oc, \
