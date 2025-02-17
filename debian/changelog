@@ -1,3 +1,10 @@
+qemu (1:9.2.1+ds-1) unstable; urgency=medium
+
+  * new upstream stable/bugfix release
+  * d/control: add loong64 and riscv64 to spice-arch (Closes: #1093646)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 17 Feb 2025 13:54:22 +0300
+
 qemu (1:9.2.0+ds-5) unstable; urgency=medium
 
   * d/rules,d/control: add Conflicts: qemu-kvm when it Provides: qemu-kvm

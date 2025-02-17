@@ -89,8 +89,8 @@ Build-Depends-Arch:
  libseccomp-dev        [amd64 arm64 armel armhf i386 loong64 mips64el mipsel ppc64 ppc64el powerpc riscv64 s390x],
 # --enable-slirp	 amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
  libslirp-dev		[amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64],
-# --enable-spice	 amd64 i386 arm64 armel armhf mips64el mipsel ppc64el
- libspice-server-dev	[amd64 i386 arm64 armel armhf mips64el mipsel ppc64el],
+# --enable-spice	 amd64 i386 arm64 armel armhf loong64 mips64el mipsel ppc64el riscv64
+ libspice-server-dev	[amd64 i386 arm64 armel armhf loong64 mips64el mipsel ppc64el riscv64],
 # --enable-rdma		linux-any
  librdmacm-dev [linux-any], libibverbs-dev [linux-any], libibumad-dev [linux-any],
 # --enable-linux-io-uring	linux-any
@@ -300,7 +300,7 @@ Description: QEMU full system emulation binaries (graphical display and audio mo
  else (like virt-manager) for that.
 
 Package: qemu-system-modules-spice
-Architecture: amd64 i386 arm64 armel armhf mips64el mipsel ppc64el
+Architecture: amd64 i386 arm64 armel armhf loong64 mips64el mipsel ppc64el riscv64
 Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${misc:Depends}, ${shlibs:Depends},
 # spice modules depends on ui-opengl
@@ -344,7 +344,7 @@ Recommends: qemu-utils,
  seabios,
  ipxe-qemu,
  qemu-system-gui (= ${binary:Version}),
- qemu-system-modules-spice (= ${binary:Version}) [amd64 i386 arm64 armel armhf mips64el mipsel ppc64el],
+ qemu-system-modules-spice (= ${binary:Version}) [amd64 i386 arm64 armel armhf loong64 mips64el mipsel ppc64el riscv64],
  qemu-system-modules-opengl (= ${binary:Version}),
  qemu-block-extra (= ${binary:Version}),
 Suggests: samba, vde2,
@@ -377,7 +377,7 @@ Recommends: qemu-utils,
  ipxe-qemu,
  qemu-efi-aarch64, qemu-efi-arm,
  qemu-system-gui (= ${binary:Version}),
- qemu-system-modules-spice (= ${binary:Version}) [amd64 i386 arm64 armel armhf mips64el mipsel ppc64el],
+ qemu-system-modules-spice (= ${binary:Version}) [amd64 i386 arm64 armel armhf loong64 mips64el mipsel ppc64el riscv64],
  qemu-system-modules-opengl (= ${binary:Version}),
  qemu-block-extra (= ${binary:Version}),
 Suggests: samba, vde2,
@@ -406,7 +406,7 @@ Recommends: qemu-utils,
  seabios,
  ipxe-qemu,
  qemu-system-gui (= ${binary:Version}),
- qemu-system-modules-spice (= ${binary:Version}) [amd64 i386 arm64 armel armhf mips64el mipsel ppc64el],
+ qemu-system-modules-spice (= ${binary:Version}) [amd64 i386 arm64 armel armhf loong64 mips64el mipsel ppc64el riscv64],
  qemu-system-modules-opengl (= ${binary:Version}),
  qemu-block-extra (= ${binary:Version}),
 Suggests: samba, vde2,
@@ -435,7 +435,7 @@ Recommends: qemu-utils,
  seabios,
  ipxe-qemu,
  qemu-system-gui (= ${binary:Version}),
- qemu-system-modules-spice (= ${binary:Version}) [amd64 i386 arm64 armel armhf mips64el mipsel ppc64el],
+ qemu-system-modules-spice (= ${binary:Version}) [amd64 i386 arm64 armel armhf loong64 mips64el mipsel ppc64el riscv64],
  qemu-system-modules-opengl (= ${binary:Version}),
  qemu-block-extra (= ${binary:Version}),
 Suggests: samba, vde2,
@@ -484,7 +484,7 @@ Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
 Recommends: qemu-utils,
  qemu-system-gui (= ${binary:Version}),
- qemu-system-modules-spice (= ${binary:Version}) [amd64 i386 arm64 armel armhf mips64el mipsel ppc64el],
+ qemu-system-modules-spice (= ${binary:Version}) [amd64 i386 arm64 armel armhf loong64 mips64el mipsel ppc64el riscv64],
  qemu-system-modules-opengl (= ${binary:Version}),
  qemu-block-extra (= ${binary:Version}),
 Breaks:   qemu-system-misc (<< 1:9.1.0+ds-9~)
@@ -514,7 +514,7 @@ Recommends: qemu-utils,
  seabios,
  ipxe-qemu,
  qemu-system-gui (= ${binary:Version}),
- qemu-system-modules-spice (= ${binary:Version}) [amd64 i386 arm64 armel armhf mips64el mipsel ppc64el],
+ qemu-system-modules-spice (= ${binary:Version}) [amd64 i386 arm64 armel armhf loong64 mips64el mipsel ppc64el riscv64],
  qemu-system-modules-opengl (= ${binary:Version}),
  qemu-block-extra (= ${binary:Version}),
 Suggests: samba, vde2,
@@ -544,7 +544,7 @@ Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Vers
 Recommends: qemu-utils,
  ovmf,
  qemu-system-gui (= ${binary:Version}),
- qemu-system-modules-spice (= ${binary:Version}) [amd64 i386 arm64 armel armhf mips64el mipsel ppc64el],
+ qemu-system-modules-spice (= ${binary:Version}) [amd64 i386 arm64 armel armhf loong64 mips64el mipsel ppc64el riscv64],
  qemu-system-modules-opengl (= ${binary:Version}),
  qemu-block-extra (= ${binary:Version}),
 Suggests: samba, vde2,

@@ -7,7 +7,7 @@ include /usr/share/dpkg/pkg-info.mk
 
 # since some files and/or lists differ from version to version,
 # ensure we have the expected qemu version, or else scream loudly
-checked-version := 9.2.0+ds
+checked-version := 9.2.1+ds
 # version of last vdso change for d/control Depends field:
 vdso-version := 1:9.2.0~rc3+ds-1~
 
@@ -161,7 +161,7 @@ system-arch = ${system-arch-linux}
 user-arch = ${system-arch-linux}
 utils-arch = $(sort ${system-arch} alpha hppa m68k sh4 x32)
 # subset of system-arch
-spice-arch = amd64 i386 arm64 armel armhf mips64el mipsel ppc64el
+spice-arch = amd64 i386 arm64 armel armhf loong64 mips64el mipsel ppc64el riscv64
 
 substvars = system-arch-linux-64 system-arch-linux system-arch spice-arch user-arch utils-arch \
 	vdso-version
