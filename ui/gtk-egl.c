@@ -165,13 +165,15 @@ void gd_egl_refresh(DisplayChangeListener *dcl)
             vc, vc->window ? vc->window : vc->gfx.drawing_area);
 
 #ifdef CONFIG_GBM
-    if (dmabuf && qemu_dmabuf_get_draw_submitted(dmabuf) &&
+    if (dmabuf && (qemu_dmabuf_get_fd(dmabuf) > 0) &&
+        qemu_dmabuf_get_draw_submitted(dmabuf) &&
         qemu_dmabuf_get_render_sync(dmabuf)) {
         gd_egl_draw(vc);
         return;
     }
 
-    if (dmabuf && cursor_updated) {
+    if (dmabuf && (qemu_dmabuf_get_fd(dmabuf) > 0)
+        && cursor_updated) {
         eglMakeCurrent(qemu_egl_display, vc->gfx.esurface,
                        vc->gfx.esurface, vc->gfx.ectx);
 
@@ -382,6 +384,13 @@ void gd_egl_scanout_flush(DisplayChangeListener *dcl,
     QemuDmaBuf *dmabuf = vc->gfx.guest_fb.dmabuf;
 #endif
 
+    if (!dmabuf) {
+        return;
+    }
+    if (qemu_dmabuf_get_fd(dmabuf) < 0) {
+        graphic_hw_gl_block(vc->gfx.dcl.con, false);
+        return;
+    }
     if (!vc->gfx.scanout_mode) {
         return;
     }
@@ -416,7 +425,7 @@ void gd_egl_scanout_flush(DisplayChangeListener *dcl,
     }
 
 #ifdef CONFIG_GBM
-    if (dmabuf && qemu_dmabuf_get_fence_fd(dmabuf) == -1) {
+    if (qemu_dmabuf_get_fence_fd(dmabuf) == -1) {
         int fence_fd = egl_dmabuf_create_fence_fd(dmabuf);
         if (fence_fd >= 0) {
             qemu_set_fd_handler(fence_fd, gd_hw_gl_flushed, NULL, vc);
