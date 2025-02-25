@@ -125,7 +125,8 @@ void gd_gl_area_refresh(DisplayChangeListener *dcl)
     gd_update_monitor_refresh_rate(vc, vc->window ? vc->window : vc->gfx.drawing_area);
 
 #ifdef CONFIG_GBM
-    if (dmabuf && qemu_dmabuf_get_draw_submitted(dmabuf) &&
+    if (dmabuf && (qemu_dmabuf_get_fd(dmabuf) > 0) &&
+        qemu_dmabuf_get_draw_submitted(dmabuf) &&
         qemu_dmabuf_get_render_sync(dmabuf)) {
         gd_gl_area_draw(vc);
         return;
@@ -290,7 +291,8 @@ void gd_gl_area_scanout_flush(DisplayChangeListener *dcl,
 #ifdef CONFIG_GBM
     QemuDmaBuf *dmabuf = vc->gfx.guest_fb.dmabuf;
 
-    if (dmabuf && !qemu_dmabuf_get_draw_submitted(dmabuf) &&
+    if (dmabuf && (qemu_dmabuf_get_fd(dmabuf) > 0) &&
+        !qemu_dmabuf_get_draw_submitted(dmabuf) &&
         vc->gfx.guest_fb.framebuffer) {
         gtk_gl_area_make_current(GTK_GL_AREA(vc->gfx.drawing_area));
         graphic_hw_gl_block(vc->gfx.dcl.con, true);
