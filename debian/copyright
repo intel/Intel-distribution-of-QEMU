@@ -48,19 +48,8 @@ Files-Excluded:
 #
 	python/wheels/*.whl
 #
-	subprojects/arbitrary-int-1.2.7
-	subprojects/bilge-0.2.0
-	subprojects/bilge-impl-0.2.0
-	subprojects/either-1.12.0
-	subprojects/itertools-0.11.0
 	subprojects/packagecache
 	subprojects/packagefiles
-	subprojects/proc-macro2-1.0.84
-	subprojects/proc-macro-error-1.0.4
-	subprojects/proc-macro-error-attr-1.0.4
-	subprojects/quote-1.0.36
-	subprojects/syn-2.0.66
-	subprojects/unicode-ident-1-rs
 
 Files: *
 Copyright:

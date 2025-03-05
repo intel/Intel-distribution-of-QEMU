@@ -85,7 +85,7 @@ common_configure_opts = \
 	--disable-containers \
 	--disable-relocatable \
 	--disable-docs \
-
+	${empty}
 # this disables building of qemu-keymap tool (!)
 # qemu-keymap might be helpful for qemu-system -k <lang>
 # but is -k flag useful these days?
@@ -98,17 +98,17 @@ endif
 
 comma:=,
 
-# system-packages, system-archlist-$pkg, system-alias-$arch, system-kvmlink-$arch
+# system-packages, system-archlist-$pkg, system-alias-$arch, system-kvm
 # are defined in d/control.mk
 
 # qemu-system subpackages
 define install-all-system
 $(foreach p,${system-packages},\
   $(call install-system,qemu-system-$p,${system-archlist-$p}\
-  ,$(if $(filter ${DEB_HOST_ARCH_CPU},${system-kvmcpus-$p}),qemu-system-${system-kvmlink-${DEB_HOST_ARCH_CPU}})))
+  ,$(strip $(foreach a,${system-archlist-$p},$(if $(filter $a ${system-alias-$a},${DEB_HOST_ARCH_CPU}),$a)))))
 endef
 
-# install-system qemu-system-$pkg, ${system-archlist-$pkg}, kvm-link
+# install-system qemu-system-$pkg, ${system-archlist-$pkg}, [native-qemu-arch]
 # install qemu-arch-list binaries with manpages and aliases into pkg
 # install kvm link to qemu-system-${kvm-link} if it is not empty
 # fills in qemu:Provides and qemu:archlist substvars
@@ -121,17 +121,19 @@ $(foreach q, $2,\
 )
 dh_link -p $1 \
  $(foreach q, $2, \
-   $(if $3, usr/bin/$3 usr/bin/kvm ${man1dir}/$3.1 ${man1dir}/kvm.1) \
+   $(if $(filter $3,${system-kvm}), \
+            usr/bin/qemu-system-$3 usr/bin/kvm \
+            ${man1dir}/qemu-system-$3.1 ${man1dir}/kvm.1) \
    $(foreach a, ${system-alias-$q}, \
      usr/bin/qemu-system-$q usr/bin/qemu-system-$a \
      ${man1dir}/qemu-system-$q.1 ${man1dir}/qemu-system-$a.1 \
   ))
 ${# note: older make does not understand line-splitting inside $(functions ..)}
-echo 'qemu:Provides=$(if $3,qemu-kvm (=${DEB_VERSION})${comma})\
- $(if $(filter ${DEB_HOST_ARCH},$2 $(foreach q,$2,${system-alias-$q})),qemu-system-native (=${DEB_VERSION})${comma})\
+echo 'qemu:Provides=$(if $3,qemu-system-native (=${DEB_VERSION})${comma})\
+ $(if $(filter $3,${system-kvm}),qemu-kvm (=${DEB_VERSION})${comma})\
  $(patsubst %,% (=${DEB_VERSION})${comma},$(filter-out $1, $(patsubst %, qemu-system-%, any $2 $(foreach q,$2,${system-alias-$q}))))' \
     | tr _ - >> debian/$1.substvars
-echo 'qemu:Conflicts=$(if $3,qemu-kvm)' >> debian/$1.substvars
+echo 'qemu:Conflicts=$(if $(filter $3,${system-kvm}),qemu-kvm)' >> debian/$1.substvars
 ${# construct list `arch1 arch2 (alias) arch3..' for Description and word-wrap it}
 list='$(foreach q,$2,$q$(if ${system-alias-$q}, (${system-alias-$q})))'; \
   len2=$$(($${#list}/2)); \

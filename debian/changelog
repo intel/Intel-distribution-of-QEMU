@@ -1,3 +1,17 @@
+qemu (1:9.2.2+ds-1) unstable; urgency=medium
+
+  [ Christian Ehrhardt ]
+  * Add seabios as recommends for qemu-system-arm (LP: #2033905)
+
+  [ Michael Tokarev ]
+  * new upstream stable/bugfix release
+  * d/copyright: remove Files-Excluded which are not relevant anymore
+  * d/rules, d/control.mk: use ${empty} as list terminator
+  * d/rules, d/control.mk: rework handling of kvm/native qemu-system
+  * d/control.mk: enable kvm for loongarch64
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 05 Mar 2025 22:06:40 +0300
+
 qemu (1:9.2.1+ds-1) unstable; urgency=medium
 
   * new upstream stable/bugfix release

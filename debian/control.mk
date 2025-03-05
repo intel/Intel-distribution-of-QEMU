@@ -5,9 +5,11 @@ VENDOR := $(shell dpkg-vendor --derives-from Ubuntu && \
             echo ubuntu || echo debian)
 include /usr/share/dpkg/pkg-info.mk
 
+empty :=
+
 # since some files and/or lists differ from version to version,
 # ensure we have the expected qemu version, or else scream loudly
-checked-version := 9.2.1+ds
+checked-version := 9.2.2+ds
 # version of last vdso change for d/control Depends field:
 vdso-version := 1:9.2.0~rc3+ds-1~
 
@@ -27,7 +29,7 @@ vdso-files := \
  linux-user/riscv/vdso-64.so \
  linux-user/s390x/vdso.so \
  linux-user/x86_64/vdso.so \
-#
+ ${empty}
 
 user-targets := \
  aarch64 \
@@ -63,55 +65,50 @@ user-targets := \
  x86_64 \
  xtensa \
  xtensaeb \
-#
+ ${empty}
 
 # qemu-system (softmmu) targets, in multiple packages
 # For each package:
 #  system-archlist-$pkg - list qemu architectues which should go to this pkg
-#  system-kvmcpus-$pkg  - list of ${DEB_HOST_ARCH_CPU}s where we create
-#                         kvm link for this package
 # For each of ${system-archlist-*}, optional:
 #  system-alias-$qcpu   - aliases for this qemu architecture
-# For each of ${system-kvmcpus-*}, mandatory:
-#  system-kvmlink-$dcpu - where to point kvm link for this ${DEB_HOST_ARCH_CPU}
 
 system-packages := arm mips ppc riscv s390x sparc x86 misc
 
 system-archlist-arm := aarch64 arm
 system-alias-aarch64 := arm64
 system-alias-arm := armel armhf
-system-kvmcpus-arm := arm64 arm
-system-kvmlink-arm64 := aarch64
-system-kvmlink-arm := arm
 
 system-archlist-mips := mips mipsel mips64 mips64el
 
 system-archlist-ppc := ppc ppc64
 system-alias-ppc := powerpc
 system-alias-ppc64 := ppc64le ppc64el
-system-kvmcpus-ppc := ppc64 ppc64el powerpc
-system-kvmlink-ppc64 := ppc64
-system-kvmlink-ppc64el := ppc64
-system-kvmlink-powerpc := ppc
 
 system-archlist-riscv := riscv32 riscv64
 
 system-archlist-s390x := s390x
-system-kvmcpus-s390x := s390x
-system-kvmlink-s390x := s390x
 
 system-archlist-sparc := sparc sparc64
 
 system-archlist-x86 := i386 x86_64
 system-alias-x86_64 := amd64
-system-kvmcpus-x86 := amd64 i386
-system-kvmlink-amd64 := x86_64
-system-kvmlink-i386 := x86_64
 
 system-archlist-misc := alpha avr hppa m68k loongarch64 \
                 microblaze microblazeel or1k rx sh4 sh4eb \
                 tricore xtensa xtensaeb
 system-alias-loongarch64 := loong64
+
+# system-kvm - list of qemu architectures where native kvm is provided
+system-kvm := \
+ aarch64 \
+ arm \
+ loongarch64 \
+ ppc \
+ ppc64 \
+ s390x \
+ x86_64 \
+ ${empty}
 
 ifneq (${checked-version},${DEB_VERSION_UPSTREAM})
 $(warning Debian packaging is set up for version ${checked-version} while actual version is ${DEB_VERSION_UPSTREAM})

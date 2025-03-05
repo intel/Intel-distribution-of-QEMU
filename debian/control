@@ -375,6 +375,8 @@ Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Vers
 Recommends: qemu-utils,
 # aarch64 arm uses bootroms
  ipxe-qemu,
+# for now virtio-vga won't check arch and insist on vgabios-virtio.bin
+ seabios,
  qemu-efi-aarch64, qemu-efi-arm,
  qemu-system-gui (= ${binary:Version}),
  qemu-system-modules-spice (= ${binary:Version}) [amd64 i386 arm64 armel armhf loong64 mips64el mipsel ppc64el riscv64],
