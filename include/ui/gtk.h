@@ -47,6 +47,7 @@ typedef struct VirtualGfxConsole {
     QemuGLShader *gls;
     EGLContext ectx;
     EGLSurface esurface;
+    bool recently_updated;
     int glupdates;
     int x, y, w, h;
     egl_fb guest_fb;
