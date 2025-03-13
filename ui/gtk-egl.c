@@ -202,6 +202,7 @@ void gd_egl_refresh(DisplayChangeListener *dcl)
         }
 
         eglSwapBuffers(qemu_egl_display, vc->gfx.esurface);
+        gd_gl_count_frame(&vc->gfx.dcl, 0);
         vc->gfx.cursor_moved = false;
         return;
     }
