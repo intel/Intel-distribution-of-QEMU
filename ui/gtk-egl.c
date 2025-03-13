@@ -167,6 +167,7 @@ void gd_egl_refresh(DisplayChangeListener *dcl)
             vc, vc->window ? vc->window : vc->gfx.drawing_area);
 
 #ifdef CONFIG_GBM
+    gd_gl_count_frame(&vc->gfx.dcl, false, false);
     if (dmabuf && (qemu_dmabuf_get_fd(dmabuf) > 0) &&
         qemu_dmabuf_get_draw_submitted(dmabuf) &&
         qemu_dmabuf_get_render_sync(dmabuf)) {
@@ -202,7 +203,7 @@ void gd_egl_refresh(DisplayChangeListener *dcl)
         }
 
         eglSwapBuffers(qemu_egl_display, vc->gfx.esurface);
-        gd_gl_count_frame(&vc->gfx.dcl, 0);
+        gd_gl_count_frame(&vc->gfx.dcl, false, true);
         vc->gfx.cursor_moved = false;
         return;
     }
@@ -464,13 +465,13 @@ void gd_egl_flush(DisplayChangeListener *dcl,
             qemu_dmabuf_set_draw_submitted(dmabuf, true);
             gtk_widget_queue_draw_area(area, x, y, w, h);
         }
-        gd_gl_count_frame(&vc->gfx.dcl, 1);
+        gd_gl_count_frame(&vc->gfx.dcl, true, false);
         return;
     }
 #endif
 
     gd_egl_scanout_flush(&vc->gfx.dcl, x, y, w, h);
-    gd_gl_count_frame(&vc->gfx.dcl, 1);
+    gd_gl_count_frame(&vc->gfx.dcl, true, false);
 }
 
 void gtk_egl_init(DisplayGLMode mode)
