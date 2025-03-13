@@ -617,8 +617,8 @@ void gd_gl_count_frame(DisplayChangeListener *dcl, bool ups)
     curr = tv.tv_sec * 1000000 + tv.tv_usec;
 
     delta = curr - prev;
-    if (delta > 5000000) {
-        /* update rate is calculated and displayed at every 5 secs */
+    if (delta > 1000000) {
+        /* update rate is calculated and displayed at every 1 secs */
         prev = curr;
         for (i = 0; i < vc->s->nb_vcs; i++) {
             vc = &s->vc[i];
