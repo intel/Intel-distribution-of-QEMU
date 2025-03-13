@@ -588,7 +588,7 @@ static void gd_switch(DisplayChangeListener *dcl,
     }
 }
 
-void gd_gl_count_frame(DisplayChangeListener *dcl, bool ups)
+void gd_gl_count_frame(DisplayChangeListener *dcl, bool ups, bool fps)
 {
     VirtualConsole *vc = container_of(dcl, VirtualConsole, gfx.dcl);
     GtkDisplayState *s = vc->s;
@@ -609,7 +609,7 @@ void gd_gl_count_frame(DisplayChangeListener *dcl, bool ups)
 
     if (ups) {
         vc->gfx.ups_cnt++;
-    } else {
+    } else if (fps) {
         vc->gfx.fps_cnt++;
     }
 
@@ -623,7 +623,7 @@ void gd_gl_count_frame(DisplayChangeListener *dcl, bool ups)
         for (i = 0; i < vc->s->nb_vcs; i++) {
             vc = &s->vc[i];
             offset += sprintf(ups_fps_str + offset,
-                              "%d [%0.2fu/s %0.2ff/s]  ", i,
+                              "Disp%d[guest %0.1f fps / host %0.1f fps]  ", i,
                               vc->gfx.ups_cnt * 1000000/(gfloat)delta,
                               vc->gfx.fps_cnt * 1000000/(gfloat)delta);
             vc->gfx.fps_cnt = 0;
@@ -688,7 +688,7 @@ void gd_hw_gl_flushed(void *vcon)
         close(fence_fd);
         qemu_dmabuf_set_fence_fd(dmabuf, -1);
         graphic_hw_gl_block(vc->gfx.dcl.con, false);
-        gd_gl_count_frame(&vc->gfx.dcl, 0);
+        gd_gl_count_frame(&vc->gfx.dcl, false, true);
     }
 }
 
