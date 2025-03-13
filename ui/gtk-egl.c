@@ -95,6 +95,8 @@ void gd_egl_draw(VirtualConsole *vc)
                 qemu_dmabuf_set_draw_submitted(dmabuf, false);
             }
 
+            vc->gfx.recently_updated = true;
+
             if (!dmabuf ||
                 (dmabuf && qemu_dmabuf_get_render_sync(dmabuf) &&
                 vc->gfx.guest_fb.framebuffer)) {
@@ -173,7 +175,13 @@ void gd_egl_refresh(DisplayChangeListener *dcl)
     }
 
     if (dmabuf && (qemu_dmabuf_get_fd(dmabuf) > 0)
+        && !qemu_dmabuf_get_draw_submitted(dmabuf)
         && cursor_updated) {
+        if (vc->gfx.recently_updated) {
+            vc->gfx.recently_updated = 0;
+            return;
+        }
+
         eglMakeCurrent(qemu_egl_display, vc->gfx.esurface,
                        vc->gfx.esurface, vc->gfx.ectx);
 
