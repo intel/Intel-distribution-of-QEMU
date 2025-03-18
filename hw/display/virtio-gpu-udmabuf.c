@@ -254,7 +254,6 @@ void virtio_gpu_fini_udmabuf(VirtIOGPU *g, struct virtio_gpu_simple_resource *re
             qemu_dmabuf_get_fd(g->dmabuf.primary[i]->buf) == res->dmabuf_fd) {
             /* preventing further mapping/use of the dmabuf */
             qemu_dmabuf_set_fd(g->dmabuf.primary[i]->buf, -1);
-            g->dmabuf.primary[i] = NULL;
         }
     }
 
