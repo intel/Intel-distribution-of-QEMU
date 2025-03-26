@@ -52,6 +52,8 @@ native:
 - bzip2
 - ca-certificates
 - cargo
+- cargo-c
+- cargo-rpm-macros
 - ccache
 - check-devel
 - chrony
@@ -100,7 +102,7 @@ native:
 - iproute-tc
 - iptables
 - iscsi-initiator-utils
-- java-11-openjdk-headless
+- java-21-openjdk-headless
 - jna
 - jq
 - junit
@@ -184,6 +186,7 @@ native:
 - python3-gobject
 - python3-libnbd
 - python3-libselinux
+- python3-libvirt
 - python3-libxml2
 - python3-lxml
 - python3-numpy
@@ -224,6 +227,7 @@ native:
 - vala
 - valgrind
 - vim-minimal
+- vulkan-tools
 - wget
 - which
 - xorriso

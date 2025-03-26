@@ -9,7 +9,7 @@ empty :=
 
 # since some files and/or lists differ from version to version,
 # ensure we have the expected qemu version, or else scream loudly
-checked-version := 9.2.2+ds
+checked-version := 10.0.0~rc1+ds
 # version of last vdso change for d/control Depends field:
 vdso-version := 1:9.2.0~rc3+ds-1~
 
@@ -109,6 +109,33 @@ system-kvm := \
  s390x \
  x86_64 \
  ${empty}
+
+# temp: disallow 64bit host on 32bit guest case
+# upstream qemu dropped 64-on-32 case in 10.0,
+# and deprecated 32bit host entirely.
+# Keep this as long as 32bit host is supported
+DEB_HOST_ARCH_BITS ?= $(shell dpkg-architecture -q DEB_TARGET_ARCH_BITS)
+ifeq (32,${DEB_HOST_ARCH_BITS})
+vdso-files := \
+ linux-user/arm/vdso-be32.so \
+ linux-user/arm/vdso-be8.so \
+ linux-user/arm/vdso-le.so \
+ linux-user/i386/vdso.so \
+ linux-user/ppc/vdso-32.so \
+ linux-user/riscv/vdso-32.so \
+ ${empty}
+user-targets := $(filter-out %64 aarch64% alpha hppa mips64% mipsn32% ppc64% s390x sparc32plus,${user-targets})
+system-packages := $(filter-out s390x,${system-packages})
+system-archlist-arm := arm
+system-archlist-mips := mips mipsel
+system-archlist-ppc := ppc
+system-archlist-riscv := riscv32
+system-archlist-s390x :=
+system-archlist-sparc := sparc
+system-archlist-x86 := i386
+system-archlist-misc := $(filter-out alpha hppa loongarch64 microblaze% s390x,${system-archlist-misc})
+system-kvm :=
+endif
 
 ifneq (${checked-version},${DEB_VERSION_UPSTREAM})
 $(warning Debian packaging is set up for version ${checked-version} while actual version is ${DEB_VERSION_UPSTREAM})

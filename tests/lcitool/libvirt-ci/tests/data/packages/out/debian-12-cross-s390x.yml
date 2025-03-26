@@ -32,7 +32,7 @@ cross:
 - libfuse3-dev:s390x
 - libgbm-dev:s390x
 - libgcrypt20-dev:s390x
-- libgdk-pixbuf2.0-dev:s390x
+- libgdk-pixbuf-2.0-dev:s390x
 - libgirepository1.0-dev:s390x
 - libglib2.0-dev:s390x
 - libglusterfs-dev:s390x
@@ -82,7 +82,7 @@ cross:
 - libsoup2.4-dev:s390x
 - libspice-client-gtk-3.0-dev:s390x
 - libspice-protocol-dev:s390x
-- libssh-gcrypt-dev:s390x
+- libssh-dev:s390x
 - libssh2-1-dev:s390x
 - libstd-rust-dev:s390x
 - libsystemd-dev:s390x
@@ -127,6 +127,7 @@ native:
 - bzip2
 - ca-certificates
 - cargo
+- cargo-c
 - ccache
 - check
 - chrony
@@ -178,7 +179,6 @@ native:
 - libcpan-changes-perl
 - libdigest-perl
 - libdigest-perl-md5-perl
-- libextutils-cbuilder-perl
 - libfile-slurp-perl
 - libglib2.0-dev
 - libglib2.0-dev-bin
@@ -187,6 +187,7 @@ native:
 - libio-interface-perl
 - libio-string-perl
 - libjna-java
+- liblua5.4-dev
 - libmodule-build-perl
 - libnbd-dev
 - libnet-openssh-perl
@@ -214,7 +215,6 @@ native:
 - llvm
 - locales
 - lsof
-- lua5.4
 - lvm2
 - make
 - meson
@@ -252,6 +252,7 @@ native:
 - python3-docutils
 - python3-gi
 - python3-libnbd
+- python3-libvirt
 - python3-libxml2
 - python3-lxml
 - python3-numpy
@@ -293,6 +294,7 @@ native:
 - valac
 - valgrind
 - vim-nox
+- vulkan-tools
 - wget
 - xorriso
 - xsltproc

@@ -13,13 +13,13 @@ b/docs/qemu-pr-helper.8 usr/share/man/man8/
 usr/lib/qemu/qemu-bridge-helper
 
 # common modules. Other gui modules are in qemu-system-gui
-usr/lib/${DEB_HOST_MULTIARCH}/qemu/accel-tcg-*.so
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/audio-alsa.so
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/audio-oss.so
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/chardev-baum.so
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/hw-display-virtio-gpu-pci.so
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/hw-display-virtio-gpu.so
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/hw-display-virtio-vga.so
+usr/lib/${DEB_HOST_MULTIARCH}/qemu/hw-uefi-vars.so
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/hw-usb-host.so
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/hw-usb-redirect.so
 usr/lib/${DEB_HOST_MULTIARCH}/qemu/hw-usb-smartcard.so

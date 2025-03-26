@@ -3,30 +3,31 @@ Debian-Specific: yes
 Forwarded: not-needed
 From: Michael Tokarev <mjt@tls.msk.ru>
 Date: Sat, 22 Feb 2020 16:19:11 +0300
+Updated: Fri, 21 Feb 2025 17:30:25 +0300
 
 diff --git a/hw/i386/microvm.c b/hw/i386/microvm.c
-index def37e60f79..35b948ffb11 100644
+index a8d354aabe..1806cde036 100644
 --- a/hw/i386/microvm.c
 +++ b/hw/i386/microvm.c
-@@ -643,6 +643,9 @@ static void microvm_class_init(ObjectClass *oc, void *data)
- 
-     mc->family = "microvm_i386";
+@@ -650,2 +650,5 @@ static void microvm_class_init(ObjectClass *oc, void *data)
      mc->desc = "microvm (i386)";
 +#ifdef CONFIG_MICROVM_DEFAULT
 +    mc->is_default = true;
 +#endif
      mc->units_per_default_bus = 1;
-     mc->no_floppy = 1;
-     mc->max_cpus = 288;
 diff --git a/hw/i386/pc_piix.c b/hw/i386/pc_piix.c
-index 30eedd62a3..20f0d590af 100644
+index 04d2957adc..fc52848caf 100644
 --- a/hw/i386/pc_piix.c
 +++ b/hw/i386/pc_piix.c
-@@ -460,3 +460,7 @@ static void pc_i440fx_8_0_machine_options(MachineClass *m)
-     m->alias = "pc";
+@@ -450,4 +450,10 @@ static void pc_i440fx_init(MachineState *machine)
+ 
 +#ifdef CONFIG_MICROVM_DEFAULT
-+    m->is_default = false;
++#define LATEST_IS_DEFAULT false
 +#else
-     m->is_default = true;
++#define LATEST_IS_DEFAULT true
 +#endif
- }
++
+ #define DEFINE_I440FX_MACHINE_AS_LATEST(major, minor) \
+-    DEFINE_PC_VER_MACHINE(pc_i440fx, "pc-i440fx", pc_i440fx_init, true, "pc", major, minor);
++    DEFINE_PC_VER_MACHINE(pc_i440fx, "pc-i440fx", pc_i440fx_init, LATEST_IS_DEFAULT, "pc", major, minor);
+ 

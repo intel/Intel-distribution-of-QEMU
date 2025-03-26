@@ -13,7 +13,8 @@ native:
 - bzip2
 - ca_root_nss
 - capstone4
-- ccache
+- cargo-c
+- ccache4
 - cdrkit
 - cdrkit-genisoimage
 - check
@@ -97,13 +98,12 @@ native:
 - ocaml
 - ocaml-findlib
 - opencv
-- openjdk11
+- openjdk21
 - osinfo-db-tools
 - p5-App-cpanminus
 - p5-CPAN-Changes
 - p5-Digest
 - p5-Digest-MD5
-- p5-ExtUtils-CBuilder
 - p5-File-Slurp
 - p5-IO-Compress
 - p5-IO-Interface
@@ -144,6 +144,7 @@ native:
 - py311-docutils
 - py311-flake8
 - py311-gobject3
+- py311-libvirt
 - py311-libxml2
 - py311-lxml
 - py311-numpy
@@ -186,6 +187,7 @@ native:
 - vim
 - virglrenderer
 - vte3
+- vulkan-tools
 - wget
 - xorriso
 - yajl

@@ -2,7 +2,6 @@ cpan:
 - Archive::Tar
 - CPAN::Changes
 - Digest::MD5
-- ExtUtils::CBuilder
 - IO::Compress::Bzip2
 - IO::Interface
 - LWP::UserAgent
@@ -33,6 +32,7 @@ native:
 - ca-certificates
 - capstone-dev
 - cargo
+- cargo-c
 - ccache
 - cdrkit
 - ceph-dev
@@ -130,7 +130,7 @@ native:
 - llvm
 - lsof
 - lttng-ust-dev
-- lua5.4
+- lua5.4-dev
 - lvm2
 - lvm2-dev
 - lzo-dev
@@ -156,7 +156,7 @@ native:
 - ocaml-findlib-dev
 - ocaml-ocamldoc
 - open-iscsi
-- openjdk11-jdk
+- openjdk21-jdk
 - openssh-client
 - osinfo-db-tools
 - parted-dev
@@ -191,6 +191,7 @@ native:
 - py3-docutils
 - py3-flake8
 - py3-gobject3
+- py3-libvirt
 - py3-libxml2
 - py3-lxml
 - py3-numpy
@@ -209,7 +210,7 @@ native:
 - qemu
 - qemu-img
 - readline-dev
-- rest-dev
+- rest1-dev
 - rpcgen
 - rpm2cpio
 - ruby-dev
@@ -248,6 +249,7 @@ native:
 - vim
 - virglrenderer-dev
 - vte3-dev
+- vulkan-tools
 - wget
 - which
 - wireshark-dev

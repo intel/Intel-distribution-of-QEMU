@@ -182,7 +182,7 @@ Build-Depends-Indep:
  gcc-s390x-linux-gnu <!pkg.qemu.use-upstream-vdso>, libc6-dev-s390x-cross <!pkg.qemu.use-upstream-vdso>,
  gcc-x86-64-linux-gnu <!pkg.qemu.use-upstream-vdso>,
 Build-Conflicts: oss4-dev
-Standards-Version: 4.6.2
+Standards-Version: 4.7.2
 Homepage: http://www.qemu.org/
 Rules-Requires-Root: no
 Vcs-Browser: https://salsa.debian.org/qemu-team/qemu
@@ -588,8 +588,8 @@ Multi-Arch: foreign
 Static-Built-Using: ${built-using}
 Build-Profiles: <!pkg.qemu.omit-user>
 Depends: ${misc:Depends}
-Breaks:   qemu-user-static (<< 1:9.1.0)
-Replaces: qemu-user-static (<< 1:9.1.0)
+Breaks:   qemu-user-static (<< 1:9.1.0), qemu-user-binfmt (<< 1:9.1.0)
+Replaces: qemu-user-static (<< 1:9.1.0), qemu-user-binfmt (<< 1:9.1.0)
 Recommends: qemu-user-binfmt
 Description: QEMU user mode emulation (static binaries)
  QEMU is a fast processor emulator: currently the package supports Alpha, ARM,
