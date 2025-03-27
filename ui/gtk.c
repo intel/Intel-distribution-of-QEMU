@@ -695,6 +695,10 @@ void gd_hw_gl_flushed(void *vcon)
     QemuDmaBuf *dmabuf = vc->gfx.guest_fb.dmabuf;
     int fence_fd;
 
+    if (!dmabuf) {
+	return;
+    }
+
     fence_fd = qemu_dmabuf_get_fence_fd(dmabuf);
     if (fence_fd >= 0) {
         qemu_set_fd_handler(fence_fd, NULL, NULL, NULL);
@@ -795,7 +799,6 @@ static void gd_change_runstate(void *opaque, bool running, RunState state)
             }
 
 	    if (dmabuf && qemu_dmabuf_get_fence_fd(dmabuf) >= 0) {
-
                 /* force flushing current scanout blob rendering process
                  * just in case the fence is still not signaled */
                 gd_hw_gl_flushed(vc);
@@ -1755,7 +1758,48 @@ static gboolean gd_vc_is_misplaced(GdkDisplay *dpy, GdkMonitor *monitor,
     return FALSE;
 }
 
-static void gd_vc_add_remove_monitor(GdkDisplay *dpy, GtkDisplayState *s)
+static void gd_vc_disconn_monitor(GdkDisplay *dpy, GtkDisplayState *s)
+{
+    VirtualConsole *vc;
+    gint monitor_num;
+    int i;
+
+    for (i = 0; i < s->nb_vcs; i++) {
+        vc = &s->vc[i];
+        if (vc->label) {
+            monitor_num = gd_monitor_lookup(dpy, vc->label);
+            if (monitor_num < 0) {
+		if (vc->monitor) {
+		    vc->monitor = NULL;
+		}
+
+		if (dpy_ui_info_supported(vc->gfx.dcl.con)) {
+		    QemuUIInfo info = *dpy_get_ui_info(vc->gfx.dcl.con);
+                    info.width = 0;
+                    info.height = 0;
+                    dpy_set_ui_info(vc->gfx.dcl.con, &info, false);
+		}
+
+                /* if window exist, hide it */
+                if (vc->window) {
+                    QemuDmaBuf *dmabuf = vc->gfx.guest_fb.dmabuf;
+                    gdk_window_hide(gtk_widget_get_window(vc->window));
+
+                    if (dmabuf && qemu_dmabuf_get_draw_submitted(dmabuf)) {
+                        qemu_dmabuf_set_draw_submitted(dmabuf, false);
+                        graphic_hw_gl_block(vc->gfx.dcl.con, false);
+                    }
+
+                    /* force flushing current scanout blob rendering process
+                     * just in case the fence is still not signaled */
+                    gd_hw_gl_flushed(vc);
+                }
+            }
+        }
+    }
+}
+
+static void gd_vc_conn_monitor(GdkDisplay *dpy, GtkDisplayState *s)
 {
     VirtualConsole *vc;
     GdkMonitor *monitor;
@@ -1775,22 +1819,6 @@ static void gd_vc_add_remove_monitor(GdkDisplay *dpy, GtkDisplayState *s)
                 if (gd_vc_is_misplaced(dpy, monitor, vc)) {
                     gd_window_show_on_monitor(dpy, vc, monitor_num);
                 }
-            } else {
-		if (vc->monitor) {
-		    vc->monitor = NULL;
-		}
-
-		if (dpy_ui_info_supported(vc->gfx.dcl.con)) {
-		    QemuUIInfo info = *dpy_get_ui_info(vc->gfx.dcl.con);
-                    info.width = 0;
-                    info.height = 0;
-                    dpy_set_ui_info(vc->gfx.dcl.con, &info, false);
-		}
-
-                /* if window exist, hide it */
-                if (vc->window) {
-                    gdk_window_hide(gtk_widget_get_window(vc->window));
-                }
             }
         }
     }
@@ -1801,18 +1829,21 @@ static void gd_monitors_reset_timer(void *opaque)
     GtkDisplayState *s = opaque;
     GdkDisplay *dpy = gdk_display_get_default();
 
-    gd_vc_add_remove_monitor(dpy, s);
+    gd_vc_conn_monitor(dpy, s);
 }
 
 static void gd_monitors_changed(GdkScreen *scr, void *opaque)
 {
     GtkDisplayState *s = opaque;
+    GdkDisplay *dpy = gdk_display_get_default();
     QEMUTimer *mon_reset_timer;
 
+    gd_vc_disconn_monitor(dpy, s);
     mon_reset_timer = timer_new_ms(QEMU_CLOCK_REALTIME,
                                    gd_monitors_reset_timer, s);
     timer_mod(mon_reset_timer,
               qemu_clock_get_ms(QEMU_CLOCK_REALTIME) + 2000);
+
 }
 
 static VirtualConsole *gd_next_gfx_vc(GtkDisplayState *s)
