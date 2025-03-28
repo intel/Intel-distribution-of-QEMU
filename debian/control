@@ -169,10 +169,11 @@ Build-Depends-Indep:
 # hppa-firmware (32 and 64 bit)
  gcc-hppa-linux-gnu, gcc-hppa64-linux-gnu,
  gcc-riscv64-linux-gnu,
-# vbootrom/npcm7xx_bootrom
+# vbootrom/npcm7xx
  gcc-arm-linux-gnueabi, libc6-dev-armel-cross,
+# vbootrom/npcm8xx
+ gcc-aarch64-linux-gnu, libc6-dev-arm64-cross,
 # vdso (configure:probe_target_compiler() needs libc too):
- gcc-aarch64-linux-gnu <!pkg.qemu.use-upstream-vdso>, libc6-dev-arm64-cross <!pkg.qemu.use-upstream-vdso>,
  gcc-arm-linux-gnueabi <!pkg.qemu.use-upstream-vdso>, libc6-dev-armel-cross <!pkg.qemu.use-upstream-vdso>,
  gcc-hppa-linux-gnu <!pkg.qemu.use-upstream-vdso>, libc6-dev-hppa-cross <!pkg.qemu.use-upstream-vdso>,
  gcc-i686-linux-gnu <!pkg.qemu.use-upstream-vdso>, libc6-dev-i386-cross <!pkg.qemu.use-upstream-vdso>,

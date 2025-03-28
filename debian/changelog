@@ -1,3 +1,11 @@
+qemu (1:10.0.0~rc1+ds-2) unstable; urgency=medium
+
+  * d/tests/: fix tests on 32bit hosts.
+    Only run the tests for binaries which are present.
+  * d/control: gcc-aarch64-linux-gnu is needed for vbootrom/npcm8xx
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 28 Mar 2025 16:39:42 +0300
+
 qemu (1:10.0.0~rc1+ds-1) unstable; urgency=medium
 
   * new upstream release candidate

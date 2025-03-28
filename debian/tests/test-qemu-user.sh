@@ -4,13 +4,18 @@ set -e
 
 host=$(dpkg --print-architecture)
 
-# list of release architectures
-architectures="amd64 arm64 armel armhf i386 mips64el ppc64el riscv64 s390x"
-
-for arch in $architectures; do
+# test release architectures
+# test 64bit architectures on 64bit host only
+release_architectures="amd64 arm64 armel armhf i386 mips64el ppc64el riscv64 s390x"
+architectures=
+for arch in $release_architectures; do
+  [ -x /usr/bin/qemu-$arch ] || continue
+  architectures="$architectures $arch"
   [ $arch = $host ] ||
     dpkg --add-architecture $arch
 done
+
+echo "testing:$architectures"
 
 apt-get update
 

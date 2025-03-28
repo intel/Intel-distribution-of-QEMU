@@ -110,7 +110,7 @@ system-kvm := \
  x86_64 \
  ${empty}
 
-# temp: disallow 64bit host on 32bit guest case
+# temp: disallow 64bit emulation on 32bit host case
 # upstream qemu dropped 64-on-32 case in 10.0,
 # and deprecated 32bit host entirely.
 # Keep this as long as 32bit host is supported
