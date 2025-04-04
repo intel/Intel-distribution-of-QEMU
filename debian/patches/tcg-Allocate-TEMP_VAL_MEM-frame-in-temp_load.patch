@@ -1,0 +1,47 @@
+From: Philippe Mathieu-Daudé <philmd@linaro.org>
+Date: Thu, 3 Apr 2025 18:09:25 -0700
+Subject: [PATCH] tcg: Allocate TEMP_VAL_MEM frame in temp_load()
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Bug-Debian: https://bugs.debian.org/1101599
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/issues/2891
+Forwarded: yes, https://lore.kernel.org/qemu-devel/20250401144332.41615-1-philmd@linaro.org/
+Closes: #1101599
+
+Be sure to allocate the temp frame if it wasn't.
+
+In the resolved issues, incomplete dead code elimination left a load
+at the top of an unreachable loop.  We simply need to allocate the
+stack slot to avoid crashing.
+
+Fixes: c896fe29d6c ("TCG code generator")
+Reported-by: Michael Tokarev <mjt@tls.msk.ru>
+Reported-by: Helge Konetzka <hk@zapateado.de>
+Resolves: https://gitlab.com/qemu-project/qemu/-/issues/2891
+Resolves: https://gitlab.com/qemu-project/qemu/-/issues/2899
+Signed-off-by: Philippe Mathieu-Daudé <philmd@linaro.org>
+Reviewed-by: Richard Henderson <richard.henderson@linaro.org>
+Signed-off-by: Richard Henderson <richard.henderson@linaro.org>
+Message-ID: <20250401144332.41615-1-philmd@linaro.org>
+---
+ tcg/tcg.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/tcg/tcg.c b/tcg/tcg.c
+index e8950df2ad..dfd48b8264 100644
+--- a/tcg/tcg.c
++++ b/tcg/tcg.c
+@@ -4671,6 +4671,9 @@ static void temp_load(TCGContext *s, TCGTemp *ts, TCGRegSet desired_regs,
+         ts->mem_coherent = 0;
+         break;
+     case TEMP_VAL_MEM:
++        if (!ts->mem_allocated) {
++            temp_allocate_frame(s, ts);
++        }
+         reg = tcg_reg_alloc(s, desired_regs, allocated_regs,
+                             preferred_regs, ts->indirect_base);
+         tcg_out_ld(s, ts->type, reg, ts->mem_base->reg, ts->mem_offset);
+-- 
+2.39.5
+

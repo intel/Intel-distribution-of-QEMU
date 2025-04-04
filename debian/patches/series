@@ -15,3 +15,4 @@ slof-remove-user-and-host-from-release-version.patch
 slof-ensure-ld-is-called-with-C-locale.patch
 qemu-img-options.patch
 disable-pycotap.patch
+hw-display-qxl-render.c-fix-qxl_unpack_chunks-chunk-.patch

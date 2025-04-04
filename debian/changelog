@@ -1,3 +1,13 @@
+qemu (1:10.0.0~rc2+ds-1) unstable; urgency=medium
+
+  * new upstream release candidate
+  * hw-display-qxl-render.c-fix-qxl_unpack_chunks-chunk-.patch
+    (Closes: #1084199)
+  * tcg-Allocate-TEMP_VAL_MEM-frame-in-temp_load.patch
+    (Closes: #1101599)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 04 Apr 2025 14:44:18 +0300
+
 qemu (1:10.0.0~rc1+ds-2) unstable; urgency=medium
 
   * d/tests/: fix tests on 32bit hosts.
