@@ -1,3 +1,10 @@
+qemu (1:10.0.0~rc2+ds-2) unstable; urgency=medium
+
+  * apply tcg-Allocate-TEMP_VAL_MEM-frame-in-temp_load.patch too,
+    not just include it (really Closes: #1101599)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 07 Apr 2025 16:06:16 +0300
+
 qemu (1:10.0.0~rc2+ds-1) unstable; urgency=medium
 
   * new upstream release candidate
