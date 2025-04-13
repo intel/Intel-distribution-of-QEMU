@@ -1,3 +1,17 @@
+qemu (1:10.0.0~rc3+ds-2) unstable; urgency=medium
+
+  * d/control.mk: bump upstream version (forgotten commit in previous release)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 13 Apr 2025 13:25:58 +0300
+
+qemu (1:10.0.0~rc3+ds-1) unstable; urgency=medium
+
+  * new upstream release candidate
+  * tcg-Allocate-TEMP_VAL_MEM-frame-in-temp_load.patch:
+    remove, now included upstream
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 13 Apr 2025 12:27:26 +0300
+
 qemu (1:10.0.0~rc2+ds-2) unstable; urgency=medium
 
   * apply tcg-Allocate-TEMP_VAL_MEM-frame-in-temp_load.patch too,
