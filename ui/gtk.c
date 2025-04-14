@@ -795,14 +795,14 @@ static void gd_change_runstate(void *opaque, bool running, RunState state)
 
             if (dmabuf && qemu_dmabuf_get_draw_submitted(dmabuf)) {
                 qemu_dmabuf_set_draw_submitted(dmabuf, false);
-                graphic_hw_gl_block(vc->gfx.dcl.con, false);
+                if (qemu_dmabuf_get_render_sync(dmabuf)) {
+                    graphic_hw_gl_block(vc->gfx.dcl.con, false);
+                }
             }
 
-	    if (dmabuf && qemu_dmabuf_get_fence_fd(dmabuf) >= 0) {
-                /* force flushing current scanout blob rendering process
-                 * just in case the fence is still not signaled */
-                gd_hw_gl_flushed(vc);
-            }
+            /* force flushing current scanout blob rendering process
+             * just in case the fence is still not signaled */
+            gd_hw_gl_flushed(vc);
         }
     }
 #endif
@@ -1787,7 +1787,9 @@ static void gd_vc_disconn_monitor(GdkDisplay *dpy, GtkDisplayState *s)
 
                     if (dmabuf && qemu_dmabuf_get_draw_submitted(dmabuf)) {
                         qemu_dmabuf_set_draw_submitted(dmabuf, false);
-                        graphic_hw_gl_block(vc->gfx.dcl.con, false);
+                        if (qemu_dmabuf_get_render_sync(dmabuf)) {
+                            graphic_hw_gl_block(vc->gfx.dcl.con, false);
+                        }
                     }
 
                     /* force flushing current scanout blob rendering process
