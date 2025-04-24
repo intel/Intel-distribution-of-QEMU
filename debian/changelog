@@ -1,3 +1,10 @@
+qemu (1:10.0.0+ds-1) unstable; urgency=medium
+
+  * new upstream release (final)
+  * d/control.mk: 10.0.0+ds
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 24 Apr 2025 10:22:04 +0300
+
 qemu (1:10.0.0~rc3+ds-2) unstable; urgency=medium
 
   * d/control.mk: bump upstream version (forgotten commit in previous release)
