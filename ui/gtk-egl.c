@@ -156,8 +156,7 @@ static void gd_egl_cursor_texture(VirtualConsole *vc)
 void gd_egl_refresh(DisplayChangeListener *dcl)
 {
     VirtualConsole *vc = container_of(dcl, VirtualConsole, gfx.dcl);
-    bool cursor_updated = vc->gfx.cursor_image &&
-                          (vc->gfx.cursor_moved || vc->gfx.new_cursor);
+    bool cursor_updated;
 
 #ifdef CONFIG_GBM
     QemuDmaBuf *dmabuf = vc->gfx.guest_fb.dmabuf;
@@ -165,6 +164,28 @@ void gd_egl_refresh(DisplayChangeListener *dcl)
 
     gd_update_monitor_refresh_rate(
             vc, vc->window ? vc->window : vc->gfx.drawing_area);
+
+    if (!vc->gfx.esurface) {
+        gd_egl_init(vc);
+        if (!vc->gfx.esurface) {
+            return;
+        }
+        vc->gfx.gls = qemu_gl_init_shader();
+        if (vc->gfx.ds) {
+            surface_gl_destroy_texture(vc->gfx.gls, vc->gfx.ds);
+            surface_gl_create_texture(vc->gfx.gls, vc->gfx.ds);
+        }
+#ifdef CONFIG_GBM
+        if (dmabuf) {
+            egl_dmabuf_release_texture(dmabuf);
+            gd_egl_scanout_dmabuf(dcl, dmabuf);
+        }
+#endif
+        vc->gfx.new_cursor = true;
+    }
+
+    cursor_updated = vc->gfx.cursor_image &&
+                     (vc->gfx.cursor_moved || vc->gfx.new_cursor);
 
 #ifdef CONFIG_GBM
     gd_gl_count_frame(&vc->gfx.dcl, false, false);
@@ -222,24 +243,6 @@ void gd_egl_refresh(DisplayChangeListener *dcl)
         return;
     }
 #endif
-
-    if (!vc->gfx.esurface) {
-        gd_egl_init(vc);
-        if (!vc->gfx.esurface) {
-            return;
-        }
-        vc->gfx.gls = qemu_gl_init_shader();
-        if (vc->gfx.ds) {
-            surface_gl_destroy_texture(vc->gfx.gls, vc->gfx.ds);
-            surface_gl_create_texture(vc->gfx.gls, vc->gfx.ds);
-        }
-#ifdef CONFIG_GBM
-        if (dmabuf) {
-            egl_dmabuf_release_texture(dmabuf);
-            gd_egl_scanout_dmabuf(dcl, dmabuf);
-        }
-#endif
-    }
 
     graphic_hw_update(dcl->con);
 
