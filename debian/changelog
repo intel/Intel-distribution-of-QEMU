@@ -1,3 +1,10 @@
+qemu (1:10.0.0+ds-2) unstable; urgency=medium
+
+  * pick hw-nvme-fix-nvme-hotplugging.patch from qemu mailinglist
+    Closes: #1104889
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 12 May 2025 21:01:08 +0300
+
 qemu (1:10.0.0+ds-1) unstable; urgency=medium
 
   * new upstream release (final)
