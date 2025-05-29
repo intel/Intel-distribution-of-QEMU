@@ -1,3 +1,78 @@
+qemu (1:10.0.2+ds-1) unstable; urgency=medium
+
+  * new upstream stable/bugfix release:
+   o Update version for 10.0.2 release
+   o Drop support for Python 3.8
+   o target/hppa: Fix FPE exceptions
+   o linux-user/hppa: Send proper si_code on SIGFPE exception
+   o target/hppa: Copy instruction code into fr1 on FPU assist fault
+   o migration: Allow caps to be set when preempt or multifd cap enabled
+   o migration/multifd: Don't send device state packets with zerocopy flag
+   o qapi/misc-target: Fix the doc to distinguish query-sgx
+     and query-sgx-capabilities
+   o hw/pci-host: Remove unused pci_host_data_be_ops
+   o hw/pci-host/gt64120: Fix endianness handling
+   o i386/hvf: Make CPUID_HT supported
+   o i386/tcg: Make CPUID_HT and CPUID_EXT3_CMP_LEG supported
+   o target/riscv/kvm: do not read unavailable CSRs
+   o target/riscv/kvm: add kvm_csr_cfgs[]
+   o target/riscv/kvm: turn kvm_riscv_reg_id_ulong() into a macro
+   o target/riscv/kvm: turn u32/u64 reg functions into macros
+   o target/riscv/kvm: fix leak in kvm_riscv_init_multiext_cfg()
+   o target/riscv/kvm: minor fixes/tweaks
+   o target/riscv: Fix vslidedown with rvv_ta_all_1s
+   o target/riscv: Fix the rvv reserved encoding of unmasked instructions
+   o target/riscv: rvv: Apply vext_check_input_eew
+     to vector indexed load/store instructions
+   o target/riscv: rvv: Apply vext_check_input_eew to
+     vector narrow/widen instructions
+   o target/riscv: rvv: Apply vext_check_input_eew to
+     vector integer extension instructions(OPMVV)
+   o target/riscv: rvv: Apply vext_check_input_eew to
+     vector slide instructions(OPIVI/OPIVX)
+   o target/riscv: rvv: Apply vext_check_input_eew to
+     OPIVV/OPFVV(vext_check_sss) instructions
+   o target/riscv: rvv: Apply vext_check_input_eew to
+     OPIVI/OPIVX/OPFVF(vext_check_ss) instructions
+   o target/riscv: rvv: Apply vext_check_input_eew to vrgather
+     instructions to check mismatched input EEWs encoding constraint
+   o target/riscv: rvv: Add CHECK arg to GEN_OPFVF_WIDEN_TRANS
+   o target/riscv: rvv: Source vector registers cannot overlap mask register
+   o common-user/host/riscv: use tail pseudoinstruction for calling tail
+   o target/riscv: fix endless translation loop on big endian systems
+   o hw/riscv: Fix type conflict of GLib function pointers
+   o target/riscv: pmp: fix checks on writes to pmpcfg in Smepmp MML mode
+   o target/riscv: pmp: move Smepmp operation conversion into a function
+   o target/riscv: pmp: don't allow RLB to bypass rule privileges
+   o hw/nvme: fix nvme hotplugging
+   o virtio: Call set_features during reset
+   o s390x: Fix leak in machine_set_loadparm
+   o 9pfs: fix FD leak and reduce latency of v9fs_reclaim_fd()
+   o 9pfs: fix concurrent v9fs_reclaim_fd() calls
+   o hw/i2c/imx: Always set interrupt status bit if interrupt condition occurs
+   o xen: mapcache: Split mapcache_grants by ro and rw
+   o xen: mapcache: Fix finding matching entry
+   o target/i386: do not block singlestep for STI
+   o target/i386: do not trigger IRQ shadow for LSS
+   o hw/gpio/imx_gpio: Fix interpretation of GDIR polarity
+   o docs: Don't define duplicate label in qemu-block-drivers.rst.inc
+   o target/arm: Don't assert() for ISB/SB inside IT block
+   o hw/arm/npcm8xx_boards: Correct valid_cpu_types setting of NPCM8XX SoC
+   o accel/tcg: Don't use TARGET_LONG_BITS in decode_sleb128
+   o meson: Use osdep_prefix for strchrnul()
+   o meson: Share common C source prefixes
+   o meson: Remove CONFIG_STATX and CONFIG_STATX_MNT_ID
+   o meson: Use has_header_symbol() to check getcpu()
+   o target/mips: Fix MIPS16e translation
+   o hw/core/cpu: gdb_arch_name string should not be freed
+   o hw/core: Get default_cpu_type calling machine_class_default_cpu_type()
+   o target/avr: Improve decode of LDS, STS
+   o target/i386/hvf: fix lflags_to_rflags
+   o target/i386: Fix model number of Zhaoxin YongFeng vCPU template
+  * hw-nvme-fix-nvme-hotplugging.patch: remove, applied upstream
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 29 May 2025 10:13:25 +0300
+
 qemu (1:10.0.0+ds-2) unstable; urgency=medium
 
   * pick hw-nvme-fix-nvme-hotplugging.patch from qemu mailinglist
