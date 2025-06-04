@@ -1905,14 +1905,18 @@ static void gd_connectors_init(GdkDisplay *dpy, GtkDisplayState *s)
         }
         if (first_vc) {
             vc->window = s->window;
-            first_vc = FALSE;
         }
 
         vc->label = g_strdup(conn->value);
         monitor_num = gd_monitor_lookup(dpy, vc->label);
         if (monitor_num >= 0) {
             gd_window_show_on_monitor(dpy, vc, monitor_num);
+        } else if (first_vc) {
+            fprintf(stderr, "gtk: no monitor found for '%s' so terminating..\n",
+                    vc->label);
+            abort();
         }
+        first_vc = FALSE;
     }
 
     mon_reset_timer = timer_new_ms(QEMU_CLOCK_REALTIME,
