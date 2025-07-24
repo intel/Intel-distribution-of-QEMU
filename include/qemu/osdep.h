@@ -121,6 +121,7 @@ QEMU_EXTERN_C int daemon(int, int);
  * function availability on recentish Mingw-w64 platforms. */
 #include <unistd.h>
 #include <time.h>
+#include <math.h>
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
