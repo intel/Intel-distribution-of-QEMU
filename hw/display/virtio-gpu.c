@@ -15,6 +15,7 @@
 #include "qemu/units.h"
 #include "qemu/iov.h"
 #include "sysemu/cpus.h"
+#include <math.h>
 #include "ui/console.h"
 #include "ui/rect.h"
 #include "trace.h"
@@ -57,9 +58,14 @@ void virtio_gpu_update_cursor_data(VirtIOGPU *g,
     }
 
     if (res->blob_size) {
-        if (res->blob_size < (s->current_cursor->width *
-                              s->current_cursor->height * 4)) {
-            return;
+        if (res->blob_size != (s->current_cursor->width *
+                               s->current_cursor->height * 4)) {
+            /* resize 'current_cursor' for the new blob_size
+             * The assumption is the cursor image is square.
+             */
+            int width = sqrt(res->blob_size / 4);
+            g_free(s->current_cursor);
+            s->current_cursor = cursor_alloc(width, width);
         }
         data = res->blob;
     } else if (res->image) {
