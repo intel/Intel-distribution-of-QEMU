@@ -135,13 +135,8 @@ echo 'qemu:Provides=$(if $3,qemu-system-native (=${DEB_VERSION})${comma})\
     | tr _ - >> debian/$1.substvars
 echo 'qemu:Conflicts=$(if $(filter $3,${system-kvm}),qemu-kvm)' >> debian/$1.substvars
 ${# construct list `arch1 arch2 (alias) arch3..' for Description and word-wrap it}
-list='$(foreach q,$2,$q$(if ${system-alias-$q}, (${system-alias-$q})))'; \
-  len2=$$(($${#list}/2)); \
-  if [ $$len2 -gt 36 ]; then \
-    while expr substr "$$list" $$len2 1 != " " >/dev/null; do len2=$$(($$len2+1)); done; \
-    list="$$(expr substr "$$list" 1 $$(($$len2-1)))\$${Newline} $$(expr substr "$$list" $$(($$len2+1)) $$len2)"; \
-  fi; \
-  echo "qemu:archlist=$$list" >> debian/$1.substvars
+echo 'qemu:archlist=$(foreach q,$2,$q$(if ${system-alias-$q}, (${system-alias-$q})))' \
+    | sed -E 's/(.{37,45})\s([^(].{9})/\1\$${Newline}  \2/' >> debian/$1.substvars
 dh_installdocs -p $1 --link-doc=qemu-system-common
 ${# keep empty line at the end }
 endef

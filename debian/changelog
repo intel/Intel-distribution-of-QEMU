@@ -1,3 +1,17 @@
+qemu (1:10.0.2+ds-2) unstable; urgency=medium
+
+  * d/control: switch from Static-Built-Using
+    back to Built-Using for qemu-user (Closes: #1106804)
+  * d/rules: simplify qemu:archlist variable generation
+    (does not change the resulting packages)
+  * d/control: drop build dependency alternative on python3-tomli,
+    which was needed for bpo builds before bookworm (Closes: #1105938)
+  * system-physmem-fix-use-after-free-with-dispatch.patch long-awaited
+    fix for UAF which was affected multiple other packages and was quite
+    difficult to track (Closes: #1106792)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 25 Jul 2025 12:05:29 +0300
+
 qemu (1:10.0.2+ds-1) unstable; urgency=medium
 
   * new upstream stable/bugfix release:
