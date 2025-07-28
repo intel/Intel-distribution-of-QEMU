@@ -374,6 +374,7 @@ static void virtio_gpu_resource_create_blob(VirtIOGPU *g,
     res = g_new0(struct virtio_gpu_simple_resource, 1);
     res->resource_id = cblob.resource_id;
     res->blob_size = cblob.size;
+    res->dmabuf_fd = -1;
 
     ret = virtio_gpu_create_mapping_iov(g, cblob.nr_entries, sizeof(cblob),
                                         cmd, &res->addrs, &res->iov,
