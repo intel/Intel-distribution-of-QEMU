@@ -37,6 +37,9 @@ Build-Depends-Arch:
  libpulse-dev   [:system-arch:],
  libasound2-dev [:system-arch-linux:],
  libpipewire-0.3-dev [:system-arch-linux:],
+# for multipath persist in qemu-pr-helper
+ libmpathpersist-dev   [linux-any],
+ libmpathcmd-dev       [linux-any],
 # for virtfs (now in libc6)
 # --enable-attr
 # --enable-bpf	 :system-arch-linux:
