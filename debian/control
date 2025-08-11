@@ -7,6 +7,8 @@ Uploaders: Michael Tokarev <mjt@tls.msk.ru>
 Build-Depends: debhelper-compat (= 13),
  python3:any,
  python3-venv:any,
+# distlib is needed for pip-25.2+ (forky+), not for trixie or before
+ python3-distlib,
  python3:any (>> 3.11),
  meson (>> 1.5.0~), ninja-build,
  flex, bison,

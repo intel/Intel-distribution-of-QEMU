@@ -17,3 +17,4 @@ qemu-img-options.patch
 disable-pycotap.patch
 hw-display-qxl-render.c-fix-qxl_unpack_chunks-chunk-.patch
 system-physmem-fix-use-after-free-with-dispatch.patch
+pcie_sriov-Fix-configuration-and-state-synchronizati.patch

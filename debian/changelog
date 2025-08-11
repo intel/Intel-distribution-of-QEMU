@@ -1,3 +1,102 @@
+qemu (1:10.0.3+ds-2) unstable; urgency=medium
+
+  * d/control: (temporarily) build-depend on python3-distlib
+    to work around new pip 25.2+ in forky
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 11 Aug 2025 20:38:04 +0300
+
+qemu (1:10.0.3+ds-1) unstable; urgency=medium
+
+  * new upstream stable/bugfix release:
+   - Update version for 10.0.3 release
+   - hvf: arm: Emulate ICC_RPR_EL1 accesses properly
+   - target/arm: Correct encoding of Debug Communications Channel registers
+     https://gitlab.com/qemu-project/qemu/-/issues/2986
+   - ui: fix setting client_endian field defaults
+   - hw/net/npcm_gmac.c: Send the right data for second packet in a row
+   - target/i386: do not expose ARCH_CAPABILITIES on AMD CPU
+   - i386/cpu: Honor maximum value for CPUID.8000001DH.EAX[25:14]
+   - i386/cpu: Fix overflow of cache topology fields in CPUID.04H
+   - i386/cpu: Fix cpu number overflow in CPUID.01H.EBX[23:16]
+   - ui/vnc: Do not copy z_stream
+   - vhost: Fix used memslot tracking when destroying a vhost device
+   - roms: re-remove execute bit from hppa-firmware*
+   - file-posix: Fix aio=reads performance regression after enablign FUA
+     https://issues.redhat.com/browse/RHEL-96854
+   - amd_iommu: Fix truncation of oldval in amdvi_writeq
+   - amd_iommu: Remove duplicated definitions
+   - amd_iommu: Fix the calculation for Device Table size
+   - amd_iommu: Fix mask to retrieve Interrupt Table Root Pointer from DTE
+   - amd_iommu: Fix masks for various IOMMU MMIO Registers
+   - amd_iommu: Update bitmasks representing DTE reserved fields
+   - amd_iommu: Fix Device ID decoding for INVALIDATE_IOTLB_PAGES command
+   - amd_iommu: Fix Miscellaneous Information Register 0 encoding
+   - virtio-net: Add queues for RSS during migration
+   - net: fix buffer overflow in af_xdp_umem_create()
+   - accel/kvm: Adjust the note about the minimum required kernel version
+   - linux-user: Use qemu_set_cloexec() to mark pidfd as FD_CLOEXEC
+   - migration: Don't sync volatile memory after migration completes
+   - linux-user: Hold the fd-trans lock across fork
+     https://gitlab.com/qemu-project/qemu/-/issues/2846
+   - linux-user: Check for EFAULT failure in nanosleep
+   - linux-user: Implement fchmodat2 syscall
+     https://gitlab.com/qemu-project/qemu/-/issues/3019
+   - hw/arm/fsl-imx8mp: Wire VIRQ and VFIQ
+   - target/arm: Don't enforce NSE,NS check for EL3->EL3 returns
+     https://gitlab.com/qemu-project/qemu/-/issues/3016
+   - target/i386: fix TB exit logic in gen_movl_seg() when writing to SS
+     https://gitlab.com/qemu-project/qemu/-/issues/2987
+   - target/arm: Fix bfdotadd_ebf vs nan selection
+   - target/arm: Fix f16_dotadd vs nan selection
+   - target/arm: Fix PSEL size operands to tcg_gen_gvec_ands
+   - target/arm: Fix 128-bit element ZIP, UZP, TRN
+   - target/arm: Fix sve_access_check for SME
+   - target/arm: Fix SME vs AdvSIMD exception priority
+   - hw/s390x/ccw-device: Fix memory leak in loadparm setter
+   - virtio-gpu: support context init multiple timeline
+   - target/arm: Correct KVM & HVF dtb_compatible value
+   - target/arm: Make RETA[AB] UNDEF when pauth is not implemented
+   - tcg: Fix constant propagation in tcg_reg_alloc_dup
+     https://gitlab.com/qemu-project/qemu/-/issues/3002
+   - target/loongarch: fix vldi/xvldi raise wrong error
+   - target/loongarch: add check for fcond
+   - linux-user/arm: Fix return value of SYS_cacheflush
+   - hw/arm/mps2: Configure the AN500 CPU with 16 MPU regions
+   - qemu-options.hx: Fix reversed description of icount sleep behavior
+   - hw/arm/virt: Check bypass iommu is not set for iommu-map DT property
+   - hw/loongarch/virt: Fix big endian support with MCFG table
+   - hw/core/qdev-properties-system: Add missing return in set_drive_helper()
+   - iotests: fix 240
+   - target/i386: Remove FRED dependency on WRMSRNS
+   - hw/audio/asc: fix SIGSEGV in asc_realize()
+   - audio: fix size calculation in AUD_get_buffer_size_out()
+   - audio: fix SIGSEGV in AUD_get_buffer_size_out()
+   - hw/i386/amd_iommu: Fix xtsup when vcpus < 255
+   - hw/i386/amd_iommu: Fix device setup failure when PT is on.
+   - hw/i386/pc_piix: Fix RTC ISA IRQ wiring of isapc machine
+   - vhost: Don't set vring call if guest notifier is unused
+   - hw/arm: Add missing psci_conduit to NPCM8XX SoC boot info
+   - ui/vnc: fix tight palette pixel encoding for 8/16-bpp formats
+   - ui/vnc: take account of client byte order in pixman format
+   - ui/vnc.c: replace big endian flag with byte order value
+   - ui/sdl: Consider scaling in mouse event handling
+   - ui/gtk: Update scales in fixed-scale mode when rendering GL area
+   - gtk/ui: Introduce helper gd_update_scale
+   - ui/gtk: Use consistent naming for variables in different coordinates
+   - ui/gtk: Document scale and coordinate handling
+   - hw/arm/aspeed_ast27x0: Fix RAM size detection failure on BE hosts
+   - hw/misc/aspeed_hace: Ensure HASH_IRQ is always set
+     to prevent firmware hang
+  * d/gbp.conf: switch to debian-trixie branch
+  * d/control.mk: checked-version=10.0.3+ds
+  * qemu-img-options.patch: adjust help text for "convert" subcommand:
+    use the historic option which were accepted by the upstream, not
+    the new option introduced in this patch
+  * pcie_sriov-Fix-configuration-and-state-synchronizati.patch from upstream
+    Closes: #1109989, CVE-2025-54566, CVE-2025-54567
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 11 Aug 2025 16:25:46 +0300
+
 qemu (1:10.0.2+ds-2) unstable; urgency=medium
 
   * d/control: switch from Static-Built-Using

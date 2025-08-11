@@ -1,0 +1,122 @@
+From: Akihiko Odaki <odaki@rsg.ci.i.u-tokyo.ac.jp>
+Date: Sun, 27 Jul 2025 15:50:08 +0900
+Subject: pcie_sriov: Fix configuration and state synchronization
+Origin: upstream, https://gitlab.com/qemu-project/qemu/-/commit/cad9aa6fbdccd95e56e10cfa57c354a20a333717
+Forwarded: not-needed
+Bug-Debian: https://bugs.debian.org/1109989
+
+Fix issues in PCIe SR-IOV configuration register handling that caused
+inconsistent internal state due to improper write mask handling and
+incorrect migration behavior.
+
+Two main problems were identified:
+
+1. VF Enable bit write mask handling:
+   pcie_sriov_config_write() incorrectly assumed that its val parameter
+   was already masked, causing it to ignore the actual write mask.
+   This led to the VF Enable bit being processed even when masked,
+   resulting in incorrect VF registration/unregistration. It is
+   identified as CVE-2025-54567.
+
+2. Migration state inconsistency:
+   pcie_sriov_pf_post_load() unconditionally called register_vfs()
+   regardless of the VF Enable bit state, creating inconsistent
+   internal state when VFs should not be enabled. Additionally,
+   it failed to properly update the NumVFs write mask based on
+   the current configuration. It is identified as CVE-2025-54566.
+
+Root cause analysis revealed that both functions relied on incorrect
+special-case assumptions instead of properly reading and consuming
+the actual configuration values. This change introduces a unified
+consume_config() function that reads actual configuration values and
+synchronize the internal state without special-case assumptions.
+
+The solution only adds register read overhead in non-hot-path code
+while ensuring correct SR-IOV state management across configuration
+writes and migration scenarios.
+
+Fixes: 5e7dd17e4348 ("pcie_sriov: Remove num_vfs from PCIESriovPF")
+Fixes: f9efcd47110d ("pcie_sriov: Register VFs after migration")
+Fixes: CVE-2025-54566
+Fixes: CVE-2025-54567
+Cc: qemu-stable@nongnu.org
+Reported-by: Corentin BAYET <corentin.bayet@reversetactics.com>
+Signed-off-by: Akihiko Odaki <odaki@rsg.ci.i.u-tokyo.ac.jp>
+Message-Id: <20250727-wmask-v2-1-394910b1c0b6@rsg.ci.i.u-tokyo.ac.jp>
+Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+(cherry picked from commit cad9aa6fbdccd95e56e10cfa57c354a20a333717)
+(Mjt: context fix)
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+---
+ hw/pci/pcie_sriov.c | 42 +++++++++++++++++++++++-------------------
+ 1 file changed, 23 insertions(+), 19 deletions(-)
+
+diff --git a/hw/pci/pcie_sriov.c b/hw/pci/pcie_sriov.c
+index 1eb4358256..dd4fbaea46 100644
+--- a/hw/pci/pcie_sriov.c
++++ b/hw/pci/pcie_sriov.c
+@@ -211,6 +211,27 @@ static void unregister_vfs(PCIDevice *dev)
+     pci_set_word(dev->wmask + dev->exp.sriov_cap + PCI_SRIOV_NUM_VF, 0xffff);
+ }
+ 
++static void consume_config(PCIDevice *dev)
++{
++    uint8_t *cfg = dev->config + dev->exp.sriov_cap;
++
++    if (pci_get_word(cfg + PCI_SRIOV_CTRL) & PCI_SRIOV_CTRL_VFE) {
++        register_vfs(dev);
++    } else {
++        uint8_t *wmask = dev->wmask + dev->exp.sriov_cap;
++        uint16_t num_vfs = pci_get_word(cfg + PCI_SRIOV_NUM_VF);
++        uint16_t wmask_val = PCI_SRIOV_CTRL_MSE | PCI_SRIOV_CTRL_ARI;
++
++        unregister_vfs(dev);
++
++        if (num_vfs <= pci_get_word(cfg + PCI_SRIOV_TOTAL_VF)) {
++            wmask_val |= PCI_SRIOV_CTRL_VFE;
++        }
++
++        pci_set_word(wmask + PCI_SRIOV_CTRL, wmask_val);
++    }
++}
++
+ void pcie_sriov_config_write(PCIDevice *dev, uint32_t address,
+                              uint32_t val, int len)
+ {
+@@ -228,30 +249,13 @@ void pcie_sriov_config_write(PCIDevice *dev, uint32_t address,
+     trace_sriov_config_write(dev->name, PCI_SLOT(dev->devfn),
+                              PCI_FUNC(dev->devfn), off, val, len);
+ 
+-    if (range_covers_byte(off, len, PCI_SRIOV_CTRL)) {
+-        if (val & PCI_SRIOV_CTRL_VFE) {
+-            register_vfs(dev);
+-        } else {
+-            unregister_vfs(dev);
+-        }
+-    } else if (range_covers_byte(off, len, PCI_SRIOV_NUM_VF)) {
+-        uint8_t *cfg = dev->config + sriov_cap;
+-        uint8_t *wmask = dev->wmask + sriov_cap;
+-        uint16_t num_vfs = pci_get_word(cfg + PCI_SRIOV_NUM_VF);
+-        uint16_t wmask_val = PCI_SRIOV_CTRL_MSE | PCI_SRIOV_CTRL_ARI;
+-
+-        if (num_vfs <= pci_get_word(cfg + PCI_SRIOV_TOTAL_VF)) {
+-            wmask_val |= PCI_SRIOV_CTRL_VFE;
+-        }
+-
+-        pci_set_word(wmask + PCI_SRIOV_CTRL, wmask_val);
+-    }
++    consume_config(dev);
+ }
+ 
+ void pcie_sriov_pf_post_load(PCIDevice *dev)
+ {
+     if (dev->exp.sriov_cap) {
+-        register_vfs(dev);
++        consume_config(dev);
+     }
+ }
+ 
+-- 
+2.47.2
+

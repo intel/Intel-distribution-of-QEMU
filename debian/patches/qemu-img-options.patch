@@ -698,7 +698,7 @@ diff --git a/qemu-img.c b/qemu-img.c
 +"     show operation progress\n"
 +"  -f, --source-format SRC_FMT\n"
 +"     specify SRC_FILENAME source image format explicitly\n"
-+"  --source-image-opts\n"
++"  --image-opts\n"
 +"     indicates that SRC_FILENAME is a complete image specification\n"
 +"     instead of a file name (incompatible with --source-format)\n"
 +"  -l, --source-snapshot SNAPSHOT_PARAMS\n"

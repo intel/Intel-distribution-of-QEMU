@@ -3,7 +3,6 @@ version=4
 opts=\
 dversionmangle=auto,\
 repacksuffix=+ds,\
-uversionmangle=s/-rc/~rc/,\
 pgpsigurlmangle=s/$/.sig/,\
 compression=xz \
-  https://download.qemu.org/ qemu-@ANY_VERSION@@ARCHIVE_EXT@
+  https://download.qemu.org/ qemu-(10\.0\.\d+)\.tar\.xz
