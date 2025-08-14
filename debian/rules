@@ -480,7 +480,7 @@ binary-arch: install-arch binary-helper
 binary-arch: a=-a
 
 ##############################################
-### firmware, qemu-user-data package
+### firmware, qemu-system-data package
 
 ### main qemu arch-indep build
 # we configure qemu in b/data with default options, so that various
@@ -492,7 +492,7 @@ b/data/.configured: | b
 
 ### linux-user vdso rules
 # build vdso-archive containing all our vdso files and include it
-# in qemu-user-data to be used when building arch-dependent packages,
+# in qemu-system-data to be used when building arch-dependent packages,
 # to avoid requiring all cross-compilers on every host architecture.
 # Do not remove pre-built vdso files from .orig.tar.gz, because dak
 # is picky about build-time deps on packages from the same source

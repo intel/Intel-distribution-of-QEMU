@@ -1,0 +1,7 @@
+#! /bin/sh
+
+if [ "$1" = configure ]; then
+  dpkg-trigger --no-await /usr/lib/binfmt.d
+fi
+
+##DEBHELPER##

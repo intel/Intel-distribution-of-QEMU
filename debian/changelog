@@ -1,3 +1,17 @@
+qemu (1:10.0.3+ds-3) unstable; urgency=medium
+
+  * d/binfmt-install: stop using C (Credentials) flag for binfmt_misc
+    registration.  This means suid and sgid binaries under qemu-user
+    will work without changing credentials.  This is a serious security
+    issue, since qemu-user never supposed to be used in this way, and
+    it is trivial to get elevated privileges for an attacker if there's
+    any suid/sgid binary under qemu-user which is runnable for an
+    attacker.  This change might break CI/testing environment expectations.
+  * d/qemu-user.postinst: trigger /usr/lib/binfmt.d (#1110982)
+  * d/rules: fix typo in comment (it is qemu-system-data, not qemu-user-data)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 14 Aug 2025 17:25:52 +0300
+
 qemu (1:10.0.3+ds-2) unstable; urgency=medium
 
   * d/control: (temporarily) build-depend on python3-distlib

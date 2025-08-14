@@ -111,7 +111,7 @@ for fmt in "$@" ; do
     fi
 
     ln -sf ../../bin/qemu-$fmt debian/qemu-user/usr/libexec/qemu-binfmt/$fmt-binfmt-P
-    echo ":qemu-$fmt:M::$magic:$mask:/usr/libexec/qemu-binfmt/$fmt-binfmt-P:OCPF" \
+    echo ":qemu-$fmt:M::$magic:$mask:/usr/libexec/qemu-binfmt/$fmt-binfmt-P:OPF" \
 	>debian/qemu-user/usr/share/qemu/binfmt.d/qemu-$fmt.conf
 
     case " $omit " in
