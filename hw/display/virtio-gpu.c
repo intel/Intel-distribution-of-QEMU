@@ -1498,6 +1498,12 @@ static int virtio_gpu_post_load(void *opaque, int version_id)
             if (!virtio_gpu_do_set_scanout(g, i, &scanout->fb, res, &r, &error)) {
                 return -EINVAL;
             }
+
+            if (scanout->resource_id == res->resource_id &&
+                console_has_gl(scanout->con)) {
+                dpy_gl_update(scanout->con, 0, 0, scanout->width,
+                              scanout->height);
+            }
         } else {
             /* legacy v1 migration support */
             if (!res->image) {
@@ -1508,9 +1514,9 @@ static int virtio_gpu_post_load(void *opaque, int version_id)
             qemu_displaysurface_win32_set_handle(scanout->ds, res->handle, 0);
 #endif
             dpy_gfx_replace_surface(scanout->con, scanout->ds);
+            dpy_gfx_update_full(scanout->con);
         }
 
-        dpy_gfx_update_full(scanout->con);
         if (scanout->cursor.resource_id) {
             update_cursor(g, &scanout->cursor);
         }
