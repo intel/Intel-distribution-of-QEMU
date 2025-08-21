@@ -184,62 +184,57 @@ void gd_egl_refresh(DisplayChangeListener *dcl)
         vc->gfx.new_cursor = true;
     }
 
-    cursor_updated = vc->gfx.cursor_image &&
-                     (vc->gfx.cursor_moved || vc->gfx.new_cursor);
-
 #ifdef CONFIG_GBM
     gd_gl_count_frame(&vc->gfx.dcl, false, false);
-    if (dmabuf && (qemu_dmabuf_get_fd(dmabuf) > 0) &&
-        qemu_dmabuf_get_draw_submitted(dmabuf) &&
-        qemu_dmabuf_get_render_sync(dmabuf)) {
-        gd_egl_draw(vc);
-        return;
-    }
 
-    if (dmabuf && (qemu_dmabuf_get_fd(dmabuf) > 0)
-        && !qemu_dmabuf_get_draw_submitted(dmabuf)
-        && cursor_updated) {
-
-        if (vc->gfx.recently_updated) {
-            vc->gfx.recently_updated = 0;
-            return;
-        }
-
-        if (vc->gfx.cursor_x > 0 &&
-            vc->gfx.cursor_x < vc->gfx.win_fb.width - 1 &&
-            vc->gfx.cursor_y > 0 &&
-            vc->gfx.cursor_y < vc->gfx.win_fb.height - 1) {
-
-            eglMakeCurrent(qemu_egl_display, vc->gfx.esurface,
-                           vc->gfx.esurface, vc->gfx.ectx);
-
-            if (vc->gfx.new_cursor) {
-                gd_egl_cursor_texture(vc);
-                vc->gfx.new_cursor = false;
+    if (dmabuf && (qemu_dmabuf_get_fd(dmabuf) > 0)) {
+        cursor_updated = vc->gfx.cursor_image &&
+                         (vc->gfx.cursor_moved || vc->gfx.new_cursor);
+        if (qemu_dmabuf_get_draw_submitted(dmabuf) &&
+            qemu_dmabuf_get_render_sync(dmabuf)) {
+            gd_egl_draw(vc);
+        } else if (!qemu_dmabuf_get_draw_submitted(dmabuf) &&
+                   cursor_updated) {
+            if (vc->gfx.recently_updated) {
+                vc->gfx.recently_updated = 0;
+                return;
             }
 
-            egl_fb_blit(&vc->gfx.win_fb, &vc->gfx.guest_fb, !vc->gfx.y0_top);
-            egl_texture_blend(vc->gfx.gls, &vc->gfx.win_fb,
-                              &vc->gfx.cursor_fb, vc->gfx.y0_top,
-                              vc->gfx.cursor_x, vc->gfx.cursor_y,
-                              vc->gfx.scale_x, vc->gfx.scale_y);
+            if (vc->gfx.cursor_x > 0 &&
+                vc->gfx.cursor_x < vc->gfx.win_fb.width - 1 &&
+                vc->gfx.cursor_y > 0 &&
+                vc->gfx.cursor_y < vc->gfx.win_fb.height - 1) {
 
-            eglSwapBuffers(qemu_egl_display, vc->gfx.esurface);
-            gd_gl_count_frame(&vc->gfx.dcl, false, true);
-            vc->gfx.cursor_moved = false;
-            vc->gfx.cursor_prev_drawn = true;
-        } else if (vc->gfx.cursor_prev_drawn) {
-            /* Cursor moved outside the window, so we need to redraw the
-             * window without the cursor */
-            eglMakeCurrent(qemu_egl_display, vc->gfx.esurface,
-                           vc->gfx.esurface, vc->gfx.ectx);
+                eglMakeCurrent(qemu_egl_display, vc->gfx.esurface,
+                               vc->gfx.esurface, vc->gfx.ectx);
 
-            egl_fb_blit(&vc->gfx.win_fb, &vc->gfx.guest_fb, !vc->gfx.y0_top);
-            eglSwapBuffers(qemu_egl_display, vc->gfx.esurface);
-            gd_gl_count_frame(&vc->gfx.dcl, false, true);
-            vc->gfx.cursor_prev_drawn = false;
-	}
+                if (vc->gfx.new_cursor) {
+                    gd_egl_cursor_texture(vc);
+                    vc->gfx.new_cursor = false;
+                }
 
+                egl_fb_blit(&vc->gfx.win_fb, &vc->gfx.guest_fb, !vc->gfx.y0_top);
+                egl_texture_blend(vc->gfx.gls, &vc->gfx.win_fb,
+                                  &vc->gfx.cursor_fb, vc->gfx.y0_top,
+                                  vc->gfx.cursor_x, vc->gfx.cursor_y,
+                                  vc->gfx.scale_x, vc->gfx.scale_y);
+
+                eglSwapBuffers(qemu_egl_display, vc->gfx.esurface);
+                gd_gl_count_frame(&vc->gfx.dcl, false, true);
+                vc->gfx.cursor_moved = false;
+                vc->gfx.cursor_prev_drawn = true;
+            } else if (vc->gfx.cursor_prev_drawn) {
+                /* Cursor moved outside the window, so we need to redraw the
+                 * window without the cursor */
+                eglMakeCurrent(qemu_egl_display, vc->gfx.esurface,
+                               vc->gfx.esurface, vc->gfx.ectx);
+
+                egl_fb_blit(&vc->gfx.win_fb, &vc->gfx.guest_fb, !vc->gfx.y0_top);
+                eglSwapBuffers(qemu_egl_display, vc->gfx.esurface);
+                gd_gl_count_frame(&vc->gfx.dcl, false, true);
+                vc->gfx.cursor_prev_drawn = false;
+            }
+        }
         return;
     }
 #endif
