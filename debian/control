@@ -245,16 +245,11 @@ Description: extra block backend modules for qemu-system and qemu-utils
 Package: qemu-system-data
 Architecture: all
 Multi-Arch: foreign
-Conflicts: sgabios, qemu-skiboot, openbios-sparc, openbios-ppc, qemu-slof,
-Replaces:  sgabios, openbios-sparc, openbios-ppc, qemu-slof,
- qemu-system-ppc (<< 1:6.1-4~),
- qemu-system-common (<< 1:8.2.2+ds-1~),
-Breaks: qemu-system-ppc (<< 1:6.1-4~),
- qemu-system-common (<< 1:8.2.2+ds-1~),
+Replaces: qemu-system-common (<< 1:8.2.2+ds-1~),
+Breaks:   qemu-system-common (<< 1:8.2.2+ds-1~),
 # s390x-netboot dropped in 9.2, breaks qemu-system-s390x
  qemu-system-misc (<< 1:9.1.1+ds-1~),
  qemu-system-s390x (<< 1:9.2.0~),
-Provides: qemu-keymaps, sgabios, qemu-skiboot, openbios-sparc, openbios-ppc, qemu-slof,
 Depends: ${misc:Depends}
 Description: QEMU full system emulation (data files)
  This package provides architecture-neutral data files
@@ -265,9 +260,7 @@ Package: qemu-system-common
 Architecture: amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
 Multi-Arch: no
 Build-Profiles: <!pkg.qemu.omit-system>
-Breaks: libvirt-daemon (<< 7.2.0-1)
 Depends: ${misc:Depends}, ${shlibs:Depends},
-# to fix wrong acl for newly created device node on ubuntu:
 Description: QEMU full system emulation binaries (common files)
  QEMU is a fast processor emulator: currently the package supports Alpha, ARM,
  CRIS, i386, LoongArch, M68k (ColdFire), MicroBlaze, MIPS, PowerPC, RISC-V,
@@ -292,8 +285,6 @@ Depends: ${misc:Depends}, ${shlibs:Depends},
  qemu-system-any (= ${binary:Version}),
 # libgl1 is dynamically loaded by sdl display code
  libgl1,
-# we moved vhost-user-gpu files here from qemu-system-common at 6.1-4
-Replaces: qemu-system-common (<< 1:6.1+dfsg-4~)
 Description: QEMU full system emulation binaries (graphical display and audio modules)
  This package provides optional graphical guest display modules (currently GTK
  and SDL) and audio backend modules for full system emulation (qemu-system-*)
@@ -469,6 +460,11 @@ Depends: ${shlibs:Depends}, ${misc:Depends},
  opensbi (>> 1.5.1-1~),
 Recommends: qemu-utils,
  ipxe-qemu,
+ qemu-efi-riscv64,
+ qemu-system-gui (= ${binary:Version}),
+ qemu-system-modules-spice (= ${binary:Version}) [amd64 i386 arm64 armel armhf loong64 mips64el mipsel ppc64el riscv64],
+ qemu-system-modules-opengl (= ${binary:Version}),
+ qemu-block-extra (= ${binary:Version}),
 Breaks:   qemu-system-data (<< 1:9.1.0+ds-4~), qemu-system-misc (<< 1:9.1.0+ds-9~)
 Replaces: qemu-system-data (<< 1:9.1.0+ds-4~), qemu-system-misc (<< 1:9.1.0+ds-9~)
 Suggests: samba, vde2,
@@ -574,7 +570,7 @@ Description: QEMU full system emulation binaries (x86)
 Package: qemu-system-xen
 Architecture: amd64
 Multi-Arch: no
-Build-Profiles: <!pkg.qemu.omit-system-xen>
+Build-Profiles: <!pkg.qemu.omit-system !pkg.qemu.omit-system-xen>
 # do we really need qemu-system-data? keymaps only?
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-data (>> ${source:Upstream-Version}~),
  seabios
@@ -612,37 +608,16 @@ Description: QEMU user mode emulation (static binaries)
      cat /usr/share/qemu/binfmt.d/qemu-ARCH.conf \
        > /proc/sys/fs/binfmt_misc/register
 
-# remove this package in favour of qemu-user-binfmt in the future
-Package: qemu-user-static
-Architecture: amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
-Multi-Arch: foreign
-Build-Profiles: <!pkg.qemu.omit-user>
-Depends: ${misc:Depends},
- qemu-user (>= ${binary:Version}), qemu-user-binfmt (>= ${binary:Version})
-Section: oldlibs
-Description: QEMU user mode emulation (compat/transitional package)
- In the past, this package provided statically-built qemu user-mode emulation
- binaries. Now this functionality is provided by qemu-user package, and this
- package just to help migration to qemu-user.
- .
- This package provides old/compatibility symlinks from qemu-user-static binaries
- pointing to corresponding qemu-user binaries, and old qemu-debootstrap script.
- Neither of these should be used in practice.
- .
- Please remove this package once you ensure nothing is using the old interfaces.
-
 Package: qemu-user-binfmt
 Architecture: amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
 Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-user>
-Depends: ${misc:Depends}, qemu-user (= ${binary:Version})
-Breaks:   qemu-user-static (<< 1:9.1.0)
+Depends: ${misc:Depends}, qemu-user (>= ${binary:Version}~)
+Provides: qemu-user-static
+Breaks:   qemu-user-static
 Replaces: qemu-user-static (<< 1:9.1.0)
 # Recommend systemd for binfmt-misc registration
 Recommends: systemd
-# When qemu-user-static is removed, this package should provide it,
-# since the old user-static provided automatic binfmt registration
-#Provides: qemu-user-static
 Description: QEMU user mode binfmt registration for qemu-user
  QEMU is a fast processor emulator: currently the package supports Alpha, ARM,
  CRIS, i386, LoongArch, M68k (ColdFire), MicroBlaze, MIPS, PowerPC, RISC-V,

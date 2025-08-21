@@ -1,3 +1,35 @@
+qemu (1:10.0.3+ds-4) unstable; urgency=medium
+
+  [ Heinrich Schuchardt ]
+  * d/control: qemu-system-riscv missing recommends
+    qemu-system-riscv needs the same/similar packages for EFI, spice,
+    opengl, special block devices, as qemu-system-arm and qemu-system-x86
+
+  [ Michael Tokarev ]
+  * d/control: omit system-xen if omit-system build profile is specified
+    this makes pkg.qemu.omit-system to omit all system components,
+    including xen
+  * qemu-user binfmts: stop supporting old kernels using custom patch
+    qemu supports argv[0] handling with a help of kernel support since
+    at least bullseye (or even buster), - for a really long time.
+    There's no need to use custom code for older kernels anymore.
+    Also closes: #1054104
+  * d/binfmt-install: do not generate update-binfmt un-registration
+    postinst script for upgrades from bookworm
+  * d/control: drop old (pre-bookworm) breaks/replaces/conflicts/provides
+  * hw-uefi-clear-uefi-vars-buffer-in-uefi_vars_write-CVE-2025-8860.patch
+    Closes: #1111030, CVE-2025-8860
+  * d/control: remove long-forgotten qemu-system-common dependency on acl
+    (for #762192) which is not needed
+  * remove qemu-user-static package (& qemu-debootstrap)
+    remove links to qemu-user with -static suffix, together with
+    obsolete qemu-debootstrap command.
+    qemu-user-static is now provided by qemu-user-binfmt package.
+    Also closes: #1107554
+  * d/gbp.conf: switch to master branch
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 21 Aug 2025 19:03:00 +0300
+
 qemu (1:10.0.3+ds-3) unstable; urgency=medium
 
   * d/binfmt-install: stop using C (Credentials) flag for binfmt_misc

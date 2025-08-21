@@ -386,14 +386,6 @@ install-user: b/user/built
 	  sort -u ${# unique packages} | \
 	  xargs dpkg-query -f '$${source:Package} (= $${source:Version}),' -W)" \
 	  > debian/qemu-user.substvars
-# compatibility symlinks for qemu-user-static (no manpage links for aliases):
-	dh_link -p qemu-user-static \
- $(foreach t,${user-targets}, \
-   usr/bin/qemu-$t usr/bin/qemu-$t-static \
-   ${man1dir}/qemu-user-static.1 ${man1dir}/qemu-$t-static.1 \
-   $(foreach a,${user-alias-$t}, \
-     usr/bin/qemu-$t-static usr/bin/qemu-$a-static \
-  ))
 
 qemu-builds += $(if ${enable-user},user)
 

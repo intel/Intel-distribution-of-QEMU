@@ -3,8 +3,6 @@
 # Accepts list of formats to work on
 set -e
 
-removed_fmts="ppc64abi32 cris"
-
 # linux ELF_OSABI(byte7) can be 0 (traditional,SYSV) or 3 (GNU/LINUX extensions)
 # binfmt registration does not allow a enum, only value&mask.  So we use broader mask
 # to allow both 0 and 3 here, this also lets 1 (HPUX) and 2 (NETBSD) - 0xfc not 0xff
@@ -97,7 +95,6 @@ esac
 mkdir -p \
   debian/qemu-user-binfmt/usr/lib/binfmt.d \
   debian/qemu-user/usr/share/qemu/binfmt.d \
-  debian/qemu-user/usr/libexec/qemu-binfmt \
 #
 # compat:
 mkdir -p \
@@ -110,8 +107,7 @@ for fmt in "$@" ; do
       echo "$0: unknown format $fmt (no magic/mask)" >&2; exit 1
     fi
 
-    ln -sf ../../bin/qemu-$fmt debian/qemu-user/usr/libexec/qemu-binfmt/$fmt-binfmt-P
-    echo ":qemu-$fmt:M::$magic:$mask:/usr/libexec/qemu-binfmt/$fmt-binfmt-P:OPF" \
+    echo ":qemu-$fmt:M::$magic:$mask:/usr/bin/qemu-$fmt:OPF" \
 	>debian/qemu-user/usr/share/qemu/binfmt.d/qemu-$fmt.conf
 
     case " $omit " in
@@ -122,26 +118,4 @@ for fmt in "$@" ; do
 	;;
     esac
 
-done
-
-# generate postinst script to unregister all from binfmt-support
-# when upgrading from older qemu (<<8.0+dfsg-1~), from bookworm
-for x in qemu-user-binfmt: qemu-user-static:-static
-do
-    PACKAGE=${x%:*} SUFFIX=${x#*:}
-    cat >>debian/$PACKAGE.postinst.debhelper <<EOF
-binfmt_update() {
-  test configure = "\$1" || return 0
-  dpkg --compare-versions "\$2" lt "1:8.0+dfsg" || return 0
-  command -v update-binfmts >/dev/null || return 0
-  for fmt in $fmts $removed_fmts; do
-    if [ -f /var/lib/binfmts/qemu-\$fmt ]; then
-      [ -f /usr/bin/qemu-\$fmt$SUFFIX ] ||
-        echo "$PACKAGE.preinst: note: the warning from update-binfmts about missing qemu-\$fmt$SUFFIX is okay" >&2
-      update-binfmts --package $PACKAGE --remove qemu-\$fmt /usr/bin/qemu-\$fmt$SUFFIX
-    fi
-  done
-}
-binfmt_update "\$1" "\$2"
-EOF
 done

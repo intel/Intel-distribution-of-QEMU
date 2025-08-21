@@ -1,6 +1,5 @@
 microvm-default-machine-type.patch
 static-linux-user-stubs.diff
-linux-user-binfmt-P.diff
 note-missing-module-pkg-name.diff
 skip-unpack-edk2-blobs.patch
 qemu-bridge-helper-path.patch
@@ -18,3 +17,4 @@ disable-pycotap.patch
 hw-display-qxl-render.c-fix-qxl_unpack_chunks-chunk-.patch
 system-physmem-fix-use-after-free-with-dispatch.patch
 pcie_sriov-Fix-configuration-and-state-synchronizati.patch
+hw-uefi-clear-uefi-vars-buffer-in-uefi_vars_write-CVE-2025-8860.patch
