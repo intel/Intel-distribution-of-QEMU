@@ -1,18 +1,7 @@
 #ifndef MENU_LIST_H
 #define MENU_LIST_H
 
-#ifndef bool_defined
-#define bool_defined
-typedef int bool;
-#endif
-
-#ifndef true
-#define true 1
-#endif
-
-#ifndef false
-#define false 0
-#endif
+#include <stdbool.h>
 
 #ifndef NULL
 #define NULL ((void *)0L)

@@ -27,18 +27,7 @@
 #define MENUATTR_HILITE   2     /* Attribute for highlighted menu items */
 #define MENUATTR_DISABLED 3     /* Attribute for disabled menu items */
 
-#ifndef bool_defined
-#define bool_defined
-typedef int bool;
-#endif
-
-#ifndef true
-#define true 1
-#endif
-
-#ifndef false
-#define false 0
-#endif
+#include <stdbool.h>
 
 #define MAX_MENUS 30
 
