@@ -1,0 +1,29 @@
+Subject: roms/u-boot-sam460ex: support c23 (bool)
+From: Michael Tokarev <mjt@tls.msk.ru>
+Date: Mon, 25 Aug 2025 22:34:21 +0300
+Forwarded: no
+Bug-Debian: https://bugs.debian.org/1097693
+
+In c23, bool, true and false are keywords,
+don't try to (re)define them.  Instead,
+include <stdbool.h>.
+
+
+diff --git a/roms/u-boot-sam460ex/include/xyzModem.h b/roms/u-boot-sam460ex/include/xyzModem.h
+--- a/roms/u-boot-sam460ex/include/xyzModem.h
++++ b/roms/u-boot-sam460ex/include/xyzModem.h
+@@ -97,13 +97,7 @@ typedef struct {
+ #endif
+ } connection_info_t;
+ 
+-#ifndef	BOOL_WAS_DEFINED
+-#define BOOL_WAS_DEFINED
+-typedef unsigned int bool;
+-#endif
+-
+-#define false 0
+-#define true 1
++#include <stdbool.h>
+ 
+ #endif
+ 

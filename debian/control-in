@@ -6,7 +6,6 @@ Priority: optional
 :ubuntu:XSBC-Original-Maintainer: Debian QEMU Team <pkg-qemu-devel@lists.alioth.debian.org>
 Uploaders: Michael Tokarev <mjt@tls.msk.ru>
 Build-Depends: debhelper-compat (= 13),
- python3:any,
  python3-venv:any,
 # distlib is needed for pip-25.2+ (forky+), not for trixie or before
  python3-distlib,
@@ -376,7 +375,7 @@ Recommends: qemu-utils,
  qemu-system-modules-spice (= ${binary:Version}) [:spice-arch:],
  qemu-system-modules-opengl (= ${binary:Version}),
  qemu-block-extra (= ${binary:Version}),
-Suggests: samba, vde2,
+Suggests: samba, vde2, passt,
 Provides: ${qemu:Provides}
 Conflicts: ${qemu:Conflicts}
 Description: QEMU full system emulation binaries (miscellaneous)
@@ -411,7 +410,7 @@ Recommends: qemu-utils,
  qemu-system-modules-spice (= ${binary:Version}) [:spice-arch:],
  qemu-system-modules-opengl (= ${binary:Version}),
  qemu-block-extra (= ${binary:Version}),
-Suggests: samba, vde2,
+Suggests: samba, vde2, passt,
 Provides: ${qemu:Provides}
 Conflicts: ${qemu:Conflicts}
 Description: QEMU full system emulation binaries (arm)
@@ -440,7 +439,7 @@ Recommends: qemu-utils,
  qemu-system-modules-spice (= ${binary:Version}) [:spice-arch:],
  qemu-system-modules-opengl (= ${binary:Version}),
  qemu-block-extra (= ${binary:Version}),
-Suggests: samba, vde2,
+Suggests: samba, vde2, passt,
 Provides: ${qemu:Provides}
 Conflicts: ${qemu:Conflicts}
 Description: QEMU full system emulation binaries (mips)
@@ -469,7 +468,7 @@ Recommends: qemu-utils,
  qemu-system-modules-spice (= ${binary:Version}) [:spice-arch:],
  qemu-system-modules-opengl (= ${binary:Version}),
  qemu-block-extra (= ${binary:Version}),
-Suggests: samba, vde2,
+Suggests: samba, vde2, passt,
 Provides: ${qemu:Provides}
 Conflicts: ${qemu:Conflicts}
 Description: QEMU full system emulation binaries (ppc)
@@ -502,7 +501,7 @@ Recommends: qemu-utils,
  qemu-block-extra (= ${binary:Version}),
 Breaks:   qemu-system-data (<< 1:9.1.0+ds-4~), qemu-system-misc (<< 1:9.1.0+ds-9~)
 Replaces: qemu-system-data (<< 1:9.1.0+ds-4~), qemu-system-misc (<< 1:9.1.0+ds-9~)
-Suggests: samba, vde2,
+Suggests: samba, vde2, passt,
 Provides: ${qemu:Provides}
 Conflicts: ${qemu:Conflicts}
 Description: QEMU full system emulation binaries (riscv)
@@ -553,7 +552,7 @@ Recommends: qemu-utils,
  qemu-system-modules-spice (= ${binary:Version}) [:spice-arch:],
  qemu-system-modules-opengl (= ${binary:Version}),
  qemu-block-extra (= ${binary:Version}),
-Suggests: samba, vde2,
+Suggests: samba, vde2, passt,
 Provides: ${qemu:Provides}
 Conflicts: ${qemu:Conflicts}
 Description: QEMU full system emulation binaries (sparc)
@@ -597,7 +596,7 @@ Recommends: qemu-utils,
  qemu-system-modules-opengl (= ${binary:Version}),
  qemu-block-extra (= ${binary:Version}),
 :ubuntu: cpu-checker,
-Suggests: samba, vde2,
+Suggests: samba, vde2, passt,
 Provides: ${qemu:Provides}
 Conflicts: ${qemu:Conflicts}
 Description: QEMU full system emulation binaries (x86)

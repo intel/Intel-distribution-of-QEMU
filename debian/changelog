@@ -1,3 +1,42 @@
+qemu (1:10.1.0+ds-1) unstable; urgency=medium
+
+  * new upstream release (v10.1.0)
+    Closes: #1107104, #1108387
+  * d/gbp.conf: switch to upstream-10.1 branch
+  * d/watch: switch to 10.1.x series
+  * d/copyright: update Files-Excluded
+  * d/patches/qemu-img-options.patch: remove
+  * remove patches which has been applied upstream:
+    - hw-display-qxl-render.c-fix-qxl_unpack_chunks-chunk-.patch
+    - system-physmem-fix-use-after-free-with-dispatch.patch
+    - pcie_sriov-Fix-configuration-and-state-synchronizati.patch
+    - hw-uefi-clear-uefi-vars-buffer-in-uefi_vars_write-CVE-2025-8860.patch
+  * d/patches/gnu-hurd.patch: refresh
+  * d/patches/disable-pycotap.patch: refresh
+  * d/control.mk: checked-version=10.1.0+ds
+  * d/rules: remove --enable-avx2 (not used anymore)
+  * d/rules: dts files in pc-bios moved into a subdir (pc-bios/dtb)
+  * skip-install-dtb.patch: avoid installing dtb files during arch build
+    These are built in indep step in d/rules.
+    + skip-install-dtb.patch
+  * d/rules: use ${sysdataidir} in one more place instead of direct reference
+  * d/control: remove redundant unversioned python3 from Build-Depends
+  * d/control.mk: enable microblaze system targets on 32bit hosts
+    microbiaze has been erroneously treated as 64bit architecture,
+    and has been disabled in 10.0 on 32bit hosts.  Now it is correctly
+    treated as 32bit architecture and is buildable on 32bit hosts again
+  * d/control: suggest passt among with vde2
+  * d/rules: add comment to remove ipxe from FIRMWAREPATH
+  * d/rules: remove --disable-pie from i386 qemu-user build
+    and remove references to old related bugs
+  * two patches for roms to support gcc -std=23 (bool type)
+    +SLOF-stdc23.patch
+    +u-boot-sam460ex-stdc23.patch
+    Closes: #1097693
+  * d/*.lintian-overrides: remove spelling-error-in-binary wtH mips overrides
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 27 Aug 2025 10:34:09 +0300
+
 qemu (1:10.0.3+ds-4) unstable; urgency=medium
 
   [ Heinrich Schuchardt ]

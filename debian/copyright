@@ -12,8 +12,10 @@ Files-Excluded:
 	roms/SLOF/clients/takeover/takeover.oco
 	roms/SLOF/lib/libipmi/libipmi.oco
 #
+	pc-bios/dtb/*.dtb
+#
 	pc-bios/QEMU,*.bin
-	pc-bios/bamboo.dtb pc-bios/canyonlands.dtb
+	pc-bios/ast27x0_bootrom.bin
 	pc-bios/bios.bin
 	pc-bios/bios-256k.bin
 	pc-bios/bios-microvm.bin
@@ -32,8 +34,6 @@ Files-Excluded:
 	pc-bios/openbios-sparc64
 	pc-bios/opensbi-*.bin
 	pc-bios/palcode-clipper
-	pc-bios/petalogix-ml605.dtb
-	pc-bios/petalogix-s3adsp1800.dtb
 	pc-bios/pvh.bin
 	pc-bios/qboot.rom
 	pc-bios/qemu_vga.ndrv

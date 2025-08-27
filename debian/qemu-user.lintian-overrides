@@ -1,6 +1,5 @@
 qemu-user: spelling-error-in-binary addd add *usr/bin/qemu-*
 qemu-user: spelling-error-in-binary nott not *usr/bin/qemu-*
-qemu-user: spelling-error-in-binary wtH with *usr/bin/qemu-mips*
 qemu-user: spare-manual-page [usr/share/man/man1/qemu-user.1.gz]
 # these are static-pic executables, not shared executables:
 qemu-user: shared-library-lacks-prerequisites *usr/bin/qemu-*

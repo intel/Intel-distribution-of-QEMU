@@ -51,6 +51,7 @@ sysdataidir = debian/qemu-system-data${sysdatadir}
 libdir = /usr/lib/${DEB_HOST_MULTIARCH}
 mandir = /usr/share/man
 man1dir = ${mandir}/man1
+# remove ipxe for forky, require ipxe-qemu >> 1.21.1+git20220113.fbbdc3926+dfsg-1~ :
 FIRMWAREPATH = /usr/share/qemu:/usr/share/seabios:/usr/lib/ipxe/qemu
 
 export cross_prefix_alpha = alpha-linux-gnu-
@@ -308,7 +309,6 @@ b/xen/configured: configure
 		--extra-ldflags="${extra-ldflags}" \
 		--disable-tools \
 		--without-default-features \
-		--enable-avx2 \
 		--enable-xen --target-list=i386-softmmu \
 		--enable-xen-pci-passthrough \
 		--disable-tcg --disable-kvm \
@@ -335,17 +335,13 @@ configure-user: b/user/configured
 b/user/configured: configure
 # do not use debian/configure-opts here, all optional stuff will be enabled
 # automatically, dependencies are already verified in the main build
-# See LP:#1908331 for --static-pie (the default in qemu) and #1053101
-# See https://sourceware.org/bugzilla/show_bug.cgi?id=29514
-# use --disable-pie on i386 for now due to #1056739
-# (maybe also add arm64 here for gcc12)
+# Note: with --static, qemu builds static-pie executables
 	rm -rf b/user; mkdir -p b/user
 	cd b/user && \
 	    ../../configure ${common_configure_opts} \
 		--extra-cflags="${extra-cflags} -DPROVIDE_STUBS_FOR_STATIC" \
 		--extra-ldflags="${extra-ldflags} -Wl,-Map=%.map,--no-print-map-discarded" \
 		--static \
-		$(if $(filter i386,${DEB_HOST_ARCH}),--disable-pie) \
 		--disable-plugins \
 		--target-list="$(addsuffix -linux-user,${user-targets})"
 	touch $@
@@ -691,16 +687,16 @@ sysdata-components += vbootrom
 build-misc: b/misc/.built
 b/misc/.built:
 	mkdir -p b/misc
-	dtc -o b/misc/bamboo.dtb pc-bios/bamboo.dts
-	dtc -o b/misc/canyonlands.dtb pc-bios/canyonlands.dts
-	dtc -o b/misc/petalogix-ml605.dtb pc-bios/petalogix-ml605.dts
-	dtc -o b/misc/petalogix-s3adsp1800.dtb pc-bios/petalogix-s3adsp1800.dts
+	dtc -o b/misc/bamboo.dtb pc-bios/dtb/bamboo.dts
+	dtc -o b/misc/canyonlands.dtb pc-bios/dtb/canyonlands.dts
+	dtc -o b/misc/petalogix-ml605.dtb pc-bios/dtb/petalogix-ml605.dts
+	dtc -o b/misc/petalogix-s3adsp1800.dtb pc-bios/dtb/petalogix-s3adsp1800.dts
 	touch $@
 install-misc: build-misc
 	install -m0644 b/misc/bamboo.dtb b/misc/canyonlands.dtb \
 		-D -t ${sysdataidir}
 	install -m0644 b/misc/petalogix-ml605.dtb b/misc/petalogix-s3adsp1800.dtb \
-		-D -t debian/qemu-system-misc/usr/share/qemu/
+		-D -t ${sysdataidir}
 # icon for gtk ui
 	install -Dp -m0644 ui/icons/qemu.svg \
 	 -t debian/qemu-system-data/usr/share/icons/hicolor/scalable/apps/
