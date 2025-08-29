@@ -1,3 +1,9 @@
+qemu (1:10.1.0+ds-2) unstable; urgency=medium
+
+  * tcg-arm-fix-tgen_deposit.patch: fix tcg failure on 32bit arm
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 29 Aug 2025 18:28:07 +0300
+
 qemu (1:10.1.0+ds-1) unstable; urgency=medium
 
   * new upstream release (v10.1.0)
