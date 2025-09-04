@@ -64,7 +64,7 @@ void virtio_gpu_update_cursor_data(VirtIOGPU *g,
              * The assumption is the cursor image is square.
              */
             int width = sqrt(res->blob_size / 4);
-            g_free(s->current_cursor);
+            cursor_unref(s->current_cursor);
             s->current_cursor = cursor_alloc(width, width);
         }
         data = res->blob;
