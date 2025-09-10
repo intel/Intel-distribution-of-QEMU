@@ -8,7 +8,6 @@ In c23, bool, true and false are keywords,
 don't try to (re)define them.  Instead,
 include <stdbool.h>.
 
-
 diff --git a/roms/u-boot-sam460ex/include/xyzModem.h b/roms/u-boot-sam460ex/include/xyzModem.h
 --- a/roms/u-boot-sam460ex/include/xyzModem.h
 +++ b/roms/u-boot-sam460ex/include/xyzModem.h
@@ -26,4 +25,42 @@ diff --git a/roms/u-boot-sam460ex/include/xyzModem.h b/roms/u-boot-sam460ex/incl
 +#include <stdbool.h>
  
  #endif
+ 
+diff --git a/roms/u-boot-sam460ex/board/ACube/menu/list.h b/roms/u-boot-sam460ex/board/ACube/menu/list.h
+--- a/roms/u-boot-sam460ex/board/ACube/menu/list.h
++++ b/roms/u-boot-sam460ex/board/ACube/menu/list.h
+@@ -3,14 +3,3 @@
+ 
+-#ifndef bool_defined
+-#define bool_defined
+-typedef int bool;
+-#endif
+-
+-#ifndef true
+-#define true 1
+-#endif
+-
+-#ifndef false
+-#define false 0
+-#endif
++#include <stdbool.h>
+ 
+diff --git a/roms/u-boot-sam460ex/board/ACube/menu/menu.h b/roms/u-boot-sam460ex/board/ACube/menu/menu.h
+--- a/roms/u-boot-sam460ex/board/ACube/menu/menu.h
++++ b/roms/u-boot-sam460ex/board/ACube/menu/menu.h
+@@ -29,14 +29,3 @@
+ 
+-#ifndef bool_defined
+-#define bool_defined
+-typedef int bool;
+-#endif
+-
+-#ifndef true
+-#define true 1
+-#endif
+-
+-#ifndef false
+-#define false 0
+-#endif
++#include <stdbool.h>
  

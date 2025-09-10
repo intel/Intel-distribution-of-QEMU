@@ -1,3 +1,11 @@
+qemu (1:10.1.0+ds-3) unstable; urgency=medium
+
+  * block-curl-fix-curl-internal-handles-handling.patch (Closes: #1111809)
+  * e1000e-prevent-crash-from-legacy-interrupt-firing-af.patch
+  * u-boot-sam460ex-stdc23.patch: two more cases of bool typedef
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 10 Sep 2025 10:56:33 +0300
+
 qemu (1:10.1.0+ds-2) unstable; urgency=medium
 
   * tcg-arm-fix-tgen_deposit.patch: fix tcg failure on 32bit arm
