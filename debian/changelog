@@ -1,3 +1,11 @@
+qemu (1:10.1.0+ds-4) unstable; urgency=medium
+
+  * ui-spice-fix-crash-when-disabling-GL-scanout-on.patch
+    (hopefully Closes: #1110512)
+  * hw-vfio-user-add-x-pci-class-code.patch
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 11 Sep 2025 21:50:26 +0300
+
 qemu (1:10.1.0+ds-3) unstable; urgency=medium
 
   * block-curl-fix-curl-internal-handles-handling.patch (Closes: #1111809)

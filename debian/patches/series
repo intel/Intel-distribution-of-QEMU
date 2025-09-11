@@ -19,3 +19,5 @@ disable-pycotap.patch
 tcg-arm-fix-tgen_deposit.patch
 block-curl-fix-curl-internal-handles-handling.patch
 e1000e-prevent-crash-from-legacy-interrupt-firing-af.patch
+ui-spice-fix-crash-when-disabling-GL-scanout-on.patch
+hw-vfio-user-add-x-pci-class-code.patch
