@@ -189,6 +189,9 @@ static int riscv_pmu_incr_ctr_rv64(RISCVCPU *cpu, uint32_t ctr_idx)
  *  env->priv and env->virt_enabled contain old priv and old virt and
  *  new priv and new virt values are passed in as arguments.
  */
+#if defined(__powerpc64__) || defined(__ppc64__)
+__attribute__((optimize("no-gcse")))
+#endif
 static void riscv_pmu_icount_update_priv(CPURISCVState *env,
                                          target_ulong newpriv, bool new_virt)
 {
