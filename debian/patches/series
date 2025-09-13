@@ -21,3 +21,5 @@ block-curl-fix-curl-internal-handles-handling.patch
 e1000e-prevent-crash-from-legacy-interrupt-firing-af.patch
 ui-spice-fix-crash-when-disabling-GL-scanout-on.patch
 hw-vfio-user-add-x-pci-class-code.patch
+seabios-hppa-remove-acpi.patch
+riscv-on-ppc64-gcc15-121689.patch
