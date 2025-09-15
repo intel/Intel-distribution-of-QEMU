@@ -11,7 +11,7 @@
 
 const char *get_elf_cpu_model(uint32_t eflags)
 {
-    return "any";
+    return "any,pauth=off"; // pauth (any variant of it) is too slow for modern userspace
 }
 
 enum {
