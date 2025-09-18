@@ -1574,17 +1574,16 @@ static gboolean gd_window_state_event(GtkWidget *widget, GdkEvent *event,
     }
 
     if (event->window_state.new_window_state & GDK_WINDOW_STATE_FOCUSED) {
-        if (s->ptr_owner == vc && s->kbd_owner == vc) {
-            if (gd_is_grab_active(s)) {
-                s->ptr_owner = NULL;
-                s->kbd_owner = NULL;
-                gd_grab_keyboard(vc, "windows-focused");
-                gd_grab_pointer(vc, "windows-focused");
-            } else {
-                gd_ungrab_keyboard(s);
-                gd_ungrab_pointer(s);
-            }
+        if (s->ptr_owner == vc) {
+            s->ptr_owner = NULL;
+            gd_grab_pointer(vc, "windows-focused");
         }
+
+        if (s->kbd_owner == vc) {
+            s->kbd_owner = NULL;
+            gd_grab_keyboard(vc, "windows-focused");
+        }
+
     }
 
     /* WA to fullscreen window if it's forcefully un-fullscreened by
@@ -1710,17 +1709,14 @@ static void gd_window_show_on_monitor(GdkDisplay *dpy, VirtualConsole *vc,
     info.height = gdk_window_get_height(window);
     dpy_set_ui_info(vc->gfx.dcl.con, &info, false);
 
-    if (s->ptr_owner && s->kbd_owner &&
-        s->ptr_owner == vc && s->kbd_owner == vc) {
-        if (gd_is_grab_active(s)) {
-            s->ptr_owner = NULL;
-            s->kbd_owner = NULL;
-            gd_grab_keyboard(vc, "user-request-main-window");
-            gd_grab_pointer(vc, "user-request-main-window");
-        } else {
-            gd_ungrab_keyboard(s);
-            gd_ungrab_pointer(s);
-        }
+    if (s->ptr_owner == vc) {
+        s->ptr_owner = NULL;
+        gd_grab_pointer(vc, "user-request-main-window");
+    }
+
+    if (s->kbd_owner == vc) {
+        s->kbd_owner = NULL;
+        gd_grab_keyboard(vc, "user-request-main-window");
     }
 
     gd_update_cursor(vc);
