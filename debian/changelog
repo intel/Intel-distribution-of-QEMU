@@ -1,3 +1,24 @@
+qemu (1:10.1.1+ds-1) unstable; urgency=medium
+
+  [ Michael Tokarev ]
+  * new upstream stable/bugfix release
+    Closes: #1082377, CVE-2024-8354
+  * removed patches included upstream:
+    - block-curl-fix-curl-internal-handles-handling.patch
+    - e1000e-prevent-crash-from-legacy-interrupt-firing-af.patch
+    - ui-spice-fix-crash-when-disabling-GL-scanout-on.patch
+    - hw-vfio-user-add-x-pci-class-code.patch
+  * d/control.mk: checked-version := 10.1.1+ds
+  * d/control: add python3-distlib:native build-dep variant due to #1115197
+  * aarch64-linux-user-no-pauth.patch: disable pauth on aarch64 linux-user
+    by default (Closes: #1113951)
+
+  [ Luca Boccassi ]
+  * qemu-guest-agent: add ConditionVirtualization=vm
+  * qemu-guest-agent: add Documentation= referring to manpages
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 09 Oct 2025 14:50:34 +0300
+
 qemu (1:10.1.0+ds-5) unstable; urgency=medium
 
   * seabios-hppa-remove-acpi.patch: stop embedded pre-compiled
