@@ -1,3 +1,11 @@
+qemu (1:10.1.2+ds-1) unstable; urgency=medium
+
+  * new upstream stable/bugfix release
+    Closes: #1112285 (assertion failure in qemu-system-alpha)
+    Fixes migration from 10.0 and earlier
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 21 Oct 2025 08:03:28 +0300
+
 qemu (1:10.1.1+ds-1) unstable; urgency=medium
 
   [ Michael Tokarev ]
