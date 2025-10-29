@@ -217,10 +217,11 @@ void virtio_gpu_init_udmabuf(struct virtio_gpu_simple_resource *res)
     void *pdata = NULL;
 
     res->dmabuf_fd = -1;
+
     if (res->iov_cnt == 1 &&
         res->iov[0].iov_len < 4096) {
         pdata = res->iov[0].iov_base;
-    } else {
+    } else if (res->iov_cnt > 0 && res->iov[0].iov_base) {
         rb = qemu_ram_block_from_host(res->iov[0].iov_base, false, &offset);
         if (rb && memory_region_is_ram_device(rb->mr)) {
             if (!is_device_owner_vfio(rb->mr)) {
