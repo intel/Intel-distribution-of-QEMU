@@ -20,3 +20,4 @@ disable-pycotap.patch
 tcg-arm-fix-tgen_deposit.patch
 seabios-hppa-remove-acpi.patch
 riscv-on-ppc64-gcc15-121689.patch
+linux-user-use-correct-type-for-FIBMAP-and-FIGETBSZ.patch

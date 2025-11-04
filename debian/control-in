@@ -131,7 +131,7 @@ Build-Depends-Arch:
 #
 # the testsuite:
 # ipxe-qemu [:system-arch-linux:] <!nocheck>,
- seabios (>> 1.16.3-1~) [:system-arch-linux:] <!nocheck>,
+ seabios (>> 1.17.0-1~) [:system-arch-linux:] <!nocheck>,
  qemu-system-data (>> 1:9.0) [:system-arch-linux:] <!nocheck>,
 #
 # vdso: for linux-user, we need small arch-specific .so files to embed them
@@ -587,7 +587,7 @@ Architecture: :system-arch:
 Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
- seabios (>> 1.16.3-1~),
+ seabios (>> 1.17.0-1~),
  ipxe-qemu,
 Recommends: qemu-utils,
  ovmf,

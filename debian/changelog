@@ -1,3 +1,11 @@
+qemu (1:10.1.2+ds-2) unstable; urgency=medium
+
+  * d/control: bump seabios dependency to 1.17.0 due to ESP fixes
+  * linux-user-use-correct-type-for-FIBMAP-and-FIGETBSZ.patch
+    (Closes: #1119257)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 04 Nov 2025 15:43:29 +0300
+
 qemu (1:10.1.2+ds-1) unstable; urgency=medium
 
   * new upstream stable/bugfix release
