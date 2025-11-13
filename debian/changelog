@@ -1,3 +1,15 @@
+qemu (1:10.1.2+ds-3) unstable; urgency=medium
+
+  * d/control: qemu-system-xen: add the forgotten ipxe-qemu dependency
+    qemu-system binaries require pxe boot roms for the network adaptors.
+    When splitting qemu-system-xen into its own package, this dependency
+    has been forgotten initally, but has been enabled for bookworm (#1035676).
+    However, this change were lost when uploading the next version of qemu
+    aimed for trixie.  So trixie has this issue too, despite it's been fixed
+    in bookworm already.  (Closes: #1035676, #1120146)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 13 Nov 2025 11:38:07 +0300
+
 qemu (1:10.1.2+ds-2) unstable; urgency=medium
 
   * d/control: bump seabios dependency to 1.17.0 due to ESP fixes

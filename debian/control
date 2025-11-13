@@ -572,7 +572,7 @@ Multi-Arch: no
 Build-Profiles: <!pkg.qemu.omit-system !pkg.qemu.omit-system-xen>
 # do we really need qemu-system-data? keymaps only?
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-data (>> ${source:Upstream-Version}~),
- seabios
+ seabios, ipxe-qemu
 Recommends: qemu-utils,
  ovmf,
 Description: QEMU full system emulation (Xen helper package)
