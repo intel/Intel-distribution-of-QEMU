@@ -201,15 +201,15 @@ static int init_func_ram (void)
 	puts ("DRAM:  ");
 
 #ifdef CONFIG_SAM460EX
-	u8 failed = 0;
+	u8 ret;
 	char s[32] = { 0 };
 
 	getenv_r("ddr2_boost", s, 32);
 	gd->flags |= atoi(s) << 16;
 
-	failed = i2c_reg_read(CONFIG_SYS_I2C_RTC_ADDR, 0xe);
+	ret = i2c_reg_read(CONFIG_SYS_I2C_RTC_ADDR, 0xe);
 
-	if (failed >= 1) // there was an error - disable ddr2_boost
+	if (ret >= 1) // there was an error - disable ddr2_boost
 	{
 		gd->flags &= ~(GD_FLG_DDR2_BOOST_READ|GD_FLG_DDR2_BOOST_WRITE);
 		puts("ddr2_boost disabled due previous failure\n       ");
