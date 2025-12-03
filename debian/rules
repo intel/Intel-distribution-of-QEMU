@@ -31,7 +31,11 @@ ifeq ($(VENDOR),ubuntu)
   # upstream tests either.
   export DEB_BUILD_PROFILES += nocheck
 
-  ifneq ($(DEB_HOST_ARCH),amd64)
+  # Enable upstream vDSO if the OR expands to a non-empty string, e.g.:
+  # - $DEB_HOST_ARCH != amd64, OR
+  # - $DEB_HOST_ARCH_VARIANT is set (non-emtpy, e.g. amd64v3)
+  # Those are the conditions where we only run the "binary-arch" build.
+  ifneq ($(or $(filter-out amd64,$(DEB_HOST_ARCH)),$(DEB_HOST_ARCH_VARIANT)),)
     export DEB_BUILD_PROFILES += pkg.qemu.use-upstream-vdso
   endif
 endif
