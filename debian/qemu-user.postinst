@@ -1,4 +1,5 @@
 #! /bin/sh
+set -e
 
 if [ "$1" = configure ]; then
   dpkg-trigger --no-await /usr/lib/binfmt.d

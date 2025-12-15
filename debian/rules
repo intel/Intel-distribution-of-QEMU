@@ -315,6 +315,7 @@ b/xen/configured: configure
 		--audio-drv-list= \
 		--enable-libusb \
 		--enable-pixman --enable-vnc --enable-vnc-jpeg \
+		--enable-vnc-sasl --enable-nettle ${#vnc passwd} \
 		--enable-spice \
 		--enable-virtfs --enable-attr --enable-cap-ng \
 		${QEMU_XEN_CONFIGURE_OPTIONS}
@@ -495,7 +496,7 @@ vdso-subdirs := $(sort $(dir ${vdso-files}))
 vdso-archive = linux-user-vdso.tar.gz
 
 build-vdso: b/${vdso-archive}
-# build-vdso is to make multi-line expantion, not possible with inline $(foreach)
+# build-vdso provides a multi-line expansion not possible inline with $(foreach)
 define build-vdso
 	rm -f ${vdso-files}
 	$(foreach d,${vdso-subdirs},\
