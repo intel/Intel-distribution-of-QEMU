@@ -1,6 +1,6 @@
 // Glue code for parisc architecture
 //
-// Copyright (C) 2017-2024 Helge Deller <deller@gmx.de>
+// Copyright (C) 2017-2025 Helge Deller <deller@gmx.de>
 // Copyright (C) 2019 Sven Schnelle <svens@stackframe.org>
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
@@ -70,6 +70,9 @@ char cpu_bit_width;
 
 /* Do not write back result buffer in compat mode */
 #define NO_COMPAT_RETURN_VALUE(res)     { res = 0; }
+
+/* Should PDC be very strict in regard to compatibility? */
+#define PDC_VERY_STRICT 0
 
 u8 BiosChecksum;
 
@@ -147,6 +150,8 @@ unsigned long pci_hpa = PCI_HPA;    /* HPA of Dino or Elroy0 */
 unsigned long hppa_port_pci_cmd  = (PCI_HPA + DINO_PCI_ADDR);
 unsigned long hppa_port_pci_data = (PCI_HPA + DINO_CONFIG_DATA);
 
+unsigned long lasi_hpa; /* HPA of Lasi, different on B160L and 715 */
+
 /* Want PDC boot menu? Enable via qemu "-boot menu=on" option. */
 unsigned int show_boot_menu;
 unsigned int interact_ipl;
@@ -157,7 +162,8 @@ unsigned int __VISIBLE psw_defaults;
 unsigned long PORT_QEMU_CFG_CTL;
 unsigned int tlb_entries = 256;
 
-#define PARISC_SERIAL_CONSOLE   PORT_SERIAL1
+unsigned long port_serial_1;
+unsigned long port_serial_2;
 
 extern char pdc_entry;
 extern char pdc_entry_table;
@@ -181,6 +187,25 @@ extern long sr_hashing_enabled(void);
 #define FW_BLOCKSIZE    2048
 
 #define MIN_RAM_SIZE	(16*1024*1024) // 16 MB
+
+/* HP hardware identifiers */
+#define HPHW_NPROC     0
+#define HPHW_MEMORY    1
+#define HPHW_B_DMA     2
+#define HPHW_OBSOLETE  3
+#define HPHW_A_DMA     4
+#define HPHW_A_DIRECT  5
+#define HPHW_OTHER     6
+#define HPHW_BCPORT    7
+#define HPHW_CIO       8
+#define HPHW_CONSOLE   9
+#define HPHW_FIO       10
+#define HPHW_BA        11
+#define HPHW_IOA       12
+#define HPHW_BRIDGE    13
+#define HPHW_FABRIC    14
+#define HPHW_MC	       15
+#define HPHW_FAULTY    31
 
 #define CPU_HPA_IDX(i)  (F_EXTEND(CPU_HPA) + (i)*0x1000) /* CPU_HPA of CPU#i */
 
@@ -219,7 +244,7 @@ int enable_OS64 = OS64_32_DEFAULT;
  * Real time clock emulation
  * Either LASI or Astro will provide access to an emulated RTC clock.
  */
-int *rtc_ptr = (int *) (unsigned long) LASI_RTC_HPA;
+int *rtc_ptr;
 
 void __VISIBLE __noreturn hlt(void)
 {
@@ -311,6 +336,21 @@ static struct pdc_module_path mod_path_emulated_drives = {
     .layers = { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 } // first two layer entries get replaced
 };
 
+const char *drive_name(struct drive_s *drive)
+{
+    switch (drive->type) {
+    case DTYPE_ATA:
+    case DTYPE_ATA_ATAPI:       return "ATA";
+    case DTYPE_LSI_SCSI:
+    case DTYPE_ESP_SCSI:
+    case DTYPE_MEGASAS:
+    case DTYPE_PVSCSI:
+    case DTYPE_MPT_SCSI:        return "FWSCSI";
+    case DTYPE_NCR710_SCSI:     return "SCSI";
+    default:                    return "Unkown";
+    }
+}
+
 /********************************************************
  * FIRMWARE IO Dependent Code (IODC) HANDLER
  ********************************************************/
@@ -356,54 +396,53 @@ struct machine_info {
 #include "parisc/c3700.h"
 #include "parisc/machine-create.h"
 
+#if !defined(__LP64__)
 #define MACHINE	715
 #include "parisc/715_64.h"
 #include "parisc/machine-create.h"
+#else
+#define machine_715 machine_B160L
+#endif
 
 struct machine_info *current_machine = &machine_B160L;
 
 static hppa_device_t *parisc_devices = machine_B160L.device_list;
 
-#define PARISC_KEEP_LIST \
-    DINO_UART_HPA,\
-    /* DINO_SCSI_HPA, */ \
-    LASI_UART_HPA, \
-    LASI_LAN_HPA, \
-    LASI_LPT_HPA, \
-    LASI_GFX_HPA,\
-    LASI_PS2KBD_HPA, \
-    LASI_PS2MOU_HPA, \
-    MEMORY_HPA, \
-    0
-
 static const char *hpa_name(unsigned long hpa)
 {
     int i;
 
-    #define DO(x) if (hpa == F_EXTEND(x)) return #x;
-    DO(GSC_HPA)
-    DO(DINO_HPA)
-    DO(DINO_UART_HPA)
-    DO(DINO_SCSI_HPA)
-    DO(CPU_HPA)
-    DO(MEMORY_HPA)
-    DO(SCSI_HPA)
-    DO(LASI_HPA)
-    DO(LASI_UART_HPA)
-    DO(LASI_SCSI_HPA)
-    DO(LASI_LAN_HPA)
-    DO(LASI_LPT_HPA)
-    DO(LASI_AUDIO_HPA)
-    DO(LASI_PS2KBD_HPA)
-    DO(LASI_PS2MOU_HPA)
-    DO(LASI_GFX_HPA)
-    DO(ASTRO_HPA)
-    DO(ASTRO_MEMORY_HPA)
-    DO(ELROY0_HPA)
-    DO(ELROY2_HPA)
-    DO(ELROY8_HPA)
-    DO(ELROYc_HPA)
-    #undef DO
+    /* mask out possible disable flag */
+    hpa &= ~HPA_DISABLED_DEVICE;
+    hpa = F_EXTEND(hpa);
+
+    #define DO2(y,x)    if (hpa == F_EXTEND(x)) return #y;
+    #define DO1(x)      DO2(x,x)
+    DO1(GSC_HPA)
+    DO1(DINO_HPA)
+    DO1(DINO_UART_HPA)
+    DO1(DINO_SCSI_HPA)
+    DO2(CPU_HPA, CPU_HPA)
+    DO2(MEMORY_HPA, MEMORY_HPA)
+    DO1(SCSI_HPA)
+    DO2(LASI_HPA, lasi_hpa)
+    DO2(LASI_UART_HPA,  lasi_hpa + LASI_UART)
+    DO2(LASI_SCSI_HPA,  lasi_hpa + LASI_SCSI)
+    DO2(LASI_LAN_HPA,   lasi_hpa + LASI_LAN)
+    DO2(LASI_LPT_HPA,   lasi_hpa + LASI_LPT)
+    DO2(LASI_AUDIO_HPA, lasi_hpa + LASI_AUDIO)
+    DO2(LASI_PS2KBD_HPA,lasi_hpa + LASI_PS2)
+    DO2(LASI_PS2MOU_HPA,lasi_hpa + LASI_PS2 + 0x100)
+    DO2(LASI_FDC,       lasi_hpa + LASI_FDC)
+    DO1(LASI_GFX_HPA)
+    DO1(ASTRO_HPA)
+    DO1(ASTRO_MEMORY_HPA)
+    DO1(ELROY0_HPA)
+    DO1(ELROY2_HPA)
+    DO1(ELROY8_HPA)
+    DO1(ELROYc_HPA)
+    #undef DO1
+    #undef DO2
 
     /* could be one of the SMP CPUs */
     for (i = 1; i < smp_cpus; i++) {
@@ -506,7 +545,7 @@ int DEV_is_storage_device(hppa_device_t *dev)
     BUG_ON(!dev);
     if (dev->pci)
         return (dev->pci->class == PCI_CLASS_STORAGE_SCSI);
-    return ((dev->iodc->type & 0xf) == 0x04); /* HPHW_A_DMA */
+    return ((dev->iodc->type & 0x1f) == HPHW_FIO);
 }
 
 int DEV_is_serial_device(hppa_device_t *dev)
@@ -515,7 +554,7 @@ int DEV_is_serial_device(hppa_device_t *dev)
     if (dev->pci)
         return (dev->pci->class == PCI_CLASS_COMMUNICATION_SERIAL ||
                 dev->pci->class == PCI_CLASS_COMMUNICATION_MULTISERIAL);
-    return ((dev->iodc->type & 0xf) == 0x0a); /* HPHW_FIO */
+    return ((dev->iodc->type & 0x1f) == HPHW_FIO); // HPHW_CIO ??
 }
 
 int HPA_is_serial_device(unsigned long hpa)
@@ -533,12 +572,12 @@ int DEV_is_network_device(hppa_device_t *dev)
     BUG_ON(!dev);
     if (dev->pci)
         return (dev->pci->class == PCI_CLASS_NETWORK_ETHERNET);
-    return ((dev->iodc->type & 0xf) == 0x0a); /* HPHW_FIO */
+    return ((dev->iodc->type & 0x1f) == HPHW_FIO);
 }
 
 static int HPA_is_LASI_keyboard(unsigned long hpa)
 {
-    return !has_astro && (hpa == LASI_PS2KBD_HPA);
+    return !has_astro && (hpa == (lasi_hpa + LASI_PS2));
 }
 
 #if 0
@@ -587,15 +626,16 @@ static const char *hpa_device_name(unsigned long hpa, int output)
     return HPA_is_LASI_graphics(hpa) ? "GRAPHICS(1)" :
             HPA_is_graphics_device(hpa) ? "VGA" :
             HPA_is_LASI_keyboard(hpa) ? "PS2" :
-            ((hpa + 0x800) == PORT_SERIAL1) ?
+            ((hpa + 0x800) == port_serial_1) ?
                 "SERIAL_1.9600.8.none" : "SERIAL_2.9600.8.none";
 }
 
-static void print_mod_path(struct pdc_module_path *p)
+static void print_mod_path(struct pdc_module_path *p, int newline)
 {
-    dprintf(1, "PATH %d/%d/%d/%d/%d/%d/%d:%d.%d.%d ", p->path.bc[0], p->path.bc[1],
+    printf("PATH %d/%d/%d/%d/%d/%d/%d:%d.%d.%d %s", p->path.bc[0], p->path.bc[1],
             p->path.bc[2],p->path.bc[3],p->path.bc[4],p->path.bc[5],
-            p->path.mod, p->layers[0], p->layers[1], p->layers[2]);
+            p->path.mod, p->layers[0], p->layers[1], p->layers[2],
+            newline ? "\n":"");
 }
 
 void make_module_path_from_pcidev(struct pci_device *pci,
@@ -746,58 +786,48 @@ static hppa_device_t *find_hpa_device(unsigned long hpa)
     return NULL;
 }
 
-static unsigned long keep_list[20] = { PARISC_KEEP_LIST };
-
-static void remove_from_keep_list(unsigned long hpa)
+/* remove one hpa entry from the inventory table */
+static void drop_parisc_device(unsigned long drop_hpa)
 {
-    int i = 0;
+    unsigned long hpa;
+    int p, t;
 
-    while (keep_list[i] && keep_list[i] != hpa)
-        i++;
-    while (keep_list[i]) {
-            keep_list[i] = keep_list[i+1];
-            ++i;
+    p = t = 0;
+    while ((hpa = parisc_devices[p].hpa) != 0) {
+        if (drop_hpa == hpa)    // skip it
+            p++;
+        if (p != t)
+            parisc_devices[t] = parisc_devices[p];
+        t++;
+        p++;
     }
+    parisc_devices[t].hpa = 0;  // mark end of list
 }
 
-static int keep_this_hpa(unsigned long hpa)
-{
-    int i = 0;
-
-    while (keep_list[i]) {
-        if (keep_list[i] == hpa)
-            return 1;
-        i++;
-    }
-    return 0;
-}
 
 /* walk all machine devices and add generic ones to the keep_list[] */
 static int keep_add_generic_devices(void)
 {
     hppa_device_t *dev = current_machine->device_list;
-    int i = 0;
-
-    /* search end of list */
-    while (keep_list[i]) i++;
 
     while (dev->hpa) {
-	switch (dev->iodc->type) {
-	case 0x0041:	/* Memory. Save HPA in PAGE0 entry. */
-                        /* MEMORY_HPA or ASTRO_MEMORY_HPA */
-                PAGE0->imm_hpa = dev->hpa;
-                /* fallthrough */
-	case 0x0007:	/* GSC+ Port bridge */
-	case 0x004d:	/* Dino PCI bridge */
-	case 0x004b:	/* Core Bus adapter (LASI) */
-	case 0x0040:	/* CPU */
-	case 0x000d:	/* Elroy PCI bridge */
-	case 0x000c:	/* Runway port */
-		keep_list[i++] = dev->hpa;
+        if (0) printf("DEVICE HPA %lx  name %s  type %d\n",
+                dev->hpa, hpa_name(dev->hpa), dev->iodc->type & 0x1f);
+        switch (dev->iodc->type & 0x1f) {
+        case HPHW_MEMORY:       /* Memory. Save HPA in PAGE0 entry. */
+                                /* MEMORY_HPA or ASTRO_MEMORY_HPA */
+            PAGE0->imm_hpa = dev->hpa;
+            /* fallthrough */
+        case HPHW_NPROC:        /* CPU */
+        case HPHW_BCPORT:       /* GSC+ Port bridge */
+        case HPHW_FIO:          /* Serial & UART devices */
+        case HPHW_BA:           /* Core Bus adapter (LASI) */
+        case HPHW_IOA:          /* Runway port */
+        case HPHW_BRIDGE:       /* Elroy/Dino PCI bridge */
+            /* nothing */
 	}
 	dev++;
     }
-    BUG_ON(i >= ARRAY_SIZE(keep_list));
 
     return 0;
 }
@@ -812,41 +842,38 @@ static void remove_parisc_devices(unsigned int num_cpus)
     unsigned long hpa, cpu_offset;
     int i, p, t;
 
-    /* already initialized? */
-    static int uninitialized = 1;
-    if (!uninitialized)
-        return;
-    uninitialized = 0;
+    /* check if qemu emulates LASI i82596 LAN card */
+    if (lasi_hpa && *(unsigned long *)(lasi_hpa + LASI_LAN + 12) != 0xBEEFBABE)
+        drop_parisc_device(lasi_hpa + LASI_LAN);
 
-    /* check if qemu emulates LASI chip (LASI_IAR exists) */
-    if (has_astro || *(unsigned long *)(LASI_HPA+16) == 0) {
-        remove_from_keep_list(LASI_UART_HPA);
-        remove_from_keep_list(LASI_LAN_HPA);
-        remove_from_keep_list(LASI_LPT_HPA);
-    } else {
-        /* check if qemu emulates LASI i82596 LAN card */
-        if (*(unsigned long *)(LASI_LAN_HPA+12) != 0xBEEFBABE)
-            remove_from_keep_list(LASI_LAN_HPA);
-    }
+    /* check if qemu emulates LASI SCSI card */
+    if (lasi_hpa && *(unsigned long *)(lasi_hpa + LASI_SCSI) != 0x5000082)
+        drop_parisc_device(lasi_hpa + LASI_SCSI);
 
+    /* remove all devices which are marked as disabled */
     p = t = 0;
     while ((hpa = parisc_devices[p].hpa) != 0) {
-        if (keep_this_hpa(hpa)) {
+        if (hpa == CPU_HPA || (parisc_devices[p].iodc->type & 0x1f) == HPHW_NPROC)
+            cpu_dev = &parisc_devices[t];
+        if (hpa & HPA_DISABLED_DEVICE)
+            p++;
+        if (p != t)
             parisc_devices[t] = parisc_devices[p];
-            if (hpa == CPU_HPA)
-                cpu_dev = &parisc_devices[t];
-            t++;
-        }
+        if (hpa & HPA_DISABLED_DEVICE)
+            continue;
         p++;
+        t++;
     }
 
     /* Fix monarch CPU */
     BUG_ON(!cpu_dev);
     cpu_dev->mod_info->mod_addr = F_EXTEND(CPU_HPA);
     if (has_astro)
-        cpu_offset = CPU_HPA - 32*0x1000;
+        cpu_offset = CPU_HPA - 32 * 0x1000;
+    else if (pci_hpa)
+        cpu_offset = pci_hpa;   /* B160L */
     else
-        cpu_offset = pci_hpa;
+        cpu_offset = CPU_HPA - 8 * 0x1000; /* 715 */
     cpu_dev->mod_path->path.mod = (CPU_HPA - cpu_offset) / 0x1000;
 
     /* Generate other CPU devices */
@@ -1060,14 +1087,13 @@ static void parisc_serial_out(char c)
     }
     if (0) {
         dprintf(1,"parisc_serial_out  search hpa %x   ", PAGE0->mem_cons.hpa);
-        print_mod_path(&PAGE0->mem_cons.dp);
-        dprintf(1,"  \n");
+        print_mod_path(&PAGE0->mem_cons.dp, 1);
     }
     hppa_device_t *dev;
     dev = find_hppa_device_by_path(&PAGE0->mem_cons.dp, NULL, 0);
     if (0) {
         dprintf(1,"parisc_serial_out  hpa %x\n", PAGE0->mem_cons.hpa);
-        print_mod_path(dev->mod_path);
+        print_mod_path(dev->mod_path, 0);
     }
     if (!dev) hlt();
     BUG_ON(!dev);
@@ -1150,9 +1176,9 @@ int __VISIBLE parisc_iodc_ENTRY_IO(unsigned int *arg)
     }
 
     if (1 &&
-            (((DEV_is_serial_device(dev) || HPA_is_graphics_device(hpa)) && option == ENTRY_IO_COUT) ||
-             ((DEV_is_serial_device(dev) || HPA_is_graphics_device(hpa)) && option == ENTRY_IO_CIN) ||
-             ((DEV_is_storage_device(dev) && option == ENTRY_IO_BOOTIN && !(pdc_debug & DEBUG_BOOT_IO)))) ) {
+            (( option == ENTRY_IO_COUT   && (DEV_is_serial_device(dev) || HPA_is_graphics_device(hpa))) ||
+             ( option == ENTRY_IO_CIN    && (DEV_is_serial_device(dev) || HPA_is_graphics_device(hpa))) ||
+             ((option == ENTRY_IO_BOOTIN && !(pdc_debug & DEBUG_BOOT_IO)) && DEV_is_storage_device(dev))) ) {
         /* avoid debug messages */
     } else {
         iodc_log_call(arg, __FUNCTION__);
@@ -1189,19 +1215,22 @@ int __VISIBLE parisc_iodc_ENTRY_IO(unsigned int *arg)
                 disk_op.command = option == ENTRY_IO_BOOTOUT ? CMD_WRITE : CMD_READ;
 
                 // Make sure we know how many bytes we can read at once!
-                // NOTE: LSI SCSI can not read more than 8191 blocks, esp only 64k
+                // NOTE: LSI SCSI can not read more than 8191 blocks, esp only 64k bytes
                 if (disk_op.drive_fl->max_bytes_transfer == 0) {
                     dprintf(0, "WARNING: Maximum transfer size not set for boot disc.\n");
                     disk_op.drive_fl->max_bytes_transfer = 64*1024;   /* 64kb */
                 }
 
+                unsigned long bytes_requested = ARG7;
+                unsigned long current_lba = ARG5 / disk_op.drive_fl->blksize;
+
                 if (option == ENTRY_IO_BBLOCK_IN) { /* in 2k blocks */
                     unsigned long maxcount;
                     // one block at least
-                    // if (!ARG7) return PDC_INVALID_ARG;
+                    // if (!bytes_requested) return PDC_INVALID_ARG;
                     /* reqsize must not be bigger than maxsize */
-                    // if (ARG7 > ARG8) return PDC_INVALID_ARG;
-                    disk_op.count = (ARG7 * ((u64)FW_BLOCKSIZE / disk_op.drive_fl->blksize));
+                    // if (bytes_requested > ARG8) return PDC_INVALID_ARG;
+                    disk_op.count = (bytes_requested * ((u64)FW_BLOCKSIZE / disk_op.drive_fl->blksize));
                     // limit transfer size (#blocks) based on scsi controller capability
                     maxcount = disk_op.drive_fl->max_bytes_transfer / disk_op.drive_fl->blksize;
                     if (disk_op.count > maxcount)
@@ -1209,21 +1238,51 @@ int __VISIBLE parisc_iodc_ENTRY_IO(unsigned int *arg)
                     disk_op.lba = (ARG5 * ((u64)FW_BLOCKSIZE / disk_op.drive_fl->blksize));
                 } else {
                     // read one block at least.
-                    if (ARG7 && (ARG7 < disk_op.drive_fl->blksize))
-                        ARG7 = disk_op.drive_fl->blksize;
-                    // limit transfer size based on scsi controller capability
-                    if (ARG7 > disk_op.drive_fl->max_bytes_transfer)
-                        ARG7 = disk_op.drive_fl->max_bytes_transfer;
+                    if (bytes_requested && (bytes_requested < disk_op.drive_fl->blksize))
+                        bytes_requested = disk_op.drive_fl->blksize;
                     /* reqsize must be multiple of 2K */
-                    if (ARG7 & (FW_BLOCKSIZE-1))
+                    if (bytes_requested & (FW_BLOCKSIZE-1))
                         return PDC_INVALID_ARG;
                     /* reqsize must not be bigger than maxsize */
-                    // if (ARG7 > ARG8) return PDC_INVALID_ARG;
+                    // if (bytes_requested > ARG8) return PDC_INVALID_ARG;
                     /* medium start must be 2K aligned */
                     if (ARG5 & (FW_BLOCKSIZE-1))
                         return PDC_INVALID_ARG;
-                    disk_op.count = (ARG7 / disk_op.drive_fl->blksize);
-                    disk_op.lba = (ARG5 / disk_op.drive_fl->blksize);
+#if PDC_VERY_STRICT
+                    /* If we are strict, a 715 may not be able to boot from some ODE CD-ROMS. */
+                    if (bytes_requested > disk_op.drive_fl->max_bytes_transfer)
+                        bytes_requested = disk_op.drive_fl->max_bytes_transfer;
+                    disk_op.count = (bytes_requested / disk_op.drive_fl->blksize);
+                    disk_op.lba = current_lba;
+#else /* PDC_VERY_STRICT */
+                    unsigned long bytes_read = 0;
+                    unsigned char *current_buf = (unsigned char *)ARG6;
+
+                    while (bytes_read < bytes_requested) {
+                        unsigned long bytes_remaining = bytes_requested - bytes_read;
+                        unsigned long bytes_this_read = bytes_remaining;
+
+                        if (bytes_this_read > disk_op.drive_fl->max_bytes_transfer)
+                            bytes_this_read = disk_op.drive_fl->max_bytes_transfer;
+
+                        disk_op.buf_fl = current_buf;
+                        disk_op.count = bytes_this_read / disk_op.drive_fl->blksize;
+                        disk_op.lba = current_lba;
+
+                        ret = process_op(&disk_op);
+                        if (ret) {
+                            return PDC_ERROR;
+                        }
+
+                        unsigned long count = disk_op.count * disk_op.drive_fl->blksize;
+                        bytes_read += count;
+                        current_lba += disk_op.count;
+                        current_buf += count;
+                    }
+
+                    result[0] = bytes_read;
+                    return PDC_OK;
+#endif /* PDC_VERY_STRICT */
                 }
 
                 // dprintf(0, "LBA %d  COUNT  %d\n", (u32) disk_op.lba, (u32)disk_op.count);
@@ -1232,7 +1291,7 @@ int __VISIBLE parisc_iodc_ENTRY_IO(unsigned int *arg)
                     result[0] = disk_op.count * disk_op.drive_fl->blksize; /* return bytes */
                 else
                     result[0] = (disk_op.count * (u64)disk_op.drive_fl->blksize) / FW_BLOCKSIZE; /* return blocks */
-                // printf("\nBOOT IO result %d, requested %d, read %ld\n", ret, ARG7, result[0]);
+                // printf("\nBOOT IO result %d, requested %d, read %ld\n", ret, bytes_requested, result[0]);
                 if (ret)
                     return PDC_ERROR;
                 return PDC_OK;
@@ -1530,8 +1589,9 @@ static int pdc_model(unsigned long *arg, unsigned long narrow_mode)
              * with old qemu versions which will try to run 64-bit instructions
              * kernel sr_disable_hash() function
              */
-            source = is_64bit_CPU() ? &current_machine->pdc_model.hversion
-                                    : &machine_B160L.pdc_model.hversion;
+            source = !is_64bit_PDC() || is_64bit_CPU() ?
+                        &current_machine->pdc_model.hversion
+                      : &machine_B160L.pdc_model.hversion;
 
             /* make sure to only copy the necessary bytes. */
             NO_COMPAT_RETURN_VALUE(ARG2);
@@ -1552,7 +1612,8 @@ static int pdc_model(unsigned long *arg, unsigned long narrow_mode)
                     result[0] = current_machine->pdc_version;
                     return PDC_OK;
                 case 1: /* return PDC version */
-                    result[0] = (is_64bit_CPU()) ? 0x20 : 0x011;
+                    /* defaults: 715 has 0x16, B160L has 0x11, C3700 has 0x20 */
+                    result[0] = (is_64bit_CPU()) ? 0x20 : 0x016;
                     return PDC_OK;
                 case 2: /* return PDC PAT(?) version */
                     if (!is_64bit_CPU())
@@ -1573,7 +1634,7 @@ static int pdc_model(unsigned long *arg, unsigned long narrow_mode)
             return PDC_OK;
         case PDC_MODEL_CPU_ID:
             /* if CPU does not support 64bits, use the B160L CPUID */
-            if (is_64bit_CPU())
+            if (!is_64bit_PDC() || is_64bit_CPU())
                 result[0] = current_machine->pdc_cpuid;
             else
                 result[0] = machine_B160L.pdc_cpuid;
@@ -1773,9 +1834,9 @@ static int pdc_iodc(unsigned long *arg)
         case PDC_IODC_NINIT:	/* non-destructive init - for memory */
         case PDC_IODC_DINIT:	/* destructive init */
             result[0] = 0; /* IO_STATUS */
-            result[1] = 0; /* max_spa */
-            result[2] = ram_size_low; /* max memory */
-            result[3] = 0;
+            result[1] = ram_size_low; /* max_spa = max_mem + mappable_mem */
+            result[2] = ram_size_low; /* max_memory */
+            result[3] = 0; /* mappable memory */
             return PDC_OK;
         case PDC_IODC_MEMERR:
             result[0] = 0; /* IO_STATUS */
@@ -2064,6 +2125,11 @@ static int pdc_system_map(unsigned long *arg)
     unsigned long hpa_index;
 
     // dprintf(0, "\n\nSeaBIOS: Info: PDC_SYSTEM_MAP function %ld ARG3=%x ARG4=%x ARG5=%x\n", option, ARG3, ARG4, ARG5);
+
+    /* old machines (715 is Snake type) do not support PDC_SYSTEM_MAP */
+    if (!is_64bit_PDC() && current_machine != &machine_B160L)
+        return PDC_BAD_PROC; // PDC_BAD_OPTION is not sufficient!
+
     switch (option) {
         case PDC_FIND_MODULE:
             hpa_index = ARG4;
@@ -2073,7 +2139,7 @@ static int pdc_system_map(unsigned long *arg)
 
             if (0) {
                 dprintf(1, "PDC_FIND_MODULE dev=%p hpa=%lx ", dev, dev ? dev->hpa:0UL);
-                print_mod_path(dev->mod_path);
+                print_mod_path(dev->mod_path, 0);
                 if (dev->pci)
                     dprintf(1, "PCI %pP ", dev->pci);
                 dprintf(1, "\n");
@@ -2112,7 +2178,7 @@ static int pdc_system_map(unsigned long *arg)
             hppa_device_t *dev = find_hppa_device_by_path(mod_path, &hpa_index, 1); // XXX
             if (0) {
                 dprintf(1, "PDC_TRANSLATE_PATH dev=%p hpa=%lx ", dev, dev ? dev->hpa:0UL);
-                print_mod_path(mod_path);
+                print_mod_path(mod_path, 0);
                 if (dev && dev->pci)
                     dprintf(1, "PCI %pP ", dev->pci);
                 dprintf(1, "\n");
@@ -2166,7 +2232,9 @@ static int pdc_mem_map(unsigned long *arg)
             dev = find_hppa_device_by_path(dp, NULL, 0);
             if (!dev)
                 return PDC_NE_MOD;
-            memcpy(memmap, dev->mod_info, sizeof(*memmap));
+
+            memmap->hpa = dev->hpa;
+            memmap->more_pgs = dev->mod_info->mod_pgs;
             return PDC_OK;
     }
     return PDC_BAD_OPTION;
@@ -2194,14 +2262,14 @@ static int pdc_lan_station_id(unsigned long *arg)
 
     switch (option) {
         case PDC_LAN_STATION_ID_READ:
-            if (has_astro)
+            if (!lasi_hpa)
                 return PDC_INVALID_ARG;
-            if (ARG3 != LASI_LAN_HPA)
+            if (ARG3 != lasi_hpa + LASI_LAN)
                 return PDC_INVALID_ARG;
-            if (!keep_this_hpa(LASI_LAN_HPA))
+            if (!find_hpa_device(lasi_hpa + LASI_LAN))
                 return PDC_INVALID_ARG;
             /* Let qemu store the MAC of NIC to address @ARG2 */
-            *(unsigned long *)(LASI_LAN_HPA+12) = ARG2;
+            *(unsigned long *)(lasi_hpa + LASI_LAN + 12) = ARG2;
             NO_COMPAT_RETURN_VALUE(ARG2);
             return PDC_OK;
     }
@@ -2816,7 +2884,7 @@ again2:
         printf("Unknown command, please try again.\n\n");
         goto again2;
     }
-    // from here on we handle "BOOT PRI/ALT/FWSCSI.x"
+    // from here on we handle "BOOT PRI/ALT/SCSI.x"
     c = input;
     while (*c && (*c != ' '))   c++;    // search space
     // preset with default boot target (this is same as "BOOT PRI"
@@ -2832,7 +2900,7 @@ again2:
     }
 
     if (!parisc_get_scsi_target(&boot_drive, scsi_boot_target)) {
-        printf("No FWSCSI.%d.0 device available for boot. Please try again.\n\n",
+        printf("No SCSI.%d.0 device available for boot. Please try again.\n\n",
             scsi_boot_target);
         goto again2;
     }
@@ -2852,7 +2920,7 @@ again2:
 static int parisc_boot_menu(unsigned long *iplstart, unsigned long *iplend,
         char bootdrive)
 {
-    int ret;
+    int ret, i;
     unsigned int *target = (void *)(PAGE0->mem_free + 32*1024);
     struct disk_op_s disk_op = {
         .buf_fl = target,
@@ -2922,6 +2990,13 @@ static int parisc_boot_menu(unsigned long *iplstart, unsigned long *iplend,
     // IPL_SIZE - Multiple of 2 Kbytes, nonzero, less than or equal to 256 Kbytes.
     // IPL_ENTRY-  Word aligned, less than IPL_SIZE
 
+    /* If we are strict, a 715 may not be able to boot from some ODE CD-ROMS. */
+    if (ipl_size > disk_op.drive_fl->max_bytes_transfer) {
+        printf("ERROR: Cannot load IPL, %d too big for max size of %d bytes.",
+            ipl_size, disk_op.drive_fl->max_bytes_transfer);
+        return 0;
+    }
+
     /* seek to beginning of IPL */
     disk_op.drive_fl = boot_drive;
     disk_op.command = CMD_SEEK;
@@ -2937,9 +3012,16 @@ static int parisc_boot_menu(unsigned long *iplstart, unsigned long *iplend,
     disk_op.count = (ipl_size / disk_op.drive_fl->blksize);
     disk_op.lba = (ipl_addr / disk_op.drive_fl->blksize);
     ret = process_op(&disk_op);
-    // printf("DISK_READ IPL returned %d\n", ret);
+    // printf("DISK_READ IPL returned %d, count %d of %d\n", ret, disk_op.count, ipl_size / disk_op.drive_fl->blksize);
 
     // printf("First word at %p is 0x%x\n", target, target[0]);
+    /* verify IPL checksum */
+    unsigned int sum = 0, *ps = (unsigned int *)ipl_addr;
+    for (i = 0; i < ipl_size / sizeof(int); i++, ++ps)
+        sum += *ps;
+    if (sum != 0) {
+        printf("SeaBIOS: WARNING: IPL checksum is not 0.\n");
+    }
 
     /* execute IPL */
     // TODO: flush D- and I-cache, not needed in emulation ?
@@ -2960,23 +3042,23 @@ static struct pz_device mem_cons_sti_boot = {
 };
 
 static struct pz_device mem_kbd_sti_boot = {
-    .hpa = LASI_PS2KBD_HPA,
+    .hpa = 0, /* initialized to PS2 port if available */
     .cl_class = CL_KEYBD,
 };
 
 static struct pz_device mem_cons_boot = {
-    .hpa = PARISC_SERIAL_CONSOLE - 0x800,
+    .hpa = 0, /* initialized to first serial port at bootup */
     .cl_class = CL_DUPLEX,
 };
 
 static struct pz_device mem_kbd_boot = {
-    .hpa = PARISC_SERIAL_CONSOLE - 0x800,
+    .hpa = 0, /* initialized to first serial port at bootup */
     .cl_class = CL_KEYBD,
 };
 
 static struct pz_device mem_boot_boot = {
     .dp.path.flags = PF_AUTOBOOT,
-    .hpa = DINO_SCSI_HPA,  // will be overwritten
+    .hpa = 0, /* initialized to some SCSI card if available */
     .cl_class = CL_RANDOM,
 };
 
@@ -3222,14 +3304,23 @@ void __VISIBLE start_parisc_firmware(void)
 
     /* which machine shall we emulate? */
     str = romfile_loadfile("/etc/hppa/machine", NULL);
-    if (!str) {
-        str = "B160L";
+    if (!is_64bit_PDC() && !str)
+        str = "B160L";  /* default machine */
+    if (!is_64bit_PDC() && strcmp(str, "B160L") == 0) {
+        has_astro = 0; /* No Astro */
         current_machine = &machine_B160L;
         pci_hpa = DINO_HPA;
         hppa_port_pci_cmd  = pci_hpa + DINO_PCI_ADDR;
         hppa_port_pci_data = pci_hpa + DINO_CONFIG_DATA;
-    }
-    if (strcmp(str, "C3700") == 0) {
+        lasi_hpa = LASI_HPA;
+        port_serial_1 = lasi_hpa + LASI_UART + 0x800;
+        port_serial_2 = DINO_UART_HPA + 0x800;
+        mem_cons_boot.hpa = lasi_hpa + LASI_UART; /* serial port */
+        mem_kbd_boot.hpa = lasi_hpa + LASI_UART;
+        mem_kbd_sti_boot.hpa = lasi_hpa + LASI_PS2;
+        mem_boot_boot.hpa = lasi_hpa + LASI_SCSI;
+    } else
+    if (is_64bit_PDC() && strcmp(str, "C3700") == 0) {
         has_astro = 1;
         current_machine = &machine_C3700;
         pci_hpa = (unsigned long) ELROY0_BASE_HPA;
@@ -3237,18 +3328,30 @@ void __VISIBLE start_parisc_firmware(void)
         hppa_port_pci_data = pci_hpa + 0x048;
         // but report back ASTRO_HPA
         // pci_hpa = (unsigned long) ASTRO_HPA;
+        lasi_hpa = 0;
         /* no serial port for now, will find later */
+        port_serial_1 = 0;
+        port_serial_2 = 0;
         mem_cons_boot.hpa = 0;
         mem_kbd_boot.hpa = 0;
-    }
-    if (strcmp(str, "715") == 0) {
+        mem_kbd_sti_boot.hpa = 0;
+    } else
+    if (!is_64bit_PDC() && strcmp(str, "715") == 0) {
         has_astro = 0; /* No Astro */
         current_machine = &machine_715;
         pci_hpa = 0; /* No PCI bus */
         hppa_port_pci_cmd  = 0;
         hppa_port_pci_data = 0;
-        mem_cons_boot.hpa = 0xf0105000; /* serial port */
-        mem_kbd_boot.hpa = 0xf0105000;
+        lasi_hpa = LASI_HPA_715;
+        port_serial_1 = lasi_hpa + LASI_UART + 0x800;
+        port_serial_2 = 0;
+        mem_cons_boot.hpa = lasi_hpa + LASI_UART; /* serial port */
+        mem_kbd_boot.hpa = lasi_hpa + LASI_UART;
+        mem_kbd_sti_boot.hpa = lasi_hpa + LASI_PS2;
+        mem_boot_boot.hpa = lasi_hpa + LASI_SCSI;
+    } else {
+        printf("SeaBIOS: Error: Firmware and CPU do not match!\n");
+        hlt();
     }
     parisc_devices = current_machine->device_list;
     strtcpy(qemu_machine, str, sizeof(qemu_machine));
@@ -3273,7 +3376,7 @@ void __VISIBLE start_parisc_firmware(void)
     }
 
     /* real-time-clock addr */
-    rtc_ptr = (int *) F_EXTEND(romfile_loadint("/etc/hppa/rtc-addr", (int) LASI_RTC_HPA));
+    rtc_ptr = (int *) F_EXTEND(romfile_loadint("/etc/hppa/rtc-addr", (int) lasi_hpa + 0x9000));
     // dprintf(0, "RTC PTR 0x%p\n", rtc_ptr);
 
     /* use -fw_cfg opt/pdc_debug,string=255 to enable all firmware debug infos */
@@ -3352,9 +3455,9 @@ void __VISIBLE start_parisc_firmware(void)
         else
             ps2port_setup();
     } else {
-        remove_from_keep_list(LASI_GFX_HPA);
-        remove_from_keep_list(LASI_PS2KBD_HPA);
-        remove_from_keep_list(LASI_PS2MOU_HPA);
+        drop_parisc_device(LASI_GFX_HPA);
+        drop_parisc_device(lasi_hpa + LASI_PS2);
+        drop_parisc_device(lasi_hpa + LASI_PS2 + 0x100);
     }
 
     /* Initialize device list */
@@ -3369,7 +3472,9 @@ void __VISIBLE start_parisc_firmware(void)
         for (i=0; parisc_devices[i].hpa; i++) {
             dev = &parisc_devices[i];
             hpa = dev->hpa;
-            printf("Kept #%d at 0x%lx %s  parent_hpa 0x%lx index %d\n", i, hpa, hpa_name(hpa), dev->hpa_parent, dev->index );
+            printf("Kept #%d at 0x%lx %s  parent_hpa 0x%lx index %d ",
+                i, hpa, hpa_name(hpa), dev->hpa_parent, dev->index);
+            print_mod_path(dev->mod_path, 1);
         }
     }
 
@@ -3398,16 +3503,19 @@ void __VISIBLE start_parisc_firmware(void)
     RamSize = ram_size;
     // coreboot_preinit();
 
-    pci_setup();
-    if (has_astro) {
-        iosapic_table_setup();
-    }
-    hppa_pci_build_devices_list();
+    if (pci_hpa) {
+        pci_setup();
+        if (has_astro) {
+            iosapic_table_setup();
+        }
+        hppa_pci_build_devices_list();
 
-    /* find serial PCI card when running on Astro */
-    find_serial_pci_card();
+        /* find serial PCI card when running on Astro */
+        find_serial_pci_card();
+    }
 
     serial_setup();
+    ps2port_setup();
     // usb_setup();
     // ohci_setup();
     block_setup();
@@ -3438,7 +3546,7 @@ void __VISIBLE start_parisc_firmware(void)
             "Duplex Console IO Dependent Code (IODC) revision " SEABIOS_HPPA_VERSION_STR "\n"
             "\n", is_64bit_PDC() ? 64 : 32, qemu_version);
     printf("------------------------------------------------------------------------------\n"
-            "  (c) Copyright 2017-2024 Helge Deller <deller@gmx.de> and SeaBIOS developers.\n"
+            "  (c) Copyright 2017-2025 Helge Deller <deller@gmx.de> and SeaBIOS developers.\n"
             "------------------------------------------------------------------------------\n\n");
     printf( "  Processor   Speed            State           Coprocessor State  Cache Size\n"
             "  ---------  --------   ---------------------  -----------------  ----------\n");
@@ -3459,12 +3567,12 @@ void __VISIBLE start_parisc_firmware(void)
     // search boot devices
     find_initial_parisc_boot_drives(&parisc_boot_harddisc, &parisc_boot_cdrom);
 
-    printf("  Primary boot path:    FWSCSI.%d.%d\n"
-           "  Alternate boot path:  FWSCSI.%d.%d\n"
+    printf("  Primary boot path:    %s.%d.%d\n"
+           "  Alternate boot path:  %s.%d.%d\n"
            "  Console path:         %s\n"
            "  Keyboard path:        %s\n\n",
-            parisc_boot_harddisc->target, parisc_boot_harddisc->lun,
-            parisc_boot_cdrom->target, parisc_boot_cdrom->lun,
+            drive_name(parisc_boot_harddisc), parisc_boot_harddisc->target, parisc_boot_harddisc->lun,
+            drive_name(parisc_boot_cdrom),    parisc_boot_cdrom->target, parisc_boot_cdrom->lun,
             hpa_device_name(PAGE0->mem_cons.hpa, 1),
             hpa_device_name(PAGE0->mem_kbd.hpa, 0));
 

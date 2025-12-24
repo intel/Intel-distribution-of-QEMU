@@ -43,6 +43,7 @@ native:
 - cloud-init
 - cloud-utils-growpart
 - cmocka-dev
+- coreutils
 - ctags
 - curl-dev
 - cyrus-sasl-dev
@@ -160,7 +161,7 @@ native:
 - openssh-client
 - osinfo-db-tools
 - parted-dev
-- pcre-dev
+- pcre2-dev
 - perl
 - perl-app-cpanminus
 - perl-dev
@@ -195,6 +196,7 @@ native:
 - py3-libxml2
 - py3-lxml
 - py3-numpy
+- py3-packaging
 - py3-pillow
 - py3-pip
 - py3-pytest

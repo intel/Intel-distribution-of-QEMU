@@ -58,7 +58,6 @@ typedef int bool;
 #define EXIT_SAVE_PERMANENT 3
 #define EXIT_TO_SHELL		4
 
-
 #define SINGLE_BOX 0
 #define DOUBLE_BOX 1
 

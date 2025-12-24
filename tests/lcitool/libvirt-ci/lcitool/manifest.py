@@ -8,9 +8,17 @@ import logging
 import yaml
 from pathlib import Path
 
-from lcitool.formatters import DockerfileFormatter, ShellVariablesFormatter, ShellBuildEnvFormatter
+from lcitool.formatters import (
+    DockerfileFormatter,
+    ShellVariablesFormatter,
+    ShellBuildEnvFormatter,
+)
 from lcitool import gitlab, util, LcitoolError
-from lcitool.targets import BuildTarget
+from lcitool.targets import Targets, BuildTarget
+from io import TextIOWrapper
+from lcitool.packages import Packages
+from lcitool.projects import Projects
+from typing import Any, Callable, Dict, List, Union, Optional
 
 log = logging.getLogger(__name__)
 
@@ -18,13 +26,22 @@ log = logging.getLogger(__name__)
 class ManifestError(LcitoolError):
     """Global exception type for the manifest module."""
 
-    def __init__(self, message):
+    def __init__(self, message: str) -> None:
         super().__init__(message, "Manifest")
 
 
 class Manifest:
 
-    def __init__(self, targets, packages, projects, configfp, quiet=False, cidir=Path("ci"), basedir=None):
+    def __init__(
+        self,
+        targets: Targets,
+        packages: Packages,
+        projects: Projects,
+        configfp: TextIOWrapper,
+        quiet: bool = False,
+        cidir: Path = Path("ci"),
+        basedir: Optional[Path] = None,
+    ):
         self._targets = targets
         self._packages = packages
         self._projects = projects
@@ -40,7 +57,7 @@ class Manifest:
     # Fully expand any shorthand / syntax sugar in the config
     # so that later stages have a consistent view of the
     # config
-    def _normalize(self):
+    def _normalize(self) -> None:
         if "projects" not in self.values:
             raise ValueError("No project list defined")
 
@@ -143,13 +160,17 @@ class Manifest:
 
                 if arch in done:
                     if jobinfo["suffix"] == "":
-                        raise ValueError(f"target {target} duplicate arch {arch} missing suffix")
+                        raise ValueError(
+                            f"target {target} duplicate arch {arch} missing suffix"
+                        )
                 done[arch] = True
 
                 if "cirrus" in facts:
                     ciarch = facts["cirrus"]["arch"]
                     if arch != ciarch:
-                        raise ValueError(f"target {target} only supports {ciarch} architecture")
+                        raise ValueError(
+                            f"target {target} only supports {ciarch} architecture"
+                        )
 
         if not have_containers:
             gitlabinfo["containers"] = False
@@ -157,7 +178,7 @@ class Manifest:
             gitlabinfo["builds"] = False
         gitlabinfo["cirrus"] = have_cirrus
 
-    def generate(self, dryrun=False):
+    def generate(self, dryrun: bool = False) -> None:
         try:
             self._normalize()
 
@@ -177,7 +198,16 @@ class Manifest:
             log.debug("Failed to generate configuration")
             raise ManifestError(f"Failed to generate configuration: {ex}")
 
-    def _generate_formatter(self, dryrun, subdir, suffix, formatter, targettype):
+    def _generate_formatter(
+        self,
+        dryrun: bool,
+        subdir: str,
+        suffix: str,
+        formatter: Union[
+            ShellBuildEnvFormatter, DockerfileFormatter, ShellVariablesFormatter
+        ],
+        targettype: str,
+    ) -> List[Path]:
         outdir = Path(self.basedir, self.cidir, subdir)
         if not dryrun:
             outdir.mkdir(parents=True, exist_ok=True)
@@ -207,33 +237,34 @@ class Manifest:
                     print(f"Generating {filename}")
                 generated.append(filename)
                 if not dryrun:
-                    header = util.generate_file_header(["manifest",
-                                                        self.configpath])
-                    tgt = BuildTarget(self._targets, self._packages, target, "x86_64", arch)
+                    header = util.generate_file_header(["manifest", self.configpath])
+                    tgt = BuildTarget(
+                        self._targets, self._packages, target, "x86_64", arch
+                    )
                     payload = formatter.format(tgt, wantprojects)
                     util.atomic_write(filename, header + payload + "\n")
 
         return generated
 
-    def _generate_containers(self, dryrun):
+    def _generate_containers(self, dryrun: bool) -> List[Path]:
         formatter = DockerfileFormatter(self._projects)
-        return self._generate_formatter(dryrun,
-                                        "containers", "Dockerfile",
-                                        formatter, "containers")
+        return self._generate_formatter(
+            dryrun, "containers", "Dockerfile", formatter, "containers"
+        )
 
-    def _generate_cirrus(self, dryrun):
+    def _generate_cirrus(self, dryrun: bool) -> List[Path]:
         formatter = ShellVariablesFormatter(self._projects)
-        return self._generate_formatter(dryrun,
-                                        "cirrus", "vars",
-                                        formatter, "cirrus")
+        return self._generate_formatter(dryrun, "cirrus", "vars", formatter, "cirrus")
 
-    def _generate_buildenv(self, dryrun):
+    def _generate_buildenv(self, dryrun: bool) -> List[Path]:
         formatter = ShellBuildEnvFormatter(self._projects)
-        return self._generate_formatter(dryrun,
-                                        "buildenv", "sh",
-                                        formatter, "containers")
+        return self._generate_formatter(
+            dryrun, "buildenv", "sh", formatter, "containers"
+        )
 
-    def _clean_files(self, generated, dryrun, subdir, suffix):
+    def _clean_files(
+        self, generated: List[Path], dryrun: bool, subdir: str, suffix: str
+    ) -> None:
         outdir = Path(self.basedir, self.cidir, subdir)
         if not outdir.exists():
             return
@@ -245,16 +276,16 @@ class Manifest:
                 if not dryrun:
                     filename.unlink()
 
-    def _clean_containers(self, generated, dryrun):
+    def _clean_containers(self, generated: List[Path], dryrun: bool) -> None:
         self._clean_files(generated, dryrun, "containers", "Dockerfile")
 
-    def _clean_cirrus(self, generated, dryrun):
+    def _clean_cirrus(self, generated: List[Path], dryrun: bool) -> None:
         self._clean_files(generated, dryrun, "cirrus", "vars")
 
-    def _clean_buildenv(self, generated, dryrun):
+    def _clean_buildenv(self, generated: List[Path], dryrun: bool) -> None:
         self._clean_files(generated, dryrun, "buildenv", "sh")
 
-    def _replace_file(self, content, path, dryrun):
+    def _replace_file(self, content: List[str], path: Path, dryrun: bool) -> None:
         path = Path(self.basedir, path)
         if len(content) == 0:
             if not self.quiet:
@@ -271,7 +302,7 @@ class Manifest:
         if not dryrun:
             util.atomic_write(path, lines)
 
-    def _generate_gitlab(self, dryrun):
+    def _generate_gitlab(self, dryrun: bool) -> None:
         gitlabdir = Path(self.cidir, "gitlab")
         if not dryrun:
             Path(self.basedir, gitlabdir).mkdir(parents=True, exist_ok=True)
@@ -359,14 +390,16 @@ class Manifest:
                 includes.append(path)
 
         path = Path(self.cidir, "gitlab.yml")
-        content = [gitlab.docs(namespace),
-                   gitlab.variables(namespace),
-                   gitlab.workflow(),
-                   gitlab.debug(),
-                   gitlab.includes(includes)]
+        content = [
+            gitlab.docs(namespace),
+            gitlab.variables(namespace),
+            gitlab.workflow(),
+            gitlab.debug(),
+            gitlab.includes(includes),
+        ]
         self._replace_file(content, path, dryrun)
 
-    def _generate_gitlab_container_jobs(self, cross):
+    def _generate_gitlab_container_jobs(self, cross: bool) -> List[str]:
         jobs = []
         for target, targetinfo in self.values["targets"].items():
             if not targetinfo["enabled"]:
@@ -402,26 +435,33 @@ class Manifest:
 
                 if cross:
                     containerbuildjob = gitlab.cross_container_job(
-                        target, arch, allow_failure, optional)
+                        target, arch, allow_failure, optional
+                    )
                 else:
                     containerbuildjob = gitlab.native_container_job(
-                        target, allow_failure, optional)
+                        target, allow_failure, optional
+                    )
                 jobs.append(containerbuildjob)
         return jobs
 
-    def _generate_gitlab_native_container_jobs(self):
+    def _generate_gitlab_native_container_jobs(self) -> List[str]:
         jobs = self._generate_gitlab_container_jobs(False)
         if len(jobs) > 0:
             jobs = ["\n# Native container jobs"] + jobs
         return jobs
 
-    def _generate_gitlab_cross_container_jobs(self):
+    def _generate_gitlab_cross_container_jobs(self) -> List[str]:
         jobs = self._generate_gitlab_container_jobs(True)
         if len(jobs) > 0:
             jobs = ["\n\n# Cross container jobs"] + jobs
         return jobs
 
-    def _generate_build_jobs(self, targettype, cross, jobfunc):
+    def _generate_build_jobs(
+        self,
+        targettype: str,
+        cross: bool,
+        jobfunc: Callable[[str, Dict[str, Any], Dict[str, Any]], str],
+    ) -> List[str]:
         jobs = []
         for target, targetinfo in self.values["targets"].items():
             if not targetinfo["enabled"]:
@@ -443,8 +483,8 @@ class Manifest:
                 jobs.append(jobfunc(target, facts, jobinfo))
         return jobs
 
-    def _generate_gitlab_native_build_jobs(self):
-        def jobfunc(target, facts, jobinfo):
+    def _generate_gitlab_native_build_jobs(self) -> List[str]:
+        def jobfunc(target: str, facts: Dict[str, Any], jobinfo: Dict[str, Any]) -> str:
             return gitlab.native_build_job(
                 target,
                 facts["containers"]["base"],
@@ -453,15 +493,16 @@ class Manifest:
                 jobinfo["template"],
                 jobinfo["allow-failure"],
                 not jobinfo["builds"],
-                jobinfo["artifacts"])
+                jobinfo["artifacts"],
+            )
 
         jobs = self._generate_build_jobs("containers", False, jobfunc)
         if len(jobs) > 0:
             jobs = ["\n# Native build jobs"] + jobs
         return jobs
 
-    def _generate_gitlab_cross_build_jobs(self):
-        def jobfunc(target, facts, jobinfo):
+    def _generate_gitlab_cross_build_jobs(self) -> List[str]:
+        def jobfunc(target: str, facts: Dict[str, Any], jobinfo: Dict[str, Any]) -> str:
             return gitlab.cross_build_job(
                 target,
                 facts["containers"]["base"],
@@ -471,15 +512,16 @@ class Manifest:
                 jobinfo["template"],
                 jobinfo["allow-failure"],
                 not jobinfo["builds"],
-                jobinfo["artifacts"])
+                jobinfo["artifacts"],
+            )
 
         jobs = self._generate_build_jobs("containers", True, jobfunc)
         if len(jobs) > 0:
             jobs = ["\n\n# Cross build jobs"] + jobs
         return jobs
 
-    def _generate_gitlab_cirrus_build_jobs(self):
-        def jobfunc(target, facts, jobinfo):
+    def _generate_gitlab_cirrus_build_jobs(self) -> List[str]:
+        def jobfunc(target: str, facts: Dict[str, Any], jobinfo: Dict[str, Any]) -> str:
             return gitlab.cirrus_build_job(
                 target,
                 facts["cirrus"]["instance_type"],
@@ -490,7 +532,8 @@ class Manifest:
                 jobinfo["suffix"],
                 jobinfo["variables"],
                 jobinfo["allow-failure"],
-                not jobinfo["builds"])
+                not jobinfo["builds"],
+            )
 
         jobs = self._generate_build_jobs("cirrus", False, jobfunc)
         if len(jobs) > 0:

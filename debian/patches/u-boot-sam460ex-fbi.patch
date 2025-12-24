@@ -1,0 +1,22 @@
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: u-boot-sam460ex: fbi fix
+Date: Sat Apr 1 17:34:09 2023 +0300
+Forwarded: https://lists.nongnu.org/archive/html/qemu-devel/2025-11/msg03005.html
+
+Fix the missing extern in a variable declaration,
+resulting in this variable being repeated each time
+this header is included, so the link with modern gcc
+fails.
+
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+
+diff --git a/roms/u-boot-sam460ex/drivers/bios_emulator/vesa.h b/roms/u-boot-sam460ex/drivers/bios_emulator/vesa.h
+--- a/roms/u-boot-sam460ex/drivers/bios_emulator/vesa.h
++++ b/roms/u-boot-sam460ex/drivers/bios_emulator/vesa.h
+@@ -6,5 +6,5 @@ extern void *set_vesa_mode(int mode);
+ extern void *old_set_vesa_mode(int mode);
+ 
+-struct FrameBufferInfo
++extern struct FrameBufferInfo
+ {
+         void *BaseAddress;

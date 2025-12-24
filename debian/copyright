@@ -29,6 +29,8 @@ Files-Excluded:
 	pc-bios/linuxboot_dma.bin
 	pc-bios/multiboot.bin
 	pc-bios/multiboot_dma.bin
+	pc-bios/npcm7xx_bootrom.bin
+	pc-bios/npcm8xx_bootrom.bin
 	pc-bios/openbios-ppc
 	pc-bios/openbios-sparc32
 	pc-bios/openbios-sparc64
@@ -40,7 +42,7 @@ Files-Excluded:
 	pc-bios/s390-ccw.img
 	pc-bios/skiboot.lid
 	pc-bios/slof.bin
-	pc-bios/u-boot-sam460-20100605.bin
+	pc-bios/u-boot-sam460.bin
 	pc-bios/u-boot.e500
 	pc-bios/vgabios.bin
 	pc-bios/vgabios-*.bin

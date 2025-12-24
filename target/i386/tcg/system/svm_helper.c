@@ -403,7 +403,7 @@ void helper_vmrun(CPUX86State *env, int aflag, int next_eip_addend)
     env->hflags2 |= HF2_GIF_MASK;
 
     if (ctl_has_irq(env)) {
-        cs->interrupt_request |= CPU_INTERRUPT_VIRQ;
+        cpu_set_interrupt(cs, CPU_INTERRUPT_VIRQ);
     }
 
     if (virtual_gif_set(env)) {
@@ -824,7 +824,7 @@ void do_vmexit(CPUX86State *env)
     env->intercept_exceptions = 0;
 
     /* Clears the V_IRQ and V_INTR_MASKING bits inside the processor. */
-    cs->interrupt_request &= ~CPU_INTERRUPT_VIRQ;
+    cpu_reset_interrupt(cs, CPU_INTERRUPT_VIRQ);
     env->int_ctl = 0;
 
     /* Clears the TSC_OFFSET inside the processor. */

@@ -1,5 +1,5 @@
 /*
- * (C) Copyright 2009-2010
+ * (C) Copyright 2009-2024
  * Max Tretene, ACube Systems Srl. mtretene@acube-systems.com.
  *
  * See file CREDITS for list of people who contributed to this
@@ -23,6 +23,7 @@
 
 #include <common.h>
 #include <pci.h>
+#include <video_fb.h>
 #include <sm501.h>
 
 #ifdef CONFIG_VIDEO_SM502
@@ -32,41 +33,37 @@ DECLARE_GLOBAL_DATA_PTR;
 #undef DEBUG
 
 #ifdef  DEBUG
-#define PRINTF(fmt,args...)     printf (fmt ,##args)
+#define PRINTF(fmt,args...)	 printf (fmt ,##args)
 #else
 #define PRINTF(fmt,args...)
 #endif
 
 unsigned char SM502INIT = 0;
-u32 *fb_base_phys_sm502;
 pci_dev_t dev_sm502 = ~0;
 
-void init_sm502()
+void *init_sm502(void)
 {
-    int jj = 0;
-	    
-	dev_sm502 = pci_find_device(PCI_VENDOR_SM, PCI_DEVICE_SM501, 0);	
- 	    
+	unsigned short cmd;
+	GraphicDevice *sm502 = NULL;
+
+	dev_sm502 = pci_find_device(PCI_VENDOR_SM, PCI_DEVICE_SM501, 0);
+
+	puts("SM502: ");
 	if (dev_sm502 != -1)
 	{
-		printf("SM502: found\n");
+		puts("found\n");
 		PRINTF("calling video_hw_init\n");
-		SM502INIT = 1;
-		video_hw_init();
+		sm502 = (GraphicDevice *)sm502_hw_init();
 
-		PRINTF("read config\n");
-		pci_read_config_dword(dev_sm502, PCI_BASE_ADDRESS_0, &fb_base_phys_sm502);
-		*fb_base_phys_sm502 = *fb_base_phys_sm502 & 0xfffff000;
-		PRINTF("fb_base = %8x\n",fb_base_phys_sm502);
-		
-		for (jj=0;jj<256;jj++)
-			video_set_lut(jj,jj,jj,jj);
-					
-		jj = (800 * 600) / 4;
-		u32 *tmp = fb_base_phys_sm502;
-		while (jj--)
-			*tmp++ = 0;		
+		SM502INIT = 1;
+
+		// shutdown gfx card
+		pci_read_config_word(dev_sm502, PCI_COMMAND, &cmd);
+		cmd &= ~(PCI_COMMAND_IO|PCI_COMMAND_MEMORY);
+		pci_write_config_word(dev_sm502, PCI_COMMAND, cmd);
 	}
-	else printf("SM502: not found\n");
+	else puts("not found\n");
+
+	return(sm502);
 }
 #endif

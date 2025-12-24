@@ -1,7 +1,7 @@
 From: Michael Tokarev <mjt@tls.msk.ru>
 Subject: u-boot-sam460ex: remove obsolete -mstring gcc option
 Date: Sun Oct 22 23:35:45 2023 +0300
-Forwarded: https://lists.nongnu.org/archive/html/qemu-devel/2025-01/msg00767.html
+Forwarded: https://lists.nongnu.org/archive/html/qemu-devel/2025-11/msg03005.html
 
 Modern gcc complains about it.
 

@@ -604,16 +604,21 @@ install-u-boot-e500: b/u-boot/build-e500/u-boot
 	install -m0644 $< ${sysdataidir}/u-boot.e500
 sysdata-components += u-boot-e500
 
-### u-boot-sam460 (u-boot-sam460-20100605.bin)
+### u-boot-sam460.bin
 build-u-boot-sam460: b/u-boot-sam460ex/u-boot.bin
 b/u-boot-sam460ex/u-boot.bin: | b
 	cp -alu roms/u-boot-sam460ex b/
-	${MAKE} -C b/u-boot-sam460ex CROSS_COMPILE=${cross_prefix_ppc} Sam460ex_config
+	# XXX hack alert:
+	# https://lore.kernel.org/qemu-devel/bc5f4a5b-02fe-4cbc-8718-a294f9d3b078@tls.msk.ru/T/
+	cp -p b/u-boot-sam460ex/include/*fdt*.h b/u-boot-sam460ex/lib/libfdt/
+	${MAKE} -C b/u-boot-sam460ex CROSS_COMPILE=${cross_prefix_ppc} Sam460_50_config
 	env -u LDFLAGS -u OBJCFLAGS -u ELF_PACKAGE_METADATA \
 	${MAKE} -C b/u-boot-sam460ex CROSS_COMPILE=${cross_prefix_ppc}
 #	${cross_prefix_ppc}strip $@
 install-u-boot-sam460: b/u-boot-sam460ex/u-boot.bin | ${sysdataidir}
-	install -m0644 $< ${sysdataidir}/u-boot-sam460-20100605.bin
+	install -m0644 $< ${sysdataidir}/u-boot-sam460.bin
+# before 10.2.0, it was u-boot-sam460-20100605.bin. Remove after forky:
+	ln -s u-boot-sam460.bin ${sysdataidir}/u-boot-sam460-20100605.bin
 sysdata-components += u-boot-sam460
 
 ### qboot, aka bios-microvm

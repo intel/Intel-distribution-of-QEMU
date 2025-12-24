@@ -29,22 +29,17 @@ typedef char BYTE;
 typedef short WORT;
 typedef long LONG;
 
-//#define port_to_mem(from) (CFG_ISA_IO_BASE_ADDRESS|(from))
-/*
-#define in_byte(from) in8( (UBYTE *)port_to_mem(from))
-#define in_word(from) in16r((UWORD *)port_to_mem(from))
-#define in_long(from) in32r(ULONG *)port_to_mem(from))
-#define out_byte(to, val) out8((UBYTE *)port_to_mem(to), val)
-#define out_word(to, val) out16r((UWORD *)port_to_mem(to), val)
-#define out_long(to, val) out32r((ULONG *)port_to_mem(to), val)
-*/
+extern u32 port_to_mem(int port);
 
-#define out_byte(to, val) out8((UBYTE *)port_to_mem(to), val)
+void out_byte(int to, u8 val)
+{
+	out8((u32)port_to_mem(to), val);
+}
 
 static void X86API undefined_intr(int intno)
 {
     PRINTF("X86API undefined_intr\n");
-    
+
     extern u16 A1_rdw(u32 addr);
     if (A1_rdw(intno * 4 + 2) == BIOS_SEG)
     {
@@ -81,7 +76,7 @@ static void X86API int1A(int intno)
     PRINTF("X86API int1A\n");
 
     int device;
-    
+
     switch(M.x86.R_AX)
     {
     case 0xB101: // PCI Bios Present?
@@ -159,7 +154,7 @@ void bios_init(void)
     PRINTF("Interrupt table\n");
     for (i=0; i<256; i++)
     {
-	    out32r((volatile ULONG *)(M.mem_base+i*4), BIOS_SEG<<16);
+	    out32r(((u32)M.mem_base+i*4), BIOS_SEG<<16);
 	    bios_intr_tab[i] = undefined_intr;
     }
 
@@ -171,9 +166,6 @@ void bios_init(void)
     bios_intr_tab[0x6D] = int42;
 
     X86EMU_setupIntrFuncs(bios_intr_tab);
-    // why here? Because it is needed.
-    //PRINTF("video_init\n");
-    //video_init();
 }
 
 unsigned char setup_40x25[] =
@@ -233,8 +225,8 @@ void reloc_mode_table(void *reloc_addr)
 {
     unsigned long delta;
     int i;
-    
-    if (reloc_mode_done) 
+
+    if (reloc_mode_done)
 	return;
 
     reloc_mode_done = 1;
@@ -256,7 +248,7 @@ void bios_set_mode(int mode)
     flush_cache(0, 32768);
 
     PRINTF("bios_set_mode: mode = %d, setup_regs = %p\n", mode, setup_regs);
-    
+
     // Switch video off
     out_byte(0x3D8, mode_set & 0x37);
 
@@ -317,28 +309,28 @@ static void X86API int15(int intno)
     {
 		switch (M.x86.R_BL)
 		{
-/*	
+/*
 		    case 0x06:			// Power Management Mode request
 			M.x86.R_BL = 0;		// Assume APM
 			M.x86.R_AL = 0;
 			break;
-		
+
 		    case 0x05:			// Get TV standard
 				M.x86.R_BX = 0xff;	// Select No TV
 				M.x86.R_AL = 0;
 				break;
-*/		
+*/
 		    case 0x01:					 // Get Request Display
 			    if ((M.x86.R_BH & 0x08) == 0x08)
-			    {					
+			    {
 					M.x86.R_BL = 0x08;	// DVI
 					M.x86.R_BH = 0;
 					M.x86.R_AL = 0;		// supported
 					PRINTF("DVI Monitor Found\n");
 				}
-			
+
 			    if (((M.x86.R_BH & 0x08) == 0x08) || ((M.x86.R_BH & 0x02) == 0x02))
-			    {					
+			    {
 					M.x86.R_BL = 0x02;	// CRT
 					M.x86.R_BH = 0;
 					M.x86.R_AL = 0;		// supported
@@ -346,15 +338,15 @@ static void X86API int15(int intno)
 				}
 
 			    if (((M.x86.R_BH & 0x08) == 0x08) || ((M.x86.R_BH & 0x04) == 0x04))
-			    {					
+			    {
 					M.x86.R_BL = 0x04;	// CRT 2
 					M.x86.R_BH = 0;
 					M.x86.R_AX = 0;		// supported
 					PRINTF("CRT2 Monitor Found\n");
 				}
-							
+
 				break;
-			
+
 		    default:
 				PRINTF("Subfunction %d not implemented\n", M.x86.R_BL);
 				M.x86.R_AL = 2;		// Not supported
@@ -364,5 +356,5 @@ static void X86API int15(int intno)
     }
 //#endif
 //    // For now, just declare this interrupt as not implemented
-//    M.x86.R_AX = 2;    
+//    M.x86.R_AX = 2;
 }

@@ -7,6 +7,7 @@
 import sys
 import logging
 import argparse
+from typing import Any, List, Optional
 
 from pathlib import Path
 
@@ -19,18 +20,34 @@ log = logging.getLogger(__name__)
 
 
 class DataDirAction(argparse.Action):
-    def __init__(self, option_strings, dest, default=DataDir(), nargs=None, **kwargs):
+    def __init__(
+        self,
+        option_strings: List[str],
+        dest: str,
+        default: DataDir = DataDir(),
+        nargs: Optional[Any] = None,
+        **kwargs: Any,
+    ) -> None:
         if nargs is not None:
             raise ValueError("nargs not allowed")
         super().__init__(option_strings, dest, default=default, nargs=1, **kwargs)
 
-    def __call__(self, parser, namespace, values, option_string=None):
-        setattr(namespace, self.dest, DataDir(values[0]))
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Any,
+        option_string: Optional[str] = None,
+    ) -> None:
+        if isinstance(values, (list, tuple)) and values:
+            setattr(namespace, self.dest, DataDir(Path(str(values[0]))))
+        elif isinstance(values, str):
+            setattr(namespace, self.dest, DataDir(Path(values)))
 
 
 class CommandLine:
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Common option parsers to inherit from
 
         hostsopt = argparse.ArgumentParser(add_help=False)
@@ -90,13 +107,15 @@ class CommandLine:
 
         container_projectopt = argparse.ArgumentParser(add_help=False)
         container_projectopt.add_argument(
-            "-p", "--projects",
+            "-p",
+            "--projects",
             help="list of projects (accepts globs)",
         )
 
         installtargetopt = argparse.ArgumentParser(add_help=False)
         installtargetopt.add_argument(
-            "-t", "--target",
+            "-t",
+            "--target",
             help="what target OS to install",
         )
 
@@ -111,7 +130,7 @@ class CommandLine:
             "--strategy",
             choices=["url", "cloud", "template"],
             default="url",
-            help="where to install from (URL tree, latest cloud image)"
+            help="where to install from (URL tree, latest cloud image)",
         )
 
         installforceopt = argparse.ArgumentParser(add_help=False)
@@ -119,7 +138,7 @@ class CommandLine:
             "--force",
             default=False,
             action="store_true",
-            help="force download of a new image (only with --strategy=cloud)"
+            help="force download of a new image (only with --strategy=cloud)",
         )
 
         installfromtemplate = argparse.ArgumentParser(add_help=False)
@@ -136,42 +155,49 @@ class CommandLine:
 
         containerizedopt = argparse.ArgumentParser(add_help=False)
         containerizedopt.add_argument(
-            "-c", "--containerized",
+            "-c",
+            "--containerized",
             default=False,
             action="store_true",
-            help="only report hosts supporting containers")
+            help="only report hosts supporting containers",
+        )
 
         crossarchopt = argparse.ArgumentParser(add_help=False)
         crossarchopt.add_argument(
-            "-x", "--cross-arch",
+            "-x",
+            "--cross-arch",
             choices=valid_arches(),
             help="target architecture for cross compiler",
         )
 
         hostarchopt = argparse.ArgumentParser(add_help=False)
         hostarchopt.add_argument(
-            "-a", "--host-arch",
+            "-a",
+            "--host-arch",
             choices=valid_arches(),
             help="host architecture of the build system",
         )
 
         baseopt = argparse.ArgumentParser(add_help=False)
         baseopt.add_argument(
-            "-b", "--base",
+            "-b",
+            "--base",
             help="base image to inherit from",
         )
 
         layersopt = argparse.ArgumentParser(add_help=False)
         layersopt.add_argument(
-            "-l", "--layers",
+            "-l",
+            "--layers",
             default="all",
-            choices=['all', 'native', 'foreign'],
+            choices=["all", "native", "foreign"],
             help="output layers (default: 'all')",
         )
 
         waitopt = argparse.ArgumentParser(add_help=False)
         waitopt.add_argument(
-            "-w", "--wait",
+            "-w",
+            "--wait",
             help="wait for installation to complete",
             default=False,
             action="store_true",
@@ -183,34 +209,38 @@ class CommandLine:
             metavar="PATH",
             default=Path("ci", "manifest.yml").as_posix(),
             nargs="?",
-            type=argparse.FileType('r'),
+            type=argparse.FileType("r"),
             help="path to CI manifest file (default: 'ci/manifest.yml')",
         )
 
         dryrunopt = argparse.ArgumentParser(add_help=False)
         dryrunopt.add_argument(
-            "-n", "--dry-run",
+            "-n",
+            "--dry-run",
             action="store_true",
             help="print what files would be generated",
         )
 
         verbosityopt = argparse.ArgumentParser(add_help=False)
         verbosityopt.add_argument(
-            "-v", "--verbose",
+            "-v",
+            "--verbose",
             action="count",
             help="make Ansible more verbose (repeat for even more output)",
         )
 
         quietopt = argparse.ArgumentParser(add_help=False)
         quietopt.add_argument(
-            "-q", "--quiet",
+            "-q",
+            "--quiet",
             action="store_true",
             help="don't display progress information",
         )
 
         formatopt = argparse.ArgumentParser(add_help=False)
         formatopt.add_argument(
-            "-f", "--format",
+            "-f",
+            "--format",
             default="shell",
             choices=["shell", "json", "yaml"],
             help="output format (default: shell)",
@@ -220,13 +250,15 @@ class CommandLine:
         basediropt.add_argument(
             "--base-dir",
             default=None,
-            help="Project base directory (default: current working directory)")
+            help="Project base directory (default: current working directory)",
+        )
 
         cidiropt = argparse.ArgumentParser(add_help=False)
         cidiropt.add_argument(
             "--ci-dir",
             default="ci",
-            help="CI config directory relative to base dir (default: 'ci')")
+            help="CI config directory relative to base dir (default: 'ci')",
+        )
 
         # Main parser
         self._parser = argparse.ArgumentParser(
@@ -241,18 +273,20 @@ class CommandLine:
             action="store_true",
         )
         self._parser.add_argument(
-            "-d", "--data-dir",
+            "-d",
+            "--data-dir",
             action=DataDirAction,
-            help="extra directory for loading data files from")
-
-        self._parser.add_argument(
-            "-c", "--config",
-            type=argparse.FileType('r'),
-            help="absolute path to a configuration file"
+            help="extra directory for loading data files from",
         )
 
-        subparsers = self._parser.add_subparsers(metavar="ACTION",
-                                                 dest="action")
+        self._parser.add_argument(
+            "-c",
+            "--config",
+            type=argparse.FileType("r"),
+            help="absolute path to a configuration file",
+        )
+
+        subparsers = self._parser.add_subparsers(metavar="ACTION", dest="action")
         subparsers.required = True
 
         # lcitool subcommand parsers
@@ -299,16 +333,27 @@ class CommandLine:
         variablesparser = subparsers.add_parser(
             "variables",
             help="generate variables",
-            parents=[formatopt, targetopt, update_projectopt,
-                     hostarchopt, crossarchopt],
+            parents=[
+                formatopt,
+                targetopt,
+                update_projectopt,
+                hostarchopt,
+                crossarchopt,
+            ],
         )
         variablesparser.set_defaults(func=Application._action_variables)
 
         dockerfileparser = subparsers.add_parser(
             "dockerfile",
             help="generate Dockerfile",
-            parents=[targetopt, update_projectopt, hostarchopt,
-                     crossarchopt, baseopt, layersopt],
+            parents=[
+                targetopt,
+                update_projectopt,
+                hostarchopt,
+                crossarchopt,
+                baseopt,
+                layersopt,
+            ],
         )
         dockerfileparser.set_defaults(func=Application._action_dockerfile)
 
@@ -322,16 +367,17 @@ class CommandLine:
         manifestparser = subparsers.add_parser(
             "manifest",
             help="apply the CI manifest (doesn't access the host)",
-            parents=[manifestopt, dryrunopt, quietopt, basediropt, cidiropt])
+            parents=[manifestopt, dryrunopt, quietopt, basediropt, cidiropt],
+        )
         manifestparser.set_defaults(func=Application._action_manifest)
 
         container_parser = subparsers.add_parser(
-            "container",
-            help="Container related functionality"
+            "container", help="Container related functionality"
         )
 
-        containersubparser = container_parser.add_subparsers(metavar="COMMAND",
-                                                             dest='container')
+        containersubparser = container_parser.add_subparsers(
+            metavar="COMMAND", dest="container"
+        )
         containersubparser.required = True
 
         container_engineparser = containersubparser.add_parser(
@@ -343,27 +389,26 @@ class CommandLine:
         build_containerparser = containersubparser.add_parser(
             "build",
             help="Build container image",
-            parents=[installtargetopt, container_projectopt, engineopt,
-                     crossarchopt],
+            parents=[installtargetopt, container_projectopt, engineopt, crossarchopt],
         )
         build_containerparser.set_defaults(func=Application._action_container_build)
 
         run_containerparser = containersubparser.add_parser(
             "run",
             help="run container action",
-            parents=[imageopt, containeropt, engineopt, workload_diropt, scriptopt]
+            parents=[imageopt, containeropt, engineopt, workload_diropt, scriptopt],
         )
         run_containerparser.set_defaults(func=Application._action_container_run)
 
         shell_containerparser = containersubparser.add_parser(
             "shell",
             help="Access to an interactive shell",
-            parents=[imageopt, containeropt, engineopt, workload_diropt, scriptopt]
+            parents=[imageopt, containeropt, engineopt, workload_diropt, scriptopt],
         )
         shell_containerparser.set_defaults(func=Application._action_container_shell)
 
     @staticmethod
-    def _validate_container(args):
+    def _validate_container(args: argparse.Namespace) -> None:
         if args.container not in ["build", "run", "shell"]:
             return
 
@@ -371,7 +416,7 @@ class CommandLine:
         # "build" subcommand.
         if args.container == "build":
             if args.projects and args.target:
-                return args
+                pass
             else:
                 log.error("--target and --projects are required")
                 sys.exit(1)
@@ -384,16 +429,14 @@ class CommandLine:
                 sys.exit(1)
 
     @staticmethod
-    def _validate_install(args):
+    def _validate_install(args: argparse.Namespace) -> None:
         if args.strategy == "template":
             if not args.template:
                 log.error("--template is required with with --strategy=template")
                 sys.exit(1)
 
-        return
-
     # Main CLI validating method
-    def _validate(self, args):
+    def _validate(self, args: argparse.Namespace) -> argparse.Namespace:
         """
         Validate command line arguments.
         :param args: argparse.Namespace object which contains
@@ -410,5 +453,5 @@ class CommandLine:
 
         return args
 
-    def parse(self):
+    def parse(self) -> argparse.Namespace:
         return self._validate(self._parser.parse_args())

@@ -22,10 +22,10 @@
 #include <common.h>
 #include <command.h>
 #include <part.h>
-#include <../../../disk/part_amiga.h>
 #include <malloc.h>
 #include <ext2fs.h>
 #include "sys_dep.h"
+#include "../../../disk/part_amiga.h"
 
 #define BOOTLOADER_MAX_BUFFER 128*1024
 #define HEADER_INFO_SIZE 20 
@@ -60,7 +60,7 @@ static int start(void *buffer)
 
 	if(!valid_elf_image(buffer)) {
 		printf("Error: no real ELF image installed as bootloader!\n");
-		return;
+		return result;
 	}
 
 	context = build_callback_context(argarray);
@@ -357,9 +357,10 @@ U_BOOT_CMD(
 	"bootu   - load and start secondory level bootloader.\n",
 	". 'Bootu' allows to load secondary level bootloader "
 	"like Parthenope or AOS SLB.\n");
-
+/*
 U_BOOT_CMD(
 	boota,      1,      0,      do_bootu,
 	"boota   - load and start secondory level bootloader.\n",
 	". 'Boota' allows to load secondary level bootloader "
 	"like Parthenope or AOS SLB.\n");
+*/

@@ -5,17 +5,20 @@
 
 #include <common.h>
 #include <command.h>
-#include "cmd_boota.h"
-#include "sys_dep.h"
-#include "slb/sbl_errcodes.h" //For the error codes.
 #include <malloc.h>
-#include "net.h"
 #include <../net/tftp.h>
 #include <asm/processor.h>
 #include <asm/io.h>
 #include <asm/mmu.h>
 #include <asm/4xx_pcie.h>
 #include <asm/gpio.h>
+#include "cmd_boota.h"
+#include "slb/sbl_errcodes.h" //For the error codes.
+#include "sys_dep.h"
+#include "net.h"
+#include "vesa_video.h"
+#include "../menu/menu.h"
+#include "../../../drivers/bios_emulator/vesa.h"
 
 #undef DEBUG
 #ifdef DEBUG
@@ -24,20 +27,29 @@
 #define PRINTF(fmt,args...)
 #endif
 
-#define MAX_BLOCKSIZE 32768 //This is the PHYSICAL size, not logical!!
-#define ENV_VAR_BUFLEN 256
+DECLARE_GLOBAL_DATA_PTR;
 
+#define MAX_BLOCKSIZE 32768 //This is the PHYSICAL size, not logical!!
+
+extern u8 *logo_buf8;
+extern u8 *logo_buf16;
+extern struct FrameBufferInfo *fbi;
 extern int console_col; /* cursor col */
 extern int console_row; /* cursor row */
+extern int scrolled;
+extern int isgadget;
+extern int firsttime;
+extern int valid_elf_image(unsigned long addr);
+extern unsigned long load_elf_image(unsigned long addr);
 
 static char * blockbuffer ; //IO buffer used many times.
 
 static void interpret_sbl_failure(const WORD err)
-     /* Codes are as follows:
+	 /* Codes are as follows:
 	(see slb/sbl.h)
-     */
+	 */
 {
-	char * stringout;
+	char *stringout;
 
 	switch(err)
 	{
@@ -66,7 +78,15 @@ static void interpret_sbl_failure(const WORD err)
 			stringout = "Unknown return code from secondary bootloader.\n";
 			break;
 	}
-	
+
+	if (gd->flags & GD_FLG_SILENT)
+	{
+		gd->flags &= ~GD_FLG_SILENT;
+		console_row = CONSOLE_ROW_START + 4;
+		console_col = 0;
+		isgadget = 0;
+	}
+
 	printf(stringout);
 }
 
@@ -84,14 +104,13 @@ static BOOL good_checksum(const LONG * bl, const UWORD len)
 static BOOL is_good_bootsector(const struct BootstrapCodeBlock * const bcb,
 			const unsigned long blocksize)
 {
-	//printf("Entered is_good_b.\n");
 	if(bcb->bcb_ID == IDNAME_BOOTSTRAPCODE)
 	{
 		if(bcb->bcb_SummedLongs <= (blocksize>>2))
 		{
 			if(good_checksum((const LONG * const)bcb, bcb->bcb_SummedLongs))
 			    return TRUE;
-			else 
+			else
 			{
 			    gpio_config(30, GPIO_OUT, GPIO_SEL, GPIO_OUT_1);
 			    printf("Bad checksum while reading second level bootloader\n");
@@ -99,8 +118,6 @@ static BOOL is_good_bootsector(const struct BootstrapCodeBlock * const bcb,
 		}
 		else printf("Bad block structure while reading second level bootloader: summedlongs not good: %lu instead of %lu\n", bcb->bcb_SummedLongs, blocksize>>2);
 	}
-	// else printf("Bad identifier\n");
-	//bcb_Next is not checked. Too complex.
 
 	return FALSE;
 }
@@ -110,10 +127,10 @@ static ULONG find_secondary_bootloader_start_HD(const unsigned long blocksize)
 	ULONG currsec = 0;
 
 	PRINTF("Entered find_sec_bl_start %d %p\n",blocksize,blockbuffer);
-	
+
 	if ( ! blocksize) return (ULONG)-1;
 	if ( ! blockbuffer) return (ULONG)-1;
-   
+
 	while(loadsector(currsec, blocksize, 1, blockbuffer))
 	{
 		PRINTF("Reading sector %lu\n", currsec);
@@ -121,9 +138,6 @@ static ULONG find_secondary_bootloader_start_HD(const unsigned long blocksize)
 		if(is_good_bootsector((struct BootstrapCodeBlock *)blockbuffer, blocksize))
 			return currsec;
 
-		/* printf("Sector %lu is bad: signature is %lx (should be %x)\n", currsec,
-	       *((ULONG *)blockbuffer), IDNAME_BOOTSTRAPCODE);
-		*/
 		if(++currsec > SBL_HIGHEST)
 			return (ULONG)-1;
 	}
@@ -143,7 +157,6 @@ static ULONG secondary_bootloader_length(ULONG start_sect, const UWORD blocksize
 
 		if(!readres)
 		{
-			//printf("Bad IO while counting sectors for the s.bootloader image.\n");
 			*dest_len = res;
 			return (READ_ERROR|(next & 0xffff));
 		}
@@ -151,13 +164,6 @@ static ULONG secondary_bootloader_length(ULONG start_sect, const UWORD blocksize
 		if(!is_good_bootsector((struct BootstrapCodeBlock *)blockbuffer, blocksize))
 			return (READ_SYNTAX_ERR|next);
 
-		/*
-		  if(res == 0) //First sector ? Then record start address (first longword)
-		  {
-		    struct BootstrapCodeBlock * helper = blockbuffer;
-		    *start_address = helper->bcb_LoadData[0]; //First longword of first block.
-		  }
-		*/
 		res++;
 	}
 	while((next=bcb->bcb_Next) != UNUSED_BLOCK_ADDRESS);
@@ -182,8 +188,6 @@ static void load_secondary_bootloader(ULONG start_sect, char * dest_buffer, cons
 	do
 	{
 		loadsector(nextsec, blocksize, 1, blockbuffer);
-		//lprintf("Reading sector %lu for lseg image\n", nextsec);
-		//mycopymem(copystart, (char *)current, (chunklen=bcb->bcb_SummedLongs-(HEADER_INFO_SIZE>>2))<<2);
 		memcpy((char *)current, copystart, (chunklen=bcb->bcb_SummedLongs-(HEADER_INFO_SIZE>>2))<<2);
 		current+=chunklen;
    }
@@ -193,76 +197,58 @@ static void load_secondary_bootloader(ULONG start_sect, char * dest_buffer, cons
 static void start_secondary_bootloader(void * start, struct sbl_callback_context * context)
 {
 	WORD (* bls)(struct sbl_callback_context *);
-	//void * realstart = ((char *)start)+4; //To skip the header. Remove for final version.
-	//((char *)start)+offset;
 	unsigned long entrypoint;
 	WORD result;
 
-	//icache_enable();
-	//printf("Second-level bootloader loaded at %p; now checking.\n", start);
-	//if(!valid_elf_image(realstart))
-	if(!valid_elf_image(start))
-    {
+	if(!valid_elf_image((u32)start))
+	{
 		printf("Error: no real ELF image installed as bootloader!\n");
 		return;
 	}
-	//else printf("Image file is valid! Now elf-loading & relocating.\n");
 
-	//entrypoint = load_elf_image(realstart);
-	entrypoint = load_elf_image(start);
+	entrypoint = load_elf_image((u32)start);
 	bls = (WORD (* )(struct sbl_callback_context *))entrypoint;
 
-	//printf("ELF image loaded & relocated at %lx. Jumping!\n", entrypoint);
-
-	//printf("Debug info: load address now is %08lx\n", load_addr);
-	//getc();
 	result = bls(context);
-/*
-	if(result == SBL_PROTOCOL_TOO_OLD)
-	{
-		//printf("Using older interface \n");
-		degrade_to_old_frigging_interface(context);
-		result = bls(context);//and tries again!
-	}
-*/	
+
 	interpret_sbl_failure(result);
 }
 
 static BOOL is_good_bootsource(const char * const str)
 {
   /* Table as follows, from bios_menu.c
-     floppy -> internal floppy (not yet supported)
-     cdrom  -> ide CDROM(s)
-     ide    -> ide disk(s)
-     net    -> TFTP
-     scdrom -> SCSI CDROM(s)
-     scsi   -> SCSI disk(s)
-     ucdrom -> USB CDROM(s)
-     usb    -> USB disk(s)
+	 floppy -> internal floppy (not yet supported)
+	 cdrom  -> ide CDROM(s)
+	 ide    -> ide disk(s)
+	 net    -> TFTP
+	 scdrom -> SCSI CDROM(s)
+	 scsi   -> SCSI disk(s)
+	 ucdrom -> USB CDROM(s)
+	 usb    -> USB disk(s)
 
   */
   if(find_dae(str))
-    return TRUE;
+	return TRUE;
 
   return FALSE;
 }
 
 #define CHECK_IMAGE_AND_ZERO_IF_BAD(pnt) \
-	if(!valid_elf_image(pnt)) \
+	if(!valid_elf_image((u32)pnt)) \
 		{ \
 		free(pnt);\
 		pnt = 0;\
 		printf("bad ELF image loaded; skipping!");\
 		} \
-	else printf("found AOS4 SLB\n");
+	else { } //printf("found SLB\n");
 
 int do_boota(cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
 {
 	/* - Scan sequenziale secondo le variabili boot(x).
-	   - Se è forzata una selezione di media type,
+	   - Se ? forzata una selezione di media type,
 	   - si cerca quella.
 	   - se non si trova, si ricomincia.
-	   - Quindi la funzione di scansione ritorna vero se si è trovato qualcosa; in ingresso dovrà
+	   - Quindi la funzione di scansione ritorna vero se si ? trovato qualcosa; in ingresso dovr?
 	     prendere il tipo di device che si vuole.
 	*/
 	char *env;
@@ -273,14 +259,41 @@ int do_boota(cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
 	void *sbl_buffer = NULL;
 	short TFTP_options_backup = TFTP_quit_on_error;
 
-    console_row = 12;
-    console_col = 0;
-    video_clear();
+	// if we were in silent mode and, switch back in graphic mode
+
+	if ( ! (gd->flags & GD_FLG_SILENT))
+	{
+		int hush = 0;
+		char *s = getenv("hush");
+		if (s) hush = atoi(s);
+		if (hush)
+		{
+			s = getenv("stdout");
+			if ((s) && (strncmp(s,"vga",3) == 0))
+			{
+				gd->flags |= GD_FLG_SILENT;
+
+				if (fbi && logo_buf8 && logo_buf16)
+				{
+					if (fbi->BitsPerPixel == 8)
+					{
+						memcpy(fbi->BaseAddress, logo_buf8, fbi->XSize * fbi->YSize);
+					}
+
+					if (fbi->BitsPerPixel == 16)
+					{
+						memcpy(fbi->BaseAddress, logo_buf16, fbi->XSize * fbi->YSize * 2);
+					}
+
+					scrolled = 0;
+					gfxbox(IBOX_START_X, IBOX_START_Y, IBOX_END_X, IBOX_END_Y, 1);
+				}
+			}
+		}
+	}
 
 	TFTP_quit_on_error = TRUE;
 
-	//dump_silly_info();
-  
 	blockbuffer = alloc_mem_for_iobuffers(MAX_BLOCKSIZE);
 
 	PRINTF("First-level bootloader: entered main\n");
@@ -293,7 +306,7 @@ int do_boota(cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
 		PRINTF("found: %s\n",env);
 		if(is_good_bootsource(env)) argarray[argcnt++]=strdup(env);
 	}
-  
+
 	env = getenv("boot2");
 	if(env) {
 		PRINTF("found: %s\n",env);
@@ -307,7 +320,6 @@ int do_boota(cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
 	}
 
 	PRINTF("First-level bootloader: got %u valid boot sources\n", argcnt);
-	puts("AOS4 FLB\n");
 
 	if(!argcnt) //No variables set ?
 		return 0;
@@ -315,22 +327,20 @@ int do_boota(cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
 	argarray[argcnt]=(char *)0; //0 terminates.
 
 	for(scanner = start_unit_scan((void *)argarray, &sector_size);
-      scanner;
-      scanner = next_unit_scan(scanner, &sector_size))
+	  scanner;
+	  scanner = next_unit_scan(scanner, &sector_size))
 	{
 		switch(scanner->ush_device.type) //Here we make distinctions between the different media boot types.
 		{
 			case DEV_TYPE_HARDDISK:
 			{
 				ULONG p_loc;
-				//printf("Scanning HDD %s %s %s", scanner->ush_device.vendor, scanner->ush_device.product, scanner->ush_device.revision);
 				p_loc = find_secondary_bootloader_start_HD(sector_size);
 
 				PRINTF("Found an HD\n");
 				if(p_loc != (ULONG)-1) //Found something!
 				{
 					ULONG sbl_length = 0, io_res;
-					//void * base_address;
 
 					PRINTF("FLB: found something\n");
 
@@ -356,17 +366,11 @@ int do_boota(cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
 				block_dev_desc_t * blockdev = get_lowlevel_handler(scanner);
 
 				printf("Scanning CD/DVD %s %s %s", scanner->ush_device.vendor, scanner->ush_device.product, scanner->ush_device.revision);
-	    
+
 				PRINTF("Found a CD\n");
 				get_partition_info(blockdev, 0, &p_info);
 				sbl_buffer=alloc_mem_for_bootloader(p_info.size*p_info.blksz);
 				PRINTF("AOS CD boot partition on disk is %lu sectors long.\n", p_info.size);
-
-				/*
-				readsec = p_info.size / p_info.blksz;
-				if((p_info.blksz * readsec) < p_info.size)
-					readsec++; // PPC optimized!
-				*/
 
 				if(blockdev->block_read(blockdev->dev, p_info.start, p_info.size, sbl_buffer) != p_info.size)
 				{
@@ -392,7 +396,7 @@ int do_boota(cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
 				   What the heck, the tftp functions might even choke if the server sends any
 				   extension. So a "reasonably big" amount of memory is allocated. */
 				temp = alloc_mem_for_bootloader(BOOTLOADER_MAX_BUFFER);
-				
+
 				env = getenv("netboot_file");
 				if (env == NULL) env = "OS4Bootloader";
 
@@ -436,14 +440,22 @@ int do_boota(cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
 	}
 	else
 	{
+		if (gd->flags & GD_FLG_SILENT)
+		{
+			gd->flags &= ~GD_FLG_SILENT;
+			console_row = CONSOLE_ROW_START + 4;
+			console_col = 0;
+			isgadget = 0;
+		}
+
 		puts("FLB: no SLB found in any of the designated boot sources; returning to u-boot.\n");
 	}
-	
+
 	TFTP_quit_on_error = TFTP_options_backup;
-  
+
 	puts("Press any key to continue\n");
 	getc();
-	
+
 	return 0;
 }
 
@@ -452,5 +464,4 @@ U_BOOT_CMD(
 	boota,      1,      0,      do_boota,
 	"start AmigaOS boot procedure",
 	". 'Boota' allows to boot AmigaOS alike OSes on Sam\n"
-//	". 'Boota' is a great command, that enables you to do things that before\nwere only dreamt of.\nNamely, booting AmigaOS4 on an A1.\nAside from that, it takes no arguments, so any extended help is of no help.\nOn the other hand, it uses a bunch or ruthless environment variables to work, so you might want some insight into these insightful matters.\nFirst of all, come the three 'bootmedia' twins, named 'boot1', 'boot2' and\n'boot3' (we have three of them so they are one more of the Friedens).\nEach of these can be set to a corresponding boot source that will be scanned,\nstarting - guess which one - from 'boot1'. Allowed boot sources are 'net' AKA\nbroken-TFTP-booting-dont-try-me, 'cdrom', 'ide', that are IDE/ATAPI CDRom and\nHDD,respectively, 'scdrom' and 'scsi', same as above but for SCSI and finally\n'ucdrom' and 'usb', meaning of which is left to figure out only to the smartest of you.\nBooting from floppy is not yet supported and when ready will probably leave someone still guessing what is it useful for (greetings to Elwood and Martin S).\nIf you decide to give control to this crazy bunch of buggy bits, it'll try to\nload the second-stage bootloader from the boot sources specified, and pass\ncontrol to it.\nOnce the second-stage bootloader takes control, it'll scan for available\nkickstart configurations, prompt the deepest corner of your soul for which\nconfiguration to load, and then start the REAL fun\n(... or at least attempt to).\nHave a nice day."
 );

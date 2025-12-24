@@ -35,53 +35,53 @@ typedef unsigned int    size_t;
 
 //The whole bunch of <devices/hardblocks.h>
 struct RigidDiskBlock {
-    ULONG   rdb_ID;		/* 4 character identifier */
-    ULONG   rdb_SummedLongs;	/* size of this checksummed structure */
-    LONG    rdb_ChkSum;		/* block checksum (longword sum to zero) */
-    ULONG   rdb_HostID;		/* SCSI Target ID of host */
-    ULONG   rdb_BlockBytes;	/* size of disk blocks */
-    ULONG   rdb_Flags;		/* see below for defines */
-    /* block list heads */
-    ULONG   rdb_Obsolete1;	/* No longer used, was optional bad block list */
-    ULONG   rdb_PartitionList;	/* optional first partition block */
-    ULONG   rdb_FileSysHeaderList; /* optional file system header block */
-    ULONG   rdb_DriveInit;	/* optional drive-specific init code */
+	ULONG   rdb_ID;		/* 4 character identifier */
+	ULONG   rdb_SummedLongs;	/* size of this checksummed structure */
+	LONG    rdb_ChkSum;		/* block checksum (longword sum to zero) */
+	ULONG   rdb_HostID;		/* SCSI Target ID of host */
+	ULONG   rdb_BlockBytes;	/* size of disk blocks */
+	ULONG   rdb_Flags;		/* see below for defines */
+	/* block list heads */
+	ULONG   rdb_Obsolete1;	/* No longer used, was optional bad block list */
+	ULONG   rdb_PartitionList;	/* optional first partition block */
+	ULONG   rdb_FileSysHeaderList; /* optional file system header block */
+	ULONG   rdb_DriveInit;	/* optional drive-specific init code */
 				/* DriveInit(lun,rdb,ior): "C" stk & d0/a0/a1 */
-    ULONG   rdb_BootStrapCode;  /* Secondary bootstrap code. Uses sector type BOOT */
-    ULONG   rdb_Reserved1[5];	/* set to $ffffffff */
-    /* physical drive characteristics */
-    ULONG   rdb_Cylinders;	/* number of drive cylinders */
-    ULONG   rdb_Sectors;	/* sectors per track */
-    ULONG   rdb_Heads;		/* number of drive heads */
-    ULONG   rdb_Interleave;	/* interleave */
-    ULONG   rdb_Park;		/* landing zone cylinder */
-    ULONG   rdb_Reserved2[3];
-    ULONG   rdb_WritePreComp;	/* starting cylinder: write precompensation */
-    ULONG   rdb_ReducedWrite;	/* starting cylinder: reduced write current */
-    ULONG   rdb_StepRate;	/* drive step rate */
-    ULONG   rdb_Reserved3[5];
-    /* logical drive characteristics */
-    ULONG   rdb_RDBBlocksLo;	/* low block of range reserved for hardblocks */
-    ULONG   rdb_RDBBlocksHi;	/* high block of range for these hardblocks */
-    ULONG   rdb_LoCylinder;	/* low cylinder of partitionable disk area */
-    ULONG   rdb_HiCylinder;	/* high cylinder of partitionable data area */
-    ULONG   rdb_CylBlocks;	/* number of blocks available per cylinder */
-    ULONG   rdb_AutoParkSeconds; /* zero for no auto park */
-    ULONG   rdb_HighRDSKBlock;	/* highest block used by RDSK */
+	ULONG   rdb_BootStrapCode;  /* Secondary bootstrap code. Uses sector type BOOT */
+	ULONG   rdb_Reserved1[5];	/* set to $ffffffff */
+	/* physical drive characteristics */
+	ULONG   rdb_Cylinders;	/* number of drive cylinders */
+	ULONG   rdb_Sectors;	/* sectors per track */
+	ULONG   rdb_Heads;		/* number of drive heads */
+	ULONG   rdb_Interleave;	/* interleave */
+	ULONG   rdb_Park;		/* landing zone cylinder */
+	ULONG   rdb_Reserved2[3];
+	ULONG   rdb_WritePreComp;	/* starting cylinder: write precompensation */
+	ULONG   rdb_ReducedWrite;	/* starting cylinder: reduced write current */
+	ULONG   rdb_StepRate;	/* drive step rate */
+	ULONG   rdb_Reserved3[5];
+	/* logical drive characteristics */
+	ULONG   rdb_RDBBlocksLo;	/* low block of range reserved for hardblocks */
+	ULONG   rdb_RDBBlocksHi;	/* high block of range for these hardblocks */
+	ULONG   rdb_LoCylinder;	/* low cylinder of partitionable disk area */
+	ULONG   rdb_HiCylinder;	/* high cylinder of partitionable data area */
+	ULONG   rdb_CylBlocks;	/* number of blocks available per cylinder */
+	ULONG   rdb_AutoParkSeconds; /* zero for no auto park */
+	ULONG   rdb_HighRDSKBlock;	/* highest block used by RDSK */
 				/* (not including replacement bad blocks) */
-    ULONG   rdb_Reserved4;
-    /* drive identification */
-    char    rdb_DiskVendor[8];
-    char    rdb_DiskProduct[16];
-    char    rdb_DiskRevision[4];
-    char    rdb_ControllerVendor[8];
-    char    rdb_ControllerProduct[16];
-    char    rdb_ControllerRevision[4];
-    char    rdb_DriveInitName[40]; // jdow: Filename for driveinit source
+	ULONG   rdb_Reserved4;
+	/* drive identification */
+	char    rdb_DiskVendor[8];
+	char    rdb_DiskProduct[16];
+	char    rdb_DiskRevision[4];
+	char    rdb_ControllerVendor[8];
+	char    rdb_ControllerProduct[16];
+	char    rdb_ControllerRevision[4];
+	char    rdb_DriveInitName[40]; // jdow: Filename for driveinit source
 				   // jdow: as a terminated string.
-    char    rdb_BootStrapName[108];// avallino: Filename for bootstrapper source
+	char    rdb_BootStrapName[108];// avallino: Filename for bootstrapper source
 				   // avallino: as a terminated string.
-    ULONG   rdb_Reserved5[37];
+	ULONG   rdb_Reserved5[37];
 };
 
 #define	IDNAME_RIGIDDISK	0x5244534B	/* 'RDSK' */
@@ -89,19 +89,19 @@ struct RigidDiskBlock {
 #define	RDB_LOCATION_LIMIT	16
 
 struct PartitionBlock {
-    ULONG   pb_ID;		/* 4 character identifier */
-    ULONG   pb_SummedLongs;	/* size of this checksummed structure */
-    LONG    pb_ChkSum;		/* block checksum (longword sum to zero) */
-    ULONG   pb_HostID;		/* SCSI Target ID of host */
-    ULONG   pb_Next;		/* block number of the next PartitionBlock */
-    ULONG   pb_Flags;		/* see below for defines */
-    ULONG   pb_Reserved1[2];
-    ULONG   pb_DevFlags;	/* preferred flags for OpenDevice */
-    UBYTE   pb_DriveName[32];	/* preferred DOS device name: BSTR form */
+	ULONG   pb_ID;		/* 4 character identifier */
+	ULONG   pb_SummedLongs;	/* size of this checksummed structure */
+	LONG    pb_ChkSum;		/* block checksum (longword sum to zero) */
+	ULONG   pb_HostID;		/* SCSI Target ID of host */
+	ULONG   pb_Next;		/* block number of the next PartitionBlock */
+	ULONG   pb_Flags;		/* see below for defines */
+	ULONG   pb_Reserved1[2];
+	ULONG   pb_DevFlags;	/* preferred flags for OpenDevice */
+	UBYTE   pb_DriveName[32];	/* preferred DOS device name: BSTR form */
 				/* (not used if this name is in use) */
-    ULONG   pb_Reserved2[15];	/* filler to 32 longwords */
-    ULONG   pb_Environment[20];	/* environment vector for this partition */
-    ULONG   pb_EReserved[12];	/* reserved for future environment vector */
+	ULONG   pb_Reserved2[15];	/* filler to 32 longwords */
+	ULONG   pb_Environment[20];	/* environment vector for this partition */
+	ULONG   pb_EReserved[12];	/* reserved for future environment vector */
 };
 
 #define	IDNAME_PARTITION	0x50415254	/* 'PART' */
@@ -112,13 +112,13 @@ struct PartitionBlock {
 #define	PBFF_NOMOUNT	2L	/*   mounted, but space reserved here) */
 
 struct BootstrapCodeBlock {
-    ULONG   bcb_ID;		/* 4 character identifier */
-    ULONG   bcb_SummedLongs;	/* size of this checksummed structure */
-    LONG    bcb_ChkSum;		/* block checksum (longword sum to zero) */
-    ULONG   bcb_HostID;		/* SCSI Target ID of host */
-    ULONG   bcb_Next;		/* block number of the next BootstrapCodeBlock */
-    ULONG   bcb_LoadData[123];	/* binary data of the bootstrapper */
-    /* note [123] assumes 512 byte blocks */
+	ULONG   bcb_ID;		/* 4 character identifier */
+	ULONG   bcb_SummedLongs;	/* size of this checksummed structure */
+	LONG    bcb_ChkSum;		/* block checksum (longword sum to zero) */
+	ULONG   bcb_HostID;		/* SCSI Target ID of host */
+	ULONG   bcb_Next;		/* block number of the next BootstrapCodeBlock */
+	ULONG   bcb_LoadData[123];	/* binary data of the bootstrapper */
+	/* note [123] assumes 512 byte blocks */
 };
 #define	IDNAME_BOOTSTRAPCODE	0x424f4f54 /* 'BOOT' */
 
@@ -195,23 +195,23 @@ typedef struct uboot_old_scan_handle
 
 enum bustype
   {
-    BUSTYPE_VIA_ATA,
-    BUSTYPE_SCSI,
-    BUSTYPE_USB,
-    BUSTYPE_NET,
-    BUSTYPE_FLOPPY,
-    BUSTYPE_SIL_PARALLEL,
-    BUSTYPE_SIL_SERIAL,
-    BUSTYPE_SIL_4_SERIAL,
-#ifdef CONFIG_SAM460EX    
-    BUSTYPE_SATA2_460,
-#endif    
-    BUSTYPE_NONE
+	BUSTYPE_VIA_ATA,
+	BUSTYPE_SCSI,
+	BUSTYPE_USB,
+	BUSTYPE_NET,
+	BUSTYPE_FLOPPY,
+	BUSTYPE_SIL_PARALLEL,
+	BUSTYPE_SIL_SERIAL,
+	BUSTYPE_SIL_4_SERIAL,
+#ifdef CONFIG_SAM460EX
+	BUSTYPE_SATA2_460,
+#endif
+	BUSTYPE_NONE
   };
 
 typedef void *			uboot_dev_impl;
 typedef block_dev_desc_t *	internal_uboot_dev_impl;
-  
+
 #define get_lowlevel_handler(scan_handle) (&((scan_handle)->ush_device))
 
 struct dev_access_entry
@@ -256,11 +256,6 @@ extern struct sbl_callback_context * build_callback_context(void *context);
 extern void degrade_to_old_frigging_interface(struct sbl_callback_context * c);
 extern int my_NetLoop(char * fn, void * buff);
 #endif //SECOND_LEVEL_BOOTLOADER
-
-//extern void mycopymem(const char * src, char * dest, unsigned long size);
-
-//#define printf_to_user printf
-//#define scanf_from_user scanf
 
 #define CALLBACK_VERSION 4
 
@@ -327,7 +322,7 @@ struct sbl_callback_context	//This is the context structure passed to the
 	int (* ssc_tstc)(void);
 	void (* ssc_udelay)(unsigned long);
 	int (* ssc_sprintf)(char * buf, const char *fmt, ...);
-	
+
 	//New to version 4.1 (should be 5....): ext2fs support in uboot.
 	int (* ssc_ext2fs_set_blk_dev_full)(block_dev_desc_t * const rbdd, disk_partition_t * const p);
 	int (* ssc_ext2fs_open)(char *filename);

@@ -69,6 +69,10 @@
 #define DCRN_PEGPL_OMR1BAL(base)	(base + 0x07)
 #define DCRN_PEGPL_OMR1MSKH(base)	(base + 0x08)
 #define DCRN_PEGPL_OMR1MSKL(base)	(base + 0x09)
+#define DCRN_PEGPL_OMR2BAH(base)	(base + 0x0a)
+#define DCRN_PEGPL_OMR2BAL(base)	(base + 0x0b)
+#define DCRN_PEGPL_OMR2MSKH(base)	(base + 0x0c)
+#define DCRN_PEGPL_OMR2MSKL(base)	(base + 0x0d)
 #define DCRN_PEGPL_OMR3BAH(base)	(base + 0x0e)
 #define DCRN_PEGPL_OMR3BAL(base)	(base + 0x0f)
 #define DCRN_PEGPL_OMR3MSKH(base)	(base + 0x10)
@@ -316,6 +320,8 @@
 
 #define PECFG_POM0LAL		0x380
 #define PECFG_POM0LAH		0x384
+#define PECFG_POM1LAL		0x388
+#define PECFG_POM1LAH		0x38c
 #define PECFG_POM2LAL		0x390
 #define PECFG_POM2LAH		0x394
 

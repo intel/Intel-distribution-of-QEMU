@@ -34,6 +34,7 @@ native:
 - clang-devel
 - cloud-init
 - codespell
+- coreutils
 - cpp
 - cppi
 - ctags
@@ -184,7 +185,7 @@ native:
 - osinfo-db-tools
 - pam-devel
 - parted-devel
-- pcre-devel-static
+- pcre2-devel-static
 - perl
 - perl-App-cpanminus
 - perl-Archive-Tar
@@ -229,6 +230,7 @@ native:
 - python3-lxml
 - python3-numpy
 - python3-opencv
+- python3-packaging
 - python3-pip
 - python3-pytest
 - python3-requests

@@ -33,6 +33,7 @@ packages:
 - cmocka
 - codespell
 - column
+- coreutils
 - cpp
 - cppi
 - ctags
@@ -261,12 +262,12 @@ packages:
 - python3-devel
 - python3-docutils
 - python3-gobject
-- python3-imp
 - python3-libvirt
 - python3-libxml2
 - python3-lxml
 - python3-numpy
 - python3-opencv
+- python3-packaging
 - python3-pillow
 - python3-pip
 - python3-pytest

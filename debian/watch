@@ -5,4 +5,4 @@ dversionmangle=auto,\
 repacksuffix=+ds,\
 pgpsigurlmangle=s/$/.sig/,\
 compression=xz \
-  https://download.qemu.org/ qemu-(10\.1\.\d+)\.tar\.xz
+  https://download.qemu.org/ qemu-(10\.2\.\d+)\.tar\.xz

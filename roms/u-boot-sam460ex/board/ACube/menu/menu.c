@@ -2,6 +2,7 @@
 #include "creation.h"
 #include "layout.h"
 #include "list.h"
+#include "../common/vesa_video.h"
 
 form_t *root_form = 0;
 
@@ -37,7 +38,7 @@ void menu_draw_help(item_t *item)
 		p_text  = p_break = p_start = buffer;
 		in_word = true;
 
-		for (;;) 
+		for (;;)
 		{
 			if (*p_text == ' ' && in_word == true)
 			{
@@ -103,9 +104,9 @@ void menu_draw(menu_t *menu)
 
 void menu_draw_form(form_t *form)
 {
-	char 
+	char
 		*title;
-	menu_t 
+	menu_t
 		*menu = form->current_menu;
 
 	/* Prefer current menu title if set, otherwise use the form title */
@@ -132,7 +133,7 @@ void menu_draw_current_form(void)
 void menu_form_switch_menu(form_t *form, char *name)
 {
 	menu_t *menu = menu_form_find_menu(form, name);
-	if (!menu) 
+	if (!menu)
 		return;
 	menu_form_set_menu(form, menu);
 }
@@ -151,7 +152,7 @@ void menu_form_popup(form_t *form, menu_t* menu)
 void menu_form_popup_name(form_t *form, char *name)
 {
 	menu_t *menu = menu_form_find_menu(form, name);
-	if (!menu) 
+	if (!menu)
 		return;
 	menu_form_popup(form, menu);
 }
@@ -164,22 +165,21 @@ void menu_form_popdown(form_t *form)
 		if (form->current_menu)
 			form->current_menu->current_item = form->popup_item_save;
 		video_clear_box(1, 3, 78, 15, ' ', MENUATTR_NORMAL);
-		if (form->current_menu) 
+		if (form->current_menu)
 			menu_draw(form->current_menu);
 	}
 }
 
 void menu_set_active_item(menu_t *menu, int nr)
 {
-	item_t
-		*item = (item_t *)(menu->item_list.first);
-		
+	item_t *item = (item_t *)(menu->item_list.first);
+
 	while (item && nr > 0)
 	{
 		nr--;
 		item = (item_t *)(item->link.next);
 	}
-	if (nr == 0)  
+	if (nr == 0)
 	{
 		menu->current_item = item;
 	}
@@ -215,18 +215,16 @@ void leave_func(item_t *item, void *dummy, int arg)
 
 menu_t *make_leave_menu(form_t *form)
 {
-	menu_t
-		*menu = new_menu(MENUTYPE_POPUP, "Exit Menu", form, NULL);
+	menu_t *menu = new_menu(MENUTYPE_POPUP, "Exit Menu", form, NULL);
 
 	if (menu)
 	{
-		item_t
-			*item;
+		item_t *item;
 		item = menu_item_create(ITEMTYPE_FUNC, menu, "Save settings and exit", leave_func, NULL, EXIT_SAVE_PERMANENT);
 		item = menu_item_create(ITEMTYPE_FUNC, menu, "Use settings for this session only", leave_func, NULL, EXIT_AND_SAVE);
 		item = menu_item_create(ITEMTYPE_FUNC, menu, "Leave without saving", leave_func, NULL, EXIT_AND_NO_SAVE);
-		//item = menu_item_create(ITEMTYPE_FUNC, menu, "Return to menu", leave_func, NULL, EXIT_NOT);
 		item = menu_item_create(ITEMTYPE_FUNC, menu, "Abort boot and enter U-Boot shell", leave_func, NULL, EXIT_TO_SHELL);
+		//item = menu_item_create(ITEMTYPE_FUNC, menu, "Return to menu", leave_func, NULL, EXIT_NOT);
 	}
 
 	menu_form_add_menu(form, menu);
@@ -235,20 +233,17 @@ menu_t *make_leave_menu(form_t *form)
 
 	return menu;
 }
-		
+
 
 bool menu_handle_single_key(form_t *form, int key)
 {
-	/* 
+	/*
 	   Keys below 10 or so are specially mapped by us to mean one of the functions
 	   of the menu system (like next item, prev item etc). All other keys are verbatim
-	   keypresses that might be needed for e.g. string entry 
+	   keypresses that might be needed for e.g. string entry
 	*/
-	item_t 
-				*c_item,
-				*n_item;
-	menu_t
-				*menu = form->current_menu;
+	item_t *c_item, *n_item;
+	menu_t *menu = form->current_menu;
 
 	switch(key)
 	{
@@ -300,6 +295,7 @@ bool menu_handle_single_key(form_t *form, int key)
 				}
 				else
 				{
+					video_clear_box(1,20,78,4,' ',MENUATTR_NORMAL);
 					/* TODO: Implement exit from menu */
 					menu_form_popup_name(root_form, "Exit Menu");
 					return true;

@@ -31,107 +31,107 @@ Build-Depends-Arch:
  libaio-dev            [linux-any],
 # libsndio is in universe in ubuntu
 # --disable-sndio
-# --audio-drv-list=pipewire,pa,alsa,jack,oss,sdl	amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
- libjack-dev    [amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64],
- libpulse-dev   [amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64],
- libasound2-dev [amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64],
- libpipewire-0.3-dev [amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64],
+# --audio-drv-list=pipewire,pa,alsa,jack,oss,sdl	amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
+ libjack-dev    [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
+ libpulse-dev   [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
+ libasound2-dev [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
+ libpipewire-0.3-dev [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
 # for virtfs (now in libc6)
 # --enable-attr
-# --enable-bpf	 amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
- libbpf-dev	[amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64],
+# --enable-bpf	 amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
+ libbpf-dev	[amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
 # --enable-blkio	amd64 arm64 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc64
  libblkio-dev	       [amd64 arm64 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc64],
-# --enable-brlapi	amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
- libbrlapi-dev         [amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64],
-# --enable-virtfs	amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
+# --enable-brlapi	amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
+ libbrlapi-dev         [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
+# --enable-virtfs	amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
 # needed for virtfs
-# --enable-cap-ng	amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
- libcap-ng-dev         [amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64],
+# --enable-cap-ng	amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
+ libcap-ng-dev         [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
 # --enable-curl
  libcurl4-gnutls-dev,
-# --enable-fdt	 amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
- libfdt-dev	[amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64],
+# --enable-fdt	 amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
+ libfdt-dev	[amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
 # --enable-fuse		 linux-any
  libfuse3-dev		[linux-any],
 # --enable-gnutls
  gnutls-dev,
-# --enable-gtk --enable-vte	amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
- libgtk-3-dev    [amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64],
- libvte-2.91-dev [amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64],
+# --enable-gtk --enable-vte	amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
+ libgtk-3-dev    [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
+ libvte-2.91-dev [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
 # --enable-libiscsi
  libiscsi-dev,
-# --enable-curses	amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
- libncurses-dev        [amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64],
-# --enable-virglrenderer	amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
- libvirglrenderer-dev          [amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64],
-# --enable-opengl	amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
- libepoxy-dev [amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64],
- libdrm-dev   [amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64],
- libgbm-dev   [amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64],
+# --enable-curses	amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
+ libncurses-dev        [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
+# --enable-virglrenderer	amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
+ libvirglrenderer-dev          [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
+# --enable-opengl	amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
+ libepoxy-dev [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
+ libdrm-dev   [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
+ libgbm-dev   [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
 # --enable-libnfs
  libnfs-dev,
-# --enable-numa	amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
- libnuma-dev   [amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64],
-# --enable-smartcard	 amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
- libcacard-dev		[amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64],
-# --enable-pixman	 amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
- libpixman-1-dev	[amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64],
+# --enable-numa	amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
+ libnuma-dev   [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
+# --enable-smartcard	 amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
+ libcacard-dev		[amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
+# --enable-pixman	 amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
+ libpixman-1-dev	[amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
 # --enable-rbd		amd64 arm64 loong64 mips64el ppc64el riscv64 s390x
  librbd-dev            [amd64 arm64 loong64 mips64el ppc64el riscv64 s390x],
 # gluster is 64bit-only: #1039604
 # --enable-glusterfs	 amd64 arm64 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc64
  libglusterfs-dev	[amd64 arm64 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc64],
-# --enable-vnc-sasl	 amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
- libsasl2-dev		[amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64],
-# --enable-sdl	amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
- libsdl2-dev [amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64],
+# --enable-vnc-sasl	 amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
+ libsasl2-dev		[amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
+# --enable-sdl	amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
+ libsdl2-dev [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
 # --enable-seccomp	amd64 arm64 armel armhf i386 loong64 mips64el mipsel ppc64 ppc64el powerpc riscv64 s390x
  libseccomp-dev        [amd64 arm64 armel armhf i386 loong64 mips64el mipsel ppc64 ppc64el powerpc riscv64 s390x],
-# --enable-slirp	 amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
- libslirp-dev		[amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64],
+# --enable-slirp	 amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
+ libslirp-dev		[amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
 # --enable-spice	 amd64 i386 arm64 armel armhf loong64 mips64el mipsel ppc64el riscv64
  libspice-server-dev	[amd64 i386 arm64 armel armhf loong64 mips64el mipsel ppc64el riscv64],
 # --enable-rdma		linux-any
  librdmacm-dev [linux-any], libibverbs-dev [linux-any], libibumad-dev [linux-any],
 # --enable-linux-io-uring	linux-any
  liburing-dev                  [linux-any],
-# --enable-libusb	amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
- libusb-1.0-0-dev      [amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64],
-# --enable-usb-redir	amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
- libusbredirparser-dev [amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64],
+# --enable-libusb	amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
+ libusb-1.0-0-dev      [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
+# --enable-usb-redir	amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
+ libusbredirparser-dev [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
 # --enable-libssh
  libssh-dev,
 # --enable-zstd
  libzstd-dev,
 # vde is debian-only since ubuntu/vde2 is in universe
-# --enable-vde	 amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
- libvdeplug-dev	[amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64],
+# --enable-vde	 amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
+ libvdeplug-dev	[amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
  libxen-dev [linux-amd64],
-# --enable-nettle	 amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
- nettle-dev		[amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64],
+# --enable-nettle	 amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
+ nettle-dev		[amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
 # other optional features we enable
 # --enable-libudev
 # needed for qga?
  libudev-dev [linux-any],
-# --enable-vnc	 amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
-# --enable-vnc-jpeg	amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
- libjpeg-dev	[amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64],
-# --enable-png	 amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
- libpng-dev	[amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64],
+# --enable-vnc	 amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
+# --enable-vnc-jpeg	amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
+ libjpeg-dev	[amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
+# --enable-png	 amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
+ libpng-dev	[amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
 # --enable-libpmem	amd64 arm64
  libpmem-dev           [amd64 arm64],
-# --enable-kvm		amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
-# --enable-vhost-net	amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64	# is it really linux-specific?
+# --enable-kvm		amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
+# --enable-vhost-net	amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64	# is it really linux-specific?
 ##--enable-lzo todo, for (memory) dumps
 ##--enable-netmap todo bsd
 ##--enable-xen-pci-passthrough todo
 ## auth-pam - for auth for vnc&Co using PAM
 #
 # the testsuite:
-# ipxe-qemu [amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64] <!nocheck>,
- seabios (>> 1.17.0-1~) [amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64] <!nocheck>,
- qemu-system-data (>> 1:9.0) [amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64] <!nocheck>,
+# ipxe-qemu [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64] <!nocheck>,
+ seabios (>> 1.17.0-1~) [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64] <!nocheck>,
+ qemu-system-data (>> 1:9.0) [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64] <!nocheck>,
 #
 # vdso: for linux-user, we need small arch-specific .so files to embed them
 #       into linux-user for many architectures.
@@ -147,7 +147,7 @@ Build-Depends-Arch:
 # Ubuntu builds both arch+indep parts (on amd64), so there this is irrelevant.
 #    Effectively it always enables pkg.qemu.omit-vdso-build-dep build-profile.
 # With each upstream, check if vdso code changed and bump the version:
- qemu-system-data (>> 1:9.2.0~rc3+ds-1~) [amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64]
+ qemu-system-data (>> 1:10.2.0+ds-1~) [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64]
    <!pkg.qemu.use-upstream-vdso !pkg.qemu.omit-vdso-build-dep>,
 Build-Depends-Indep:
 # x86_64 firmware
@@ -191,7 +191,7 @@ Vcs-Browser: https://salsa.debian.org/qemu-team/qemu
 Vcs-Git: https://salsa.debian.org/qemu-team/qemu.git
 
 Package: qemu-system
-Architecture: amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
+Architecture: amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
 Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${misc:Depends},
@@ -215,11 +215,11 @@ Description: QEMU full system emulation binaries
  QEMU supports.
 
 Package: qemu-block-extra
-Architecture: alpha amd64 arm arm64 armel armhf hppa i386 loong64 m68k mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sh4 sparc sparc64 x32
+Architecture: alpha amd64 arm arm64 armel armhf hppa i386 loong64 m68k mips64 mips64el ppc64 ppc64el riscv64 s390x sh4 sparc sparc64 x32
 Multi-Arch: no
 Depends: ${misc:Depends}, ${shlibs:Depends},
 # we need to ensure qemu-block-extra is upgraded with qemu-system-* or qemu-utils
- qemu-system-any (= ${binary:Version}) [amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64] | qemu-utils (= ${binary:Version}),
+ qemu-system-any (= ${binary:Version}) [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64] | qemu-utils (= ${binary:Version}),
 Enhances: qemu-utils,
  qemu-system-arm,
  qemu-system-mips,
@@ -256,7 +256,7 @@ Description: QEMU full system emulation (data files)
  QEMU emulation (qemu-system-*) packages.
 
 Package: qemu-system-common
-Architecture: amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
+Architecture: amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
 Multi-Arch: no
 Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${misc:Depends}, ${shlibs:Depends},
@@ -271,7 +271,7 @@ Description: QEMU full system emulation binaries (common files)
  full system emulation (qemu-system-*) packages.
 
 Package: qemu-system-gui
-Architecture: amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
+Architecture: amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
 #XXX M-A: same does not really work for now due to /usr/lib/qemu/vhost-user-gpu
 #XXX we'll deal with this if some actual need arises,
 #XXX by moving that binary back to q-s-common or packaging it separately
@@ -307,7 +307,7 @@ Description: QEMU full system emulation binaries (spice display modules)
  support modules for QEMU full system emulation (qemu-system-*) packages.
 
 Package: qemu-system-modules-opengl
-Architecture: amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
+Architecture: amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
 Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${misc:Depends}, ${shlibs:Depends},
 # we need to ensure qemu-system-modules-opengl is upgraded when qemu-system is upgraded
@@ -320,7 +320,7 @@ Description: QEMU full system emulation binaries (OpenGL display modules)
  type.
 
 Package: qemu-system-misc
-Architecture: amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
+Architecture: amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
 Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${shlibs:Depends}, ${misc:Depends},
@@ -361,7 +361,7 @@ Description: QEMU full system emulation binaries (miscellaneous)
  machines on a single server.
 
 Package: qemu-system-arm
-Architecture: amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
+Architecture: amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
 Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
@@ -392,7 +392,7 @@ Description: QEMU full system emulation binaries (arm)
  machines on a single server.
 
 Package: qemu-system-mips
-Architecture: amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
+Architecture: amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
 Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
@@ -421,7 +421,7 @@ Description: QEMU full system emulation binaries (mips)
  machines on a single server.
 
 Package: qemu-system-ppc
-Architecture: amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
+Architecture: amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
 Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
@@ -450,7 +450,7 @@ Description: QEMU full system emulation binaries (ppc)
  machines on a single server.
 
 Package: qemu-system-riscv
-Architecture: amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
+Architecture: amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
 Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${shlibs:Depends}, ${misc:Depends},
@@ -478,7 +478,7 @@ Description: QEMU full system emulation binaries (riscv)
  the following riscv hardware: ${qemu:archlist}.
 
 Package: qemu-system-s390x
-Architecture: amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
+Architecture: amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
 Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
@@ -505,7 +505,7 @@ Description: QEMU full system emulation binaries (s390x)
  machines on a single server.
 
 Package: qemu-system-sparc
-Architecture: amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
+Architecture: amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
 Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
@@ -535,7 +535,7 @@ Description: QEMU full system emulation binaries (sparc)
 
 
 Package: qemu-system-x86
-Architecture: amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
+Architecture: amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
 Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
@@ -581,7 +581,7 @@ Description: QEMU full system emulation (Xen helper package)
  This package is not useful by its own.
 
 Package: qemu-user
-Architecture: amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
+Architecture: amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
 Multi-Arch: foreign
 Built-Using: ${built-using}
 Build-Profiles: <!pkg.qemu.omit-user>
@@ -608,7 +608,7 @@ Description: QEMU user mode emulation (static binaries)
        > /proc/sys/fs/binfmt_misc/register
 
 Package: qemu-user-binfmt
-Architecture: amd64 arm arm64 armel armhf i386 loong64 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc sparc64
+Architecture: amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
 Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-user>
 Depends: ${misc:Depends}, qemu-user (>= ${binary:Version}~)
@@ -631,7 +631,7 @@ Description: QEMU user mode binfmt registration for qemu-user
  qemu-user package.
 
 Package: qemu-utils
-Architecture: alpha amd64 arm arm64 armel armhf hppa i386 loong64 m68k mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 s390x sh4 sparc sparc64 x32
+Architecture: alpha amd64 arm arm64 armel armhf hppa i386 loong64 m68k mips64 mips64el ppc64 ppc64el riscv64 s390x sh4 sparc sparc64 x32
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends},
 Recommends:

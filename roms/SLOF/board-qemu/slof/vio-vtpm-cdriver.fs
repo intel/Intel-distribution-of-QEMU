@@ -57,6 +57,25 @@ LOG-SIZE BUFFER: log-base
     THEN
 ;
 
+\ firmware API call
+: pass-through-to-tpm ( buf-addr cmd-size -- rsp-size )
+    vtpm-debug? IF
+        ." Call to pass-through-to-tpm" cr
+    THEN
+    tpm-pass-through-to-tpm                ( rsp-size )
+    vtpm-debug? IF
+        ." VTPM: tpm-pass-through-to-tpm returned size: " dup . cr
+    THEN
+;
+
+\ firmware API call
+: get-maximum-cmd-size ( -- max-size )
+    vtpm-debug? IF
+        ." Call to get-maximum-cmd-size" cr
+    THEN
+    tpm-get-maximum-cmd-size               ( max-size )
+;
+
 0 0 s" ibm,sml-efi-reformat-supported" property
 
 \ firmware API call

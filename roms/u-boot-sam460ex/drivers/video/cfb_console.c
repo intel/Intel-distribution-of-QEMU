@@ -407,6 +407,16 @@ static const int video_font_draw_table32[16][4] = {
 
 /******************************************************************************/
 
+/*
+ * Do not enforce drivers (or board code) to provide empty
+ * video_set_lut() if they do not support 8 bpp format.
+ * Implement weak default function instead.
+ */
+void video_set_lut(unsigned int index, unsigned char r,
+		     unsigned char g, unsigned char b)
+{
+}
+
 static void video_drawchars (int xx, int yy, unsigned char *s, int count)
 {
 	u8 *cdat, *dest, *dest0;

@@ -23,6 +23,7 @@
 
 #include <config.h>
 #include <common.h>
+#include <errno.h>
 #include <stdarg.h>
 #include <malloc.h>
 #include <stdio_dev.h>
@@ -44,6 +45,9 @@ char *stdio_names[MAX_FILES] = { "stdin", "stdout", "stderr" };
 #define	CONFIG_SYS_DEVICE_NULLDEV	1
 #endif
 
+#ifdef	CONFIG_SYS_STDIO_DEREGISTER
+#define	CONFIG_SYS_DEVICE_NULLDEV	1
+#endif
 
 #ifdef CONFIG_SYS_DEVICE_NULLDEV
 void nulldev_putc(const char c)
@@ -163,26 +167,25 @@ int stdio_register (struct stdio_dev * dev)
  * returns 0 if success, -1 if device is assigned and 1 if devname not found
  */
 #ifdef	CONFIG_SYS_STDIO_DEREGISTER
-int stdio_deregister(char *devname)
+int stdio_deregister_dev(struct stdio_dev *dev, int force)
 {
 	int l;
 	struct list_head *pos;
-	struct stdio_dev *dev;
-	char temp_names[3][8];
+	char temp_names[3][16];
 
-	dev = stdio_get_by_name(devname);
-
-	if(!dev) /* device not found */
-		return -1;
 	/* get stdio devices (ListRemoveItem changes the dev list) */
 	for (l=0 ; l< MAX_FILES; l++) {
 		if (stdio_devices[l] == dev) {
+			if (force) {
+				strcpy(temp_names[l], "nulldev");
+				continue;
+			}
 			/* Device is assigned -> report error */
 			return -1;
 		}
 		memcpy (&temp_names[l][0],
 			stdio_devices[l]->name,
-			sizeof(stdio_devices[l]->name));
+			sizeof(temp_names[l]));
 	}
 
 	list_del(&(dev->list));
@@ -196,6 +199,18 @@ int stdio_deregister(char *devname)
 		}
 	}
 	return 0;
+}
+
+int stdio_deregister(const char *devname, int force)
+{
+	struct stdio_dev *dev;
+
+	dev = stdio_get_by_name(devname);
+
+	if (!dev) /* device not found */
+		return -ENODEV;
+
+	return stdio_deregister_dev(dev, force);
 }
 #endif	/* CONFIG_SYS_STDIO_DEREGISTER */
 
@@ -226,7 +241,7 @@ int stdio_init (void)
 	drv_lcd_init ();
 #endif
 #if defined(CONFIG_VIDEO) || defined(CONFIG_CFB_CONSOLE)
-	drv_video_init ();
+	//drv_video_init ();
 #endif
 #ifdef CONFIG_KEYBOARD
 	drv_keyboard_init ();

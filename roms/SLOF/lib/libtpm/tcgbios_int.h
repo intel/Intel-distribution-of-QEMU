@@ -116,7 +116,6 @@ typedef struct {
 	uint32_t numPartEntry;
 	uint32_t partEntrySize;
 	uint32_t partArrayCrc32;
-	uint8_t reserved[420];
 } __attribute__((packed)) UEFI_PARTITION_TABLE_HEADER;
 
 typedef struct {

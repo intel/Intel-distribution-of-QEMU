@@ -26,7 +26,7 @@ struct iphdr {
 	uint8_t ip_hlv;      /**< Header length and version of the header      */
 	uint8_t ip_tos;      /**< Type of Service                              */
 	uint16_t ip_len;     /**< Length in octets, inlc. this header and data */
-	uint16_t ip_id;      /**< ID is used to aid in assembling framents     */
+	uint16_t ip_id;      /**< ID is used to aid in assembling fragments    */
 	uint16_t ip_off;     /**< Info about fragmentation (control, offset)   */
 	uint8_t ip_ttl;      /**< Time to Live                                 */
 	uint8_t ip_p;        /**< Next level protocol type                     */

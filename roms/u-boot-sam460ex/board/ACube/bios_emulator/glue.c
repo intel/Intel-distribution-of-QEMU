@@ -1,4 +1,5 @@
 #include <common.h>
+#include <malloc.h>
 #include <pci.h>
 
 DECLARE_GLOBAL_DATA_PTR;
@@ -85,7 +86,7 @@ unsigned long get_bar_size(pci_dev_t dev, int offset)
     pci_write_config_dword(dev, offset, bar_back);
 
     if (bar_value == 0) return 0xFFFFFFFF; /*  This BAR is disabled */
-    
+
     PRINTF("get_bar_size %08x\n",bar_value);
 
     if ((bar_value & PCI_BASE_ADDRESS_SPACE) == PCI_BASE_ADDRESS_SPACE_MEMORY)
@@ -122,7 +123,7 @@ unsigned long get_real_size(pci_dev_t dev, int offset)
 		/*  This is a memory space BAR. Mask it out so we get the size of it */
 		return ~(bar_value & PCI_BASE_ADDRESS_MEM_MASK) + 1;
     }
-    
+
     if ((bar_value & PCI_BASE_ADDRESS_SPACE) == PCI_BASE_ADDRESS_SPACE_IO)
     {
     	return ~(bar_value & PCI_BASE_ADDRESS_IO_MASK) + 1;
@@ -218,30 +219,30 @@ void find_radeon_values(pci_dev_t dev, u8 * rom_addr)
 		unsigned long PLLMax;
 	} __attribute__((packed));
 	u16 vendor;
-	
+
 	struct radeon_data *rdat;
-	
+
 	DECLARE_GLOBAL_DATA_PTR;
-	
+
 	/* If it's an ATI card, get the values needed by the driver */
 	pci_read_config_word(dev, PCI_VENDOR_ID, &vendor);
 	if (vendor != 0x1002)
 		return;
-		
-	gd->bd->bi_sramstart = malloc(sizeof(struct radeon_data));
+
+	gd->bd->bi_sramstart = (u32)malloc(sizeof(struct radeon_data));
 	rdat = (struct radeon_data *) gd->bd->bi_sramstart;
-	
+
 	bios_header = rom_addr[0x48] | (rom_addr[0x49]<<8);
 	bios_header += 0x30;
 	pll_info_block = rom_addr[bios_header] | (rom_addr[bios_header+1]<<8);
 	pll_info_block += 0x0e;
-	
+
 	rdat->ReferenceFrequency = rom_addr[pll_info_block] | (rom_addr[pll_info_block+1]<<8);
 	pll_info_block += 2;
-	
+
 	rdat->ReferenceDivider = rom_addr[pll_info_block] | (rom_addr[pll_info_block+1]<<8);
 	pll_info_block += 2;
-	
+
 	rdat->PLLMin =  rom_addr[pll_info_block]
 				 | (rom_addr[pll_info_block+1]<<8)
 				 | (rom_addr[pll_info_block+2]<<16)
@@ -253,11 +254,11 @@ void find_radeon_values(pci_dev_t dev, u8 * rom_addr)
 				 | (rom_addr[pll_info_block+2]<<16)
 				 | (rom_addr[pll_info_block+3]<<14);
 }
-				 
-				 
+
+
 int find_image(u32 rom_address, u32 rom_size, void **image, u32 *image_size);
 
-#if defined(CONFIG_SAM440EP)  
+#if defined(CONFIG_SAM440EP)
 #include "radeon_bios.h"
 
 void load_compressed_bios(void *copy_address)
@@ -275,33 +276,21 @@ int attempt_map_rom(pci_dev_t dev, void *copy_address)
     int i;
     void *image       = 0;
     u32 image_size    = 0;
-    u32 prefetch_idx  = 0;
-    u32 lower         = 0xFFFFFFFF;
-    u32 upper         = 0x00000000;
-    u32 mlower        = 0xFFFFFFFF;
-    u32 mupper        = 0x00000000;
     int foundimg      = 0;
     int foundmini     = 0;
     u16 vendor        = 0;
-    //u32 iobase        = 0;
 
-//#ifdef CONFIG_SAM460EX
-//	struct pci_region *isaio = ppc460_hose->regions+0;
-//#else    
-//	struct pci_region *isaio = gd->ppc440_hose->regions+0;
-//#endif
-		
     /*  Get the size of the VGA expansion rom */
 
-#if defined(CONFIG_SAM440EP) 
+#if defined(CONFIG_SAM440EP)
     if(PCI_BUS(dev) == 0 && PCI_DEV(dev) == 0xc)
     {
         foundmini = 1;
         rom_size  = 64*1024;
-        PRINTF("FOUNDMINI\n");	    	
+        PRINTF("FOUNDMINI\n");
     }
     else
-#endif   
+#endif
     {
         pci_write_config_dword(dev, PCI_ROM_ADDRESS, 0xFFFFFFFF);
         pci_read_config_dword(dev, PCI_ROM_ADDRESS, &rom_size);
@@ -318,7 +307,7 @@ int attempt_map_rom(pci_dev_t dev, void *copy_address)
     }
 
     PRINTF("ROM Size is %dK\n", rom_size/1024);
-    
+
     /*
      * Try to find a place for the ROM. We always attempt to use
      * one of the card's bases for this, as this will be in any
@@ -336,7 +325,7 @@ int attempt_map_rom(pci_dev_t dev, void *copy_address)
     {
         bar_size = get_bar_size(dev, i);
         PRINTF("PCI_BASE_ADDRESS_%d is %dK large\n", (i - PCI_BASE_ADDRESS_0)/4, bar_size/1024);
-        
+
         if ((bar_size & PCI_BASE_ADDRESS_MEM_TYPE_MASK) == PCI_BASE_ADDRESS_MEM_TYPE_64) {
             PRINTF("MEM64 found\n");
             rom_address = 0xa0000000;
@@ -369,13 +358,13 @@ int attempt_map_rom(pci_dev_t dev, void *copy_address)
     /*  Copy the rom to a place in the emulator space */
     PRINTF("Trying to find an X86 BIOS image in ROM\n");
 
-#if defined(CONFIG_SAM440EP)  
+#if defined(CONFIG_SAM440EP)
     if (foundmini == 1)
     {
     	load_compressed_bios(copy_address);
     }
     else
-#endif    
+#endif
     {
         foundimg = find_image(rom_address, rom_size, &image, &image_size);
 
@@ -388,7 +377,7 @@ int attempt_map_rom(pci_dev_t dev, void *copy_address)
 
         PRINTF("Copying %ld bytes from 0x%lx to 0x%lx\n", (long)image_size, (long)image, (long)copy_address);
 
-        memcpy(copy_address, rom_address, rom_size);
+        memcpy(copy_address, (void *)rom_address, rom_size);
 //        {
 //            unsigned char *from = (unsigned char *)image; /* rom_address; */
 //            unsigned char *to = (unsigned char *)copy_address;
@@ -408,7 +397,7 @@ int attempt_map_rom(pci_dev_t dev, void *copy_address)
     pci_read_config_word(dev, PCI_VENDOR_ID, &vendor);
     if ( (vendor == 0x1002) || (foundmini == 1) )
         find_radeon_values(dev, copy_address);
-		
+
     clear_bat2();
 
     /*  Unmap the ROM and restore the BAR */
@@ -426,11 +415,11 @@ int attempt_map_rom(pci_dev_t dev, void *copy_address)
 		{
     		u32 bar_size = get_real_size(dev, i);
     		u32 bar;
-        		
+
             if (bar_size != 0xFFFFFFFF && bar_size != 0x00000000)
             {
 				pci_read_config_dword(dev, i, &bar);
-			
+
 				PRINTF("PCI_BASE_ADDRESS_%d: %p-%p",
 					x, bar&0xFFFFFFF0, (bar&0xFFFFFFF0)+bar_size);
 				if ((bar&PCI_BASE_ADDRESS_SPACE))
@@ -458,7 +447,7 @@ int find_image(u32 rom_address, u32 rom_size, void **image, u32 *image_size)
 {
 #ifdef DEBUG
     int i = 0;
-#endif    
+#endif
     unsigned char *rom = (unsigned char *)rom_address;
 
 	PRINTF("find_image:\n");
@@ -470,7 +459,7 @@ int find_image(u32 rom_address, u32 rom_size, void **image, u32 *image_size)
 		int j;
 		unsigned int length;
 		unsigned int data_offs = *(rom+0x18) + 256* *(rom+0x19);
-		
+
 		PRINTF("Rom data offset at %p\n", data_offs);
 		PRINTF("Rom header: ");
 		for (j=0; j<0x16; j++)
@@ -487,7 +476,7 @@ int find_image(u32 rom_address, u32 rom_size, void **image, u32 *image_size)
 		length = *(rom+data_offs+0x10) + 256* *(rom+data_offs+0x11);
 		PRINTF("length: raw=%d, yields %d\n", length, length*512);
 	}
-#endif	
+#endif
     for (;;)
     {
 		unsigned int pci_data_offset = *(rom+0x18) + 256 * *(rom+0x19);

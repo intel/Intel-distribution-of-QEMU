@@ -21,9 +21,9 @@
 # MA 02111-1307 USA
 #
 
-VERSION = 2010
-PATCHLEVEL = 06
-SUBLEVEL = 05
+VERSION = 2015
+PATCHLEVEL = c
+SUBLEVEL =
 EXTRAVERSION =
 ifneq "$(SUBLEVEL)" ""
 U_BOOT_VERSION = $(VERSION).$(PATCHLEVEL).$(SUBLEVEL)$(EXTRAVERSION)
@@ -397,6 +397,8 @@ multiplier:
 updater:
 		$(MAKE) -C tools/updater all || exit 1
 
+updater-sst:
+		$(MAKE) -C tools/updater-sst all || exit 1
 env:
 		$(MAKE) -C tools/env all MTD_VERSION=${MTD_VERSION} || exit 1
 
@@ -1513,11 +1515,29 @@ quad100hd_config:	unconfig
 redwood_config: unconfig
 	@$(MKCONFIG) $(@:_config=) powerpc ppc4xx redwood amcc
 
-Sam460ex_config:	unconfig
+Sam460_50_config:	unconfig
 	@mkdir -p $(obj)include
 	@echo "#define CONFIG_$$(echo $(subst ,,$(@:_config=)) | \
 		tr '[:lower:]' '[:upper:]')" >$(obj)include/config.h
 	@$(MKCONFIG) -n $@ -a Sam460ex powerpc ppc4xx Sam460ex ACube
+	@echo "#define CONFIG_SYS_CLK_FREQ 50000000" >> $(obj)include/config.h
+	@echo "UPDATER_IMAGE = updater50-rx" > $(obj)include/updater-config.mk
+
+Sam460_55_config:	unconfig
+	@mkdir -p $(obj)include
+	@echo "#define CONFIG_$$(echo $(subst ,,$(@:_config=)) | \
+		tr '[:lower:]' '[:upper:]')" >$(obj)include/config.h
+	@$(MKCONFIG) -n $@ -a Sam460ex powerpc ppc4xx Sam460ex ACube
+	@echo "#define CONFIG_SYS_CLK_FREQ 55000000" >> $(obj)include/config.h
+	@echo "UPDATER_IMAGE = updater55-rx" > $(obj)include/updater-config.mk
+		
+Sam460_60_config:	unconfig
+	@mkdir -p $(obj)include
+	@echo "#define CONFIG_$$(echo $(subst ,,$(@:_config=)) | \
+		tr '[:lower:]' '[:upper:]')" >$(obj)include/config.h
+	@$(MKCONFIG) -n $@ -a Sam460ex powerpc ppc4xx Sam460ex ACube
+	@echo "#define CONFIG_SYS_CLK_FREQ 60000000" >> $(obj)include/config.h
+	@echo "UPDATER_IMAGE = updater60-rx" > $(obj)include/updater-config.mk
 		
 sbc405_config:	unconfig
 	@$(MKCONFIG) $(@:_config=) powerpc ppc4xx sbc405

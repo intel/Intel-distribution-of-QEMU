@@ -241,8 +241,8 @@ To add primitives:
 4.0 Submitting patches
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-Patches for SLOF should be made against https://github.com/aik/SLOF,
-the master branch and posted to slof@lists.ozlabs.org.
+Patches for SLOF should be made against the master branch of the repository
+https://gitlab.com/slof/slof.git and posted to slof@lists.ozlabs.org.
 The patches must be signed using "Signed-off-by" tag with a real name to
 confirm that you certify the Developer Certificate of Origin  Version 1.1,
 see [3] for details.

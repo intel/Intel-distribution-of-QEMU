@@ -1,9 +1,9 @@
 From: Michael Tokarev <mjt@tls.msk.ru>
 Date: Sat, 03 Aug 2024 11:18:58 +0300
 Subject: u-boot-sam460ex: build fixes
-Forwarded: https://lists.nongnu.org/archive/html/qemu-devel/2025-01/msg00767.html
+Forwarded: https://lists.nongnu.org/archive/html/qemu-devel/2025-11/msg03005.html
 
-Fixes or works around numerous build issues and one real bug.
+Fixes or works around numerous build issues.
 
 Most are due to new defaults in gcc (in debian), like
  -Werror=implicit-function-declarations (there are a lot of missing decls)
@@ -13,39 +13,10 @@ Most are due to new defaults in gcc (in debian), like
 Bug-Debian: https://bugs.debian.org/1075428
 Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
 
-diff --git a/roms/u-boot-sam460ex/board/ACube/Sam460ex/Sam460ex.c b/roms/u-boot-sam460ex/board/ACube/Sam460ex/Sam460ex.c
-index 4d5b953c02..5ecf16dbe2 100644
---- a/roms/u-boot-sam460ex/board/ACube/Sam460ex/Sam460ex.c
-+++ b/roms/u-boot-sam460ex/board/ACube/Sam460ex/Sam460ex.c
-@@ -843,7 +843,7 @@ int last_stage_init (void)
- 	// cleanup last 8 bytes of the RTC registers bank -----
- 	
- 	char arr[8] = { 0 };
--	i2c_write(0x68, 0x08, 1, &arr, 8);
-+	i2c_write(0x68, 0x08, 1, arr, 8);
- 	
- 	// USB Init -------------------------------------------
- 
-diff --git a/roms/u-boot-sam460ex/common/usb.c b/roms/u-boot-sam460ex/common/usb.c
-index 203c9f7795..d645d36c8e 100644
---- a/roms/u-boot-sam460ex/common/usb.c
-+++ b/roms/u-boot-sam460ex/common/usb.c
-@@ -957,7 +957,7 @@ void usb_scan_devices(void)
- 		printf("%d USB Device(s) found\n", dev_index);
- 		
- #ifdef CONFIG_SAM460EX
--	static attempts = 0;
-+	static int attempts = 0;
- 	
-     if (dev_index < 3) {  
-         u16 fpga_val = in_be16((void *)CONFIG_SYS_FPGA_BASE + 0x2E);
 diff --git a/roms/u-boot-sam460ex/config.mk b/roms/u-boot-sam460ex/config.mk
-index bcda77611a..9928f5f4c6 100644
 --- a/roms/u-boot-sam460ex/config.mk
 +++ b/roms/u-boot-sam460ex/config.mk
-@@ -191,6 +191,11 @@ endif
- 
- CFLAGS += $(call cc-option,-fno-stack-protector)
+@@ -193,2 +193,7 @@ CFLAGS += $(call cc-option,-fno-stack-protector)
  
 +# this u-boot is an old bad code
 +CFLAGS += $(call cc-option,-Wno-error=implicit-function-declaration)
@@ -53,5 +24,3 @@ index bcda77611a..9928f5f4c6 100644
 +CFLAGS += $(call cc-option,-Wno-error=int-conversion)
 +
  # $(CPPFLAGS) sets -g, which causes gcc to pass a suitable -g<format>
- # option to the assembler.
- AFLAGS_DEBUG :=

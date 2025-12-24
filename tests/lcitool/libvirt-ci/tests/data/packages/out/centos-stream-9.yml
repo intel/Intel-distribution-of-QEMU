@@ -35,6 +35,7 @@ native:
 - cloud-init
 - cloud-utils-growpart
 - compiler-rt
+- coreutils-single
 - cpp
 - ctags
 - cyrus-sasl-devel
@@ -227,6 +228,7 @@ native:
 - python3-libxml2
 - python3-lxml
 - python3-numpy
+- python3-packaging
 - python3-pillow
 - python3-pip
 - python3-pytest

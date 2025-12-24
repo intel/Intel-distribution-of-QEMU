@@ -36,7 +36,7 @@
 #define KEYFILE WORKDIR "key-ctx.pem"
 
 static ssize_t
-testWrite(const char *buf, size_t len, void *opaque, Error **errp)
+testWrite(const void *buf, size_t len, void *opaque, Error **errp)
 {
     int *fd = opaque;
     int ret;
@@ -54,7 +54,7 @@ testWrite(const char *buf, size_t len, void *opaque, Error **errp)
 }
 
 static ssize_t
-testRead(char *buf, size_t len, void *opaque, Error **errp)
+testRead(void *buf, size_t len, void *opaque, Error **errp)
 {
     int *fd = opaque;
     int ret;
@@ -112,8 +112,8 @@ static void test_crypto_tls_session_psk(void)
      * thread, so we need these non-blocking to avoid deadlock
      * of ourselves
      */
-    qemu_socket_set_nonblock(channel[0]);
-    qemu_socket_set_nonblock(channel[1]);
+    qemu_set_blocking(channel[0], false, &error_abort);
+    qemu_set_blocking(channel[1], false, &error_abort);
 
     clientCreds = test_tls_creds_psk_create(
         QCRYPTO_TLS_CREDS_ENDPOINT_CLIENT,
@@ -264,8 +264,8 @@ static void test_crypto_tls_session_x509(const void *opaque)
      * thread, so we need these non-blocking to avoid deadlock
      * of ourselves
      */
-    qemu_socket_set_nonblock(channel[0]);
-    qemu_socket_set_nonblock(channel[1]);
+    qemu_set_blocking(channel[0], false, &error_abort);
+    qemu_set_blocking(channel[1], false, &error_abort);
 
 #define CLIENT_CERT_DIR "tests/test-crypto-tlssession-client/"
 #define SERVER_CERT_DIR "tests/test-crypto-tlssession-server/"

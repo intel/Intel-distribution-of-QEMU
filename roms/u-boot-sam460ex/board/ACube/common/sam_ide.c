@@ -29,58 +29,58 @@ extern ulong sata_read(int device, ulong blknr, lbaint_t blkcnt, void *buffer);
 
 /*
 How to add new IDE boards to this module.
-This note explains how to add new controller cards to those supported by 
+This note explains how to add new controller cards to those supported by
 a1ide.c/UBoot.
 
 To add support for a new IDE controller you need to:
 - add a new entry in the controllers[] array.
-- write a couple of functions to read from the controllers, one for ATA and 
+- write a couple of functions to read from the controllers, one for ATA and
 one for ATAPI.
-These are very simple and usually don't need special care, they simply 
+These are very simple and usually don't need special care, they simply
 forward the call to the generic reading routines.
 - write a small function to fetch a unit from those present on the controller;
 much like the point above.
 - write a function to initialize the controller card.
 - add some bits and pieces here and there (all explained below).
 
-Let's start with the big chunk: the controllers[] array. 
+Let's start with the big chunk: the controllers[] array.
 It's an array of struct controller_context.
 There must be one for every supported controller/chip.
 But first, a word from our spon.... no: a word about UBoot!
 In "controllers" and elsewhere, it's quite often to find function pointers.
-Due to the fact that UBoot gets relocated early during the initialization 
+Due to the fact that UBoot gets relocated early during the initialization
 phases, NO function pointer can be used in a static structure
-or a static variable of a module!!! So if you plan to use function pointers 
+or a static variable of a module!!! So if you plan to use function pointers
 like in controllers, you MUST initialize them at RUN TIME, _NOT COMPILE TIME_!!!
 
 The controller_context sturcture:
-BOOL	cc_present: 		
+BOOL	cc_present:
 	set this to TRUE during the initialization routine if
 	the card was found and it's working.
-UBYTE	cc_maxunit: 		
+UBYTE	cc_maxunit:
 	total number of units that can exists on this controller
-UBYTE	cc_maxbus: 			
-	total number of different bus that are handled by this 
+UBYTE	cc_maxbus:
+	total number of different bus that are handled by this
 	controller. Usually 2.
-char *cc_maxbus_var: 
+char *cc_maxbus_var:
 	pointer to a string with the environment variable used
 	to limit the buses being used/scanned.
 BOOL *cc_bus_ok:
-	an array of BOOLs, allocated at runtime, length is 
+	an array of BOOLs, allocated at runtime, length is
 	cc_maxbus: tells which bus have real units.
-base_io_address *cc_base_io: 
-	array of io_address, allocated at runtime, length is 
+base_io_address *cc_base_io:
+	array of io_address, allocated at runtime, length is
 	cc_maxbus: base IO addresses for each bus.
-block_dev_desc_t * cc_units: 
+block_dev_desc_t * cc_units:
 	array of device descriptors, allocated at runtime, length is cc_maxunit.
-char *cc_description: 
+char *cc_description:
 	a string defining the controller itself.
-unsigned long (* cc_block_read)(): 
+unsigned long (* cc_block_read)():
 	function pointer to the ATA block read routine, see the warning above.
-unsigned long (* cc_atapi_read)(): 
+unsigned long (* cc_atapi_read)():
 	function pointer to the ATAPI block read routine, see the warning above.
 
-Some of these fields will be filled in by the generic part, so you don't have 
+Some of these fields will be filled in by the generic part, so you don't have
 to care for them.
 What must be supplied by you are:
 STATIC (compile-time): cc_maxunit, cc_maxbus, cc_maxbus_var, cc_description.
@@ -90,18 +90,18 @@ DYNAMIC (run-time), simply allocated and cleared: cc_bus_ok, cc_units.
 The last two entries refer to the two reading routines, one for ATA and the
 second for ATAPI.
 They use common code but, because of compatibility reasons, they cannot have
-the controller_context structure in their prototipes. But they call upon it, 
+the controller_context structure in their prototipes. But they call upon it,
 so all you need to do is forward the call to local_ide_read and local_atapi_read,
-using the appropriate cc_base_io. 
+using the appropriate cc_base_io.
 Have a look at p_sii_block_read and p_sii_atapi_read for an example.
 The same kind of reasoning is applied to the "get_dev" function: you must write
-one function like via_get_dev that returns a (block_dev_desc_t *) of your 
-controller. This function is the hook used by cmd_boota to use units on your 
+one function like via_get_dev that returns a (block_dev_desc_t *) of your
+controller. This function is the hook used by cmd_boota to use units on your
 controller. You decide the name.
 
-The initialization function: this is the main part of adding a new controller. 
+The initialization function: this is the main part of adding a new controller.
 This function must:
-- check if the controller is really present in your system. If not present, 
+- check if the controller is really present in your system. If not present,
 	quit immediately. Otherwise:
 - allocate and clear cc_units, cc_base_io and cc_bus_ok.
 - really initialize the controller HW. You should know what to do here.
@@ -112,7 +112,7 @@ This function must:
 - set cc_present to TRUE.
 
 Ok, that's it.
-One more step is required: add a call to the above initialization function 
+One more step is required: add a call to the above initialization function
 from init_controllers.
 
 Done!
@@ -121,7 +121,7 @@ Done!
 #undef	IDE_DEBUG
 #ifdef	IDE_DEBUG
 #define	PRINTF(fmt,args...)		printf (fmt ,##args)
-#define	PRINTF2(fmt,args...)    
+#define	PRINTF2(fmt,args...)
 #else
 #define PRINTF(fmt,args...)
 #define PRINTF2(fmt,args...)
@@ -144,8 +144,8 @@ static inline base_io_address IDE_BUS_ADV(const struct controller_context * cons
 //#define ATA_DEVICE_ADV(cc, dev) ((dev & 1)<<4)
 static int ATA_DEVICE_ADV(const struct controller_context * const cc, const unsigned dev)
 {
-    if (strcmp(cc->cc_description,"Sii0680") == 0) return((dev & 1)<<4);
-    else return 0;
+	if (strcmp(cc->cc_description,"Sii0680") == 0) return((dev & 1)<<4);
+	else return 0;
 }
 
 #define ATA_CURR_BASE_ADV(cc, dev)	(CONFIG_SYS_ATA_BASE_ADDR+IDE_BUS_ADV(cc,dev))
@@ -175,10 +175,10 @@ enum
 {
 	S_SII_POS = 0,
 	S4_SII_POS,
-#ifdef CONFIG_SAM460EX	
+#ifdef CONFIG_SAM460EX
 	SATA2_460_POS,
 #endif
-	P_SII_POS		
+	P_SII_POS
 };
 
 //Forward declarations.
@@ -220,10 +220,10 @@ static unsigned char local_ide_inb(int dev, int port, const struct controller_co
 	/* Ensure I/O operations complete */
 	EIEIO;
 	val = *((uchar *)(ATA_CURR_BASE_ADV(cc, dev)+port));
-	
+
 	PRINTF2 ("a1_ide_inb (dev= %d, port= 0x%x) : @ 0x%08lx -> 0x%02x\n",
 		dev, port, (ATA_CURR_BASE_ADV(cc, dev)+port), val);
-	
+
 	return (val);
 }
 
@@ -234,17 +234,17 @@ static void s_sii_early_init(struct controller_context * const ctx)
 	unsigned int bdf;
 	unsigned int addr;
 	uint32_t class_rev;
-	
+
 	PRINTF ("s_sii_init: START\n");
 
 	//Creates the devices description array.
-	
+
 	ctx->cc_units = calloc(sizeof(block_dev_desc_t),  ctx->cc_maxunit);
 	ctx->cc_base_io = calloc(sizeof(base_io_address), ctx->cc_maxbus);
 	ctx->cc_bus_ok = calloc(sizeof(BOOL), ctx->cc_maxbus);
 	ctx->cc_maxbus_var = "ssii_maxbus";
 	ctx->cc_description = "Sii3112";
-		
+
 	/* get IDE Controller Device ID */
 
 	if ((bdf = pci_find_device(PCI_VENDOR_ID_CMD, PCI_DEVICE_ID_SII_3112, 0)) == -1)
@@ -256,11 +256,11 @@ static void s_sii_early_init(struct controller_context * const ctx)
 	}
 
 	pci_write_config_dword(bdf, PCI_COMMAND, PCI_COMMAND_IO | PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER);
-	
+
 	// Reset chip registers to safe values
 	pci_read_config_dword(bdf, PCI_CLASS_REVISION, &class_rev);
 	class_rev &= 0xFF;
-	pci_write_config_byte(bdf, PCI_CACHE_LINE_SIZE, (class_rev) ? 1 : 255); 
+	pci_write_config_byte(bdf, PCI_CACHE_LINE_SIZE, (class_rev) ? 1 : 255);
 
 	pci_read_config_dword (bdf, PCI_BASE_ADDRESS_0, &addr);
 	ctx->cc_base_io[0] = (void *)(addr & PCI_BASE_ADDRESS_IO_MASK);
@@ -270,7 +270,7 @@ static void s_sii_early_init(struct controller_context * const ctx)
 	ctx->cc_present = TRUE;
 	ctx->cc_block_read = s_sii_block_read;
 	ctx->cc_atapi_read = s_sii_atapi_read;
-	
+
 	PRINTF("Done s_sii initialization, base IO addresses at %08lx, %08lx\n",
 		ctx->cc_base_io[0], ctx->cc_base_io[1]);
 }
@@ -280,17 +280,17 @@ static void s_4_sii_early_init(struct controller_context * const ctx)
 	unsigned int bdf;
 	unsigned int addr;
 	uint32_t class_rev;
-	
+
 	PRINTF ("s_4_sii_init: START\n");
 
 	//Creates the devices description array.
-	
+
 	ctx->cc_units = calloc(sizeof(block_dev_desc_t),  ctx->cc_maxunit);
 	ctx->cc_base_io = calloc(sizeof(base_io_address), ctx->cc_maxbus);
 	ctx->cc_bus_ok = calloc(sizeof(BOOL), ctx->cc_maxbus);
 	ctx->cc_maxbus_var = "s4sii_maxbus";
 	ctx->cc_description = "Sii3114";
-		
+
 	/* get IDE Controller Device ID */
 
 	if ((bdf = pci_find_device(PCI_VENDOR_ID_CMD, PCI_DEVICE_ID_SII_3114, 0)) == -1)
@@ -299,26 +299,26 @@ static void s_4_sii_early_init(struct controller_context * const ctx)
 	}
 
 	pci_write_config_dword(bdf, PCI_COMMAND, PCI_COMMAND_IO | PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER);
-	
+
 	// Reset chip registers to safe values
 	pci_read_config_dword(bdf, PCI_CLASS_REVISION, &class_rev);
 	class_rev &= 0xFF;
-	pci_write_config_byte(bdf, PCI_CACHE_LINE_SIZE, (class_rev) ? 1 : 255); 
+	pci_write_config_byte(bdf, PCI_CACHE_LINE_SIZE, (class_rev) ? 1 : 255);
 	//I really don't know what the above code is all about.....
-	
-	
+
+
 	pci_read_config_dword (bdf, PCI_BASE_ADDRESS_0, &addr);
 	ctx->cc_base_io[0] = (void *)(addr & PCI_BASE_ADDRESS_IO_MASK);
 	pci_read_config_dword (bdf, PCI_BASE_ADDRESS_2, &addr);
 	ctx->cc_base_io[1] = (void *)(addr & PCI_BASE_ADDRESS_IO_MASK);
-	
+
 /*
 	Here we got a problem: since the "autoconfiguration" (ahemm...) of PCI is done via
 	BAR registers, it's very likely that other cards I/O space overlap with the
 	3114 "hole" after which the 2 upper buses are placed.
 	This really happens if a 680 is used at the same time.
 	So for the time being the two upper buses are disabled.
-	
+
 	ctx->cc_base_io[2] = ctx->cc_base_io[0] + SILLY_SIL_4_PORTS_OFFSET;
 	ctx->cc_base_io[3] = ctx->cc_base_io[1] + SILLY_SIL_4_PORTS_OFFSET;
 */
@@ -327,11 +327,11 @@ static void s_4_sii_early_init(struct controller_context * const ctx)
 	ctx->cc_base_io[2] = ctx->cc_base_io[0] + SILLY_SIL_4_PORTS_OFFSET;
 	ctx->cc_base_io[3] = ctx->cc_base_io[1] + SILLY_SIL_4_PORTS_OFFSET;
 		ctx->cc_maxunit = ctx->cc_maxbus = 4;
-	
+
 	ctx->cc_present = TRUE;
 	ctx->cc_block_read = s_4_sii_block_read;
 	ctx->cc_atapi_read = s_4_sii_atapi_read;
-	
+
 	PRINTF("Done s_4_sii initialization, base IO addresses at %08lx, %08lx, %08lx, %08lx\n",
 		ctx->cc_base_io[0], ctx->cc_base_io[1], ctx->cc_base_io[2], ctx->cc_base_io[3]);
 }
@@ -342,21 +342,21 @@ static void sata2_460_early_init(struct controller_context * const ctx)
 	PRINTF ("sata2_460_init: START\n");
 
 	//Creates the devices description array.
-	
-	ctx->cc_units = NULL;						// later... 
+
+	ctx->cc_units = NULL;						// later...
 	ctx->cc_base_io = NULL;						// not used
 	ctx->cc_bus_ok = calloc(sizeof(BOOL), ctx->cc_maxbus);
 	ctx->cc_maxbus_var = "sata2_maxbus";
 	ctx->cc_description = "SATA2-460";
-		
+
 	/* get IDE Controller Device ID */
-	
+
 	if (gd->board_type != BOARD_CANYONLANDS_SATA) return;
 
 	ctx->cc_present = TRUE;
 	ctx->cc_block_read = sata_read;
 	ctx->cc_atapi_read = sata_read;
-	
+
 	PRINTF("Done sata2_460 initialization\n");
 }
 #endif
@@ -370,13 +370,13 @@ static void p_sii_early_init(struct controller_context * const ctx)
 	PRINTF ("p_sii_init: START\n");
 
 	//Creates the devices description array.
-	
+
 	ctx->cc_units = calloc(sizeof(block_dev_desc_t),  ctx->cc_maxunit);
 	ctx->cc_base_io = calloc(sizeof(base_io_address), ctx->cc_maxbus);
 	ctx->cc_bus_ok = calloc(sizeof(BOOL), ctx->cc_maxbus);
 	ctx->cc_maxbus_var = "psii_maxbus";
 	ctx->cc_description = "Sii0680";
-	
+
 	/* get IDE Controller Device ID */
 
 	if ((bdf = pci_find_device(PCI_VENDOR_ID_CMD, PCI_DEVICE_ID_SII_680, 0)) == -1)
@@ -390,7 +390,7 @@ static void p_sii_early_init(struct controller_context * const ctx)
 	ctx->cc_base_io[1] = (void *)(addr & PCI_BASE_ADDRESS_IO_MASK);
 
 	PRINTF("p_sii base addresses at %08lx and %08lx\n", ctx->cc_base_io[0], ctx->cc_base_io[1]);
-	
+
 	/* Enable bus mastering in case this has not been done, yet. */
 
 	pci_read_config_dword (bdf, PCI_COMMAND, &cmd);
@@ -412,11 +412,11 @@ static void p_sii_early_init(struct controller_context * const ctx)
 	pci_write_config_dword (bdf, 0xB4, 0x328A328A);
 	pci_write_config_dword (bdf, 0xB8, 0x43924392);
 	pci_write_config_dword (bdf, 0xBC, 0x40094009);
-	
+
 	ctx->cc_present = TRUE;
 	ctx->cc_block_read = p_sii_block_read;
 	ctx->cc_atapi_read = p_sii_atapi_read;
-	
+
 	PRINTF("Done p_sii initialization\n");
 }
 
@@ -428,9 +428,9 @@ static void init_controllers(void) //Will fill in controllers[] with the appropr
 #ifdef CONFIG_SAM460EX
 	sata2_460_early_init(&controllers[SATA2_460_POS]);
 #endif
-	p_sii_early_init(&controllers[P_SII_POS]);	
+	p_sii_early_init(&controllers[P_SII_POS]);
 
-	PRINTF("Looping in early init for a total of %lu controllers to compute units per bus\n", 
+	PRINTF("Looping in early init for a total of %lu controllers to compute units per bus\n",
 		((sizeof controllers)/(sizeof (struct controller_context))));
 
 	for(cnt=0; cnt < ((sizeof controllers)/(sizeof (struct controller_context))); cnt++)
@@ -446,29 +446,29 @@ static void internal_ide_unit_scan(struct controller_context * ctx) //Taken from
 {
 	unsigned char c;
 	int i, bus;
-	
+
 	unsigned int max_bus_scan;
 	unsigned int ata_reset_time;
 	char *s;
-		
+
 	/*
 	 * Wait for IDE to get ready.
 	 * According to spec, this can take up to 31 seconds!
 	 */
 	PRINTF("Checking for %s\n",ctx->cc_maxbus_var);
 	s = getenv(ctx->cc_maxbus_var);
-	if (s) 
+	if (s)
 	    max_bus_scan = simple_strtol(s, NULL, 10);
-	else 
+	else
 	    max_bus_scan = ctx->cc_maxbus;
 
 	PRINTF("Now looping for a total of %u bus\n", max_bus_scan);
 
-	for (bus=0; bus<max_bus_scan; ++bus) 
+	for (bus=0; bus<max_bus_scan; ++bus)
 	{
 		int dev = bus * (ctx->cc_maxunit / max_bus_scan);
-        printf ("SATA Device %d: ",dev);
-        
+		printf ("SATA Device %d: ",dev);
+
 		ctx->cc_bus_ok[bus] = 0;
 
 		/* Select device
@@ -476,38 +476,38 @@ static void internal_ide_unit_scan(struct controller_context * ctx) //Taken from
 		udelay (100000);		/* 100 ms */
 		local_ide_outb (dev, ATA_DEV_HD, ATA_LBA | ATA_DEVICE_ADV(ctx,dev), ctx);
 		udelay (100000);		/* 100 ms */
-		
+
 		ata_reset_time = ATA_RESET_TIME;
 		s = getenv("ide_reset_timeout");
 		if (s) ata_reset_time = simple_strtol(s, NULL, 10);
-		
+
 		i = 0;
 		do {
 			udelay (10000);		/* 10 ms */
 
 			c = local_ide_inb (dev, ATA_STATUS, ctx);
 			i++;
-			
-			if (i > (ata_reset_time * 100)) 
+
+			if (i > (ata_reset_time * 100))
 			{
 				puts ("* Timeout *\n");
-				
+
 				/* If this is the second bus, the first one was OK */
-				if (bus != 0) 
+				if (bus != 0)
 				{
 				    ctx->cc_bus_ok[bus] = FALSE;
 				    goto skip_bus;
 				}
 				return;
 			}
-			if ((i >= 100) && ((i%100)==0)) 
+			if ((i >= 100) && ((i%100)==0))
 			{
 				putc ('.');
 				PRINTF ("%x",c);
 			}
 		} while (c & ATA_STAT_BUSY);
 
-		if (c & (ATA_STAT_BUSY | ATA_STAT_FAULT)) 
+		if (c & (ATA_STAT_BUSY | ATA_STAT_FAULT))
 		{
 			puts ("not available ");
 			PRINTF ("Status = 0x%02X ", c);
@@ -525,7 +525,7 @@ static void internal_ide_unit_scan(struct controller_context * ctx) //Taken from
 skip_bus:
 	putc ('\n');
 
-	for (i=0; i<ctx->cc_maxunit; i++) 
+	for (i=0; i<ctx->cc_maxunit; i++)
 	{
 		ctx->cc_units[i].type=DEV_TYPE_UNKNOWN;
 		ctx->cc_units[i].if_type=IF_TYPE_IDE;
@@ -534,7 +534,7 @@ skip_bus:
 		ctx->cc_units[i].blksz=0;
 		ctx->cc_units[i].lba=0;
 		ctx->cc_units[i].block_read=ctx->cc_block_read;
-		
+
 		if (!ctx->cc_bus_ok[IDE_BUS(i)])
 			continue;
 
@@ -542,10 +542,10 @@ skip_bus:
 
 		dev_print(&ctx->cc_units[i]);
 
-		if ((ctx->cc_units[i].lba > 0) && (ctx->cc_units[i].blksz > 0)) 
+		if ((ctx->cc_units[i].lba > 0) && (ctx->cc_units[i].blksz > 0))
 		{
 			/* initialize partition type */
-			init_part (&ctx->cc_units[i]);			
+			init_part (&ctx->cc_units[i]);
 		}
 	}
 }
@@ -557,7 +557,7 @@ void sata_460_initialize(struct controller_context *curr)
 
 	int rc, i;
 
-	for (i = 0; i < CONFIG_SYS_SATA_MAX_DEVICE; i++) 
+	for (i = 0; i < CONFIG_SYS_SATA_MAX_DEVICE; i++)
 	{
 		memset(&sata_dev_desc[i], 0, sizeof(struct block_dev_desc));
 		sata_dev_desc[i].if_type = IF_TYPE_SATA;
@@ -574,12 +574,12 @@ void sata_460_initialize(struct controller_context *curr)
 		if ((sata_dev_desc[i].lba > 0) && (sata_dev_desc[i].blksz > 0))
 			init_part(&sata_dev_desc[i]);
 	}
-	
+
 	curr->cc_units = &sata_dev_desc;
-	
+
 	if (rc == 0)
-	{				
-		for (i = 0; i < CONFIG_SYS_SATA_MAX_DEVICE; ++i) 
+	{
+		for (i = 0; i < CONFIG_SYS_SATA_MAX_DEVICE; ++i)
 		{
 			if (sata_dev_desc[i].type == DEV_TYPE_UNKNOWN)
 				continue;
@@ -593,9 +593,9 @@ void sata_460_initialize(struct controller_context *curr)
 void ide_controllers_init(void)
 {
 	unsigned cnt;
-	
-	//Activates all the controllers	
-	init_controllers(); 
+
+	//Activates all the controllers
+	init_controllers();
 
 	//Ok, now tries to scan the various HDD buses.
 	for(cnt=0; cnt < sizeof(controllers)/sizeof(struct controller_context); cnt++)
@@ -607,19 +607,19 @@ void ide_controllers_init(void)
 			unsigned unit_index;
 			PRINTF("doing unit scan for controller n. %u\n", cnt);
 
-#ifdef CONFIG_SAM460EX			
+#ifdef CONFIG_SAM460EX
 			if (strcmp(curr->cc_description,"SATA2-460") == 0)
 			{
 				sata_460_initialize(curr);
-			}			
+			}
 			else
-#endif			
-			{				
+#endif
+			{
 			    internal_ide_unit_scan(curr);
 
 				//For each unit tries to enable PIO4
-			
-				for(unit_index = 0; unit_index < curr->cc_maxunit; unit_index++) 
+
+				for(unit_index = 0; unit_index < curr->cc_maxunit; unit_index++)
 				{
 					block_dev_desc_t * dev = &curr->cc_units[unit_index];
 					if(dev->blksz)
@@ -644,7 +644,7 @@ static block_dev_desc_t * generic_get_dev(const unsigned unit, const struct cont
 	return NULL;
 }
 
-block_dev_desc_t *s_sii_get_dev(const unsigned unit)
+block_dev_desc_t *s_sii_get_dev(int unit)
 {
 	return generic_get_dev(unit, &controllers[S_SII_POS]);
 }
@@ -654,7 +654,7 @@ static unsigned long s_sii_block_read(int dev, unsigned long start, lbaint_t blk
 	return local_ide_read(dev, start, blkcnt, buffer, &controllers[S_SII_POS]);
 }
 
-block_dev_desc_t *s_4_sii_get_dev(const unsigned unit)
+block_dev_desc_t *s_4_sii_get_dev(int unit)
 {
 	return generic_get_dev(unit, &controllers[S4_SII_POS]);
 }
@@ -665,13 +665,13 @@ static unsigned long s_4_sii_block_read(int dev, unsigned long start, lbaint_t b
 }
 
 #ifdef CONFIG_SAM460EX
-block_dev_desc_t * sata2_460_get_dev(const unsigned unit)
+block_dev_desc_t * sata2_460_get_dev(int unit)
 {
 	return generic_get_dev(unit, &controllers[SATA2_460_POS]);
 }
 #endif
 
-block_dev_desc_t *p_sii_get_dev(const unsigned unit)
+block_dev_desc_t *p_sii_get_dev(int unit)
 {
 	return generic_get_dev(unit, &controllers[P_SII_POS]);
 }
@@ -727,17 +727,17 @@ static ulong local_ide_read (int device, lbaint_t blknr, ulong blkcnt, ulong *bu
 			pwrsave=1;
 	}
 
-	while (blkcnt-- > 0) 
+	while (blkcnt-- > 0)
 	{
 		c = local_ide_wait (device, IDE_TIME_OUT, cc);
 
-		if (c & ATA_STAT_BUSY) 
+		if (c & ATA_STAT_BUSY)
 		{
 			printf ("IDE read: device %d not ready\n", device);
 			break;
 		}
 #ifdef CONFIG_LBA48
-		if (lba48) 
+		if (lba48)
 		{
 			/* write high bits */
 			local_ide_outb (device, ATA_SECT_CNT, 0, cc);
@@ -752,7 +752,7 @@ static ulong local_ide_read (int device, lbaint_t blknr, ulong blkcnt, ulong *bu
 		local_ide_outb (device, ATA_LBA_HIGH, (blknr >> 16) & 0xFF, cc);
 
 #ifdef CONFIG_LBA48
-		if (lba48) 
+		if (lba48)
 		{
 			local_ide_outb (device, ATA_DEV_HD, ATA_LBA | ATA_DEVICE_ADV(cc,device) , cc);
 			local_ide_outb (device, ATA_COMMAND, ATA_CMD_READ_EXT, cc);
@@ -768,7 +768,7 @@ static ulong local_ide_read (int device, lbaint_t blknr, ulong blkcnt, ulong *bu
 
 		udelay (50);
 
-		if(pwrsave) 
+		if(pwrsave)
 		{
 			c = local_ide_wait (device, IDE_SPIN_UP_TIME_OUT, cc);	/* may take up to 4 sec */
 			pwrsave=0;
@@ -794,7 +794,7 @@ static ulong local_ide_read (int device, lbaint_t blknr, ulong blkcnt, ulong *bu
 		++blknr;
 		buffer += ATA_SECTORWORDS;
 	}
-	
+
 IDE_READ_E:
 	return (n);
 }
@@ -809,7 +809,7 @@ static void local_input_swap_data(int dev, ulong *sect_buf, int words, const str
 	while (words--) {
 		EIEIO;
 		*dbuf++ = ld_le16(pbuf);
-		EIEIO;		
+		EIEIO;
 		*dbuf++ = ld_le16(pbuf);
 	}
 }
@@ -844,7 +844,7 @@ static void local_ide_ident(block_dev_desc_t *dev_desc, struct controller_contex
 	int do_retry = 0;
 	char *s;
 	unsigned char c;
-			
+
 	device=dev_desc->dev;
 	PRINTF("ENTERED local_ide_ident %p %d %p\n",dev_desc,device,ctx);
 
@@ -863,32 +863,32 @@ static void local_ide_ident(block_dev_desc_t *dev_desc, struct controller_contex
 	// issue a device reset, since it could happen the device is in an unkwown state
 	//local_ide_outb (device, ATA_COMMAND, 0x08, ctx);
 	/* wait 750 ms */
-	//for (ii=0; ii<750; ++ii) 
+	//for (ii=0; ii<750; ++ii)
 	//{
 	//	udelay (1000);
 	//}
-	
+
 	/* Select device
 	 */
-	 
+
 	local_ide_outb (device, ATA_DEV_HD, ATA_LBA | ATA_DEVICE_ADV(ctx,device), ctx);
 	udelay (100000);		/* 100 ms */
-	
+
 	// issue a device reset, since it could happen the device is in an unkwown state
 	local_ide_outb (device, ATA_COMMAND, 0x08, ctx);
 	udelay (100000);		/* 100 ms */
-		
+
 	dev_desc->if_type=IF_TYPE_IDE;
-    
+
 	do_retry = 0;
 	retries = 0;
 
 	/* Warning: This will be tricky to read */
-	while (retries <= 2) 
+	while (retries <= 2)
 	{
 		/* check signature */
 		u8 tmp = local_ide_inb(device,ATA_SECT_NUM, ctx);
-		
+
 		if (/*(tmp == 0x00) ||*/
 			((tmp == 0x01) &&
 			 (local_ide_inb(device,ATA_CYL_LOW, ctx)  == 0x14) &&
@@ -905,34 +905,34 @@ static void local_ide_ident(block_dev_desc_t *dev_desc, struct controller_contex
 			 * to become ready
 			 */
 			c = local_ide_wait (device, ATAPI_TIME_OUT, ctx);
-		} 
+		}
 		else
 		{
 			/* Start Ident Command
 			 */
 			PRINTF("ATA\n");
 			local_ide_outb (device, ATA_COMMAND, ATA_CMD_IDENT, ctx);
-	
+
 			/* Wait for completion
 			 */
 			c = local_ide_wait (device, IDE_TIME_OUT, ctx);
 		}
 
 		if (((c & ATA_STAT_DRQ) == 0) ||
-		    ((c & (ATA_STAT_FAULT|ATA_STAT_ERR)) != 0) ) 
+		    ((c & (ATA_STAT_FAULT|ATA_STAT_ERR)) != 0) )
 		{
-			if (retries <=1) //== 0) 
+			if (retries <=1) //== 0)
 			{
 				do_retry = 1;
-			} 
-			else 
+			}
+			else
 			{
 				return;
 			}
 		}
 
 		s = getenv("ide_doreset");
-		if (s && strcmp(s, "on") == 0 && 1 == do_retry) 
+		if (s && strcmp(s, "on") == 0 && 1 == do_retry)
 		{
 			/* Need to soft reset the device in case it's an ATAPI...  */
 			PRINTF("Retrying...\n");
@@ -941,8 +941,8 @@ static void local_ide_ident(block_dev_desc_t *dev_desc, struct controller_contex
 			local_ide_outb (device, ATA_COMMAND, 0x08, ctx);
 			udelay (100000);	/* 100 ms */
 			retries++;
-		} 
-		else 
+		}
+		else
 		{
 			retries = 100;
 		}
@@ -953,14 +953,14 @@ static void local_ide_ident(block_dev_desc_t *dev_desc, struct controller_contex
 	local_ident_cpy (dev_desc->revision, iop->fw_rev, sizeof(dev_desc->revision));
 	local_ident_cpy (dev_desc->vendor, iop->model, sizeof(dev_desc->vendor));
 	local_ident_cpy (dev_desc->product, iop->serial_no, sizeof(dev_desc->product));
-	
+
 	if ((iop->config & 0x0080)==0x0080)
 		dev_desc->removable = 1;
 	else
 		dev_desc->removable = 0;
 
 #ifdef CONFIG_ATAPI
-	if (dev_desc->if_type==IF_TYPE_ATAPI) 
+	if (dev_desc->if_type==IF_TYPE_ATAPI)
 	{
 		local_atapi_inquiry(dev_desc, ctx);
 		return;
@@ -992,10 +992,10 @@ static uchar local_ide_wait (int dev, ulong t, const struct controller_context *
 	ulong delay = 10 * t;		/* poll every 100 us */
 	uchar c;
 
-	while ((c = local_ide_inb(dev, ATA_STATUS, cc)) & ATA_STAT_BUSY) 
+	while ((c = local_ide_inb(dev, ATA_STATUS, cc)) & ATA_STAT_BUSY)
 	{
 		udelay (100);
-		if (delay-- == 0) 
+		if (delay-- == 0)
 		{
 			break;
 		}
@@ -1019,7 +1019,7 @@ static void local_ident_cpy (unsigned char *dst, unsigned char *src, unsigned in
 		++src;
 
 	/* copy string, omitting trailing white space */
-	while ((*src) && (src<end)) 
+	while ((*src) && (src<end))
 	{
 		*dst++ = *src;
 		if (*src++ != ' ')
@@ -1046,7 +1046,7 @@ static void local_output_data_shorts(int dev, ushort *sect_buf, int shorts, cons
 
 	AT_PRINTF("in output data shorts base for read is %lx\n", (unsigned long) pbuf);
 
-	while (shorts--) 
+	while (shorts--)
 	{
 		EIEIO;
 		*pbuf = *dbuf++;
@@ -1063,7 +1063,7 @@ static void local_input_data_shorts(int dev, ushort *sect_buf, int shorts, const
 
 	AT_PRINTF("in input data shorts base for read is %lx\n", (unsigned long) pbuf);
 
-	while (shorts--) 
+	while (shorts--)
 	{
 		EIEIO;
 		*dbuf++ = *pbuf;
@@ -1082,13 +1082,13 @@ static uchar local_atapi_wait_mask (int dev, ulong t,uchar mask, uchar res, cons
 	uchar c;
 
 	c = local_ide_inb(dev,ATA_DEV_CTL, cc); /* prevents to read the status before valid */
-	while (((c = local_ide_inb(dev, ATA_STATUS, cc)) & mask) != res) 
+	while (((c = local_ide_inb(dev, ATA_STATUS, cc)) & mask) != res)
 	{
 		/* break if error occurs (doesn't make sense to wait more) */
 		if((c & ATA_STAT_ERR)==ATA_STAT_ERR)
 			break;
 		udelay (100);
-		if (delay-- == 0) 
+		if (delay-- == 0)
 		{
 			break;
 		}
@@ -1115,7 +1115,7 @@ static unsigned char local_atapi_issue(int device,unsigned char* ccb,int ccblen,
 */
 	local_ide_outb (device, ATA_DEV_HD, ATA_LBA | ATA_DEVICE_ADV(cc,device), cc);
 	c = local_atapi_wait_mask(device,ATAPI_TIME_OUT,mask,res, cc);
-	if ((c & mask) != res) 
+	if ((c & mask) != res)
 	{
 		printf ("ATAPI_ISSUE: device %d not ready status %X\n", device,c);
 		err=0xFF;
@@ -1160,14 +1160,14 @@ static unsigned char local_atapi_issue(int device,unsigned char* ccb,int ccblen,
 	if(buflen)
 		res = ATA_STAT_DRQ;
 	c = local_atapi_wait_mask(device,ATAPI_TIME_OUT,mask,res, cc);
-	if ((c & mask) != res ) 
+	if ((c & mask) != res )
 	{
-		if (c & ATA_STAT_ERR) 
+		if (c & ATA_STAT_ERR)
 		{
 			err=(local_ide_inb(device,ATA_ERROR_REG, cc))>>4;
 			AT_PRINTF("atapi_issue 1 returned sense key %X status %02X\n",err,c);
-		} 
-		else 
+		}
+		else
 		{
 			printf ("ATAPI_ISSUE: (no DRQ) after sending ccb (%x) status 0x%02x\n", ccb[0],c);
 			err=0xFF;
@@ -1177,19 +1177,19 @@ static unsigned char local_atapi_issue(int device,unsigned char* ccb,int ccblen,
 	n=local_ide_inb(device, ATA_CYL_HIGH, cc);
 	n<<=8;
 	n+=local_ide_inb(device, ATA_CYL_LOW, cc);
-	if(n>buflen) 
+	if(n>buflen)
 	{
 		printf("ERROR, transfer bytes %d requested only %d\n",n,buflen);
 		err=0xff;
 		goto AI_OUT;
 	}
-	if((n==0)&&(buflen<0)) 
+	if((n==0)&&(buflen<0))
 	{
 		printf("ERROR, transfer bytes %d requested %d\n",n,buflen);
 		err=0xff;
 		goto AI_OUT;
 	}
-	if(n!=buflen) 
+	if(n!=buflen)
 	{
 		AT_PRINTF("WARNING, transfer bytes %d not equal with requested %d\n",n,buflen);
 	}
@@ -1198,12 +1198,12 @@ static unsigned char local_atapi_issue(int device,unsigned char* ccb,int ccblen,
 		 /* we transfer shorts */
 		n>>=1;
 		/* ok now decide if it is an in or output */
-		if ((local_ide_inb(device, ATA_SECT_CNT, cc)&0x02)==0) 
+		if ((local_ide_inb(device, ATA_SECT_CNT, cc)&0x02)==0)
 		{
 			AT_PRINTF("Write to device\n");
 			local_output_data_shorts(device,(unsigned short *)buffer,n, cc);
-		} 
-		else 
+		}
+		else
 		{
 			AT_PRINTF("Read from device @ %p shorts %d\n",buffer,n);
 			local_input_data_shorts(device,(unsigned short *)buffer,n, cc);
@@ -1214,12 +1214,12 @@ static unsigned char local_atapi_issue(int device,unsigned char* ccb,int ccblen,
 	mask = ATA_STAT_BUSY|ATA_STAT_ERR;
 	res=0;
 	c = local_atapi_wait_mask(device,ATAPI_TIME_OUT,mask,res, cc);
-	if ((c & ATA_STAT_ERR) == ATA_STAT_ERR) 
+	if ((c & ATA_STAT_ERR) == ATA_STAT_ERR)
 	{
 		err=(local_ide_inb(device,ATA_ERROR_REG, cc) >> 4);
 		AT_PRINTF("atapi_issue 2 returned sense key %X status %X\n",err,c);
-	} 
-	else 
+	}
+	else
 	{
 		err = 0;
 	}
@@ -1287,15 +1287,15 @@ retry:
 	if((key==0))
 		return 0; /* ok device ready */
 
-	if((key==5) && (asc==0x24) && (ascq==00)) 
+	if((key==5) && (asc==0x24) && (ascq==00))
 	{
-		// this patch is required by some slim DVD/CD 
+		// this patch is required by some slim DVD/CD
 		AT_PRINTF("CDB in UFI command contains illegal value\n");
 		return 0; /* ok device ready */
 	}
-			
+
 	if((key==6)|| (asc==0x29) || (asc==0x28)) { /* Unit Attention */
-		if(unitattn-->0) 
+		if(unitattn-->0)
 		{
 			udelay(200*1000);
 			goto retry;
@@ -1303,9 +1303,9 @@ retry:
 		printf("Unit Attention, tried %d\n",ATAPI_UNIT_ATTN);
 		goto error;
 	}
-	
+
 	if((asc==0x4) && (ascq==0x1)) { /* not ready, but will be ready soon */
-		if (notready-->0) 
+		if (notready-->0)
 		{
 			udelay(200*1000);
 			goto retry;
@@ -1313,14 +1313,14 @@ retry:
 		printf("Drive not ready, tried %d times\n",ATAPI_DRIVE_NOT_READY);
 		goto error;
 	}
-	
-	if(asc==0x3a) 
+
+	if(asc==0x3a)
 	{
 		AT_PRINTF("Media not present\n");
 		goto error;
 	}
 
-	if ((sense_data[2]&0xF)==0x0B) 
+	if ((sense_data[2]&0xF)==0x0B)
 	{
 		AT_PRINTF("ABORTED COMMAND...retry\n");
 		if (retrycnt++ < 4)
@@ -1330,7 +1330,7 @@ retry:
 
 	if ((sense_data[2]&0xf) == 0x02 &&
 	    sense_data[12] == 0x04	&&
-	    sense_data[13] == 0x01	) 
+	    sense_data[13] == 0x01	)
 	{
 		AT_PRINTF("Waiting for unit to become active\n");
 		udelay(timeout);
@@ -1352,7 +1352,7 @@ static void local_atapi_inquiry(block_dev_desc_t * dev_desc, struct controller_c
 	unsigned char iobuf[64]; /* temp buf */
 	unsigned char c;
 	int device;
-	
+
 	device=dev_desc->dev;
 	dev_desc->type=DEV_TYPE_UNKNOWN; /* not yet valid */
 	dev_desc->block_read=ctx->cc_atapi_read;
@@ -1448,11 +1448,11 @@ static ulong local_atapi_read (int device, lbaint_t blknr, ulong blkcnt, ulong *
 		device, blknr, blkcnt, (ulong)buffer);
 
 	do {
-		if (blkcnt>ATAPI_READ_MAX_BLOCK) 
+		if (blkcnt>ATAPI_READ_MAX_BLOCK)
 		{
 			cnt=ATAPI_READ_MAX_BLOCK;
-		} 
-		else 
+		}
+		else
 		{
 			cnt=blkcnt;
 		}
@@ -1471,7 +1471,7 @@ static ulong local_atapi_read (int device, lbaint_t blknr, ulong blkcnt, ulong *
 
 		if (local_atapi_issue_autoreq(device,ccb,12,
 					(unsigned char *)buffer,
-					cnt*ATAPI_READ_BLOCK_SIZE, cc) == 0xFF) 
+					cnt*ATAPI_READ_BLOCK_SIZE, cc) == 0xFF)
 		{
 			return (n);
 		}
@@ -1479,9 +1479,9 @@ static ulong local_atapi_read (int device, lbaint_t blknr, ulong blkcnt, ulong *
 		blkcnt-=cnt;
 		blknr+=cnt;
 		buffer+=cnt*(ATAPI_READ_BLOCK_SIZE/4); /* ulong blocksize in ulong */
-	} 
+	}
 	while (blkcnt > 0);
-	
+
 	return (n);
 }
 
@@ -1508,11 +1508,11 @@ static _Bool local_ide_set_pio(const int device, const unsigned char mode, const
 {
 	_Bool ret = 0;
 	unsigned char pwrsave=0, c; // power save
-	
+
 	PRINTF ("Trying to set PIO mode %u for device %d \n", mode, device);
 
 	//Select device
-	
+
 	local_ide_outb (device, ATA_DEV_HD, ATA_LBA | ATA_DEVICE_ADV(cc,device), cc);
 	c = local_ide_wait (device, IDE_TIME_OUT, cc);
 
@@ -1531,7 +1531,7 @@ static _Bool local_ide_set_pio(const int device, const unsigned char mode, const
 	{
 		goto IDE_EXIT;
 	}
-		
+
 	if ((c & ATA_STAT_ERR) == ATA_STAT_ERR)
 	{
 	}
@@ -1545,20 +1545,20 @@ static _Bool local_ide_set_pio(const int device, const unsigned char mode, const
 	//Ok, the real game starts here.
 
 	c = local_ide_wait (device, IDE_TIME_OUT, cc);
-		
+
 	if (c & ATA_STAT_BUSY)
 	{
 		goto IDE_EXIT;
 	}
-		
+
 	local_ide_outb (device, ATA_DEV_HD, ATA_LBA | ATA_DEVICE_ADV(cc,device), cc);
 	local_ide_outb (device, ATA_SECT_NUM, 0x00, cc);
 	local_ide_outb (device, ATA_CYL_LOW,  0x00, cc);
 	local_ide_outb (device, ATA_CYL_HIGH, 0x00, cc);
-	
+
 	local_ide_outb (device, ATA_ERROR_REG, 0x03, cc); //Set tramsfer mode; this is the "feature" register when writing.
 	local_ide_outb (device, ATA_SECT_CNT, 8|mode, cc); //Sets selected PIO mode
-	
+
 	//This one must be the last one, and it actually starts the command.
 	local_ide_outb (device, ATA_COMMAND,  ATA_CMD_SETF, cc);
 
@@ -1580,7 +1580,7 @@ static _Bool local_ide_set_pio(const int device, const unsigned char mode, const
 	}
 	else PRINTF("Status is 0x%02x\n", c);
 	(void) local_ide_inb (device, ATA_STATUS, cc);	// clear IRQ
-	
+
 IDE_EXIT:
 	return ret;
 }
@@ -1607,19 +1607,19 @@ U_BOOT_CMD(
 */
 //This one should be inlined, but it's not because of code size concerns.
 static BOOL valid_controller_num(WORD pos, WORD * old)
-{ 
+{
 	int last;
-	
-//#ifdef CONFIG_SAM460EX	
+
+//#ifdef CONFIG_SAM460EX
 	last = SATA2_460_POS;
 //#else
 	last = S4_SII_POS;
 //#endif
-    
-    last = P_SII_POS;
-    
+
+	last = P_SII_POS;
+
 	//if(pos >= 0 && pos <= ((sizeof(controllers) / sizeof(struct controller_context))))
-	if ((pos >= 0) && (pos <= last))	
+	if ((pos >= 0) && (pos <= last))
 	{
 		if(controllers[pos].cc_present)
 		{
@@ -1627,11 +1627,11 @@ static BOOL valid_controller_num(WORD pos, WORD * old)
 			return TRUE;
 		}
 	}
-	
+
 	//if(*old >= 0 && *old <= ((sizeof(controllers) / sizeof(struct controller_context))))
-	//if ((*old >= 0) && (*old <= last))	
+	//if ((*old >= 0) && (*old <= last))
 	//	return TRUE;
-	
+
 	return FALSE;
 }
 
@@ -1659,7 +1659,7 @@ static BOOL valid_unit_num(const WORD c_controller, WORD devoffset, WORD * old_d
 				return TRUE;
 		}
 	}
-	
+
 	return FALSE;
 }
 
@@ -1719,20 +1719,20 @@ static void print_controller(const unsigned index)
 }
 
 static WORD curr_controller = UNDEFINED;
-//The variable above holds the currently selected controller. 
+//The variable above holds the currently selected controller.
 //It's used by both local_do_ide and local_do_diskboot.
 
 int local_do_ide (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
-    WORD scanres, val1=0, val2=0;
-    static WORD curr_device=UNDEFINED;
-    
-    if(argc == 0 || argc == 1)
+	WORD scanres, val1=0, val2=0;
+	static WORD curr_device=UNDEFINED;
+
+	if(argc == 0 || argc == 1)
 	{
 		printf ("Usage:\n%s\n", cmdtp->usage);
 		return 1;
 	}
-		
+
 	scanres = find_opt(argv[1], do_ide_opts, sizeof(do_ide_opts)/sizeof(struct match_opt));
 	if(argc>2)
   	{
@@ -1740,29 +1740,29 @@ int local_do_ide (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 		if(argc>=3)
 			val2 = atoi(argv[3]);
 	}
-		
+
 	switch(scanres)
   	{
 	case -1:
 		printf ("Usage:\n%s\n", cmdtp->usage);
 		return 1;
-	
+
 	case VAL_RESET:
 		if(valid_controller_num(val1, &curr_controller))
 		{
-#ifdef CONFIG_SAM460EX		
-			if (curr_controller == 2) 
+#ifdef CONFIG_SAM460EX
+			if (curr_controller == 2)
 				sata_460_initialize(&controllers[curr_controller]);
 			else
-#endif			
+#endif
 				internal_ide_unit_scan(&controllers[curr_controller]);
 		}
-		else 
+		else
 		{
 			print_no_controller();
 		}
 		break;
-		
+
 	case VAL_INFO:
 		if(valid_controller_num(val1, &curr_controller))
 		{
@@ -1770,14 +1770,14 @@ int local_do_ide (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 		}
 		else print_no_controller();
 		break;
-		
+
 	case VAL_DEVICE:
 		if(valid_controller_num(val1, &curr_controller) && valid_unit_num(curr_controller, val2, &curr_device))
 		{
 			printf("Device %d on %s selected.\n", curr_device, controllers[curr_controller].cc_description);
 		}
 		break;
-		
+
 	case VAL_PART:
 		if(valid_controller_num(val1, &curr_controller) && valid_unit_num(curr_controller, val2, &curr_device))
 		{
@@ -1791,155 +1791,6 @@ int local_do_ide (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 	default:
 		printf("Unknown option.\n");
 	}
-	
+
 	return 1;
 }
-/*
-int local_do_diskboot (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
-{
-	char *boot_device = NULL;
-	char *ep;
-	int dev, part = 0;
-	ulong cnt;
-	ulong addr;
-	disk_partition_t info;
-	image_header_t *hdr;
-	int rcode = 0;
-	block_dev_desc_t * target_unit;
-
-	switch (argc) {
-	case 1:
-		addr = CONFIG_SYS_LOAD_ADDR;
-		boot_device = getenv ("bootdevice");
-		break;
-	case 2:
-		addr = simple_strtoul(argv[1], NULL, 16);
-		boot_device = getenv ("bootdevice");
-		break;
-	case 3:
-		addr = simple_strtoul(argv[1], NULL, 16);
-		boot_device = argv[2];
-		break;
-	case 4:
-		{
-		WORD tentative_controller = atoi(argv[3]);
-		if(valid_controller_num(tentative_controller, &curr_controller))
-		{
-			addr = simple_strtoul(argv[1], NULL, 16);
-			boot_device = argv[2];
-			break;
-		}
-		//If the controller entry is not valid, code will fall through to the default entry.
-		}
-	default:
-		printf ("Usage:\n%s\n", cmdtp->usage);
-		SHOW_BOOT_PROGRESS (-1);
-		return 1;
-	}
-
-	if(curr_controller == UNDEFINED)
-	{
-		printf ("\n* No valid controller specified *\n", cmdtp->usage);
-		SHOW_BOOT_PROGRESS (-1);
-		return 1;		
-	}
-	
-	if (!boot_device) {
-		puts ("\n* No boot device *\n");
-		SHOW_BOOT_PROGRESS (-1);
-		return 1;
-	}
-
-	dev = simple_strtoul(boot_device, &ep, 16);
-
-	if (!valid_unit_num(curr_controller, dev, NULL))
-	{
-		printf ("\n* Device %d not available\n", dev);
-		SHOW_BOOT_PROGRESS (-1);
-		return 1;
-	}
-
-	//Now tries to find the partition to boot from, by moving the cursor upto where
-	//the end of the boot_device number was.
-	if (*ep) {
-		if (*ep != ':') {
-			puts ("\n* Invalid boot device, use `dev[:part]' *\n");
-			SHOW_BOOT_PROGRESS (-1);
-			return 1;
-		}
-		part = simple_strtoul(++ep, NULL, 16);
-	}
-	
-	target_unit = &controllers[curr_controller].cc_units[dev];
-	
-	if (get_partition_info (target_unit, part, &info)) {
-		SHOW_BOOT_PROGRESS (-1);
-		return 1;
-	}
-	
-	if ((strncmp(info.type, BOOT_PART_TYPE, sizeof(info.type)) != 0) &&
-	    (strncmp(info.type, BOOT_PART_COMP, sizeof(info.type)) != 0)) {
-		printf ("\n* Invalid partition type \"%.32s\""
-			" (expect \"" BOOT_PART_TYPE "\")\n",
-			info.type);
-		SHOW_BOOT_PROGRESS (-1);
-		return 1;
-	}
-
-	printf ("\nLoading from IDE device %d, partition %d: "
-		"Name: %.32s  Type: %.32s\n",
-		dev, part, info.name, info.type);
-
-	PRINTF ("First Block: %ld,  # of blocks: %ld, Block Size: %ld\n",
-		info.start, info.size, info.blksz);
-
-	if (target_unit->block_read (dev, info.start, 1, (ulong *)addr) != 1)
-	{
-		printf ("* Read error on %d:%d\n", dev, part);
-		SHOW_BOOT_PROGRESS (-1);
-		return 1;
-	}
-
-	hdr = (image_header_t *)addr;
-
-	if (ntohl(hdr->ih_magic) == IH_MAGIC) {
-
-		//print_image_hdr (hdr);
-
-		cnt = (ntohl(hdr->ih_size) + sizeof(image_header_t));
-		cnt += info.blksz - 1;
-		cnt /= info.blksz;
-		cnt -= 1;
-	} else {
-		printf("\n* Bad Magic Number *\n");
-		SHOW_BOOT_PROGRESS (-1);
-		return 1;
-	}
-
-	if (target_unit->block_read (dev, info.start+1, cnt,
-		      (ulong *)(addr+info.blksz)) != cnt) {
-		printf ("* Read error on %d:%d\n", dev, part);
-		SHOW_BOOT_PROGRESS (-1);
-		return 1;
-	}
-
-	// Loading ok, update default load address
-
-	load_addr = addr;
-
-	// Check if we should attempt an auto-start
-	if (((ep = getenv("autostart")) != NULL) && (strcmp(ep,"yes") == 0)) {
-		char *local_args[2];
-		extern int do_bootm (cmd_tbl_t *, int, int, char *[]);
-
-		local_args[0] = argv[0];
-		local_args[1] = NULL;
-
-		printf ("Automatic boot of image at addr 0x%08lX ...\n", addr);
-
-		do_bootm (cmdtp, 0, 1, local_args);
-		rcode = 1;
-	}
-	return rcode;;
-}
-*/

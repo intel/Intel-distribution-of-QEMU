@@ -187,6 +187,11 @@ typedef	struct	global_data {
 #define	GD_FLG_LOGINIT	0x00020		/* Log Buffer has been initialized	*/
 #define GD_FLG_DISABLE_CONSOLE	0x00040		/* Disable console (in & out)	 */
 
+#ifdef CONFIG_SAM460EX
+#define GD_FLG_DDR2_BOOST_READ	0x10000		/* Enable Read DDR2 Boost	 */
+#define GD_FLG_DDR2_BOOST_WRITE	0x20000		/* Enable Write DDR2 Boost	 */
+#endif
+
 #if 1
 #define DECLARE_GLOBAL_DATA_PTR     register volatile gd_t *gd asm ("r2")
 #else /* We could use plain global data, but the resulting code is bigger */

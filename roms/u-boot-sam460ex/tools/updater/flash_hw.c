@@ -34,6 +34,7 @@
 #include <common.h>
 #include <ppc4xx.h>
 #include <asm/processor.h>
+#include "config.h"
 #include "flash_local.h"
 
 flash_info_t flash_info[CONFIG_SYS_MAX_FLASH_BANKS];	/* info for FLASH chips */
@@ -43,7 +44,7 @@ flash_info_t flash_info[CONFIG_SYS_MAX_FLASH_BANKS];	/* info for FLASH chips */
  */
 int write_word(flash_info_t * info, ulong dest, ulong data, ulong *pippo);
 
-void flash_print_info(flash_info_t * info)
+int flash_print_info(flash_info_t * info)
 {
 	int i;
 	int k;
@@ -53,7 +54,7 @@ void flash_print_info(flash_info_t * info)
 
 	if (info->flash_id == FLASH_UNKNOWN) {
 		printf("missing or unknown FLASH type\n");
-		return;
+		return -1;
 	}
 
 	switch (info->flash_id & FLASH_VENDMASK) {
@@ -163,7 +164,7 @@ void flash_print_info(flash_info_t * info)
 		       erased ? " E" : "  ", info->protect[i] ? "RO " : "   ");
 	}
 	printf("\n");
-	return;
+	return 0;
 }
 
 ulong flash_get_size(vu_long * addr, flash_info_t * info)
@@ -204,6 +205,8 @@ ulong flash_get_size(vu_long * addr, flash_info_t * info)
 		info->flash_id = FLASH_UNKNOWN;
 		info->sector_count = 0;
 		info->size = 0;
+		/* issue bank reset to return to read mode */
+		addr2[0] = (CONFIG_SYS_FLASH_WORD_SIZE) 0x00F000F0;
 		return (0);	/* no or unknown flash  */
 	}
 
@@ -285,6 +288,8 @@ ulong flash_get_size(vu_long * addr, flash_info_t * info)
 		
 	default:
 		info->flash_id = FLASH_UNKNOWN;
+		/* issue bank reset to return to read mode */
+		addr2[0] = (CONFIG_SYS_FLASH_WORD_SIZE) 0x00F000F0;
 		return (0);	/* => no or unknown flash */
 	}
 

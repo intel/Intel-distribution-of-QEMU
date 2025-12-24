@@ -6,7 +6,7 @@ X86DIR  = x86emu
 
 $(shell mkdir -p $(obj)$(X86DIR))
 
-COBJS-$(CONFIG_BIOSEMU)	= atibios.o biosemu.o besys.o bios.o \
+COBJS-$(CONFIG_BIOSEMU)	= atibios.o biosemu.o besys.o bios.o vesa.o \
 	$(X86DIR)/decode.o \
 	$(X86DIR)/ops2.o \
 	$(X86DIR)/ops.o \

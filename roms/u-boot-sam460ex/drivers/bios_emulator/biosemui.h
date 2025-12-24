@@ -128,6 +128,10 @@ typedef struct {
 	u32 finalVal;
 } BE_portInfo;
 
+#ifdef CONFIG_SAM4XX
+extern u32 VIDEO_IO_OFFSET;
+#endif
+
 #define PM_inpb(port)	inb(port+VIDEO_IO_OFFSET)
 #define PM_inpw(port)	inw(port+VIDEO_IO_OFFSET)
 #define PM_inpd(port)	inl(port+VIDEO_IO_OFFSET)

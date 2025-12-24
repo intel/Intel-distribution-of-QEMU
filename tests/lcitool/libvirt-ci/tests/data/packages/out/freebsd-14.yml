@@ -21,6 +21,7 @@ native:
 - chrony
 - cmocka
 - codespell
+- coreutils
 - cppi
 - ctags
 - curl
@@ -148,6 +149,7 @@ native:
 - py311-libxml2
 - py311-lxml
 - py311-numpy
+- py311-packaging
 - py311-pillow
 - py311-pip
 - py311-pytest
@@ -176,7 +178,7 @@ native:
 - spice-gtk
 - spice-protocol
 - sudo
-- tcl87
+- tcl90
 - tcpdump
 - tesseract
 - texinfo

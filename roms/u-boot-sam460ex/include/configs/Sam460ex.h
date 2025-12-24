@@ -1,6 +1,6 @@
 /*
- * (C) Copyright 2008
- * Stefan Roese, DENX Software Engineering, sr@denx.de.
+ * (C) Copyright 2009-2024
+ * Max Tretene, ACube Systems Srl. mtretene@acube-systems.com.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -9,7 +9,7 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
@@ -19,7 +19,7 @@
  */
 
 /************************************************************************
- * canyonlands.h - configuration for Canyonlands (460EX)
+ * Sam460ex.h - configuration for Sam460ex/cr/le (460EX)
  ***********************************************************************/
 #ifndef __CONFIG_H
 #define __CONFIG_H
@@ -37,9 +37,7 @@
 #define CONFIG_440			1
 #define CONFIG_4xx			1	/* ... PPC4xx family */
 
-#define CONFIG_SYS_CLK_FREQ	50000000	/* external freq to pll	*/
-
-#define CONFIG_BOARD_RESET    1
+#define CONFIG_BOARD_RESET	  1
 
 #define CONFIG_SYS_SDRAM_BASE	0x00000000	/* _must_ be 0		*/
 #define CONFIG_SYS_MONITOR_BASE	TEXT_BASE	/* Start of U-Boot	*/
@@ -58,8 +56,8 @@
  * Base addresses -- Note these are effective addresses where the
  * actual resources get mapped (not physical addresses)
  *----------------------------------------------------------------------*/
-#define CONFIG_SYS_PCI_64BIT    1
- 
+#define CONFIG_SYS_PCI_64BIT	1
+
 #define CONFIG_SYS_PCI_MEMBASE	0x80000000	/* mapped PCI memory region1 */
 #define CONFIG_SYS_PCI_BASE		0xd0000000	/* internal PCI regs	*/
 #define CONFIG_SYS_PCI_TARGBASE	CONFIG_SYS_PCI_MEMBASE
@@ -75,8 +73,8 @@
 #define CONFIG_SYS_PCIE0_XCFGBASE	0xE3000000
 #define CONFIG_SYS_PCIE1_XCFGBASE	0xE3001000
 
-#define CONFIG_SYS_PCIE_IOBASE      0x0
-#define CONFIG_SYS_PCIE_IOSIZE      0x10000
+#define CONFIG_SYS_PCIE_IOBASE		0x0
+#define CONFIG_SYS_PCIE_IOSIZE		0x10000
 
 #define	CONFIG_SYS_PCIE0_UTLBASE	0xc08010000ULL	/* 36bit physical addr	*/
 
@@ -87,8 +85,8 @@
 #define CONFIG_SYS_FPGA_BASE		0xFF000000
 #define CONFIG_SYS_FLASH_BASE		0xFFF00000	/* later mapped to this addr */
 #define CONFIG_SYS_FLASH_SIZE		(1 << 20)
-#define CONFIG_SYS_FLASH_BASE_PHYS_H 	0x4
-#define CONFIG_SYS_FLASH_BASE_PHYS_L 	CONFIG_SYS_FLASH_BASE
+#define CONFIG_SYS_FLASH_BASE_PHYS_H	0x4
+#define CONFIG_SYS_FLASH_BASE_PHYS_L	CONFIG_SYS_FLASH_BASE
 
 #define CONFIG_SYS_BOOT_BASE_ADDR	0xF0000000	/* EBC Boot Space: 0xFF000000 */
 
@@ -117,7 +115,7 @@
 #define CONFIG_BAUDRATE		115200
 #define CONFIG_SERIAL_MULTI
 #define CONFIG_SYS_BAUDRATE_TABLE  \
-    {300, 600, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400}
+	{300, 600, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400}
 #undef CONFIG_UART1_CONSOLE	/* define this if you want console on UART1 */
 
 /*-----------------------------------------------------------------------
@@ -154,15 +152,15 @@
  * Define the partitioning of the NAND chip (only RAM U-Boot is needed here)
  */
 #define CONFIG_SYS_NAND_U_BOOT_OFFS	(128 << 10)	/* Offset to RAM U-Boot image */
-#define CONFIG_SYS_NAND_U_BOOT_SIZE	(1 << 20)	/* Size of RAM U-Boot image   */
+#define CONFIG_SYS_NAND_U_BOOT_SIZE	(1 << 20)	/* Size of RAM U-Boot image	  */
 
 /*
  * Now the NAND chip has to be defined (no autodetection used!)
  */
-#define CONFIG_SYS_NAND_PAGE_SIZE	(2 << 10)	/* NAND chip page size	      */
-#define CONFIG_SYS_NAND_BLOCK_SIZE	(128 << 10)	/* NAND chip block size	      */
+#define CONFIG_SYS_NAND_PAGE_SIZE	(2 << 10)	/* NAND chip page size		  */
+#define CONFIG_SYS_NAND_BLOCK_SIZE	(128 << 10)	/* NAND chip block size		  */
 #define CONFIG_SYS_NAND_PAGE_COUNT	(CONFIG_SYS_NAND_BLOCK_SIZE / CONFIG_SYS_NAND_PAGE_SIZE)
-						/* NAND chip page count	      */
+						/* NAND chip page count		  */
 #define CONFIG_SYS_NAND_BAD_BLOCK_POS	0		/* Location of bad block marker*/
 #define CONFIG_SYS_NAND_5_ADDR_CYCLE			/* Fifth addr used (<=128MB)  */
 
@@ -190,17 +188,6 @@
  *----------------------------------------------------------------------*/
 #define CONFIG_SYS_NO_FLASH 1
 
-#define CONFIG_SYS_MAX_FLASH_BANKS	1	/* max number of memory banks		*/
-#define CONFIG_SYS_MAX_FLASH_SECT	11	/* max number of sectors on one chip	*/
-
-#define CONFIG_SYS_FLASH_ERASE_TOUT	150000	/* Timeout for Flash Erase (in ms)	*/
-#define CONFIG_SYS_FLASH_WRITE_TOUT	800	/* Timeout for Flash Write (in ms)	*/
-
-#define CONFIG_SYS_FLASH_EMPTY_INFO		/* print 'E' for empty sector on flinfo */
-
-#define CONFIG_SYS_FLASH_WORD_SIZE unsigned char
-#define CONFIG_SYS_FLASH_ADDR0 0x555
-#define CONFIG_SYS_FLASH_ADDR1 0x2aa
 /*-----------------------------------------------------------------------
  * NAND-FLASH related
  *----------------------------------------------------------------------*/
@@ -218,9 +205,9 @@
  * code.
  */
 #define CONFIG_SPD_EEPROM		1			/* Use SPD EEPROM for setup	*/
-#define SPD_EEPROM_ADDRESS		{0x50} 		/* SPD i2c spd addresses*/
+#define SPD_EEPROM_ADDRESS		{0x50}		/* SPD i2c spd addresses*/
 #undef CONFIG_DDR_ECC
-#define CONFIG_DDR_RQDC_FIXED	0x80000038 	/* fixed value for RQDC	*/
+#define CONFIG_DDR_RQDC_FIXED	0x80000038	/* fixed value for RQDC	*/
 #endif
 
 /*-----------------------------------------------------------------------
@@ -260,7 +247,7 @@
 #define CONFIG_NET_MULTI
 #undef CONFIG_NETCONSOLE		/* include NetConsole support	*/
 #define CONFIG_SYS_RX_ETH_BUFFER	4	/* number of eth rx buffers	*/
- 
+
 #define CONFIG_IBM_EMAC4_V4	1
 #define CONFIG_PHY_ADDR		0	/* PHY address, See schematics	*/
 #define CONFIG_PHY1_ADDR	1
@@ -272,64 +259,83 @@
 #define CONFIG_PHY_DYNAMIC_ANEG	1
 
 /*-----------------------------------------------------------------------
- * USB-OHCI
+ * USB
  *----------------------------------------------------------------------*/
-/* Only Canyonlands (460EX) has USB */
-#ifdef CONFIG_460EX
+#define SAM460_EHCI
+#undef SAM460_OHCI
+
+#ifdef SAM460_OHCI
 #define CONFIG_USB_OHCI_NEW
-#define CONFIG_USB_STORAGE
-#define CONFIG_USB_KEYBOARD
 #define CONFIG_SYS_USB_EVENT_POLL
 #undef CONFIG_SYS_OHCI_BE_CONTROLLER		/* 460EX has little endian descriptors	*/
-#define CONFIG_SYS_OHCI_SWAP_REG_ACCESS	    /* 460EX has little endian register	*/
-#undef CONFIG_SYS_OHCI_USE_NPS		        /* force NoPowerSwitching mode		*/
+#define CONFIG_SYS_OHCI_SWAP_REG_ACCESS		/* 460EX has little endian register	*/
+#undef CONFIG_SYS_OHCI_USE_NPS				/* force NoPowerSwitching mode		*/
 #define CONFIG_SYS_USB_OHCI_REGS_BASE	(CONFIG_SYS_AHB_BASE | 0xd0000)
 #define CONFIG_SYS_USB_OHCI_SLOT_NAME	"ppc440"
 #define CONFIG_SYS_USB_OHCI_MAX_ROOT_PORTS 1
 #endif
 
+#ifdef SAM460_EHCI
+#define CONFIG_USB_EHCI
+#define CONFIG_USB_EHCI_PPC4XX
+#define CONFIG_SYS_PPC4XX_USB_ADDR	(CONFIG_SYS_AHB_BASE | 0xd0400)
+#define CONFIG_EHCI_HCD_INIT_AFTER_RESET
+#undef CONFIG_EHCI_IS_TDI
+#undef CONFIG_EHCI_MMIO_BIG_ENDIAN
+#undef CONFIG_EHCI_DESC_BIG_ENDIAN
+#ifdef CONFIG_4xx_DCACHE
+#define CONFIG_EHCI_DCACHE
+#endif
+#define CONFIG_SYS_USB_EVENT_POLL_VIA_CONTROL_EP
+#endif
+
+#define CONFIG_USB_KEYBOARD
+#define CONFIG_USB_STORAGE
+#define CONFIG_SYS_STDIO_DEREGISTER
+
 /*
  * Default environment variables
  */
-#define	CONFIG_EXTRA_ENV_SETTINGS		    \
-	"stdout=vga\0"	    			        \
-	"stdin=usbkbd\0"   					    \
-	"hush=0\0"                              \
-	"ide_doreset=on\0"					    \
-	"ide_reset_timeout=15\0"			    \
-	"ide_cd_timeout=20\0"				    \
-	"pcie_mode=RP:RP\0"					    \
-	"pciconfighost=1\0"                     \
-	"ipaddr=192.168.2.50\0"				    \
-	"serverip=192.168.2.222\0"			    \
-	"ethaddr=00:50:C2:80:D5:00\0"           \
-	"video_activate=pci\0"			    \
-	"menuboot_delay=2\0"                    \
-	"boota_timeout=2\0"                     \
-	"bootcmd=menu; run menuboot_cmd\0"	    \
-	"menucmd=menu\0"					    \
-	"menuboot_cmd=boota\0"				    \
-	"boot_method=boota\0"				    \
-	"boot1=ssiicdrom\0"					    \
-	"boot2=ssii\0"				            \
-	"boot3=usb\0"                           \
-	"os4_commandline=debuglevel=0\0"        \
+#define	CONFIG_EXTRA_ENV_SETTINGS			\
+	"stdout=vga\0"							\
+	"stdin=usbkbd\0"						\
+	"hush=0\0"								\
+	"ide_doreset=on\0"						\
+	"ide_reset_timeout=15\0"				\
+	"ide_cd_timeout=20\0"					\
+	"pcie_mode=RP:RP\0"						\
+	"pciconfighost=1\0"						\
+	"ipaddr=192.168.2.50\0"					\
+	"serverip=192.168.2.222\0"				\
+	"ethaddr=00:50:C2:80:D5:00\0"			\
+	"video_activate=pci\0"					\
+	"menuboot_delay=2\0"					\
+	"boota_timeout=2\0"						\
+	"bootcmd=menu; run menuboot_cmd\0"		\
+	"menucmd=menu\0"						\
+	"menuboot_cmd=boota\0"					\
+	"boot_method=boota\0"					\
+	"boot1=ssiicdrom\0"					\
+	"boot2=ssii\0"							\
+	"boot3=usb\0"							\
+	"s4sii_maxbus=1\0"						\
+	"os4_commandline=debuglevel=0\0"		\
 	"bootargs=root=/dev/sda3 console=tty0\0"\
-	"serdes=sata2\0"                        \
-	"usb_enable_4x0=1\0"                    \
-	"usb_retry=1\0"                         \
-	"usb_ohci_power_down_before_reset=1\0"  \
-	"scan_usb_storage=1\0"						
+	"serdes=pci-e\0"						\
+	"usb_enable_4x0=1\0"					\
+	"usb_retry=1\0"							\
+	"usb_ohci_power_down_before_reset=1\0"	\
+	"scan_usb_storage=1\0"
 
 /*
  * Commands
  */
 
-#define CONFIG_CMD_BDI 		/* bdinfo			*/
+#define CONFIG_CMD_BDI		/* bdinfo			*/
 #ifndef CONFIG_SYS_NO_FLASH
 #define CONFIG_CMD_FLASH	/* flinfo, erase, protect	*/
 #endif
-#define CONFIG_CMD_MEMORY 	/* md mm nm mw cp cmp crc base loop mtest */
+#define CONFIG_CMD_MEMORY	/* md mm nm mw cp cmp crc base loop mtest */
 #define CONFIG_CMD_NET		/* bootp, tftpboot, rarpboot	*/
 #define CONFIG_CMD_RUN		/* run command in env variable	*/
 #define CONFIG_CMD_SAVEENV	/* saveenv			*/
@@ -340,9 +346,10 @@
 
 #define CONFIG_CMD_EEPROM
 #define CONFIG_CMD_ELF
+#define CONFIG_CMD_FAT
 #define CONFIG_CMD_I2C
 #define CONFIG_CMD_MII
-#define CONFIG_CMD_NET
+#define CONFIG_CMD_PING
 
 #if defined(CONFIG_SYS_RAMBOOT)
 /*
@@ -356,7 +363,6 @@
 #endif
 
 #define CONFIG_CMD_DATE
-/* #define CONFIG_CMD_NAND */
 #define CONFIG_CMD_PCI
 #ifdef CONFIG_460EX
 #define CONFIG_CMD_EXT2
@@ -364,6 +370,7 @@
 #endif
 
 /* Partitions */
+#define CONFIG_PARTITIONS
 #define CONFIG_DOS_PARTITION
 #define CONFIG_ISO_PARTITION
 #define CONFIG_AMIGA_PARTITION
@@ -379,13 +386,13 @@
 #define CFG_ISA_IO_BASE_ADDRESS	(CONFIG_SYS_PCI_BASE | 0x08000000) /* PCIX0_IOBASE */
 
 /* Board-specific PCI */
-#define CONFIG_SYS_PCI_TARGET_INIT		/* let board init pci target    */
+#define CONFIG_SYS_PCI_TARGET_INIT		/* let board init pci target	*/
 #define	CONFIG_SYS_PCI_MASTER_INIT
 
 #define CONFIG_SYS_PCI_SUBSYS_VENDORID 0x1014	/* IBM				*/
 #define CONFIG_SYS_PCI_SUBSYS_DEVICEID 0xcafe	/* Whatever			*/
 
-#define CONFIG_SYS_SCSI_SCAN_BUS_REVERSE  		/* Don't touch */
+#define CONFIG_SYS_SCSI_SCAN_BUS_REVERSE		/* Don't touch */
 
 /*
  * SATA driver setup
@@ -398,9 +405,24 @@
 /* Convert sectorsize to wordsize */
 #define ATA_SECTOR_WORDS (ATA_SECT_SIZE/2)
 
+/* SATA2 PCI-E */
+/*
+#define CONFIG_SATA_SIL
+
+#define CONFIG_CMD_SCSI
+#define CONFIG_LIBATA
+#define CONFIG_SCSI_AHCI
+#define CONFIG_SYS_SCSI_MAX_SCSI_ID	1
+#define CONFIG_SYS_SCSI_MAX_LUN		1
+#define CONFIG_SYS_SCSI_MAX_DEVICE	(CONFIG_SYS_SCSI_MAX_SCSI_ID * \
+						CONFIG_SYS_SCSI_MAX_LUN)
+#define CONFIG_AHCI_SETFEATURES_XFER
+*/
 /*-----------------------------------------------------------------------
  * Video stuff
  *----------------------------------------------------------------------*/
+#define CONFIG_BIOSEMU
+#define CONFIG_VIDEO_PERMEDIA2
 #define CONFIG_VIDEO_SM502
 #define CONFIG_VIDEO_SM501_8BPP
 
@@ -422,25 +444,15 @@
 #define CONFIG_SYS_ATA_DATA_OFFSET	0
 #define CONFIG_SYS_ATA_ALT_OFFSET	0x0200
 
-/*
-#define CONFIG_CMD_SCSI
-#define SCSI_VEND_ID 0x197b
-#define SCSI_DEV_ID  0x2363
-#define CONFIG_SCSI_AHCI
-#define CONFIG_SYS_SCSI_MAX_SCSI_ID	4
-#define CONFIG_SYS_SCSI_MAX_LUN	1
-#define CONFIG_SYS_SCSI_MAX_DEVICE	(CONFIG_SYS_SCSI_MAX_SCSI_ID * CONFIG_SYS_SCSI_MAX_LUN)
-#define CONFIG_SYS_SCSI_MAXDEVICE	CONFIG_SYS_SCSI_MAX_DEVICE
-*/ 
 /*-----------------------------------------------------------------------
  * External Bus Controller (EBC) Setup
  *----------------------------------------------------------------------*/
 
-/* Memory Bank 0 (NOR-FLASH) initialization	*/				
+/* Memory Bank 0 (NOR-FLASH) initialization	*/
 #define CONFIG_SYS_EBC_PB0AP		0x06057240
 #define CONFIG_SYS_EBC_PB0CR		0xfff18000 //(CONFIG_SYS_BOOT_BASE_ADDR | 0x18000)
 
-/* Memory Bank 2 (FPGA) initialization  */
+/* Memory Bank 2 (FPGA) initialization	*/
 #define CONFIG_SYS_EBC_PB2AP		0x7f8ffe80
 #define CONFIG_SYS_EBC_PB2CR		(CONFIG_SYS_FPGA_BASE | 0x3a000) /* BAS=FPGA,BS=2MB,BU=R/W,BW=16bit*/
 
@@ -448,7 +460,7 @@
 /* #define CONFIG_SYS_EBC_PB3AP		0x018003c0 */
 /* #define CONFIG_SYS_EBC_PB3CR		(CONFIG_SYS_NAND_ADDR | 0x1E000) *//* BAS=NAND,BS=1MB,BU=R/W,BW=32bit*/
 
-#define CONFIG_SYS_EBC_CFG		0xB8400000		/*  EBC0_CFG */
+#define CONFIG_SYS_EBC_CFG		0xB8400000		/*	EBC0_CFG */
 
 /*-----------------------------------------------------------------------
  * Miscellaneous configurable options
@@ -472,12 +484,12 @@
 
 #define CONFIG_SYS_HZ			1000	/* decrementer freq: 1 ms ticks	*/
 
-#undef CONFIG_CMDLINE_EDITING		    /* add command line history	*/
-#undef CONFIG_AUTO_COMPLETE		        /* add autocompletion support	*/
-#undef CONFIG_LOOPW			            /* enable loopw command         */
-#undef CONFIG_MX_CYCLIC		            /* enable mdc/mwc commands      */
-#define CONFIG_ZERO_BOOTDELAY_CHECK	    /* check for keypress on bootdelay==0 */
-#define CONFIG_VERSION_VARIABLE 	    /* include version env variable */
+#undef CONFIG_CMDLINE_EDITING			/* add command line history	*/
+#undef CONFIG_AUTO_COMPLETE				/* add autocompletion support	*/
+#undef CONFIG_LOOPW						/* enable loopw command			*/
+#undef CONFIG_MX_CYCLIC					/* enable mdc/mwc commands		*/
+#define CONFIG_VERSION_VARIABLE			/* include version env variable */
+#define CONFIG_ZERO_BOOTDELAY_CHECK		/* check for keypress on bootdelay==0 */
 #define CONFIG_SYS_CONSOLE_INFO_QUIET	/* don't print console @ startup*/
 #define CONFIG_SILENT_CONSOLE
 
@@ -486,8 +498,8 @@
 #define	CONFIG_SYS_PROMPT_HUSH_PS2	"> "
 #endif
 
-#define CONFIG_LOADS_ECHO		        1    /* echo on for serial download	*/
-#define CONFIG_SYS_LOADS_BAUD_CHANGE    1    /* allow baudrate change	*/
+#define CONFIG_LOADS_ECHO				1	 /* echo on for serial download	*/
+#define CONFIG_SYS_LOADS_BAUD_CHANGE	1	 /* allow baudrate change	*/
 
 /*
  * For booting Linux, the board info and command line data
@@ -573,14 +585,14 @@
 /* GPIO Core 1 */									\
 {GPIO1_BASE, GPIO_OUT, GPIO_SEL , GPIO_OUT_1}, /* GPIO32 USER TP8 */ \
 {GPIO1_BASE, GPIO_OUT, GPIO_SEL , GPIO_OUT_1}, /* GPIO33 USER TP10 */ \
-{GPIO1_BASE, GPIO_OUT, GPIO_ALT3, GPIO_OUT_1}, /* GPIO34 UART0_DCD_N	UART1_DSR_CTS_N	UART2_SOUT*/ \
-{GPIO1_BASE, GPIO_IN , GPIO_ALT3, GPIO_OUT_0}, /* GPIO35 UART0_8PIN_DSR_N UART1_RTS_DTR_N UART2_SIN*/ \
-{GPIO1_BASE, GPIO_IN , GPIO_ALT3, GPIO_OUT_0}, /* GPIO36 UART0_8PIN_CTS_N DMAAck3	UART3_SIN*/ \
-{GPIO1_BASE, GPIO_BI , GPIO_ALT2, GPIO_OUT_0}, /* GPIO37 UART0_RTS_N	EOT3/TC3	UART3_SOUT*/ \
-{GPIO1_BASE, GPIO_OUT, GPIO_ALT2, GPIO_OUT_1}, /* GPIO38 UART0_DTR_N	UART1_SOUT	*/	\
-{GPIO1_BASE, GPIO_IN , GPIO_ALT2, GPIO_OUT_0}, /* GPIO39 UART0_RI_N	UART1_SIN	*/	\
+{GPIO1_BASE, GPIO_IN , GPIO_ALT1, GPIO_OUT_NO_CHG}, /* GPIO34 UART0_DCD_N	UART1_DSR_CTS_N	UART2_SOUT*/ \
+{GPIO1_BASE, GPIO_IN , GPIO_ALT1, GPIO_OUT_NO_CHG}, /* GPIO35 UART0_8PIN_DSR_N UART1_RTS_DTR_N UART2_SIN*/ \
+{GPIO1_BASE, GPIO_IN , GPIO_ALT1, GPIO_OUT_NO_CHG}, /* GPIO36 UART0_8PIN_CTS_N DMAAck3	UART3_SIN*/ \
+{GPIO1_BASE, GPIO_OUT, GPIO_ALT1, GPIO_OUT_NO_CHG}, /* GPIO37 UART0_RTS_N	EOT3/TC3	UART3_SOUT*/ \
+{GPIO1_BASE, GPIO_OUT, GPIO_ALT1, GPIO_OUT_NO_CHG}, /* GPIO38 UART0_DTR_N	UART1_SOUT	*/	\
+{GPIO1_BASE, GPIO_IN , GPIO_ALT1, GPIO_OUT_NO_CHG}, /* GPIO39 UART0_RI_N	UART1_SIN	*/	\
 {GPIO1_BASE, GPIO_IN , GPIO_ALT1, GPIO_OUT_0}, /* GPIO40 IRQ(3)				*/	\
-{GPIO0_BASE, GPIO_OUT, GPIO_SEL , GPIO_OUT_1}, /* GPIO41 CS(1)				*/	\
+{GPIO1_BASE, GPIO_OUT, GPIO_SEL,  GPIO_OUT_1}, /* GPIO41 CS(1)				*/	\
 {GPIO1_BASE, GPIO_OUT, GPIO_ALT1, GPIO_OUT_0}, /* GPIO42 CS(2)				*/	\
 {GPIO1_BASE, GPIO_OUT, GPIO_ALT1, GPIO_OUT_0}, /* GPIO43 CS(3)		DMAReq1		IRQ(10)*/ \
 {GPIO1_BASE, GPIO_IN , GPIO_ALT3, GPIO_OUT_0}, /* GPIO44 CS(4)		DMAAck1		IRQ(11)*/ \
@@ -591,7 +603,7 @@
 {GPIO1_BASE, GPIO_IN , GPIO_SEL , GPIO_OUT_0}, /* GPIO49  Unselect via TraceSelect Bit	*/	\
 {GPIO1_BASE, GPIO_IN , GPIO_SEL , GPIO_OUT_0}, /* GPIO50  Unselect via TraceSelect Bit	*/	\
 {GPIO1_BASE, GPIO_IN , GPIO_SEL , GPIO_OUT_0}, /* GPIO51  Unselect via TraceSelect Bit	*/	\
-{GPIO1_BASE, GPIO_OUT, GPIO_SEL , GPIO_OUT_1}, /* GPIO52  HD LED                       	*/	\
+{GPIO1_BASE, GPIO_OUT, GPIO_SEL , GPIO_OUT_1}, /* GPIO52  HD LED						*/	\
 {GPIO1_BASE, GPIO_IN , GPIO_SEL , GPIO_OUT_0}, /* GPIO53  Unselect via TraceSelect Bit	*/	\
 {GPIO1_BASE, GPIO_IN , GPIO_SEL , GPIO_OUT_0}, /* GPIO54  Unselect via TraceSelect Bit	*/	\
 {GPIO1_BASE, GPIO_IN , GPIO_SEL , GPIO_OUT_0}, /* GPIO55  Unselect via TraceSelect Bit	*/	\

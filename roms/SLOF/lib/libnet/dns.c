@@ -292,7 +292,7 @@ handle_dns(uint8_t * packet, int32_t packetsize)
 
 /**
  * DNS: Sends a standard DNS-query (read request package) to a DNS-server.
- *      DNS-server respones with host IP or signals some error condition.
+ *      DNS-server responds with host IP or signals some error condition.
  *      Responses from the server are handled by handle_dns function.
  *
  * @param  fd          socket descriptor

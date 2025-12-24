@@ -16,6 +16,7 @@ import textwrap
 import yaml
 
 from pathlib import Path
+from typing import Any, Dict, Iterator, List, Optional, Union
 
 _tempdir = None
 
@@ -27,16 +28,17 @@ class SSHKey:
     :ivar path: Absolute path to the SSH key as Path object
     """
 
-    def __init__(self, keypath):
-        self._contents = None
+    def __init__(self, keypath: Path):
+        self._contents: Optional[str] = None
 
         # resolve user home directory + canonicalize path
         self.path = Path(keypath).expanduser().resolve()
         if not self.path.exists():
-            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT),
-                                    str(self.path))
+            raise FileNotFoundError(
+                errno.ENOENT, os.strerror(errno.ENOENT), str(self.path)
+            )
 
-    def __str__(self):
+    def __str__(self) -> str:
         if self._contents is None:
             with open(self.path, "r") as f:
                 self._contents = f.read().strip()
@@ -49,7 +51,7 @@ class SSHPublicKey(SSHKey):
 
 
 class SSHPrivateKey(SSHKey):
-    def __str__(self):
+    def __str__(self) -> str:
         # Only the SSH backend should ever need to know the contents of the
         # private key
 
@@ -57,13 +59,13 @@ class SSHPrivateKey(SSHKey):
 
 
 class SSHKeyPair:
-    def __init__(self, keypath):
+    def __init__(self, keypath: Path):
         pathobj = Path(keypath)
         self.public_key = SSHPublicKey(pathobj.with_suffix(".pub"))
         self.private_key = SSHPrivateKey(pathobj.with_suffix(""))
 
 
-def expand_pattern(pattern, iterable, name):
+def expand_pattern(pattern: str, iterable: List[str], name: str) -> List[str]:
     """
     Expands a simple user-provided pattern and return the corresponding
     items from the starting iterable.
@@ -125,7 +127,7 @@ def expand_pattern(pattern, iterable, name):
     return matches
 
 
-def get_host_arch():
+def get_host_arch() -> str:
     # Same canonicalization as libvirt virArchFromHost
     arch = platform.machine()
     if arch in ["i386", "i486", "i586"]:
@@ -139,7 +141,7 @@ def get_host_arch():
     return arch
 
 
-def valid_arches():
+def valid_arches() -> List[str]:
     return [
         "aarch64",
         "armv6l",
@@ -157,7 +159,7 @@ def valid_arches():
     ]
 
 
-def native_arch_to_abi(native_arch):
+def native_arch_to_abi(native_arch: str) -> str:
     archmap = {
         "aarch64": "aarch64-linux-gnu",
         "armv6l": "arm-linux-gnueabi",
@@ -178,7 +180,7 @@ def native_arch_to_abi(native_arch):
     return archmap[native_arch]
 
 
-def native_arch_to_deb_arch(native_arch):
+def native_arch_to_deb_arch(native_arch: str) -> str:
     archmap = {
         "aarch64": "arm64",
         "armv6l": "armel",
@@ -197,7 +199,7 @@ def native_arch_to_deb_arch(native_arch):
     return archmap[native_arch]
 
 
-def native_arch_to_rust_target(native_arch):
+def native_arch_to_rust_target(native_arch: str) -> str:
     archmap = {
         "aarch64": "aarch64-unknown-linux-gnu",
         "armv6l": "armv5te-unknown-linux-gnueabi",
@@ -218,7 +220,7 @@ def native_arch_to_rust_target(native_arch):
     return archmap[native_arch]
 
 
-def generate_file_header(cliargv):
+def generate_file_header(cliargv: List[str]) -> str:
     url = "https://gitlab.com/libvirt/libvirt-ci"
 
     cliargvlist = " ".join(cliargv)
@@ -234,7 +236,7 @@ def generate_file_header(cliargv):
     )
 
 
-def atomic_write(filepath, content):
+def atomic_write(filepath: Path, content: str) -> None:
     tmpfilepath = None
     tmpdir = filepath.parent
     try:
@@ -249,7 +251,7 @@ def atomic_write(filepath, content):
         raise
 
 
-def get_temp_dir():
+def get_temp_dir() -> Path:
     global _tempdir
 
     if not _tempdir:
@@ -257,7 +259,7 @@ def get_temp_dir():
     return Path(_tempdir.name)
 
 
-def get_cache_dir():
+def get_cache_dir() -> Path:
     try:
         cache_dir = Path(os.environ["XDG_CACHE_HOME"])
     except KeyError:
@@ -266,7 +268,7 @@ def get_cache_dir():
     return Path(cache_dir, "lcitool")
 
 
-def get_config_dir():
+def get_config_dir() -> Path:
     try:
         config_dir = Path(os.environ["XDG_CONFIG_HOME"])
     except KeyError:
@@ -275,7 +277,7 @@ def get_config_dir():
     return Path(config_dir, "lcitool")
 
 
-def get_datadir_inventory(data_dir):
+def get_datadir_inventory(data_dir: "DataDir") -> Optional[Path]:
     if data_dir.path is None or not Path(data_dir.path, "ansible").exists():
         return None
 
@@ -283,9 +285,10 @@ def get_datadir_inventory(data_dir):
     inventory_path = Path(data_dir.path, "ansible/inventory")
     if inventory_path.exists():
         return inventory_path
+    return None
 
 
-def package_resource(package, relpath):
+def package_resource(package: str, relpath: Union[str, Path]) -> Path:
     """
     Backcompatibility helper to retrieve a package resource using importlib
 
@@ -298,7 +301,7 @@ def package_resource(package, relpath):
     from importlib import import_module, resources
 
     if hasattr(resources, "files"):
-        return Path(resources.files(package), relpath)
+        return Path(str(resources.files(package)), relpath)
     else:
         # This is a horrible hack, it won't work for resources that don't exist
         # on the file system (which should not be a problem for our use case),
@@ -315,11 +318,14 @@ def package_resource(package, relpath):
         if package not in sys.modules:
             import_module(package)
 
-        package_path = Path(sys.modules[package].__file__).parent
+        package_file = sys.modules[package].__file__
+        if not package_file:
+            raise ValueError(f"Cannot find path for package {package}")
+        package_path = Path(package_file).parent
         return Path(package_path, relpath)
 
 
-def merge_dict(source, dest):
+def merge_dict(source: Dict[str, Any], dest: Dict[str, Any]) -> None:
     for key in source.keys():
         if key not in dest:
             dest[key] = copy.deepcopy(source[key])
@@ -335,41 +341,47 @@ def merge_dict(source, dest):
 
 class DataDir:
     """A class that looks for files both under the lcitool sources and in
-       an externally specified data directory.  Used to implement the
-       -d option."""
+    an externally specified data directory.  Used to implement the
+    -d option."""
+
+    def __init__(self, extra_data_dir: Optional[Path] = None):
+        if extra_data_dir is None:
+            extra_data_dir = self._default()
+        self._extra_data_dir = extra_data_dir
+        self._path: Optional[Path] = None
 
     @property
-    def path(self):
+    def path(self) -> Optional[Path]:
         if self._path is None:
             if self._extra_data_dir is not None:
                 self._path = Path(self._extra_data_dir).resolve()
 
         return self._path
 
-    def _default():
+    @staticmethod
+    def _default() -> Optional[Path]:
         extra = Path("ci", "lcitool")
         if extra.exists():
-            return extra.as_posix()
+            return extra
 
         return None
 
-    def __init__(self, extra_data_dir=_default()):
-        self._extra_data_dir = extra_data_dir
-        self._path = None
+    def __repr__(self) -> str:
+        return f"DataDir({str(self._extra_data_dir)})"
 
-    def __repr__(self):
-        return f'DataDir({str(self._extra_data_dir)})'
-
-    def __bool__(self):
+    def __bool__(self) -> bool:
         return bool(self._extra_data_dir)
 
-    def _search(self, resource_path, *names, internal=False):
+    def _search(
+        self, resource_path: str, *names: str, internal: bool = False
+    ) -> Iterator[Path]:
         if self and not internal:
+            assert self._extra_data_dir
             # The first part of the path is used to keep data files out of
             # the source directory, for example "facts" or "etc".  Remove it
             # when using an external data directory.
             if "/" in resource_path:
-                user_path = resource_path[resource_path.index("/") + 1:]
+                user_path = resource_path[resource_path.index("/") + 1 :]
             else:
                 user_path = ""
             p = Path(self._extra_data_dir, user_path, *names)
@@ -380,14 +392,16 @@ class DataDir:
         if p.exists():
             yield p
 
-    def list_files(self, resource_path, suffix=None, internal=False):
+    def list_files(
+        self, resource_path: str, suffix: Optional[str] = None, internal: bool = False
+    ) -> Iterator[Path]:
         for p in self._search(resource_path, internal=internal):
             for file in p.iterdir():
                 if file.is_file() and (suffix is None or file.suffix == suffix):
                     yield file
 
-    def merge_facts(self, resource_path, name):
-        result = {}
+    def merge_facts(self, resource_path: str, name: str) -> Dict[str, Any]:
+        result: Dict[str, Any] = {}
         for file in self._search(resource_path, name + ".yml"):
             log.debug(f"Loading facts from '{file}'")
             with open(file, "r") as infile:
@@ -395,10 +409,28 @@ class DataDir:
         return result
 
 
-def validate_cross_platform(cross_arch, osname):
+def validate_cross_platform(cross_arch: str, osname: str, osversion: str) -> None:
     if osname not in ["Debian", "Fedora"]:
         raise ValueError(f"Cannot cross compile on {osname}")
-    if (osname == "Debian" and cross_arch.startswith("mingw")):
+    if osname == "Debian" and cross_arch.startswith("mingw"):
         raise ValueError(f"Cannot cross compile for {cross_arch} on {osname}")
-    if (osname == "Fedora" and not cross_arch.startswith("mingw")):
+    if osname == "Fedora" and not cross_arch.startswith("mingw"):
         raise ValueError(f"Cannot cross compile for {cross_arch} on {osname}")
+    if (
+        osname == "Debian"
+        and cross_arch == "riscv64"
+        and osversion != "Sid"
+        and int(osversion.split(".")[0]) < 13
+    ):
+        raise ValueError(
+            f"Cross compiling for {cross_arch} is not supported on Debian < 13"
+        )
+    if (
+        osname == "Debian"
+        and (cross_arch == "mipsel" or cross_arch == "mips64el")
+        and osversion != "Sid"
+        and int(osversion.split(".")[0]) > 12
+    ):
+        raise ValueError(
+            f"Cross compiling for {cross_arch} is not supported on Debian > 12"
+        )

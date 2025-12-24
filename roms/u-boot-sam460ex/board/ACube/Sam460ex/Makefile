@@ -1,6 +1,6 @@
 #
-# (C) Copyright 2008
-# Stefan Roese, DENX Software Engineering, sr@denx.de.
+# (C) Copyright 2009-2024
+# Max Tretene, ACube Systems Srl. mtretene@acube-systems.com.
 #
 # See file CREDITS for list of people who contributed to this
 # project.
@@ -23,14 +23,14 @@
 
 include $(TOPDIR)/config.mk
 
-CFLAGS += -I../menu -I../common -I.
+CFLAGS += -I../menu/ -I../common/ -I. -I../Sam460ex/
 
 LIB	= $(obj)lib$(BOARD).a
 
 EMUDIR  = ../bios_emulator/scitech/src/x86emu/
-EMUOBJ  = $(EMUDIR)decode.o $(EMUDIR)ops2.o $(EMUDIR)fpu.o $(EMUDIR)prim_ops.o \
-		$(EMUDIR)ops.o $(EMUDIR)sys.o $(EMUDIR)debug.o
-		
+EMUOBJ  = $(EMUDIR)fpu.o $(EMUDIR)ops.o ../bios_emulator/x86interface.o  \
+		../bios_emulator/bios.o ../bios_emulator/glue.o
+
 MENUDIR = ../menu/
 MENUOBJ = $(MENUDIR)bios_menu.o $(MENUDIR)bootselect_menu.o $(MENUDIR)list.o \
 		$(MENUDIR)cmd_menu.o $(MENUDIR)label_items.o $(MENUDIR)creation.o \
@@ -39,15 +39,13 @@ MENUOBJ = $(MENUDIR)bios_menu.o $(MENUDIR)bootselect_menu.o $(MENUDIR)list.o \
 		$(MENUDIR)string_edit.o $(MENUDIR)string_items.o
 
 COMMONDIR = ../common/
-COMMONOBJ = $(COMMONDIR)vesa.o $(COMMONDIR)vesa_video.o \
+COMMONOBJ = $(COMMONDIR)init_radeon.o $(COMMONDIR)vesa_video.o \
 		$(COMMONDIR)cmd_boota.o $(COMMONDIR)misc_utils.o $(COMMONDIR)sys_dep.o \
-		$(COMMONDIR)sam_ide.o $(COMMONDIR)init_sm502.o $(COMMONDIR)sm502.o
-		
-COBJS-y	:= $(BOARD).o init_radeon.o $(COMMONOBJ) $(EMUOBJ) $(MENUOBJ) \
-			../bios_emulator/x86interface.o  \
-			../bios_emulator/bios.o ../bios_emulator/glue.o \
-		   
-#COBJS-$(CONFIG_CMD_CHIP_CONFIG) += chip_config.o
+		$(COMMONDIR)sam_ide.o $(COMMONDIR)init_sm502.o $(COMMONDIR)sm502.o \
+		$(COMMONDIR)init_permedia2.o $(COMMONDIR)permedia2.o $(COMMONDIR)nanojpeg.o
+
+COBJS-y	:= $(BOARD).o sam460_pci.o $(COMMONOBJ) $(EMUOBJ) $(MENUOBJ)
+			
 SOBJS	:= init.o
 
 COBJS   := $(COBJS-y)

@@ -1,7 +1,9 @@
+#include <stdarg.h>
+#include <malloc.h>
 #include "menu.h"
 #include "func_items.h"
-#include <stdarg.h>
 #include "creation.h"
+#include "../common/vesa_video.h"
 
 struct func_item
 {

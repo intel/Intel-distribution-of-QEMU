@@ -49,12 +49,12 @@ struct controller_context
 extern void ide_controllers_init(void);
 extern void print_all_controllers(void);
 
-extern block_dev_desc_t * p_sii_get_dev(const unsigned unit);
-extern block_dev_desc_t *s_sii_get_dev(const unsigned unit);
-extern block_dev_desc_t *s_4_sii_get_dev(const unsigned unit);
+extern block_dev_desc_t * p_sii_get_dev(int unit);
+extern block_dev_desc_t *s_sii_get_dev(int unit);
+extern block_dev_desc_t *s_4_sii_get_dev(int unit);
 
 #ifdef CONFIG_SAM460EX
-extern block_dev_desc_t *sata2_460_get_dev(const unsigned unit);
+extern block_dev_desc_t *sata2_460_get_dev(int unit);
 #endif
 
 #endif //SAM_IDE_H

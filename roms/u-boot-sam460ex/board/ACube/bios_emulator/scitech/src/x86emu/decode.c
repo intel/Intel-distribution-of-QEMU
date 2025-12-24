@@ -92,44 +92,42 @@ original real mode call.
 ****************************************************************************/
 void X86EMU_exec(void)
 {
-    u8  op1;
+    u8  op1, level = 1;
     u16 jj;
-    u32 loops = 0;
+    u32 loops = 0, limit = 0;
     static u8 done = 0;
-    
+
+	char *s = getenv("x86emu");
+	if (s) level = atoi(s);
+
+	if (level == 0) limit = 10000000;
+	if (level == 1) limit = 15000000;
+	if (level == 2) limit = 20000000;
+	if (level >= 3) done = 1;
+
+	//printf("%d %d %d\n",level,limit,done);
+
     M.x86.intr = 0;
     DB(x86emu_end_instr();)
 
     for (;;) {
 
 		// m3x: this is a ugly hack...
-		// some Radeon HD4650 gfx cards takes too long to init
-		// in this case, we stop the execution on the x86
-		// bios after 10.5 milions istructions
-		// this "seems" to not have any side effects so far
+		// some Radeon HD4650 gfx cards takes too long to init.
+		// in this case, we stop the execution of the x86
+		// bios after 'limit' milions istructions.
+		// this "seems" to not have any side effects so far...
         if (( ! done) && (onbus >= 2))
-        {   
-        	++loops;       	
-			
-			/*
-            if ((loops == 5000000) && (clear_screen))
-            {
-                u32 *tmp = fb_base_phys;
-			
-	    		jj = (640 * 480) / 4;
-    	    	while (jj--)
-    		      *tmp++ = 0;  
-			}
-			*/
-			
-			if (loops == 10500000)
+        {
+        	++loops;
+
+			if (loops == limit)
 			{
             	done = 1;
-    		    M.x86.intr |= INTR_HALTED; 
-    		    //printf("HALT FORCED\n");           	
+    		    M.x86.intr |= INTR_HALTED;
 			}
         }
-                   
+
 DB(     if (CHECK_IP_FETCH())
             x86emu_check_ip_access();)
         /* If debugging, save the IP and CS values. */
@@ -765,7 +763,7 @@ RETURNS:
 Value of scale * index
 
 REMARKS:
-Decodes scale/index of SIB byte and returns relevant offset part of 
+Decodes scale/index of SIB byte and returns relevant offset part of
 effective address.
 ****************************************************************************/
 unsigned decode_sib_si(

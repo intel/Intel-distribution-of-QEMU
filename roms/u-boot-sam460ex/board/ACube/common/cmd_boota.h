@@ -18,11 +18,12 @@
 #define SBL_HIGHEST 256
 #define MAX_UNITS 8
 
-#define BOOTLOADER_MAX_BUFFER   (640*1024) /* Maximum size for the second-level bootloader.
+#define BOOTLOADER_MAX_BUFFER   (8192*1024) /* Maximum size for the second-level bootloader.
 					      Used by the netboot functions since we don't
 					      know beforehand the size of the file.
 					      Someone told me 640K should be enough for
 					      everyone. */
+					      /* Raised to 8MB to support MorphOS boot */
 //#define NETBOOT_BOOTLOADER_FILENAME  "OS4Bootloader" now it's an unoot var
 
 #endif /* CMD_BOOTA_H */

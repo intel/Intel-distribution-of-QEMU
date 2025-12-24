@@ -17,11 +17,14 @@ so that foreign-arch aarch64 binaries aren't dramatically slow.  For
 the qemu system mode, things has to be backwards-compatible and
 migratable between qemu versions, so things aren't that simple.
 
-diff --git a/linux-user/aarch64/target_elf.h b/linux-user/aarch64/target_elf.h
---- a/linux-user/aarch64/target_elf.h
-+++ b/linux-user/aarch64/target_elf.h
-@@ -11,3 +11,3 @@ static inline const char *cpu_get_model(uint32_t eflags)
+diff --git a/linux-user/aarch64/elfload.c b/linux-user/aarch64/elfload.c
+--- a/linux-user/aarch64/elfload.c
++++ b/linux-user/aarch64/elfload.c
+@@ -12,5 +12,5 @@
+ const char *get_elf_cpu_model(uint32_t eflags)
  {
 -    return "any";
 +    return "any,pauth=off"; // pauth (any variant of it) is too slow for modern userspace
  }
+ 
+

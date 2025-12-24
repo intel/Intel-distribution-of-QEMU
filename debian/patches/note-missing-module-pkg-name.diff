@@ -15,11 +15,10 @@ This is a hack, but it makes qemu packaged in debian
 more user-friendly.
 
 diff --git a/audio/audio.c b/audio/audio.c
-index 7ac74f9e16..15f1071bdc 100644
 --- a/audio/audio.c
 +++ b/audio/audio.c
-@@ -1745,5 +1745,9 @@ static AudioState *audio_init(Audiodev *dev, Error **errp)
-             done = !audio_driver_init(s, driver, dev, errp);
+@@ -1760,5 +1760,9 @@ static AudioBackend *audio_init(Audiodev *dev, Error **errp)
+             done = audio_driver_init(s, driver, dev, errp);
          } else {
 -            error_setg(errp, "Unknown audio driver `%s'", drvname);
 +            error_setg(errp, "Unknown audio driver `%s'. Perhaps you want to install %s package?",
@@ -30,10 +29,9 @@ index 7ac74f9e16..15f1071bdc 100644
          }
          if (!done) {
 diff --git a/block.c b/block.c
-index bfb0861ec6..8de988961d 100644
 --- a/block.c
 +++ b/block.c
-@@ -453,4 +453,10 @@ static BlockDriver *bdrv_do_find_format(const char *format_name)
+@@ -454,4 +454,10 @@ static BlockDriver *bdrv_do_find_format(const char *format_name)
  }
  
 +static void note_block_package_name(const char *b)
@@ -44,13 +42,13 @@ index bfb0861ec6..8de988961d 100644
 +
  BlockDriver *bdrv_find_format(const char *format_name)
  {
-@@ -476,4 +482,5 @@ BlockDriver *bdrv_find_format(const char *format_name)
+@@ -477,4 +483,5 @@ BlockDriver *bdrv_find_format(const char *format_name)
                  error_report_err(local_err);
              }
 +            else note_block_package_name(block_driver_modules[i].library_name);
              break;
          }
-@@ -966,5 +973,8 @@ BlockDriver *bdrv_find_protocol(const char *filename,
+@@ -967,5 +974,8 @@ BlockDriver *bdrv_find_protocol(const char *filename,
                  return NULL;
              }
 -            break;
@@ -61,10 +59,9 @@ index bfb0861ec6..8de988961d 100644
          }
      }
 diff --git a/system/vl.c b/system/vl.c
-index e18fa3ce46..91019d6952 100644
 --- a/system/vl.c
 +++ b/system/vl.c
-@@ -1049,5 +1049,7 @@ static void select_vgahw(const MachineClass *machine_class, const char *p)
+@@ -1063,5 +1063,7 @@ static void select_vgahw(const MachineClass *machine_class, const char *p)
          if (ti->opt_name && strstart(p, ti->opt_name, &opts)) {
              if (!vga_interface_available(t)) {
 -                error_report("%s not available", ti->name);
@@ -73,7 +70,7 @@ index e18fa3ce46..91019d6952 100644
 +                        !strcmp(ti->opt_name, "qxl") ? "qemu-system-modules-spice" : "qemu-system-modules-opengl");
                  exit(1);
              }
-@@ -3500,5 +3502,10 @@ void qemu_init(int argc, char **argv)
+@@ -3589,5 +3591,10 @@ void qemu_init(int argc, char **argv)
  #ifdef CONFIG_SPICE
              case QEMU_OPTION_spice:
 -                opts = qemu_opts_parse_noisily(qemu_find_opts("spice"), optarg, false);
@@ -86,10 +83,9 @@ index e18fa3ce46..91019d6952 100644
                  if (!opts) {
                      exit(1);
 diff --git a/ui/console.c b/ui/console.c
-index 832055675c..a930f88d68 100644
 --- a/ui/console.c
 +++ b/ui/console.c
-@@ -1659,6 +1659,8 @@ void qemu_display_early_init(DisplayOptions *opts)
+@@ -1557,6 +1557,8 @@ void qemu_display_early_init(DisplayOptions *opts)
      }
      if (dpys[opts->type] == NULL) {
 -        error_report("Display '%s' is not available.",

@@ -197,7 +197,7 @@ void *PCI_mapBIOSImage(pci_dev_t pcidev)
 
 	BIOSImageBus = PCI_findBIOSAddr(pcidev, &BIOSImageBAR);
 	if (BIOSImageBus == 0) {
-		printf("Find bios addr error\n");
+		debug("Find bios addr error\n");
 		return NULL;
 	}
 
@@ -253,17 +253,17 @@ static int PCI_postController(pci_dev_t pcidev, BE_VGAInfo * VGAInfo)
 	u32 BIOSImageLen;
 	uchar *mappedBIOS;
 	uchar *copyOfBIOS;
-
+	
 	/*Allocate memory to store copy of BIOS from display controller*/
 	if ((mappedBIOS = PCI_mapBIOSImage(pcidev)) == NULL) {
-		printf("videoboot: Video ROM failed to map!\n");
+		debug("videoboot: Video ROM failed to map!\n");
 		return false;
 	}
 
 	BIOSImageLen = mappedBIOS[2] * 512;
 
 	if ((copyOfBIOS = malloc(BIOSImageLen)) == NULL) {
-		printf("videoboot: Out of memory!\n");
+		debug("videoboot: Out of memory!\n");
 		return false;
 	}
 	memcpy(copyOfBIOS, mappedBIOS, BIOSImageLen);
@@ -280,7 +280,7 @@ static int PCI_postController(pci_dev_t pcidev, BE_VGAInfo * VGAInfo)
 
 	/*Now execute the BIOS POST for the device*/
 	if (copyOfBIOS[0] != 0x55 || copyOfBIOS[1] != 0xAA) {
-		printf("videoboot: Video ROM image is invalid!\n");
+		debug("videoboot: Video ROM image is invalid!\n");
 		return false;
 	}
 
@@ -305,12 +305,12 @@ int BootVideoCardBIOS(pci_dev_t pcidev, BE_VGAInfo ** pVGAInfo, int cleanUp)
 {
 	BE_VGAInfo *VGAInfo;
 
-	printf("videoboot: Booting PCI video card bus %d, function %d, device %d\n",
+	debug("videoboot: Booting PCI video card bus %d, function %d, device %d\n",
 	     PCI_BUS(pcidev), PCI_FUNC(pcidev), PCI_DEV(pcidev));
 
 	/*Initialise the x86 BIOS emulator*/
 	if ((VGAInfo = malloc(sizeof(*VGAInfo))) == NULL) {
-		printf("videoboot: Out of memory!\n");
+		debug("videoboot: Out of memory!\n");
 		return false;
 	}
 	memset(VGAInfo, 0, sizeof(*VGAInfo));

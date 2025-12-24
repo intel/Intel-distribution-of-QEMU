@@ -99,7 +99,7 @@ extern void sc3_read_eeprom(void);
 void doc_init (void);
 #endif
 #if defined(CONFIG_HARD_I2C) || \
-    defined(CONFIG_SOFT_I2C)
+	defined(CONFIG_SOFT_I2C)
 #include <i2c.h>
 #endif
 #include <spi.h>
@@ -126,7 +126,7 @@ DECLARE_GLOBAL_DATA_PTR;
 #define TOTAL_MALLOC_LEN	CONFIG_SYS_MALLOC_LEN
 #elif ( ((CONFIG_ENV_ADDR+CONFIG_ENV_SIZE) < CONFIG_SYS_MONITOR_BASE) || \
 	(CONFIG_ENV_ADDR >= (CONFIG_SYS_MONITOR_BASE + CONFIG_SYS_MONITOR_LEN)) ) || \
-      defined(CONFIG_ENV_IS_IN_NVRAM)
+	  defined(CONFIG_ENV_IS_IN_NVRAM)
 #define	TOTAL_MALLOC_LEN	(CONFIG_SYS_MALLOC_LEN + CONFIG_ENV_SIZE)
 #else
 #define	TOTAL_MALLOC_LEN	CONFIG_SYS_MALLOC_LEN
@@ -197,12 +197,34 @@ static int init_func_ram (void)
 #else
 	int board_type = 0;	/* use dummy arg */
 #endif
+
 	puts ("DRAM:  ");
 
 #ifdef CONFIG_SAM460EX
-    initdram (board_type);
+	u8 failed = 0;
+	char s[32] = { 0 };
+
+	getenv_r("ddr2_boost", s, 32);
+	gd->flags |= atoi(s) << 16;
+
+	failed = i2c_reg_read(CONFIG_SYS_I2C_RTC_ADDR, 0xe);
+
+	if (failed >= 1) // there was an error - disable ddr2_boost
+	{
+		gd->flags &= ~(GD_FLG_DDR2_BOOST_READ|GD_FLG_DDR2_BOOST_WRITE);
+		puts("ddr2_boost disabled due previous failure\n       ");
+		i2c_reg_write(CONFIG_SYS_I2C_RTC_ADDR, 0xe, 2);
+	}
+
+	if (gd->flags >= GD_FLG_DDR2_BOOST_READ)
+	{
+	    printf("ddr2_boost enabled, level %lx\n       ",gd->flags >> 16);
+		i2c_reg_write(CONFIG_SYS_I2C_RTC_ADDR, 0xe, 1);
+	}
+
+	initdram (board_type); // we need to init dram twice...
 #endif
-    
+
 	if ((gd->ram_size = initdram (board_type)) > 0) {
 		print_size (gd->ram_size, "");
 		board_add_ram_info(0);
@@ -272,7 +294,7 @@ init_fnc_t *init_sequence[] = {
 #if !defined(CONFIG_8xx_CPUCLK_DEFAULT)
 	get_clocks,		/* get CPU and bus clocks (etc.) */
 #if defined(CONFIG_TQM8xxL) && !defined(CONFIG_TQM866M) \
-    && !defined(CONFIG_TQM885D)
+	&& !defined(CONFIG_TQM885D)
 	adjust_sdram_tbs_8xx,
 #endif
 	init_timebase,
@@ -387,8 +409,8 @@ void board_init_f (ulong bootflag)
 	__asm__ __volatile__("": : :"memory");
 
 #if !defined(CONFIG_CPM2) && !defined(CONFIG_MPC512X) && \
-    !defined(CONFIG_MPC83xx) && !defined(CONFIG_MPC85xx) && \
-    !defined(CONFIG_MPC86xx)
+	!defined(CONFIG_MPC83xx) && !defined(CONFIG_MPC85xx) && \
+	!defined(CONFIG_MPC86xx)
 	/* Clear initial global data */
 	memset ((void *) gd, 0, sizeof (gd_t));
 #endif
@@ -539,7 +561,7 @@ void board_init_f (ulong bootflag)
 #endif
 
 #if defined(CONFIG_8xx) || defined(CONFIG_8260) || defined(CONFIG_5xx) || \
-    defined(CONFIG_E500) || defined(CONFIG_MPC86xx)
+	defined(CONFIG_E500) || defined(CONFIG_MPC86xx)
 	bd->bi_immr_base = CONFIG_SYS_IMMR;	/* base  of IMMR register     */
 #endif
 #if defined(CONFIG_MPC5xxx)
@@ -596,8 +618,8 @@ void board_init_f (ulong bootflag)
 	bd->bi_procfreq = gd->cpu_clk;	/* Processor Speed, In Hz */
 	bd->bi_plb_busfreq = gd->bus_clk;
 #if defined(CONFIG_405GP) || defined(CONFIG_405EP) || \
-    defined(CONFIG_440EP) || defined(CONFIG_440GR) || \
-    defined(CONFIG_440EPX) || defined(CONFIG_440GRX)
+	defined(CONFIG_440EP) || defined(CONFIG_440GR) || \
+	defined(CONFIG_440EPX) || defined(CONFIG_440GRX)
 	bd->bi_pci_busfreq = get_PCI_freq ();
 	bd->bi_opbfreq = get_OPB_freq ();
 #elif defined(CONFIG_XILINX_405)
@@ -722,15 +744,15 @@ void board_init_r (gd_t *id, ulong dest_addr)
 	mem_malloc_init (malloc_start, TOTAL_MALLOC_LEN);
 
 #ifdef CONFIG_SAM460EX
-    u16 fpga_val;
-    
+	u16 fpga_val;
+
 	// Green, Yellow, Ambra, Red LEDs ON -------------------------
 	fpga_val = in_be16((void *)CONFIG_SYS_FPGA_BASE + 0x2E);
-	fpga_val |= 0x000f; 
+	fpga_val |= 0x000f;
 	out_be16((void *)CONFIG_SYS_FPGA_BASE + 0x2E, fpga_val);
-	
+
 	int ii=0;
-    for (ii=0;ii<10;ii++) udelay(10000);
+	for (ii=0;ii<10;ii++) udelay(10000);
 #endif
 
 #if !defined(CONFIG_SYS_NO_FLASH)
@@ -993,7 +1015,7 @@ void board_init_r (gd_t *id, ulong dest_addr)
 #endif
 
 #if defined(CONFIG_CMD_PCMCIA) \
-    && !defined(CONFIG_CMD_IDE)
+	&& !defined(CONFIG_CMD_IDE)
 	WATCHDOG_RESET ();
 	puts ("PCMCIA:");
 	pcmcia_init ();

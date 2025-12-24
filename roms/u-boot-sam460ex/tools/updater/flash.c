@@ -23,6 +23,7 @@
 
 #include <common.h>
 #include <flash.h>
+#include "config.h"
 #include "flash_local.h"
 
 extern flash_info_t  flash_info[]; /* info for FLASH chips */

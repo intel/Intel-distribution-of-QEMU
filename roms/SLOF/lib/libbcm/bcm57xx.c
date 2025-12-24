@@ -1395,7 +1395,7 @@ bcm_init_rxret_ring( void )
 
 	/*
 	 * setup rx ret rcb
-	 * NOTE: NIC address not aplicable in return rings
+	 * NOTE: NIC address not applicable in return rings
 	 */
 	bcm_write_mem32( BCM_RCB_HOSTADDR_HI_u16( BCM_RXRET_RCB_OFFS ),
 	                 (uint32_t) ( (uint64_t) &bcm_rxret_ring >> 32 ) );
@@ -2239,7 +2239,7 @@ bcm_wol_activate(void)
 	                                                     0x4a );*/
 	printf( "bcm57xx: PM Capability Register: %04X\n", reg_pwr_cap );
 #endif
-	/* get curretn power control register */
+	/* get current power control register */
 	reg_pwr_crtl = SLOF_pci_config_read16(0x4c);
 	/*reg_pwr_crtl = snk_kernel_interface->pci_config_read( bcm_pcicfg_puid,
 	                                                      2,

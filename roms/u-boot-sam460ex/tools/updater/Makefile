@@ -24,10 +24,12 @@
 LOAD_ADDR = 0x1000000
 
 include $(TOPDIR)/config.mk
+include $(TOPDIR)/include/updater-config.mk
 
 PROG		= $(obj)updater
 IMAGE		= $(obj)updater.image
 
+#respect the objects order... padding before dummy, dummy as last
 COBJS		= update.o flash.o flash_hw.o utils.o cmd_flash.o string.o ctype.o dummy.o
 COBJS_LINKS	= stubs.o
 AOBJS		= 
@@ -69,7 +71,7 @@ $(obj)stubs.c:
 #########################################################################
 
 $(obj)updater: $(OBJS)
-	$(LD) -g -Ttext $(LOAD_ADDR) -o $(obj)updater -e _main $(OBJS)
+	$(LD) -g -Ttext $(LOAD_ADDR) -o $(obj)updater -e _main $(OBJS) -L/opt/eldk-5.6/powerpc-4xx/sysroots/ppc440e-linux/usr/lib/powerpc-linux/4.8.2 -lgcc
 	$(OBJCOPY) -O binary $(obj)updater $(obj)updater.bin
 
 $(obj)updater.image: $(obj)updater $(OBJTREE)/u-boot.bin
@@ -78,7 +80,7 @@ $(obj)updater.image: $(obj)updater $(OBJTREE)/u-boot.bin
 	-e `$(NM) $(obj)updater | grep _main | cut --bytes=1-8` \
 	-n "Firmware Updater" -d /tmp/tempimage $(obj)updater.image
 	rm /tmp/tempimage
-	cp $(obj)updater.image /boot/u-boot/updater-460
+	cp $(obj)updater.image /boot/u-boot/$(UPDATER_IMAGE)
 
 #########################################################################
 

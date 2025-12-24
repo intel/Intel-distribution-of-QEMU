@@ -9,9 +9,9 @@ empty :=
 
 # since some files and/or lists differ from version to version,
 # ensure we have the expected qemu version, or else scream loudly
-checked-version := 10.1.3+ds
+checked-version := 10.2.0+ds
 # version of last vdso change for d/control Depends field:
-vdso-version := 1:9.2.0~rc3+ds-1~
+vdso-version := 1:10.2.0+ds-1~
 
 vdso-files := \
  linux-user/aarch64/vdso-be.so \
@@ -180,7 +180,7 @@ endif
 system-arch-linux-64 = \
 	amd64 arm64 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc64
 system-arch-linux = $(sort ${system-arch-linux-64} \
-	arm armel armhf i386 mips mipsel powerpc powerpcspe sparc)
+	arm armel armhf i386 sparc)
 system-arch = ${system-arch-linux}
 user-arch = ${system-arch-linux}
 utils-arch = $(sort ${system-arch} alpha hppa m68k sh4 x32)

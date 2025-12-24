@@ -24,6 +24,7 @@ native:
 - cloud-guest-utils
 - cloud-init
 - codespell
+- coreutils
 - cpanminus
 - cpp
 - dbus
@@ -68,7 +69,7 @@ native:
 - libapparmor-dev
 - libarchive-dev
 - libarchive-tar-perl
-- libasan6
+- libasan8
 - libasound2-dev
 - libattr1-dev
 - libaudit-dev
@@ -255,6 +256,7 @@ native:
 - python3-lxml
 - python3-numpy
 - python3-opencv
+- python3-packaging
 - python3-pillow
 - python3-pip
 - python3-pytest

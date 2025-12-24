@@ -6,25 +6,26 @@
 
 import logging
 import sys
+from pathlib import Path
 import yaml
 
 from collections import UserDict
-from pkg_resources import resource_filename
+from typing import Any, Optional, Union
 
-from lcitool import LcitoolError
+from lcitool import util, LcitoolError
 
 log = logging.getLogger(__name__)
 
 
 class CloudConfigError(LcitoolError):
-    def __init__(self, msg):
+    def __init__(self, msg: str) -> None:
         pass
 
 
 class CloudConfig(UserDict):
-    """ Cloud-config settings abstraction. """
+    """Cloud-config settings abstraction."""
 
-    def __init__(self, file=None, **kwargs):
+    def __init__(self, file: Optional[Union[str, Path]] = None, **kwargs: Any) -> None:
         """
         Creates the cloud-config configuration for cloud-init.
 
@@ -34,20 +35,21 @@ class CloudConfig(UserDict):
 
         cloud_config_base = file
         if cloud_config_base is None:
-            cloud_config_base = resource_filename(__name__,
-                                                  "configs/cloud-init.conf.in")
+            cloud_config_base = util.package_resource(
+                __package__, "configs/cloud-init.conf.in"
+            )
 
         try:
             with open(cloud_config_base, "r") as fd:
                 values = yaml.safe_load(fd)
         except Exception as ex:
-            raise CloudConfigError(ex)
+            raise CloudConfigError(str(ex))
             sys.exit(1)
 
         kwargs.update(values)
         super().__init__(**kwargs)
 
-    def dump(self, file=None):
+    def dump(self, file: Optional[str] = None) -> Optional[str]:
         """
         Serialize the cloud config dict into a YAML stream.
 
@@ -65,4 +67,5 @@ class CloudConfig(UserDict):
             return _string
 
         with open(file, "w") as f:
-            return f.write(_string)
+            f.write(_string)
+        return None

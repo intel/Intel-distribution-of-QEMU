@@ -8,7 +8,7 @@
  * (C) Copyright 2006-2007
  * Matthias Fuchs, esd GmbH, matthias.fuchs@esd-electronics.com
  *
- * (C) Copyright 2009-2010
+ * (C) Copyright 2009-2024
  * Max Tretene, ACube Systems Srl. mtretene@acube-systems.com.
  *
  * See file CREDITS for list of people who contributed to this
@@ -49,23 +49,23 @@ DECLARE_GLOBAL_DATA_PTR;
 #define BPP	8
 #endif
 
-#define read8(ptrReg)                \
-    *(volatile unsigned char *)(sm501.isaBase + ptrReg)
+#define read8(ptrReg)				\
+	*(volatile unsigned char *)(sm501.isaBase + ptrReg)
 
 #define write8(ptrReg,value) \
-    *(volatile unsigned char *)(sm501.isaBase + ptrReg) = value
+	*(volatile unsigned char *)(sm501.isaBase + ptrReg) = value
 
 #define read16(ptrReg) \
-    (*(volatile unsigned short *)(sm501.isaBase + ptrReg))
+	(*(volatile unsigned short *)(sm501.isaBase + ptrReg))
 
 #define write16(ptrReg,value) \
-    (*(volatile unsigned short *)(sm501.isaBase + ptrReg) = value)
+	(*(volatile unsigned short *)(sm501.isaBase + ptrReg) = value)
 
 #define read32(ptrReg) \
-    (*(volatile unsigned int *)(sm501.isaBase + ptrReg))
+	(*(volatile unsigned int *)(sm501.isaBase + ptrReg))
 
 #define write32(ptrReg, value) \
-    (*(volatile unsigned int *)(sm501.isaBase + ptrReg) = value)
+	(*(volatile unsigned int *)(sm501.isaBase + ptrReg) = value)
 
 GraphicDevice sm501;
 
@@ -73,60 +73,60 @@ GraphicDevice sm501;
 #define DISPLAY_HEIGHT  480
 
 static const SMI_REGS init_regs_640x480[] = {
-    {0x00004, SWAP32(0x00000000)},
-    /* clocks for pm0... */
-    {0x00040, SWAP32(0x0002184f)},
-    {0x00044, SWAP32(0x091a0a01)}, /* 24 MHz pixclk */
-    {0x00054, SWAP32(0x00000000)},
-    /* clocks for pm1... */
-    {0x00048, SWAP32(0x0002184f)},
-    {0x0004C, SWAP32(0x091a0a01)},
-    {0x00054, SWAP32(0x00000001)},
-    /* panel control regs... */
-    {0x80004, SWAP32(0xc428bb17)},
-    {0x8000C, SWAP32(0x00000000)},
-    {0x80010, SWAP32(0x02800280)},
-    {0x80014, SWAP32(0x02800000)},
-    {0x80018, SWAP32(0x01e00000)},
-    {0x8001C, SWAP32(0x00000000)},
-    {0x80020, SWAP32(0x01e00280)},
-    {0x80024, SWAP32(0x02fa027f)},
-    {0x80028, SWAP32(0x004a0280)},
-    {0x8002C, SWAP32(0x020c01df)},
-    {0x80030, SWAP32(0x000201e7)},
-    {0x80200, SWAP32(0x00010000)},
-    {0x00008, SWAP32(0x20000000)}, /* gpio29 is pwm0, LED_PWM */
-    {0x0000C, SWAP32(0x3f000000)}, /* gpio56 - gpio61 as flat panel data pins */
-    {0x10020, SWAP32(0x25725728)}, /* 20 kHz pwm0, 50 % duty cycle, disabled */
-    {0x80000, SWAP32(0x0f013104)}, /* panel display control: 8 bit indexed mode */
-    {0x800F0, SWAP32(0x00000000)}, /* hardware sprite off */
-    {0x80040, SWAP32(0x00000000)}, /* video layer off */
-    /* Drawing Engine...                                                    */
-    /* Contrary to what said in the datasheet the Drawing Engine registers  */
-    /* are NOT initialized to ZERO at power-up, this lead to strange visual */
-    /* bugs under Linux and AmigaOS4.1 for example                          */
-    {0x100000, 0},
-    {0x100004, 0},
-    {0x100008, 0},
-    {0x10000c, 0},
-    {0x100010, 0},
-    {0x100014, 0},
-    {0x100018, 0},
-    {0x10001c, 0},
-    {0x100020, 0},
-    {0x100024, 0},
-    {0x100028, 0},
-    {0x10002c, 0},
-    {0x100030, 0},        
-    {0x100034, 0},
-    {0x100038, 0},
-    {0x10003c, 0},
-    {0x100040, 0},
-    {0x100044, 0},
-    {0x100048, 0},
-    {0x10004c, 0},
-    {0x100050, 0},
-    {0, 0}
+	{0x00004, SWAP32(0x00000000)},
+	/* clocks for pm0... */
+	{0x00040, SWAP32(0x0002184f)},
+	{0x00044, SWAP32(0x091a0a01)}, /* 24 MHz pixclk */
+	{0x00054, SWAP32(0x00000000)},
+	/* clocks for pm1... */
+	{0x00048, SWAP32(0x0002184f)},
+	{0x0004C, SWAP32(0x091a0a01)},
+	{0x00054, SWAP32(0x00000001)},
+	/* panel control regs... */
+	{0x80004, SWAP32(0xc428bb17)},
+	{0x8000C, SWAP32(0x00000000)},
+	{0x80010, SWAP32(0x02800280)},
+	{0x80014, SWAP32(0x02800000)},
+	{0x80018, SWAP32(0x01e00000)},
+	{0x8001C, SWAP32(0x00000000)},
+	{0x80020, SWAP32(0x01e00280)},
+	{0x80024, SWAP32(0x02fa027f)},
+	{0x80028, SWAP32(0x004a0280)},
+	{0x8002C, SWAP32(0x020c01df)},
+	{0x80030, SWAP32(0x000201e7)},
+	{0x80200, SWAP32(0x00010000)},
+	{0x00008, SWAP32(0x20000000)}, /* gpio29 is pwm0, LED_PWM */
+	{0x0000C, SWAP32(0x3f000000)}, /* gpio56 - gpio61 as flat panel data pins */
+	{0x10020, SWAP32(0x25725728)}, /* 20 kHz pwm0, 50 % duty cycle, disabled */
+	{0x80000, SWAP32(0x0f013104)}, /* panel display control: 8 bit indexed mode */
+	{0x800F0, SWAP32(0x00000000)}, /* hardware sprite off */
+	{0x80040, SWAP32(0x00000000)}, /* video layer off */
+	/* Drawing Engine...													*/
+	/* Contrary to what said in the datasheet the Drawing Engine registers  */
+	/* are NOT initialized to ZERO at power-up, this lead to strange visual */
+	/* bugs under Linux and AmigaOS4.1 for example						  */
+	{0x100000, 0},
+	{0x100004, 0},
+	{0x100008, 0},
+	{0x10000c, 0},
+	{0x100010, 0},
+	{0x100014, 0},
+	{0x100018, 0},
+	{0x10001c, 0},
+	{0x100020, 0},
+	{0x100024, 0},
+	{0x100028, 0},
+	{0x10002c, 0},
+	{0x100030, 0},
+	{0x100034, 0},
+	{0x100038, 0},
+	{0x10003c, 0},
+	{0x100040, 0},
+	{0x100044, 0},
+	{0x100048, 0},
+	{0x10004c, 0},
+	{0x100050, 0},
+	{0, 0}
 };
 
 /*
@@ -174,13 +174,6 @@ unsigned int board_video_get_fb (void)
 }
 
 /*
- * Called after initializing the SM501 and before clearing the screen.
- */
-void board_validate_screen (unsigned int base)
-{
-}
-
-/*
  * Return a pointer to the initialization sequence.
  */
 const SMI_REGS *board_get_regs (void)
@@ -220,12 +213,34 @@ static void SmiSetRegs (void)
 }
 
 /*-----------------------------------------------------------------------------
- * video_hw_init --
+ * sm502_set_lut --
  *-----------------------------------------------------------------------------
  */
-void *video_hw_init (void)
+void sm502_set_lut (
+	unsigned int index,		   /* color number */
+	unsigned char r,			  /* red */
+	unsigned char g,			  /* green */
+	unsigned char b			   /* blue */
+	)
 {
-	unsigned int *vm, i;
+	unsigned long value = 0;
+	//unsigned char tt = index;
+
+	value = (r << 16) | (g << 8) | b;
+
+	// using a gray palette
+	//value = (tt << 16) | (tt << 8) | tt;
+
+	write32 ((index*4) + 0x80400, SWAP32(value));
+}
+
+/*-----------------------------------------------------------------------------
+ * sm502_hw_init --
+ *-----------------------------------------------------------------------------
+ */
+void *sm502_hw_init (void)
+{
+	unsigned int *vm, ii;
 
 	memset (&sm501, 0, sizeof (GraphicDevice));
 
@@ -264,38 +279,16 @@ void *video_hw_init (void)
 	/* Load Smi registers */
 	SmiSetRegs ();
 
-	/* (see board/RPXClassic/RPXClassic.c) */
-	board_validate_screen (sm501.isaBase);
-
 	/* Clear video memory */
-	i = sm501.memSize/4;
+	ii = sm501.memSize/4;
 	vm = (unsigned int *)sm501.frameAdrs;
-	while(i--)
+	while(ii--)
 		*vm++ = 0;
 
-	return (&sm501);
-}
+	for (ii=0;ii<256;ii++)
+		sm502_set_lut(ii,ii,ii,ii);
 
-/*-----------------------------------------------------------------------------
- * video_set_lut --
- *-----------------------------------------------------------------------------
- */
-void video_set_lut (
-	unsigned int index,           /* color number */
-	unsigned char r,              /* red */
-	unsigned char g,              /* green */
-	unsigned char b               /* blue */
-	)
-{
-	unsigned long value = 0;
-	//unsigned char tt = index;
-	
-	value = (r << 16) | (g << 8) | b;
-	
-	// using a gray palette
-	//value = (tt << 16) | (tt << 8) | tt;
-		
-	write32 ((index*4) + 0x80400, SWAP32(value));	
+	return (&sm501);
 }
 
 #endif /* CONFIG_VIDEO_SM502 */

@@ -1,5 +1,6 @@
 #include "menu.h"
 #include "string_edit.h"
+#include "../common/vesa_video.h"
 
 //static int num_lines = 0;
 static int x_pos=0, y_pos=0;
@@ -17,7 +18,7 @@ static char backup[1024];
 
 static void string_edit_draw(void)
 {
-    int 
+    int
 	i,j,
 	length = buffer_length,
 	attr = MENUATTR_NORMAL;
@@ -31,10 +32,10 @@ static void string_edit_draw(void)
     {
 	for (j=0; j<width; j++)
 	{
-	    int 
+	    int
 		offset = j+i*width;
-	    
-	    if (offset > length) 
+
+	    if (offset > length)
 		c = ' ';
 	    else
 		c = buffer[offset];
@@ -54,7 +55,7 @@ static void string_edit_draw(void)
 	}
     }
 #if 0 //ndef SIM
-    video_set_cursor(cursor_y, cursor_y); 
+    video_set_cursor(cursor_y, cursor_y);
 #endif
 }
 
@@ -68,7 +69,7 @@ static void string_clear_frame(void)
 static void string_draw_frame(void)
 {
     string_clear_frame();
-    video_draw_box(SINGLE_BOX, MENUATTR_NORMAL, prompt, 0, 
+    video_draw_box(SINGLE_BOX, MENUATTR_NORMAL, prompt, 0,
 		   STRINGBOX_X-2, STRINGBOX_Y-2,
 		   STRINGBOX_WIDTH+4, STRINGBOX_HEIGHT+4);
 }
@@ -77,8 +78,8 @@ static void backspace(void)
 {
     int
 	i;
-    
-    char 
+
+    char
 	*s;
 
     if (cursor_pos == 0) return;
@@ -122,7 +123,7 @@ static void insert(int key)
 
 bool menu_string_edit(char *_prompt, char *string, int buffersize)
 {
-    int 
+    int
 	key;
 
     prompt = _prompt;
@@ -172,6 +173,6 @@ bool menu_string_edit(char *_prompt, char *string, int buffersize)
 	    break;
 	}
     } while (1);
-    
+
     return false;
 }

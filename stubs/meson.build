@@ -32,9 +32,6 @@ if have_block or have_ga
   stub_ss.add(files('cpus-virtual-clock.c'))
   stub_ss.add(files('icount.c'))
   stub_ss.add(files('graph-lock.c'))
-  if linux_io_uring.found()
-    stub_ss.add(files('io_uring.c'))
-  endif
   if libaio.found()
     stub_ss.add(files('linux-aio.c'))
   endif
@@ -74,6 +71,7 @@ if have_system
   stub_ss.add(files('dump.c'))
   stub_ss.add(files('cmos.c'))
   stub_ss.add(files('fw_cfg.c'))
+  stub_ss.add(files('igvm.c'))
   stub_ss.add(files('target-get-monitor-def.c'))
   stub_ss.add(files('target-monitor-defs.c'))
   stub_ss.add(files('win32-kbd-hook.c'))

@@ -1,6 +1,6 @@
 /*
- * (C) Copyright 2008
- * Stefan Roese, DENX Software Engineering, sr@denx.de.
+ * (C) Copyright 2009-2024
+ * Max Tretene, ACube Systems Srl. mtretene@acube-systems.com.
  *
  * See file CREDITS for list of people who contributed to this
  * project.

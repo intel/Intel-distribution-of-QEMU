@@ -36,6 +36,9 @@
 
 #define DEBUG
 
+#ifdef CONFIG_SCSI_DEV_LIST
+#define SCSI_DEV_LIST CONFIG_SCSI_DEV_LIST
+#else
 #ifdef CONFIG_SCSI_SYM53C8XX
 #define SCSI_VEND_ID	0x1000
 #ifndef CONFIG_SCSI_DEV_ID
@@ -48,11 +51,16 @@
 #define SCSI_VEND_ID 0x10b9
 #define SCSI_DEV_ID  0x5288
 
-#else
-//#error no scsi device defined
+#elif !defined(CONFIG_SCSI_AHCI_PLAT)
+#define SCSI_VEND_ID 0x197b
+#define SCSI_DEV_ID  0x2363
+#endif
+#define SCSI_DEV_LIST {SCSI_VEND_ID, SCSI_DEV_ID}
 #endif
 
-
+#ifdef CONFIG_PCI
+const struct pci_device_id scsi_device_list[] = { SCSI_DEV_LIST };
+#endif
 static ccb tempccb;	/* temporary scsi command buffer */
 
 static unsigned char tempbuff[512]; /* temporary data buffer */

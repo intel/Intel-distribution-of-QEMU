@@ -1,6 +1,6 @@
 /*
- * (C) Copyright 2008
- * Stefan Roese, DENX Software Engineering, sr@denx.de.
+ * (C) Copyright 2009-2024
+ * Max Tretene, ACube Systems Srl. mtretene@acube-systems.com.
  *
  * See file CREDITS for list of people who contributed to this
  * project.
@@ -60,10 +60,10 @@ tlbtab:
 #endif
 
 	tlbentry(CONFIG_SYS_PCI_BASE, SZ_256M, 0x00000000, 0xC, AC_R|AC_W|SA_G|SA_I)
-		
+
 	tlbentry(CONFIG_SYS_PCI_MEMBASE, 			  SZ_256M, CONFIG_SYS_PCI_MEMBASE,              0xC, AC_R|AC_W|SA_G|SA_I)
 	tlbentry(CONFIG_SYS_PCI_MEMBASE + 0x10000000, SZ_256M, CONFIG_SYS_PCI_MEMBASE + 0x10000000, 0xC, AC_R|AC_W|SA_G|SA_I)
-	
+
 	tlbentry(CONFIG_SYS_PCIE_MEMBASE			 , SZ_256M, CONFIG_SYS_PCIE_MEMBASE				, 0xD, AC_R|AC_W|SA_G|SA_I)
 	tlbentry(CONFIG_SYS_PCIE_MEMBASE + 0x10000000, SZ_256M, CONFIG_SYS_PCIE_MEMBASE + 0x10000000, 0xD, AC_R|AC_W|SA_G|SA_I)
 	tlbentry(CONFIG_SYS_PCIE_MEMBASE + 0x20000000, SZ_256M, CONFIG_SYS_PCIE_MEMBASE + 0x20000000, 0xD, AC_R|AC_W|SA_G|SA_I)
@@ -73,7 +73,7 @@ tlbtab:
 	tlbentry(CONFIG_SYS_PCIE1_CFGBASE, SZ_16M, 0x20000000, 0xD, AC_R|AC_W|SA_G|SA_I)
 	tlbentry(CONFIG_SYS_PCIE0_XCFGBASE, SZ_1K, 0x10000000, 0xD, AC_R|AC_W|SA_G|SA_I)
 	tlbentry(CONFIG_SYS_PCIE1_XCFGBASE, SZ_1K, 0x30000000, 0xD, AC_R|AC_W|SA_G|SA_I)
-	
+
 	/* PCIe UTL register */
 	tlbentry(CONFIG_SYS_PCIE_BASE, SZ_16K, 0x08010000, 0xC, AC_R|AC_W|SA_G|SA_I)
 

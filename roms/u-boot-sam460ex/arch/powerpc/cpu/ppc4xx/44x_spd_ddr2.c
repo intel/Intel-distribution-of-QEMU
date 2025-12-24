@@ -35,8 +35,12 @@
  */
 
 /* define DEBUG for debugging output (obviously ;-)) */
-#if 0
-#define DEBUG
+#undef DEBUG
+
+#ifdef  DEBUG
+#define PRINTF(fmt,args...)     printf (fmt ,##args)
+#else
+#define PRINTF(fmt,args...)
 #endif
 
 #include <common.h>
@@ -49,6 +53,10 @@
 #include <asm/cache.h>
 
 #include "ecc.h"
+
+#ifdef CONFIG_SAM460EX
+DECLARE_GLOBAL_DATA_PTR;
+#endif
 
 #define PPC4xx_IBM_DDR2_DUMP_REGISTER(mnemonic)				\
 	do {								\
@@ -1019,9 +1027,22 @@ static void program_copt1(unsigned long *dimm_populated,
 
 	mcopt1 |= SDRAM_MCOPT1_QDEP;
 	mcopt1 |= SDRAM_MCOPT1_PMU_OPEN;
-	mcopt1 |= SDRAM_MCOPT1_RWOO_DISABLED;
-	mcopt1 |= SDRAM_MCOPT1_WOOO_DISABLED;
-	mcopt1 |= SDRAM_MCOPT1_DCOO_DISABLED;
+#ifdef CONFIG_SAM460EX
+	if ((gd->flags & (GD_FLG_DDR2_BOOST_READ|GD_FLG_DDR2_BOOST_WRITE)) == 
+                     (GD_FLG_DDR2_BOOST_READ|GD_FLG_DDR2_BOOST_WRITE))
+	{	
+    	mcopt1 |= SDRAM_MCOPT1_RWOO_ENABLED;
+    	mcopt1 |= SDRAM_MCOPT1_WOOO_ENABLED;
+    	mcopt1 |= SDRAM_MCOPT1_DCOO_ENABLED;
+    	PRINTF("SDRAM_MCOPT1_XXOO_ENABLED\n");
+    }
+    else
+#endif     
+    {
+    	mcopt1 |= SDRAM_MCOPT1_RWOO_DISABLED;
+    	mcopt1 |= SDRAM_MCOPT1_WOOO_DISABLED;
+    	mcopt1 |= SDRAM_MCOPT1_DCOO_DISABLED;
+    }
 	mcopt1 |= SDRAM_MCOPT1_DREF_NORMAL;
 
 	for (dimm_num = 0; dimm_num < num_dimm_banks; dimm_num++) {
@@ -1277,7 +1298,7 @@ static void program_initplr(unsigned long *dimm_populated,
 	u32 odt = 0;
 	u32 ods = 0;
 	u32 mr;
-	u32 wr;
+	u32 wr = WRITE_RECOV_3;
 	u32 emr;
 	u32 emr2;
 	u32 emr3;
@@ -1699,11 +1720,22 @@ static void program_mode(unsigned long *dimm_populated,
 		 * convert from nanoseconds to ddr clocks
 		 * round up if necessary
 		 */
+
 		t_wr_clk = MULDIV64(sdram_freq, t_wr_ns, ONE_BILLION);
-		ddr_check = MULDIV64(ONE_BILLION, t_wr_clk, t_wr_ns);
+        PRINTF("t_wr_clk: 0x%08lX\n",t_wr_clk);		
+#ifdef CONFIG_SAM460EX
+		if ( ! (gd->flags & GD_FLG_DDR2_BOOST_WRITE))
+		{
+       		ddr_check = MULDIV64(ONE_BILLION, t_wr_clk, t_wr_ns);
+    		if (sdram_freq != ddr_check)
+	       		t_wr_clk++;
+            PRINTF("t_wr_clk: 0x%08lX\n",t_wr_clk);
+        }
+#else
+   		ddr_check = MULDIV64(ONE_BILLION, t_wr_clk, t_wr_ns);
 		if (sdram_freq != ddr_check)
 			t_wr_clk++;
-
+#endif
 		switch (t_wr_clk) {
 		case 0:
 		case 1:
@@ -1763,7 +1795,7 @@ static void program_rtr(unsigned long *dimm_populated,
 		if (dimm_populated[dimm_num] != SDRAM_NONE) {
 
 			refresh_rate_type = spd_read(iic0_dimm_addr[dimm_num], 12);
-			refresh_rate_type &= 0x7F;
+			refresh_rate_type &= 0x7F;			
 			switch (refresh_rate_type) {
 			case 0:
 				refresh_rate =  15625;
@@ -1836,13 +1868,6 @@ static void program_tr(unsigned long *dimm_populated,
 
 	PPC4xx_SYS_INFO board_cfg;
 
-#ifdef CONFIG_SAM460EX
-	int ddr2_boost = 0;
-	char s[32] = { 0 };
-
-	getenv_r("ddr2_boost", s, 32);
-	if (strcmp(s,"1") == 0) ddr2_boost = 1;
-#endif
 	/*------------------------------------------------------------------
 	 * Get the board configuration info.
 	 *-----------------------------------------------------------------*/
@@ -1870,7 +1895,7 @@ static void program_tr(unsigned long *dimm_populated,
 	for (dimm_num = 0; dimm_num < num_dimm_banks; dimm_num++) {
 		/* If a dimm is installed in a particular slot ... */
 		if (dimm_populated[dimm_num] != SDRAM_NONE) {
-			if (dimm_populated[dimm_num] == SDRAM_DDR2)
+			if (dimm_populated[dimm_num] == SDRAM_DDR1)
 				sdram_ddr1 = TRUE;
 			else
 				sdram_ddr1 = FALSE;
@@ -1892,16 +1917,18 @@ static void program_tr(unsigned long *dimm_populated,
 		   SDRAM_SDTR1_WTWO_MASK | SDRAM_SDTR1_RTRO_MASK);
 
 	/* default values */
-	if (ddr2_boost)
+#ifdef CONFIG_SAM460EX	
+	if (gd->flags & GD_FLG_DDR2_BOOST_READ)
 		sdtr1 |= SDRAM_SDTR1_LDOF_1_CLK;
 	else 
+#endif
 		sdtr1 |= SDRAM_SDTR1_LDOF_2_CLK;
 	sdtr1 |= SDRAM_SDTR1_RTW_2_CLK;
 
 	/* normal operations */
 	sdtr1 |= SDRAM_SDTR1_WTWO_0_CLK;
 	sdtr1 |= SDRAM_SDTR1_RTRO_1_CLK;
-
+    PRINTF("sdtr1: 0x%08lX\n",sdtr1);
 	mtsdram(SDRAM_SDTR1, sdtr1);
 
 	/*------------------------------------------------------------------
@@ -1918,10 +1945,12 @@ static void program_tr(unsigned long *dimm_populated,
 	 * round up if necessary
 	 */
 	t_rcd_clk = MULDIV64(sdram_freq, t_rcd_ns, ONE_BILLION);
-	ddr_check = MULDIV64(ONE_BILLION, t_rcd_clk, t_rcd_ns);
+    PRINTF("t_rcd_clk: 0x%08lX\n",t_rcd_clk);
+    ddr_check = MULDIV64(ONE_BILLION, t_rcd_clk, t_rcd_ns);
 	if (sdram_freq != ddr_check)
 		t_rcd_clk++;
-
+    PRINTF("t_rcd_clk: 0x%08lX\n",t_rcd_clk);
+    
 	switch (t_rcd_clk) {
 	case 0:
 	case 1:
@@ -1956,7 +1985,7 @@ static void program_tr(unsigned long *dimm_populated,
 		for (dimm_num = 0; dimm_num < num_dimm_banks; dimm_num++) {
 			/* If a dimm is installed in a particular slot ... */
 			if (dimm_populated[dimm_num] != SDRAM_NONE) {
-				t_wpc_ns = max(t_wtr_ns, spd_read(iic0_dimm_addr[dimm_num], 36) >> 2);
+				t_wpc_ns = max(t_wpc_ns, spd_read(iic0_dimm_addr[dimm_num], 36) >> 2);
 				t_wtr_ns = max(t_wtr_ns, spd_read(iic0_dimm_addr[dimm_num], 37) >> 2);
 				t_rpc_ns = max(t_rpc_ns, spd_read(iic0_dimm_addr[dimm_num], 38) >> 2);
 			}
@@ -1967,10 +1996,21 @@ static void program_tr(unsigned long *dimm_populated,
 		 * round up if necessary
 		 */
 		t_wpc_clk = MULDIV64(sdram_freq, t_wpc_ns, ONE_BILLION);
-		ddr_check = MULDIV64(ONE_BILLION, t_wpc_clk, t_wpc_ns);
-		if (sdram_freq != ddr_check)
-			t_wpc_clk++;
-
+        PRINTF("t_wpc_clk: 0x%08lX\n",t_wpc_clk);
+#ifdef CONFIG_SAM460EX	
+        if ( ! (gd->flags & GD_FLG_DDR2_BOOST_WRITE))
+        {    
+            ddr_check = MULDIV64(ONE_BILLION, t_wpc_clk, t_wpc_ns);
+    		if (sdram_freq != ddr_check)
+    			t_wpc_clk++;
+            PRINTF("t_wpc_clk: 0x%08lX\n",t_wpc_clk);
+        }
+#else        
+        ddr_check = MULDIV64(ONE_BILLION, t_wpc_clk, t_wpc_ns);
+  		if (sdram_freq != ddr_check)
+   			t_wpc_clk++;
+#endif
+            
 		switch (t_wpc_clk) {
 		case 0:
 		case 1:
@@ -1996,10 +2036,20 @@ static void program_tr(unsigned long *dimm_populated,
 		 * round up if necessary
 		 */
 		t_wtr_clk = MULDIV64(sdram_freq, t_wtr_ns, ONE_BILLION);
-		ddr_check = MULDIV64(ONE_BILLION, t_wtr_clk, t_wtr_ns);
-		if (sdram_freq != ddr_check)
-			t_wtr_clk++;
-
+        PRINTF("t_wtr_clk: 0x%08lX\n",t_wtr_clk);
+#ifdef CONFIG_SAM460EX
+        if ( ! (gd->flags & GD_FLG_DDR2_BOOST_WRITE))
+        {
+            ddr_check = MULDIV64(ONE_BILLION, t_wtr_clk, t_wtr_ns);
+            if (sdram_freq != ddr_check)
+    			t_wtr_clk++;
+            PRINTF("t_wtr_clk: 0x%08lX\n",t_wtr_clk);
+        }
+#else
+        ddr_check = MULDIV64(ONE_BILLION, t_wtr_clk, t_wtr_ns);
+        if (sdram_freq != ddr_check)
+ 			t_wtr_clk++;
+#endif
 		switch (t_wtr_clk) {
 		case 0:
 		case 1:
@@ -2021,10 +2071,20 @@ static void program_tr(unsigned long *dimm_populated,
 		 * round up if necessary
 		 */
 		t_rpc_clk = MULDIV64(sdram_freq, t_rpc_ns, ONE_BILLION);
-		ddr_check = MULDIV64(ONE_BILLION, t_rpc_clk, t_rpc_ns);
+        PRINTF("t_rpc_clk: 0x%08lX\n",t_rpc_clk);
+#ifdef CONFIG_SAM460EX
+        if ( ! (gd->flags & GD_FLG_DDR2_BOOST_WRITE))
+        {
+            ddr_check = MULDIV64(ONE_BILLION, t_rpc_clk, t_rpc_ns);
+            if (sdram_freq != ddr_check)
+    			t_rpc_clk++;
+            PRINTF("t_rpc_clk: 0x%08lX\n",t_rpc_clk);
+         }
+#else
+        ddr_check = MULDIV64(ONE_BILLION, t_rpc_clk, t_rpc_ns);
 		if (sdram_freq != ddr_check)
 			t_rpc_clk++;
-
+#endif
 		switch (t_rpc_clk) {
 		case 0:
 		case 1:
@@ -2048,10 +2108,20 @@ static void program_tr(unsigned long *dimm_populated,
 	 * round up if necessary
 	 */
 	t_rrd_clk = MULDIV64(sdram_freq, t_rrd_ns, ONE_BILLION);
-	ddr_check = MULDIV64(ONE_BILLION, t_rrd_clk, t_rrd_ns);
+    PRINTF("t_rrd_clk: 0x%08lX\n",t_rrd_clk);
+#ifdef CONFIG_SAM460EX			
+    if ( ! (gd->flags & GD_FLG_DDR2_BOOST_WRITE))
+    {    
+        ddr_check = MULDIV64(ONE_BILLION, t_rrd_clk, t_rrd_ns);
+    	if (sdram_freq != ddr_check)
+    		t_rrd_clk++;
+        PRINTF("t_rrd_clk: 0x%08lX\n",t_rrd_clk);
+    }
+#else
+    ddr_check = MULDIV64(ONE_BILLION, t_rrd_clk, t_rrd_ns);
 	if (sdram_freq != ddr_check)
 		t_rrd_clk++;
-
+#endif
 	if (t_rrd_clk == 3)
 		sdtr2 |= SDRAM_SDTR2_RRD_3_CLK;
 	else
@@ -2062,10 +2132,20 @@ static void program_tr(unsigned long *dimm_populated,
 	 * round up if necessary
 	 */
 	t_rp_clk = MULDIV64(sdram_freq, t_rp_ns, ONE_BILLION);
-	ddr_check = MULDIV64(ONE_BILLION, t_rp_clk, t_rp_ns);
+    PRINTF("t_rp_clk: 0x%08lX\n",t_rp_clk);
+#ifdef CONFIG_SAM460EX			
+    if ( ! (gd->flags & GD_FLG_DDR2_BOOST_WRITE))
+    { 
+        ddr_check = MULDIV64(ONE_BILLION, t_rp_clk, t_rp_ns);
+        if (sdram_freq != ddr_check)
+            t_rp_clk++;
+        PRINTF("t_rp_clk: 0x%08lX\n",t_rp_clk);
+    }
+#else
+    ddr_check = MULDIV64(ONE_BILLION, t_rp_clk, t_rp_ns);
 	if (sdram_freq != ddr_check)
 		t_rp_clk++;
-
+#endif    
 	switch (t_rp_clk) {
 	case 0:
 	case 1:
@@ -2101,10 +2181,20 @@ static void program_tr(unsigned long *dimm_populated,
 	 * round up if necessary
 	 */
 	t_ras_clk = MULDIV64(sdram_freq, t_ras_ns, ONE_BILLION);
-	ddr_check = MULDIV64(ONE_BILLION, t_ras_clk, t_ras_ns);
+    PRINTF("t_ras_clk: 0x%08lX\n",t_ras_clk);
+#ifdef CONFIG_SAM460EX			
+    if ( ! (gd->flags & GD_FLG_DDR2_BOOST_WRITE))
+    { 	
+        ddr_check = MULDIV64(ONE_BILLION, t_ras_clk, t_ras_ns);
+    	if (sdram_freq != ddr_check)
+    		t_ras_clk++;
+        PRINTF("t_ras_clk: 0x%08lX\n",t_ras_clk);
+    }
+#else
+    ddr_check = MULDIV64(ONE_BILLION, t_ras_clk, t_ras_ns);
 	if (sdram_freq != ddr_check)
 		t_ras_clk++;
-
+#endif    
 	sdtr3 |= SDRAM_SDTR3_RAS_ENCODE(t_ras_clk);
 
 	/*
@@ -2112,10 +2202,21 @@ static void program_tr(unsigned long *dimm_populated,
 	 * round up if necessary
 	 */
 	t_rc_clk = MULDIV64(sdram_freq, t_rc_ns, ONE_BILLION);
-	ddr_check = MULDIV64(ONE_BILLION, t_rc_clk, t_rc_ns);
-	if (sdram_freq != ddr_check)
-		t_rc_clk++;
-
+    PRINTF("t_rc_clk: 0x%08lX\n",t_rc_clk);
+#ifdef CONFIG_SAM460EX			
+    if ( ! (gd->flags & GD_FLG_DDR2_BOOST_WRITE))
+    {
+        ddr_check = MULDIV64(ONE_BILLION, t_rc_clk, t_rc_ns);
+        if (sdram_freq != ddr_check)
+        t_rc_clk++;
+        PRINTF("t_rc_clk: 0x%08lX\n",t_rc_clk);
+    }
+#else
+    ddr_check = MULDIV64(ONE_BILLION, t_rc_clk, t_rc_ns);
+    if (sdram_freq != ddr_check)
+    	t_rc_clk++;
+#endif
+    
 	sdtr3 |= SDRAM_SDTR3_RC_ENCODE(t_rc_clk);
 
 	/* default xcs value */
@@ -2126,10 +2227,12 @@ static void program_tr(unsigned long *dimm_populated,
 	 * round up if necessary
 	 */
 	t_rfc_clk = MULDIV64(sdram_freq, t_rfc_ns, ONE_BILLION);
-	ddr_check = MULDIV64(ONE_BILLION, t_rfc_clk, t_rfc_ns);
+    PRINTF("t_rfc_clk: 0x%08lX\n",t_rfc_clk);
+    ddr_check = MULDIV64(ONE_BILLION, t_rfc_clk, t_rfc_ns);
 	if (sdram_freq != ddr_check)
 		t_rfc_clk++;
-
+    PRINTF("t_rfc_clk: 0x%08lX\n",t_rfc_clk);
+    
 	sdtr3 |= SDRAM_SDTR3_RFC_ENCODE(t_rfc_clk);
 
 	mtsdram(SDRAM_SDTR3, sdtr3);
@@ -2332,7 +2435,7 @@ static void program_memory_queue(unsigned long *dimm_populated,
 	      SDRAM_CONF1HB_RPLM | SDRAM_CONF1HB_WRCL);
 	mtdcr(SDRAM_CONF1LL, (mfdcr(SDRAM_CONF1LL) & ~SDRAM_CONF1LL_MASK) |
 	      SDRAM_CONF1LL_AAFR | SDRAM_CONF1LL_RPEN | SDRAM_CONF1LL_RFTE |
-	      SDRAM_CONF1LL_RPLM);
+	      SDRAM_CONF1LL_RPLM);  
 	mtdcr(SDRAM_CONFPATHB, mfdcr(SDRAM_CONFPATHB) | SDRAM_CONFPATHB_TPEN);		
 #endif
 }

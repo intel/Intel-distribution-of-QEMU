@@ -1,6 +1,6 @@
 #
-# (C) Copyright 2008
-# Wolfgang Denk, DENX Software Engineering, wd@denx.de.
+# (C) Copyright 2009-2024
+# Max Tretene, ACube Systems Srl. mtretene@acube-systems.com.
 #
 # See file CREDITS for list of people who contributed to this
 # project.
@@ -30,11 +30,8 @@ ifndef TEXT_BASE
 TEXT_BASE = 0xFFF80000
 endif
 
-X86EMU =  -I../bios_emulator/scitech/include -I../bios_emulator/scitech/src/x86emu
-
 # -fgnu89-inline requires gcc 4.2 (it can be omitted in previous versions)
-PLATFORM_CPPFLAGS += -DCONFIG_440=1 $(X86EMU) -Dprintk=printf -fgnu89-inline
-
+PLATFORM_CPPFLAGS += -DCONFIG_440=1 -Dprintk=printf -fgnu89-inline
 
 ifeq ($(debug),1)
 PLATFORM_CPPFLAGS += -DDEBUG
