@@ -621,6 +621,25 @@ void gd_gl_count_frame(DisplayChangeListener *dcl, bool ups, bool fps)
 	int d = 0;
         /* update rate is calculated and displayed at every 1 secs */
         prev = curr;
+
+        /* Add HW cursor status at the beginning */
+        bool hw_cursor_active = false;
+        bool render_sync_active = false;
+        for (i = 0; i < vc->s->nb_vcs; i++) {
+            vc = &s->vc[i];
+            if (vc->type == GD_VC_GFX && vc->gfx.cursor_image != NULL) {
+                hw_cursor_active = true;
+            }
+            if (vc->type == GD_VC_GFX && vc->gfx.guest_fb.dmabuf &&
+                qemu_dmabuf_get_render_sync(vc->gfx.guest_fb.dmabuf)) {
+                render_sync_active = true;
+            }
+        }
+        offset += sprintf(ups_fps_str + offset, "HW cursor %s | render_sync %s    ",
+                          (s->opts->u.gtk.has_hw_cursor &&
+                          s->opts->u.gtk.hw_cursor && hw_cursor_active) ? "on" : "off",
+                          render_sync_active ? "on" : "off");
+
         for (i = 0; i < vc->s->nb_vcs; i++) {
             vc = &s->vc[i];
             if (vc->type == GD_VC_GFX &&
