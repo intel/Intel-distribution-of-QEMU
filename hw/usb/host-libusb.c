@@ -889,7 +889,7 @@ static void usb_host_ep_update(USBHostDevice *s)
     if (!conf || conf->bNumInterfaces == 0) {
         warn_report("usb-host: ignoring invalid configuration "
             "for device %s (bus=%03d, addr=%03d)",
-            udev->product_desc ? udev->product_desc : "unknown",
+            udev->product_desc,
             s->bus_num, s->addr);
         return;
     }
@@ -916,7 +916,7 @@ static void usb_host_ep_update(USBHostDevice *s)
                     alt,
                     conf->interface[i].num_altsetting ? conf->interface[i].num_altsetting - 1 : -1,
                     i,
-                    udev->product_desc ? udev->product_desc : "unknown",
+                    udev->product_desc,
                     s->bus_num, s->addr);
                 continue;
             }
