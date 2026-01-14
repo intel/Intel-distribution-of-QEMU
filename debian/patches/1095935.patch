@@ -1,0 +1,77 @@
+Date: Tue, 12 Aug 2025 18:27:45 +0300
+Subject: Re: [PULL 30/63] q35: Introduce smm_ranges property for q35-pci-host
+From: Michael Tokarev <mjt@tls.msk.ru>
+Bug: https://gitlab.com/qemu-project/qemu/-/issues/3085
+Bug-Debian: https://bugs.debian.org/1095935
+Link: https://lore.kernel.org/qemu-devel/3458e5b7-b53e-4057-baea-03a729452255@tls.msk.ru/
+
+On 23.04.2024 18:09, Paolo Bonzini wrote:
+> From: Isaku Yamahata <isaku.yamahata@linux.intel.com>
+> 
+> Add a q35 property to check whether or not SMM ranges, e.g. SMRAM, TSEG,
+> etc... exist for the target platform.  TDX doesn't support SMM and doesn't
+> play nice with QEMU modifying related guest memory ranges.
+
+So, as I wrote in another email, this broke video (screen is blank) for
+
+  qemu-system-x86_64 -machine q35,accel=kvm,smm=off
+
+before this commit, there are usual seabios messages (and even messages
+from qemu before it loads seabios), and after this commit, the screen
+stays blank.
+
+
+> @@ -578,6 +590,10 @@ static void mch_realize(PCIDevice *d, Error **errp)
+>                    PAM_EXPAN_BASE + i * PAM_EXPAN_SIZE, PAM_EXPAN_SIZE);
+>       }
+>   
+> +    if (!mch->has_smm_ranges) {
+> +        return;
+> +    }
+> +
+>       /* if *disabled* show SMRAM to all CPUs */
+>       memory_region_init_alias(&mch->smram_region, OBJECT(mch), "smram-region",
+>                                mch->pci_address_space, MCH_HOST_BRIDGE_SMRAM_C_BASE,
+
+Moving this if..return block right below this smram-region init fixes
+the problem with the video:
+
+diff --git a/hw/pci-host/q35.c b/hw/pci-host/q35.c
+index a708758d36..96dcc9159b 100644
+--- a/hw/pci-host/q35.c
++++ b/hw/pci-host/q35.c
+@@ -588,20 +588,20 @@ static void mch_realize(PCIDevice *d, Error **errp)
+                  mch->system_memory, mch->pci_address_space,
+                  PAM_EXPAN_BASE + i * PAM_EXPAN_SIZE, PAM_EXPAN_SIZE);
+     }
+ 
+-    if (!mch->has_smm_ranges) {
+-        return;
+-    }
+-
+     /* if *disabled* show SMRAM to all CPUs */
+     memory_region_init_alias(&mch->smram_region, OBJECT(mch), "smram-region",
+                              mch->pci_address_space, MCH_HOST_BRIDGE_SMRAM_C_BASE,
+                              MCH_HOST_BRIDGE_SMRAM_C_SIZE);
+     memory_region_add_subregion_overlap(mch->system_memory, MCH_HOST_BRIDGE_SMRAM_C_BASE,
+                                         &mch->smram_region, 1);
+     memory_region_set_enabled(&mch->smram_region, true);
+ 
++    if (!mch->has_smm_ranges) {
++        return;
++    }
++
+     memory_region_init_alias(&mch->open_high_smram, OBJECT(mch), "smram-open-high",
+                              mch->ram_memory, MCH_HOST_BRIDGE_SMRAM_C_BASE,
+                              MCH_HOST_BRIDGE_SMRAM_C_SIZE);
+     memory_region_add_subregion_overlap(mch->system_memory, 0xfeda0000,
+
+
+I've no idea what else might be missing here.
+
+Overall, adding an early return this way is a recipe for disaster
+to happen - if not now then later.  Here, and in mch_write_config().
+
+Thanks,
+
+/mjt

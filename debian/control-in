@@ -132,7 +132,7 @@ Build-Depends-Arch:
 # the testsuite:
 # ipxe-qemu [:system-arch-linux:] <!nocheck>,
  seabios (>> 1.17.0-1~) [:system-arch-linux:] <!nocheck>,
- qemu-system-data (>> 1:9.0) [:system-arch-linux:] <!nocheck>,
+ qemu-system-data (>> 1:9.0) [:system-arch-linux:] <!nocheck !pkg.qemu.omit-system>,
 #
 # vdso: for linux-user, we need small arch-specific .so files to embed them
 #       into linux-user for many architectures.
@@ -149,7 +149,7 @@ Build-Depends-Arch:
 #    Effectively it always enables pkg.qemu.omit-vdso-build-dep build-profile.
 # With each upstream, check if vdso code changed and bump the version:
 :debian: qemu-system-data (>> :vdso-version:) [:user-arch:]
-:debian:   <!pkg.qemu.use-upstream-vdso !pkg.qemu.omit-vdso-build-dep>,
+:debian:   <!pkg.qemu.use-upstream-vdso !pkg.qemu.omit-vdso-build-dep !pkg.qemu.omit-user>,
 Build-Depends-Indep:
 # x86_64 firmware
  gcc-x86-64-linux-gnu,
@@ -223,8 +223,8 @@ Package: qemu-block-extra
 Architecture: :utils-arch:
 Multi-Arch: no
 Depends: ${misc:Depends}, ${shlibs:Depends},
-# we need to ensure qemu-block-extra is upgraded with qemu-system-* or qemu-utils
- qemu-system-any (= ${binary:Version}) [:system-arch:] | qemu-utils (= ${binary:Version}),
+# ensure qemu modules are upgraded together with the rest of qemu
+ qemu-system-common (= ${binary:Version}) [:system-arch:] | qemu-utils (= ${binary:Version}),
 Enhances: qemu-utils,
  qemu-system-arm,
  qemu-system-mips,
@@ -250,8 +250,8 @@ Description: extra block backend modules for qemu-system and qemu-utils
 :ubuntu:Architecture: amd64 arm64 ppc64el riscv64 s390x
 :ubuntu:Multi-Arch: no
 :ubuntu:Depends: ${misc:Depends}, ${shlibs:Depends},
-:ubuntu:# we need to ensure qemu-block-supplemental is upgraded with qemu-system-* or qemu-utils
-:ubuntu: qemu-system-any (= ${binary:Version}) [amd64 arm64 armhf ppc64el riscv64 s390x] | qemu-utils (= ${binary:Version}),
+:ubuntu:# ensure qemu modules are upgraded together with the rest of qemu
+:ubuntu: qemu-system-common (= ${binary:Version}) [amd64 arm64 ppc64el riscv64 s390x] | qemu-utils (= ${binary:Version}),
 :ubuntu:Enhances: qemu-utils,
 :ubuntu: qemu-system-arm,
 :ubuntu: qemu-system-mips,
@@ -315,8 +315,8 @@ Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${misc:Depends}, ${shlibs:Depends},
 # ui-* depends on ui-opengl
  qemu-system-modules-opengl (= ${binary:Version}),
-# we need to ensure qemu-system-gui is upgraded with qemu-system-*
- qemu-system-any (= ${binary:Version}),
+# ensure qemu modules are upgraded together with the rest of qemu
+ qemu-system-common (= ${binary:Version}),
 # libgl1 is dynamically loaded by sdl display code
  libgl1,
 Description: QEMU full system emulation binaries (graphical display and audio modules)
@@ -333,8 +333,8 @@ Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${misc:Depends}, ${shlibs:Depends},
 # spice modules depends on ui-opengl
  qemu-system-modules-opengl (= ${binary:Version}),
-# we need to ensure qemu-system-modules-spice is upgraded with qemu-system-*
- qemu-system-any (= ${binary:Version}),
+# ensure qemu modules are upgraded together with the rest of qemu
+ qemu-system-common (= ${binary:Version}),
 Replaces: qemu-system-common (<< 1:8.1.0+ds-1~exp2~)
 Breaks:   qemu-system-common (<< 1:8.1.0+ds-1~exp2~)
 Description: QEMU full system emulation binaries (spice display modules)
@@ -345,8 +345,8 @@ Package: qemu-system-modules-opengl
 Architecture: :system-arch:
 Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${misc:Depends}, ${shlibs:Depends},
-# we need to ensure qemu-system-modules-opengl is upgraded when qemu-system is upgraded
- qemu-system-any (= ${binary:Version}),
+# ensure qemu modules are upgraded together with the rest of qemu
+ qemu-system-common (= ${binary:Version}),
 Replaces: qemu-system-common (<< 1:8.1.0+ds-1~exp2~), qemu-system-gui (<< 1:8.1.0+ds-1~exp2~)
 Breaks:   qemu-system-common (<< 1:8.1.0+ds-1~exp2~), qemu-system-gui (<< 1:8.1.0+ds-1~exp2~)
 Description: QEMU full system emulation binaries (OpenGL display modules)
@@ -361,11 +361,6 @@ Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${shlibs:Depends}, ${misc:Depends},
  qemu-system-common (= ${binary:Version}),
  qemu-system-data (>> ${source:Upstream-Version}~),
-# depends on qemu-system-riscv & -s390x since 9.1.1 for now to avoid breaking
-# existing setups which used to get riscv&s390 binaries from -misc.
-# Downgrade to Recommends for one release cycle once tests are fixed
- qemu-system-riscv,
-:debian: qemu-system-s390x,
 Recommends: qemu-utils,
 # alpha uses vgabios
 # alpha m68k sh4 uses bootroms
@@ -656,9 +651,8 @@ Description: QEMU user mode emulation (static binaries)
  If qemu-user-binfmt package is also installed, it will register binary
  format handlers from this qemu-user package with the kernel automatically
  so it will be possible to run foreign binaries directly.  Without
- qemu-user-binfmt, it is possible to register certain binfmt(s) by using:
-     cat /usr/share/qemu/binfmt.d/qemu-ARCH.conf \
-       > /proc/sys/fs/binfmt_misc/register
+ qemu-user-binfmt, it is possible to register certain binfmt(s) by installing
+ symbolic links to /usr/share/qemu/binfmt.d/*.conf in /etc/binfmt.d/.
 
 Package: qemu-user-binfmt
 Architecture: :user-arch:

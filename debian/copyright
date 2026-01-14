@@ -160,7 +160,9 @@ Copyright:
     Copyright (C) 2009 Novell Inc.
     Copyright (C) 2009 Ulrich Hecht <uli@suse.de>
     Copyright (C) 2009 VA Linux Systems Japan
-License:
+License: GPL2-or-LGPL2-with-additions
+
+License: GPL2-or-LGPL2-with-additions
     QEMU as a whole is released under the GNU General Public License version 2.
     On Debian systems, the complete text of the GNU General Public License
     version 2 can be found in the file /usr/share/common-licenses/GPL-2.

@@ -1,3 +1,23 @@
+qemu (1:10.2.0+ds-2) unstable; urgency=medium
+
+  * two patches to make statically-linked linux-user not depend on nss
+    (remove linkage to qemu-sockets.c)
+  * 1095935.patch (Closes: #1095935)
+  * d/control: qemu-user: mention possibility to sym-link files in
+    /usr/share/qemu/binfmt.d/ to /etc/binfmt.d/
+  * d/rules: remove workaround for #1019011 for palcode-clipper -
+    the bug in gcc has been fixed (in 2022)
+  * d/control: better versioned dependencies of qemu modules: use
+    qemu-system-common as a syncronisation point instead of qemu-system-any
+    (Closes: LP#2127053)
+  * d/control: finally de-couple qemu-system-riscv and qemu-system-s390x
+    from qemu-system-misc (remove misc:Depends: riscv, s390x)
+  * fix-PIRQ-bounds-check-in-xen_physdev_map_pirq-CVE-2026-0665.patch
+    (Closes: #1125423, CVE-2026-0665)
+  * d/copyright: fix Files/License sections
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 14 Jan 2026 18:22:29 +0300
+
 qemu (1:10.2.0+ds-1) unstable; urgency=medium
 
   * new upstream release

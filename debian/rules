@@ -636,10 +636,8 @@ sysdata-components += qboot
 build-palcode-clipper: b/qemu-palcode/palcode-clipper
 b/qemu-palcode/palcode-clipper: | b
 	cp -al roms/qemu-palcode b/
-#XXX #1019011 (remove OPT= alternative when fixed)
 	env -u ELF_PACKAGE_METADATA \
-	${MAKE} -C b/qemu-palcode CROSS=${cross_prefix_alpha} -k || \
-	${MAKE} -C b/qemu-palcode CROSS=${cross_prefix_alpha} OPT=-O1
+	${MAKE} -C b/qemu-palcode CROSS=${cross_prefix_alpha}
 	${cross_prefix_alpha}strip b/qemu-palcode/palcode-clipper
 install-palcode-clipper: b/qemu-palcode/palcode-clipper
 	install -m0644 $< ${sysdataidir}/palcode-clipper
