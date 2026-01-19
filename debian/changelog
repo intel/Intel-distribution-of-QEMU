@@ -7,6 +7,66 @@ qemu (1:10.2.1+ds-1) unstable; urgency=medium
 
  -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 13 Feb 2026 10:30:07 +0300
 
+qemu (1:10.2.0+ds-2ubuntu1) resolute; urgency=medium
+
+  * Merge with Debian unstable (LP: #2131929). Remaining changes:
+    - qemu-kvm to systemd unit
+      - d/qemu-kvm-init: script for QEMU KVM preparation modules, ksm,
+        hugepages and architecture specifics
+      - d/qemu-system-common.qemu-kvm.service: systemd unit to call
+        qemu-kvm-init
+      - d/qemu-system-common.install: install helper script
+      - d/qemu-system-common.qemu-kvm.default: defaults for
+        /etc/default/qemu-kvm
+      - d/rules: call dh_installinit and dh_installsystemd for qemu-kvm
+    - Distribution specific machine type
+      (LP 1304107 1621042 1776189 1761372 1761372 1776189)
+      - d/p/ubuntu/define-ubuntu-machine-types.patch: define distro machine
+        types containing release versioned machine attributes
+      - Add an info about -hpb machine type in debian/qemu-system-x86.NEWS
+      - ubuntu-q35 alias added to auto-select the most recent q35 ubuntu type
+    - Enable nesting by default
+      - d/p/ubuntu/enable-svm-by-default.patch: Enable nested svm by default
+        in qemu64 on amd
+        [ No more strictly needed, but required for backward compatibility ]
+    - tolerate ipxe size change on migrations to >=18.04 (LP 1713490)
+      - d/p/ubuntu/pre-bionic-256k-ipxe-efi-roms.patch: old machine types
+        reference 256k path
+      - d/control-in: depend on ipxe-qemu-256k-compat-efi-roms to be able to
+        handle incoming migrations from former releases.
+    - d/qemu-block-extra.postinst: Use latest Ubuntu's QEMU
+      package version when deciding whether to invoke
+      'deb-systemd-helper purge'.
+    - d/control-in: Disable B-D on qemu-system-data, due to that also
+      - d/rules: Export DEB_BUILD_PROFILES with
+        pkg.qemu.use-upstream-vdso when building on non-amd64 architectures.
+      - d/control: Disable B-D on seabios.
+      - d/rules: Disable upstream tests depending on qemu-system-data
+d/p/u/define-ubuntu-machine-types.patch: update to match 10.1
+- update for context changes
+- update patch header to the current state
+- upstream discontinued very old machine types and the associated Ubuntu
+  types will be dropped as well
+- thereby the convoluted wily type situation also is removed
+Signed-off-by: Christian Ehrhardt <christian.ehrhardt@canonical.com>
+d/control-in: B-D on multipath libs for multipath persist in qemu-pr-helper (LP #2117378)
+Signed-off-by: Christian Ehrhardt <christian.ehrhardt@canonical.com>
+  - d/control-in: breaks/replaces for dtb files moving qemu-system-misc
+    to qemu-system-data
+Signed-off-by: Christian Ehrhardt <christian.ehrhardt@canonical.com>
+d/control: regenerated from d/control-in
+Signed-off-by: Hector Cao <hector.cao@canonical.com>
+Fix migration issues because of missing features (LP #2121787)
+QEMU v10.1 introduced 2 commits/fixes that modified the behavior
+of qemu on exposing 2 features : pdcm & arch-capabilities
+This behavior change breaks the migration of VMs from previous
+QEMU releases to Ubuntu Questing 25.10 that has QEMU 10.1.
+debian/patches/ubuntu/fix-iscv-endianness.patch: Fix RISC-V instructions endianness (LP #2123828)
+Signed-off-by: Valentin Haudiquet <valentin.haudiquet@canonical.com>
+d/p/u/lp-2123828-*: Rename patch with LP prefix & cleanup description
+
+ -- Hector Cao <hector.cao@canonical.com>  Mon, 19 Jan 2026 14:25:42 +0100
+
 qemu (1:10.2.0+ds-2) unstable; urgency=medium
 
   * two patches to make statically-linked linux-user not depend on nss
