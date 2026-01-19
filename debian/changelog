@@ -65,7 +65,7 @@ debian/patches/ubuntu/fix-iscv-endianness.patch: Fix RISC-V instructions endiann
 Signed-off-by: Valentin Haudiquet <valentin.haudiquet@canonical.com>
 d/p/u/lp-2123828-*: Rename patch with LP prefix & cleanup description
 
- -- Hector Cao <hector.cao@canonical.com>  Mon, 19 Jan 2026 14:25:42 +0100
+-- Hector Cao <hector.cao@canonical.com>  Mon, 19 Jan 2026 14:25:42 +0100
 
 qemu (1:10.2.0+ds-2) unstable; urgency=medium
 
