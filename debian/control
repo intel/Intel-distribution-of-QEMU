@@ -2,7 +2,8 @@
 Source: qemu
 Section: otherosfs
 Priority: optional
-Maintainer: Debian QEMU Team <pkg-qemu-devel@lists.alioth.debian.org>
+Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+XSBC-Original-Maintainer: Debian QEMU Team <pkg-qemu-devel@lists.alioth.debian.org>
 Uploaders: Michael Tokarev <mjt@tls.msk.ru>
 Build-Depends: debhelper-compat (= 13),
  python3-venv:any,
@@ -25,8 +26,6 @@ Build-Depends-Arch:
 # iasl (from acpica-tools) is used only in a single test these days, not for building
 # acpica-tools,
 # libcapstone is in universe in ubuntu
-# --enable-capstone
- libcapstone-dev,
 # --enable-linux-aio	linux-any
  libaio-dev            [linux-any],
 # libsndio is in universe in ubuntu
@@ -36,6 +35,9 @@ Build-Depends-Arch:
  libpulse-dev   [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
  libasound2-dev [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
  libpipewire-0.3-dev [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
+# for multipath persist in qemu-pr-helper
+ libmpathpersist-dev   [linux-any],
+ libmpathcmd-dev       [linux-any],
 # for virtfs (now in libc6)
 # --enable-attr
 # --enable-bpf	 amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
@@ -105,8 +107,6 @@ Build-Depends-Arch:
 # --enable-zstd
  libzstd-dev,
 # vde is debian-only since ubuntu/vde2 is in universe
-# --enable-vde	 amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
- libvdeplug-dev	[amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
  libxen-dev [linux-amd64],
 # --enable-nettle	 amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
  nettle-dev		[amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64],
@@ -130,8 +130,6 @@ Build-Depends-Arch:
 #
 # the testsuite:
 # ipxe-qemu [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64] <!nocheck>,
- seabios (>> 1.17.0-1~) [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64] <!nocheck>,
- qemu-system-data (>> 1:9.0) [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64] <!nocheck !pkg.qemu.omit-system>,
 #
 # vdso: for linux-user, we need small arch-specific .so files to embed them
 #       into linux-user for many architectures.
@@ -147,8 +145,6 @@ Build-Depends-Arch:
 # Ubuntu builds both arch+indep parts (on amd64), so there this is irrelevant.
 #    Effectively it always enables pkg.qemu.omit-vdso-build-dep build-profile.
 # With each upstream, check if vdso code changed and bump the version:
- qemu-system-data (>> 1:10.2.0+ds-1~) [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64]
-   <!pkg.qemu.use-upstream-vdso !pkg.qemu.omit-vdso-build-dep !pkg.qemu.omit-user>,
 Build-Depends-Indep:
 # x86_64 firmware
  gcc-x86-64-linux-gnu,
@@ -187,8 +183,10 @@ Build-Conflicts: oss4-dev
 Standards-Version: 4.7.2
 Homepage: http://www.qemu.org/
 Rules-Requires-Root: no
-Vcs-Browser: https://salsa.debian.org/qemu-team/qemu
-Vcs-Git: https://salsa.debian.org/qemu-team/qemu.git
+XS-Debian-Vcs-Browser: https://salsa.debian.org/qemu-team/qemu
+XS-Debian-Vcs-Git: https://salsa.debian.org/qemu-team/qemu.git
+Vcs-Browser: https://git.launchpad.net/ubuntu/+source/qemu
+Vcs-Git: https://git.launchpad.net/ubuntu/+source/qemu
 
 Package: qemu-system
 Architecture: amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
@@ -229,7 +227,6 @@ Enhances: qemu-utils,
  qemu-system-sparc,
  qemu-system-x86,
  qemu-system-misc,
-Provides: qemu-block-supplemental [amd64 arm64 ppc64el riscv64 s390x],
 Description: extra block backend modules for qemu-system and qemu-utils
  QEMU is a fast processor emulator: currently the package supports Alpha, ARM,
  CRIS, i386, LoongArch, M68k (ColdFire), MicroBlaze, MIPS, PowerPC, RISC-V,
@@ -241,13 +238,44 @@ Description: extra block backend modules for qemu-system and qemu-utils
  emulation and qemu-img from qemu-utils package, which are rarely used and
  has extra dependencies.
 
+Package: qemu-block-supplemental
+Architecture: amd64 arm64 ppc64el riscv64 s390x
+Multi-Arch: no
+Depends: ${misc:Depends}, ${shlibs:Depends},
+# ensure qemu modules are upgraded together with the rest of qemu
+ qemu-system-common (= ${binary:Version}) [amd64 arm64 ppc64el riscv64 s390x] | qemu-utils (= ${binary:Version}),
+Enhances: qemu-utils,
+ qemu-system-arm,
+ qemu-system-mips,
+ qemu-system-ppc,
+ qemu-system-riscv,
+ qemu-system-s390x,
+ qemu-system-sparc,
+ qemu-system-x86,
+ qemu-system-misc,
+Breaks: qemu-block-extra (<< 1:8.2.0+ds-4ubuntu2~)
+Replaces: qemu-block-extra (<< 1:8.2.0+ds-4ubuntu2~)
+Description: supplemental block backend modules for qemu-system and qemu-utils
+ QEMU is a fast processor emulator: currently the package supports Alpha, ARM,
+ CRIS, i386, LoongArch, M68k (ColdFire), MicroBlaze, MIPS, PowerPC, RISC-V,
+ S390x, SH4, SPARC, x86-64, Xtensa and other emulations. By using dynamic
+ translation it achieves reasonable speed while being easy to port on new host
+ CPUs.
+ .
+ This package provides supplemental block device backend modules for qemu-system
+ emulation and qemu-img from qemu-utils package.
+ .
+ Currently, the following modules are shipped in this package:
+  block-glusterfs block-blkio
+
 Package: qemu-system-data
 Architecture: all
 Multi-Arch: foreign
 Replaces: qemu-system-common (<< 1:8.2.2+ds-1~),
+  qemu-system-misc (<< 1:10.1.0~rc2+ds-1),
 Breaks:   qemu-system-common (<< 1:8.2.2+ds-1~),
+  qemu-system-misc (<< 1:10.1.0~rc2+ds-1),
 # s390x-netboot dropped in 9.2, breaks qemu-system-s390x
- qemu-system-misc (<< 1:9.1.1+ds-1~),
  qemu-system-s390x (<< 1:9.2.0~),
 Depends: ${misc:Depends}
 Description: QEMU full system emulation (data files)
@@ -326,6 +354,7 @@ Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${shlibs:Depends}, ${misc:Depends},
  qemu-system-common (= ${binary:Version}),
  qemu-system-data (>> ${source:Upstream-Version}~),
+Breaks:   qemu-system-data (<< 1:10.1.0~rc2+ds-1),
 Recommends: qemu-utils,
 # alpha uses vgabios
 # alpha m68k sh4 uses bootroms
@@ -365,6 +394,7 @@ Recommends: qemu-utils,
  ipxe-qemu,
 # for now virtio-vga won't check arch and insist on vgabios-virtio.bin
  seabios,
+ ipxe-qemu-256k-compat-efi-roms,
  qemu-efi-aarch64, qemu-efi-arm,
  qemu-system-gui (= ${binary:Version}),
  qemu-system-modules-spice (= ${binary:Version}) [amd64 i386 arm64 armel armhf loong64 mips64el mipsel ppc64el riscv64],
@@ -421,6 +451,7 @@ Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
 Recommends: qemu-utils,
+ ipxe-qemu-256k-compat-efi-roms,
 # ppc targets use vgabios-stdvga and bootroms
  seabios,
  ipxe-qemu,
@@ -482,8 +513,6 @@ Recommends: qemu-utils,
  qemu-system-modules-spice (= ${binary:Version}) [amd64 i386 arm64 armel armhf loong64 mips64el mipsel ppc64el riscv64],
  qemu-system-modules-opengl (= ${binary:Version}),
  qemu-block-extra (= ${binary:Version}),
-Breaks:   qemu-system-misc (<< 1:9.1.0+ds-9~)
-Replaces: qemu-system-misc (<< 1:9.1.0+ds-9~)
 Provides: ${qemu:Provides}
 Conflicts: ${qemu:Conflicts}
 Description: QEMU full system emulation binaries (s390x)
@@ -528,6 +557,19 @@ Description: QEMU full system emulation binaries (sparc)
  code.  It can also be used to provide virtual hosting of several virtual
  machines on a single server.
 
+# xen support generally is disabled on ubuntu, for a while we used
+# an extra build with xen enabled. In the meantime Debian followed that
+# approach but with a different name, so add a transitional until
+# after 24.04
+Package: qemu-system-x86-xen
+Architecture: amd64
+Multi-Arch: foreign
+Section: oldlibs
+Depends: qemu-system-xen (>= 1:7.0+dfsg-7ubuntu1), ${misc:Depends}
+Description: QEMU full system emulation binaries (x86)
+ The former qemu-system-x86-xen binaries are now in qemu-system-xen.
+ .
+ This is a transitional package. You can safely remove it.
 
 Package: qemu-system-x86
 Architecture: amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
@@ -537,11 +579,13 @@ Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Vers
  seabios (>> 1.17.0-1~),
  ipxe-qemu (>> 1.21.1+git20220113.fbbdc3926+dfsg-1~),
 Recommends: qemu-utils,
+ ipxe-qemu-256k-compat-efi-roms,
  ovmf,
  qemu-system-gui (= ${binary:Version}),
  qemu-system-modules-spice (= ${binary:Version}) [amd64 i386 arm64 armel armhf loong64 mips64el mipsel ppc64el riscv64],
  qemu-system-modules-opengl (= ${binary:Version}),
  qemu-block-extra (= ${binary:Version}),
+ cpu-checker,
 Suggests: samba, vde2, passt,
 Provides: ${qemu:Provides}
 Conflicts: ${qemu:Conflicts}
@@ -570,6 +614,10 @@ Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-data (>> ${source:Upstr
  seabios, ipxe-qemu
 Recommends: qemu-utils,
  ovmf,
+# For the transition from the former qemu-system-x86-xen name
+Breaks: qemu-system-x86-xen (<<1:7.0+dfsg-7ubuntu1)
+Replaces: qemu-system-x86-xen (<<1:7.0+dfsg-7ubuntu1)
+Provides: qemu-system-x86-xen
 Description: QEMU full system emulation (Xen helper package)
  This package provides the i386 system emulation binary to work
  together with the Xen hypervisor for some types of DomUs.
