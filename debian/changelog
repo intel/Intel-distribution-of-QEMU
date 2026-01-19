@@ -1,15 +1,11 @@
-qemu (1:10.2.1+ds-1) unstable; urgency=medium
+qemu (1:10.2.1+ds-1ubuntu1) resolute; urgency=medium
 
-  * new upstream stable/bugfix release
-    (Closes: #1123670, CVE-2025-14876)
-  * - fix-PIRQ-bounds-check-in-xen_physdev_map_pirq-CVE-2026-0665.patch
-  * remove ipxe from FIRMWAREPATH (needs ipxe from trixie and up)
-
- -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 13 Feb 2026 10:30:07 +0300
-
-qemu (1:10.2.0+ds-2ubuntu1) resolute; urgency=medium
-
-  * Merge with Debian unstable (LP: #2131929). Remaining changes:
+  * Merge with Debian unstable (LP: #2131929):
+    Among several other backported fixes this will resolve
+    - qemu-system-any brings in random system emulator with the
+      new APT solver (LP: #2127053)
+    - add termios2 support (LP: #2133804)
+    Remaining changes:
     - qemu-kvm to systemd unit
       - d/qemu-kvm-init: script for QEMU KVM preparation modules, ksm,
         hugepages and architecture specifics
@@ -42,30 +38,28 @@ qemu (1:10.2.0+ds-2ubuntu1) resolute; urgency=medium
         pkg.qemu.use-upstream-vdso when building on non-amd64 architectures.
       - d/control: Disable B-D on seabios.
       - d/rules: Disable upstream tests depending on qemu-system-data
-d/p/u/define-ubuntu-machine-types.patch: update to match 10.1
-- update for context changes
-- update patch header to the current state
-- upstream discontinued very old machine types and the associated Ubuntu
-  types will be dropped as well
-- thereby the convoluted wily type situation also is removed
-Signed-off-by: Christian Ehrhardt <christian.ehrhardt@canonical.com>
-d/control-in: B-D on multipath libs for multipath persist in qemu-pr-helper (LP #2117378)
-Signed-off-by: Christian Ehrhardt <christian.ehrhardt@canonical.com>
-  - d/control-in: breaks/replaces for dtb files moving qemu-system-misc
-    to qemu-system-data
-Signed-off-by: Christian Ehrhardt <christian.ehrhardt@canonical.com>
-d/control: regenerated from d/control-in
-Signed-off-by: Hector Cao <hector.cao@canonical.com>
-Fix migration issues because of missing features (LP #2121787)
-QEMU v10.1 introduced 2 commits/fixes that modified the behavior
-of qemu on exposing 2 features : pdcm & arch-capabilities
-This behavior change breaks the migration of VMs from previous
-QEMU releases to Ubuntu Questing 25.10 that has QEMU 10.1.
-debian/patches/ubuntu/fix-iscv-endianness.patch: Fix RISC-V instructions endianness (LP #2123828)
-Signed-off-by: Valentin Haudiquet <valentin.haudiquet@canonical.com>
-d/p/u/lp-2123828-*: Rename patch with LP prefix & cleanup description
+    - d/control-in: B-D on multipath libs for multipath persist in
+      qemu-pr-helper (LP 2117378)
+    - d/control-in: breaks/replaces for dtb files moving qemu-system-misc
+      to qemu-system-data
+    - d/rules: Use upstream vDSO for architecture variant builds (LP 2131236)
+  * Dropped changes:
+    - d/p/u/lp2121787/* : Fix migration issues because of missing features
+      (LP 2121787)
+      [Fixed in upstream 10.2]
+    - d/p/u/lp-2123828-*: Fix RISC-V instructions endianness (LP 2123828)
+      [Fixed in upstream 10.2]
 
--- Hector Cao <hector.cao@canonical.com>  Mon, 19 Jan 2026 14:25:42 +0100
+ -- Hector Cao <hector.cao@canonical.com>  Tue, 17 Feb 2026 02:02:42 +0100
+
+qemu (1:10.2.1+ds-1) unstable; urgency=medium
+
+  * new upstream stable/bugfix release
+    (Closes: #1123670, CVE-2025-14876)
+  * - fix-PIRQ-bounds-check-in-xen_physdev_map_pirq-CVE-2026-0665.patch
+  * remove ipxe from FIRMWAREPATH (needs ipxe from trixie and up)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 13 Feb 2026 10:30:07 +0300
 
 qemu (1:10.2.0+ds-2) unstable; urgency=medium
 
@@ -237,11 +231,6 @@ qemu (1:10.1.0+ds-5ubuntu1) questing; urgency=medium
       - d/rules: Disable upstream tests depending on qemu-system-data
     - d/control-in: B-D on multipath libs for multipath persist in
       qemu-pr-helper (LP 2117378)
-    - d/p/u/ubuntu/mitigate-gcc15-ftbfs.patch: fix gcc-15 FTBFS
-      + roms/u-boot-sam460ex/config.mk would ignore cflags, set it in makefile
-      + SLOF would fail with old and new std, but works with updated headers
-        matching the recent libgcc-15-dev package in questing leveraging
-        /usr/lib/gcc/x86_64-linux-gnu/15/include/stdbool.h
     - d/control-in: B-D on multipath libs for multipath persist in
       qemu-pr-helper (LP 2117378)
     - d/control-in: breaks/replaces for dtb files moving qemu-system-misc
