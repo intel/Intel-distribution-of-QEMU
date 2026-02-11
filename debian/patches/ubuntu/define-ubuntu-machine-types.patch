@@ -145,18 +145,18 @@ Forward-info: downstream decision
 
 ---
  hw/i386/pc.c               |  16 ++
- hw/i386/pc_piix.c          | 348 ++++++++++++++++++++++++++++++++++++-
- hw/i386/pc_q35.c           | 335 +++++++++++++++++++++++++++++++++++
- hw/ppc/spapr.c             |  53 +++++-
- hw/s390x/s390-virtio-ccw.c |  68 +++++++-
+ hw/i386/pc_piix.c          | 342 ++++++++++++++++++++++++++++++++++++-
+ hw/i386/pc_q35.c           | 333 ++++++++++++++++++++++++++++++++++++
+ hw/ppc/spapr.c             |  51 +++++-
+ hw/s390x/s390-virtio-ccw.c |  69 +++++++-
  include/hw/i386/pc.h       |   6 +
- 6 files changed, 823 insertions(+), 3 deletions(-)
+ 6 files changed, 814 insertions(+), 3 deletions(-)
 
 diff --git a/hw/i386/pc.c b/hw/i386/pc.c
-index 2f58e73d334..ded732012e2 100644
+index f8b919cb6c4..d6817a621fa 100644
 --- a/hw/i386/pc.c
 +++ b/hw/i386/pc.c
-@@ -178,6 +178,11 @@ const size_t pc_compat_4_1_len = G_N_ELEMENTS(pc_compat_4_1);
+@@ -185,6 +185,11 @@ const size_t pc_compat_4_1_len = G_N_ELEMENTS(pc_compat_4_1);
  GlobalProperty pc_compat_4_0[] = {};
  const size_t pc_compat_4_0_len = G_N_ELEMENTS(pc_compat_4_0);
  
@@ -168,7 +168,7 @@ index 2f58e73d334..ded732012e2 100644
  GlobalProperty pc_compat_3_1[] = {
      { "intel-iommu", "dma-drain", "off" },
      { "Opteron_G3" "-" TYPE_X86_CPU, "rdtscp", "off" },
-@@ -263,6 +268,17 @@ GlobalProperty pc_compat_2_6[] = {
+@@ -270,6 +275,17 @@ GlobalProperty pc_compat_2_6[] = {
  };
  const size_t pc_compat_2_6_len = G_N_ELEMENTS(pc_compat_2_6);
  
@@ -187,10 +187,10 @@ index 2f58e73d334..ded732012e2 100644
   * @PC_FW_DATA:
   * Size of the chunk of memory at the top of RAM for the BIOS ACPI tables
 diff --git a/hw/i386/pc_piix.c b/hw/i386/pc_piix.c
-index 030308328ce..f78855f0caa 100644
+index 90705d13fd4..c76639f1b12 100644
 --- a/hw/i386/pc_piix.c
 +++ b/hw/i386/pc_piix.c
-@@ -478,8 +478,30 @@ static void pc_i440fx_init(MachineState *machine)
+@@ -412,8 +412,30 @@ static void pc_i440fx_init(MachineState *machine)
  #define LATEST_IS_DEFAULT true
  #endif
  
@@ -222,7 +222,7 @@ index 030308328ce..f78855f0caa 100644
  
  static void pc_i440fx_machine_options(MachineClass *m)
  {
-@@ -857,3 +879,327 @@ static void xenfv_machine_3_1_options(MachineClass *m)
+@@ -777,3 +799,321 @@ static void xenfv_machine_3_1_options(MachineClass *m)
  DEFINE_PC_MACHINE(xenfv, "xenfv-3.1", pc_xen_hvm_init,
                    xenfv_machine_3_1_options);
  #endif
@@ -292,7 +292,6 @@ index 030308328ce..f78855f0caa 100644
 +{
 +    pc_i440fx_machine_3_1_options(m);
 +    m->desc = "Ubuntu 19.04 PC (i440FX + PIIX +host-phys-bits=true, 1996)";
-+    m->alias = NULL;
 +    compat_props_add(m->compat_props,
 +        host_phys_bits_compat, host_phys_bits_compat_len);
 +}
@@ -302,7 +301,6 @@ index 030308328ce..f78855f0caa 100644
 +{
 +    pc_i440fx_machine_4_0_options(m);
 +    m->desc = "Ubuntu 19.10 PC (i440FX + PIIX, 1996)";
-+    m->alias = NULL;
 +}
 +DEFINE_UBUNTU_I440FX_MACHINE(eoan);
 +
@@ -310,7 +308,6 @@ index 030308328ce..f78855f0caa 100644
 +{
 +    pc_i440fx_machine_4_0_options(m);
 +    m->desc = "Ubuntu 19.10 PC (i440FX + PIIX +host-phys-bits=true, 1996)";
-+    m->alias = NULL;
 +    compat_props_add(m->compat_props,
 +        host_phys_bits_compat, host_phys_bits_compat_len);
 +}
@@ -320,7 +317,6 @@ index 030308328ce..f78855f0caa 100644
 +{
 +    pc_i440fx_machine_4_0_options(m);
 +    m->desc = "Ubuntu 20.04 PC (i440FX + PIIX, 1996)";
-+    m->alias = NULL;
 +}
 +DEFINE_UBUNTU_I440FX_MACHINE(focal);
 +
@@ -328,7 +324,6 @@ index 030308328ce..f78855f0caa 100644
 +{
 +    pc_i440fx_machine_4_0_options(m);
 +    m->desc = "Ubuntu 20.04 PC (i440FX + PIIX +host-phys-bits=true, 1996)";
-+    m->alias = NULL;
 +    compat_props_add(m->compat_props,
 +        host_phys_bits_compat, host_phys_bits_compat_len);
 +}
@@ -338,7 +333,6 @@ index 030308328ce..f78855f0caa 100644
 +{
 +    pc_i440fx_machine_5_0_options(m);
 +    m->desc = "Ubuntu 20.10 PC (i440FX + PIIX, 1996)";
-+    m->alias = NULL;
 +    m->is_default = false;
 +}
 +DEFINE_UBUNTU_I440FX_MACHINE(groovy);
@@ -347,7 +341,6 @@ index 030308328ce..f78855f0caa 100644
 +{
 +    pc_i440fx_machine_5_0_options(m);
 +    m->desc = "Ubuntu 20.10 PC (i440FX + PIIX +host-phys-bits=true, 1996)";
-+    m->alias = NULL;
 +    compat_props_add(m->compat_props,
 +        host_phys_bits_compat, host_phys_bits_compat_len);
 +}
@@ -365,7 +358,6 @@ index 030308328ce..f78855f0caa 100644
 +{
 +    pc_i440fx_machine_5_1_options(m);
 +    m->desc = "Ubuntu 21.04 PC (i440FX + PIIX +host-phys-bits=true, 1996)";
-+    m->alias = NULL;
 +    compat_props_add(m->compat_props,
 +        host_phys_bits_compat, host_phys_bits_compat_len);
 +}
@@ -383,7 +375,6 @@ index 030308328ce..f78855f0caa 100644
 +{
 +    pc_i440fx_machine_6_0_options(m);
 +    m->desc = "Ubuntu 21.10 PC (i440FX + PIIX +host-phys-bits=true, 1996)";
-+    m->alias = NULL;
 +    compat_props_add(m->compat_props,
 +        host_phys_bits_compat, host_phys_bits_compat_len);
 +}
@@ -401,7 +392,6 @@ index 030308328ce..f78855f0caa 100644
 +{
 +    pc_i440fx_machine_6_2_options(m);
 +    m->desc = "Ubuntu 22.04 PC (i440FX + PIIX +host-phys-bits=true, 1996)";
-+    m->alias = NULL;
 +    compat_props_add(m->compat_props,
 +        host_phys_bits_compat, host_phys_bits_compat_len);
 +}
@@ -411,7 +401,6 @@ index 030308328ce..f78855f0caa 100644
 +{
 +    pc_jammy_machine_options(m);
 +    m->desc = "Ubuntu 22.04 PC (i440FX + PIIX, maxcpus=1024, 1996)";
-+    m->alias = NULL;
 +    m->max_cpus = 1024;
 +}
 +DEFINE_UBUNTU_I440FX_MAXCPUS_MACHINE(jammy);
@@ -435,7 +424,6 @@ index 030308328ce..f78855f0caa 100644
 +{
 +    pc_i440fx_machine_7_0_options(m);
 +    m->desc = "Ubuntu 22.10 PC (i440FX + PIIX +host-phys-bits=true, 1996)";
-+    m->alias = NULL;
 +    compat_props_add(m->compat_props,
 +        host_phys_bits_compat, host_phys_bits_compat_len);
 +}
@@ -453,7 +441,6 @@ index 030308328ce..f78855f0caa 100644
 +{
 +    pc_i440fx_machine_7_2_options(m);
 +    m->desc = "Ubuntu 23.04 PC (i440FX + PIIX +host-phys-bits=true, 1996)";
-+    m->alias = NULL;
 +    compat_props_add(m->compat_props,
 +        host_phys_bits_compat, host_phys_bits_compat_len);
 +}
@@ -471,7 +458,6 @@ index 030308328ce..f78855f0caa 100644
 +{
 +    pc_i440fx_machine_8_0_options(m);
 +    m->desc = "Ubuntu 23.10 PC (i440FX + PIIX +host-phys-bits=true, 1996)";
-+    m->alias = NULL;
 +    compat_props_add(m->compat_props,
 +        host_phys_bits_compat, host_phys_bits_compat_len);
 +}
@@ -545,13 +531,21 @@ index 030308328ce..f78855f0caa 100644
 +{
 +    pc_i440fx_machine_10_1_options(m);
 +    m->desc = "Ubuntu 25.10 PC v2 (i440FX + PIIX, + 10.1 machine, 1996)";
++    m->is_default = false;
++}
++DEFINE_UBUNTU_VERSION_MACHINE(questing, v2);
++
++static void pc_resolute_machine_options(MachineClass *m)
++{
++    pc_i440fx_machine_10_2_options(m);
++    m->desc = "Ubuntu 26.04 PC (i440FX + PIIX, 1996)";
 +    m->alias = "ubuntu";
 +    /* if building for microvm this is false, otherwise true */
 +    m->is_default = LATEST_IS_DEFAULT;
 +}
-+DEFINE_UBUNTU_VERSION_MACHINE(questing, v2);
++DEFINE_UBUNTU_I440FX_MACHINE(resolute);
 diff --git a/hw/i386/pc_q35.c b/hw/i386/pc_q35.c
-index b309b2b378d..aa83bb529c1 100644
+index 6015e639d7b..bb68d08eec0 100644
 --- a/hw/i386/pc_q35.c
 +++ b/hw/i386/pc_q35.c
 @@ -349,6 +349,23 @@ static void pc_q35_init(MachineState *machine)
@@ -578,7 +572,7 @@ index b309b2b378d..aa83bb529c1 100644
  static void pc_q35_machine_options(MachineClass *m)
  {
      PCMachineClass *pcmc = PC_MACHINE_CLASS(m);
-@@ -685,3 +702,321 @@ static void pc_q35_machine_2_6_options(MachineClass *m)
+@@ -695,3 +712,319 @@ static void pc_q35_machine_2_6_options(MachineClass *m)
  }
  
  DEFINE_Q35_MACHINE(2, 6);
@@ -694,7 +688,6 @@ index b309b2b378d..aa83bb529c1 100644
 +{
 +    pc_q35_focal_machine_options(m);
 +    m->desc = "Ubuntu 20.04 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
-+    m->alias = NULL;
 +    compat_props_add(m->compat_props,
 +        host_phys_bits_compat, host_phys_bits_compat_len);
 +}
@@ -704,7 +697,6 @@ index b309b2b378d..aa83bb529c1 100644
 +{
 +    pc_q35_machine_5_0_options(m);
 +    m->desc = "Ubuntu 20.10 PC (Q35 + ICH9, 2009)";
-+    m->alias = NULL;
 +}
 +DEFINE_UBUNTU_Q35_MACHINE(groovy);
 +
@@ -712,7 +704,6 @@ index b309b2b378d..aa83bb529c1 100644
 +{
 +    pc_q35_groovy_machine_options(m);
 +    m->desc = "Ubuntu 20.10 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
-+    m->alias = NULL;
 +    compat_props_add(m->compat_props,
 +        host_phys_bits_compat, host_phys_bits_compat_len);
 +}
@@ -729,7 +720,6 @@ index b309b2b378d..aa83bb529c1 100644
 +{
 +    pc_q35_hirsute_machine_options(m);
 +    m->desc = "Ubuntu 21.04 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
-+    m->alias = NULL;
 +    compat_props_add(m->compat_props,
 +        host_phys_bits_compat, host_phys_bits_compat_len);
 +}
@@ -746,7 +736,6 @@ index b309b2b378d..aa83bb529c1 100644
 +{
 +    pc_q35_impish_machine_options(m);
 +    m->desc = "Ubuntu 21.10 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
-+    m->alias = NULL;
 +    compat_props_add(m->compat_props,
 +        host_phys_bits_compat, host_phys_bits_compat_len);
 +}
@@ -763,7 +752,6 @@ index b309b2b378d..aa83bb529c1 100644
 +{
 +    pc_q35_jammy_machine_options(m);
 +    m->desc = "Ubuntu 22.04 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
-+    m->alias = NULL;
 +    compat_props_add(m->compat_props,
 +        host_phys_bits_compat, host_phys_bits_compat_len);
 +}
@@ -796,7 +784,6 @@ index b309b2b378d..aa83bb529c1 100644
 +{
 +    pc_q35_kinetic_machine_options(m);
 +    m->desc = "Ubuntu 22.10 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
-+    m->alias = NULL;
 +    compat_props_add(m->compat_props,
 +        host_phys_bits_compat, host_phys_bits_compat_len);
 +}
@@ -813,7 +800,6 @@ index b309b2b378d..aa83bb529c1 100644
 +{
 +    pc_q35_lunar_machine_options(m);
 +    m->desc = "Ubuntu 23.04 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
-+    m->alias = NULL;
 +    compat_props_add(m->compat_props,
 +        host_phys_bits_compat, host_phys_bits_compat_len);
 +}
@@ -830,7 +816,6 @@ index b309b2b378d..aa83bb529c1 100644
 +{
 +    pc_q35_mantic_machine_options(m);
 +    m->desc = "Ubuntu 23.10 PC (Q35 + ICH9, +host-phys-bits=true, 2009)";
-+    m->alias = NULL;
 +    compat_props_add(m->compat_props,
 +        host_phys_bits_compat, host_phys_bits_compat_len);
 +}
@@ -895,16 +880,23 @@ index b309b2b378d..aa83bb529c1 100644
 +{
 +    pc_q35_machine_10_1_options(m);
 +    m->desc = "Ubuntu 25.10 PC (Q35 + ICH9, 2009)";
++}
++DEFINE_UBUNTU_Q35_MACHINE(questing);
++
++static void pc_q35_resolute_machine_options(MachineClass *m)
++{
++    pc_q35_machine_10_2_options(m);
++    m->desc = "Ubuntu 26.04 PC (Q35 + ICH9, 2009)";
 +    /* The ubuntu alias and default is on the i440fx type. The
 +     * ubuntu-q35 alias auto-picks the most recent ubuntu q35 type */
 +    m->alias = "ubuntu-q35";
 +}
-+DEFINE_UBUNTU_Q35_MACHINE(questing);
++DEFINE_UBUNTU_Q35_MACHINE(resolute);
 diff --git a/hw/ppc/spapr.c b/hw/ppc/spapr.c
-index 1855a3cd8d0..16097619e70 100644
+index 99b843ba2fa..bf3b767e353 100644
 --- a/hw/ppc/spapr.c
 +++ b/hw/ppc/spapr.c
-@@ -4761,6 +4761,42 @@ static void spapr_machine_latest_class_options(MachineClass *mc)
+@@ -4750,6 +4750,42 @@ static void spapr_machine_latest_class_options(MachineClass *mc)
  #define DEFINE_SPAPR_MACHINE(major, minor) \
      DEFINE_SPAPR_MACHINE_IMPL(false, major, minor)
  
@@ -945,25 +937,22 @@ index 1855a3cd8d0..16097619e70 100644
 +
 +
  /*
-  * pseries-10.1
+  * pseries-10.2
   */
-@@ -4769,7 +4805,7 @@ static void spapr_machine_10_1_class_options(MachineClass *mc)
+@@ -4758,7 +4794,7 @@ static void spapr_machine_10_2_class_options(MachineClass *mc)
      /* Defaults for the latest behaviour inherited from the base class */
  }
  
--DEFINE_SPAPR_MACHINE_AS_LATEST(10, 1);
-+DEFINE_SPAPR_MACHINE(10, 1);
+-DEFINE_SPAPR_MACHINE_AS_LATEST(10, 2);
++DEFINE_SPAPR_MACHINE(10, 2);
  
  /*
-  * pseries-10.0
-@@ -5073,3 +5109,18 @@ static void spapr_machine_register_types(void)
+  * pseries-10.1
+@@ -4969,3 +5005,16 @@ static void spapr_machine_register_types(void)
  }
  
  type_init(spapr_machine_register_types)
 +
-+DEFINE_SPAPR_UBUNTU_MACHINE(disco, 3, 1);
-+DEFINE_SPAPR_UBUNTU_MACHINE(eoan, 4, 0);
-+DEFINE_SPAPR_UBUNTU_MACHINE(focal, 4, 2);
 +DEFINE_SPAPR_UBUNTU_MACHINE(groovy, 5, 0);
 +DEFINE_SPAPR_UBUNTU_MACHINE(hirsute, 5, 2);
 +DEFINE_SPAPR_UBUNTU_MACHINE(impish, 6, 0);
@@ -974,12 +963,13 @@ index 1855a3cd8d0..16097619e70 100644
 +DEFINE_SPAPR_UBUNTU_MACHINE(noble, 8, 2);
 +DEFINE_SPAPR_UBUNTU_MACHINE(oracular, 9, 0);
 +DEFINE_SPAPR_UBUNTU_MACHINE(plucky, 9, 2);
-+DEFINE_SPAPR_UBUNTU_MACHINE_AS_LATEST(questing, 10, 1);
++DEFINE_SPAPR_UBUNTU_MACHINE(questing, 10, 1);
++DEFINE_SPAPR_UBUNTU_MACHINE_AS_LATEST(resolute, 10, 2);
 diff --git a/hw/s390x/s390-virtio-ccw.c b/hw/s390x/s390-virtio-ccw.c
-index a79bd13275b..f25a52f9413 100644
+index 64b81345f1e..ad726edea8b 100644
 --- a/hw/s390x/s390-virtio-ccw.c
 +++ b/hw/s390x/s390-virtio-ccw.c
-@@ -910,6 +910,58 @@ static const TypeInfo ccw_machine_info = {
+@@ -889,6 +889,58 @@ static const TypeInfo ccw_machine_info = {
  #define DEFINE_CCW_MACHINE(major, minor) \
      DEFINE_CCW_MACHINE_IMPL(false, major, minor)
  
@@ -1036,23 +1026,23 @@ index a79bd13275b..f25a52f9413 100644
 +    DEFINE_CCW_UBUNTU_MACHINE_IMPL(true, ccw_ubuntu_##release, \
 +                                   "s390-ccw-virtio-" #release, major, minor)
  
+ static void ccw_machine_10_2_instance_options(MachineState *machine)
+ {
+@@ -897,7 +949,7 @@ static void ccw_machine_10_2_instance_options(MachineState *machine)
+ static void ccw_machine_10_2_class_options(MachineClass *mc)
+ {
+ }
+-DEFINE_CCW_MACHINE_AS_LATEST(10, 2);
++DEFINE_CCW_MACHINE(10, 2);
+ 
  static void ccw_machine_10_1_instance_options(MachineState *machine)
  {
-@@ -918,7 +970,7 @@ static void ccw_machine_10_1_instance_options(MachineState *machine)
- static void ccw_machine_10_1_class_options(MachineClass *mc)
- {
+@@ -1145,6 +1197,21 @@ static void ccw_machine_5_0_class_options(MachineClass *mc)
  }
--DEFINE_CCW_MACHINE_AS_LATEST(10, 1);
-+DEFINE_CCW_MACHINE(10, 1);
+ DEFINE_CCW_MACHINE(5, 0);
  
- static void ccw_machine_10_0_instance_options(MachineState *machine)
- {
-@@ -1167,6 +1219,20 @@ static void ccw_machine_4_2_class_options(MachineClass *mc)
- }
- DEFINE_CCW_MACHINE(4, 2);
- 
++
 +/* Ubuntu machine types */
-+DEFINE_CCW_UBUNTU_MACHINE(focal, 4, 2);
 +DEFINE_CCW_UBUNTU_MACHINE(groovy, 5, 0);
 +DEFINE_CCW_UBUNTU_MACHINE(hirsute, 5, 2);
 +DEFINE_CCW_UBUNTU_MACHINE(impish, 6, 0);
@@ -1063,16 +1053,17 @@ index a79bd13275b..f25a52f9413 100644
 +DEFINE_CCW_UBUNTU_MACHINE(noble, 8, 2);
 +DEFINE_CCW_UBUNTU_MACHINE(oracular, 9, 0);
 +DEFINE_CCW_UBUNTU_MACHINE(plucky, 9, 2);
-+DEFINE_CCW_UBUNTU_MACHINE_AS_LATEST(questing, 10, 1);
++DEFINE_CCW_UBUNTU_MACHINE(questing, 10, 1);
++DEFINE_CCW_UBUNTU_MACHINE_AS_LATEST(resolute, 10, 2);
 +
  static void ccw_machine_register_types(void)
  {
      type_register_static(&ccw_machine_info);
 diff --git a/include/hw/i386/pc.h b/include/hw/i386/pc.h
-index 79b72c54dd3..2ee67d6426c 100644
+index e83157ab358..87734ed21ef 100644
 --- a/include/hw/i386/pc.h
 +++ b/include/hw/i386/pc.h
-@@ -271,6 +271,9 @@ extern const size_t pc_compat_4_1_len;
+@@ -274,6 +274,9 @@ extern const size_t pc_compat_4_1_len;
  extern GlobalProperty pc_compat_4_0[];
  extern const size_t pc_compat_4_0_len;
  
@@ -1082,7 +1073,7 @@ index 79b72c54dd3..2ee67d6426c 100644
  extern GlobalProperty pc_compat_3_1[];
  extern const size_t pc_compat_3_1_len;
  
-@@ -298,6 +301,9 @@ extern const size_t pc_compat_2_7_len;
+@@ -301,6 +304,9 @@ extern const size_t pc_compat_2_7_len;
  extern GlobalProperty pc_compat_2_6[];
  extern const size_t pc_compat_2_6_len;
  
