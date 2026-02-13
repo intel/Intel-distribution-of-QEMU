@@ -51,8 +51,7 @@ sysdataidir = debian/qemu-system-data${sysdatadir}
 libdir = /usr/lib/${DEB_HOST_MULTIARCH}
 mandir = /usr/share/man
 man1dir = ${mandir}/man1
-# remove ipxe for forky, require ipxe-qemu >> 1.21.1+git20220113.fbbdc3926+dfsg-1~ :
-FIRMWAREPATH = /usr/share/qemu:/usr/share/seabios:/usr/lib/ipxe/qemu
+FIRMWAREPATH = /usr/share/qemu:/usr/share/seabios
 
 export cross_prefix_alpha = alpha-linux-gnu-
 export cross_prefix_aarch64 = aarch64-linux-gnu-

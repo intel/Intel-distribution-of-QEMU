@@ -1,3 +1,12 @@
+qemu (1:10.2.1+ds-1) unstable; urgency=medium
+
+  * new upstream stable/bugfix release
+    (Closes: #1123670, CVE-2025-14876)
+  * - fix-PIRQ-bounds-check-in-xen_physdev_map_pirq-CVE-2026-0665.patch
+  * remove ipxe from FIRMWAREPATH (needs ipxe from trixie and up)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 13 Feb 2026 10:30:07 +0300
+
 qemu (1:10.2.0+ds-2) unstable; urgency=medium
 
   * two patches to make statically-linked linux-user not depend on nss

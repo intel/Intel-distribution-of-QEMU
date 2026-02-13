@@ -583,7 +583,7 @@ Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
  seabios (>> 1.17.0-1~),
- ipxe-qemu,
+ ipxe-qemu (>> 1.21.1+git20220113.fbbdc3926+dfsg-1~),
 Recommends: qemu-utils,
  ovmf,
  qemu-system-gui (= ${binary:Version}),

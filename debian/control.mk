@@ -9,7 +9,7 @@ empty :=
 
 # since some files and/or lists differ from version to version,
 # ensure we have the expected qemu version, or else scream loudly
-checked-version := 10.2.0+ds
+checked-version := 10.2.1+ds
 # version of last vdso change for d/control Depends field:
 vdso-version := 1:10.2.0+ds-1~
 

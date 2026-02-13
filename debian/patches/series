@@ -22,4 +22,3 @@ riscv-on-ppc64-gcc15-121689.patch
 linkage-revert-gdbstub-try-unlinking-the-unix-socket.patch
 linkage-gdbstub-unlink-the-unix-socket-before-bind.patch
 1095935.patch
-fix-PIRQ-bounds-check-in-xen_physdev_map_pirq-CVE-2026-0665.patch
