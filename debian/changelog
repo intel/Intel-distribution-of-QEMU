@@ -16,7 +16,7 @@ qemu (1:10.2.1+ds-1ubuntu1) resolute; urgency=medium
         /etc/default/qemu-kvm
       - d/rules: call dh_installinit and dh_installsystemd for qemu-kvm
     - Distribution specific machine type
-      (LP 1304107 1621042 1776189 1761372 1761372 1776189)
+      (LP 1776189 1761372 1769053 2012763 2131822)
       - d/p/ubuntu/define-ubuntu-machine-types.patch: define distro machine
         types containing release versioned machine attributes
       - Add an info about -hpb machine type in debian/qemu-system-x86.NEWS
@@ -43,6 +43,8 @@ qemu (1:10.2.1+ds-1ubuntu1) resolute; urgency=medium
     - d/control-in: breaks/replaces for dtb files moving qemu-system-misc
       to qemu-system-data
     - d/rules: Use upstream vDSO for architecture variant builds (LP 2131236)
+  * Updated delta:
+    - d/p/u/define-ubuntu-machine-types.patch: update to match 10.2
   * Dropped changes:
     - d/p/u/lp2121787/* : Fix migration issues because of missing features
       (LP 2121787)
