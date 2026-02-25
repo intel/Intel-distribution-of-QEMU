@@ -1824,6 +1824,12 @@ static void gd_menu_grab_input(GtkMenuItem *item, void *opaque)
     gd_update_cursor(vc);
 }
 
+static void gd_accel_grab_input(void *opaque)
+{
+    GtkDisplayState *s = opaque;
+    gtk_menu_item_activate(GTK_MENU_ITEM(s->grab_item));
+}
+
 static void gd_change_page(GtkNotebook *nb, gpointer arg1, guint arg2,
                            gpointer data)
 {
@@ -2479,6 +2485,11 @@ static GtkWidget *gd_create_menu_view(GtkDisplayState *s, DisplayOptions *opts)
     gtk_accel_map_add_entry("<QEMU>/View/Grab Input", GDK_KEY_g,
                             HOTKEY_MODIFIERS);
     gtk_menu_shell_append(GTK_MENU_SHELL(view_menu), s->grab_item);
+    gtk_accel_group_connect(s->accel_group, GDK_KEY_g, HOTKEY_MODIFIERS, 0,
+                        g_cclosure_new_swap(G_CALLBACK(gd_accel_grab_input), s, NULL));
+    gtk_accel_label_set_accel(
+                             GTK_ACCEL_LABEL(gtk_bin_get_child(GTK_BIN(s->grab_item))),
+                             GDK_KEY_g, HOTKEY_MODIFIERS);
 
     separator = gtk_separator_menu_item_new();
     gtk_menu_shell_append(GTK_MENU_SHELL(view_menu), separator);
