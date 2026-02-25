@@ -456,14 +456,16 @@ static void gd_mouse_set(DisplayChangeListener *dcl,
         return;
     }
 
-    dpy = gtk_widget_get_display(vc->gfx.drawing_area);
-    gdk_window_get_root_coords(gtk_widget_get_window(vc->gfx.drawing_area),
-                               x, y, &x_root, &y_root);
-    gdk_device_warp(gd_get_pointer(dpy),
-                    gtk_widget_get_screen(vc->gfx.drawing_area),
-                    x_root, y_root);
-    vc->s->last_x = x;
-    vc->s->last_y = y;
+    if (!vc->gfx.cursor_image) {
+        dpy = gtk_widget_get_display(vc->gfx.drawing_area);
+        gdk_window_get_root_coords(gtk_widget_get_window(vc->gfx.drawing_area),
+                                   x, y, &x_root, &y_root);
+        gdk_device_warp(gd_get_pointer(dpy),
+                        gtk_widget_get_screen(vc->gfx.drawing_area),
+                        x_root, y_root);
+        vc->s->last_x = x;
+        vc->s->last_y = y;
+    }
 }
 
 static void gd_cursor_define(DisplayChangeListener *dcl,
@@ -481,9 +483,11 @@ static void gd_cursor_define(DisplayChangeListener *dcl,
                                       GDK_COLORSPACE_RGB, true, 8,
                                       c->width, c->height, c->width * 4,
                                       NULL, NULL);
+
     cursor = gdk_cursor_new_from_pixbuf
         (gtk_widget_get_display(vc->gfx.drawing_area),
          pixbuf, c->hot_x, c->hot_y);
+
     gdk_window_set_cursor(gtk_widget_get_window(vc->gfx.drawing_area), cursor);
     g_object_unref(pixbuf);
     g_object_unref(cursor);
@@ -648,7 +652,7 @@ static const DisplayChangeListenerOps dcl_egl_ops = {
     .dpy_gfx_check_format = console_gl_check_format,
     .dpy_refresh          = gd_egl_refresh,
     .dpy_mouse_set        = gd_mouse_set,
-    .dpy_cursor_define    = gd_cursor_define,
+    .dpy_cursor_define    = gd_egl_cursor_define,
 
     .dpy_gl_scanout_disable  = gd_egl_scanout_disable,
     .dpy_gl_scanout_texture  = gd_egl_scanout_texture,
