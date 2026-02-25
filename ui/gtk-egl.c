@@ -69,6 +69,8 @@ void gd_egl_draw(VirtualConsole *vc)
 #ifdef CONFIG_GBM
     QemuDmaBuf *dmabuf = vc->gfx.guest_fb.dmabuf;
     int fence_fd;
+    bool cursor_updated = vc->gfx.cursor_image &&
+                          (vc->gfx.cursor_moved || vc->gfx.new_cursor);
 #endif
     int ww, wh, pw, ph, gs;
 
@@ -86,7 +88,7 @@ void gd_egl_draw(VirtualConsole *vc)
     if (vc->gfx.scanout_mode) {
 #ifdef CONFIG_GBM
         if (dmabuf) {
-            if (!qemu_dmabuf_get_draw_submitted(dmabuf)) {
+            if (!qemu_dmabuf_get_draw_submitted(dmabuf) && !cursor_updated) {
                 return;
             } else {
                 qemu_dmabuf_set_draw_submitted(dmabuf, false);
@@ -170,8 +172,7 @@ void gd_egl_refresh(DisplayChangeListener *dcl)
 #endif
     }
 
-    if (vc->gfx.guest_fb.dmabuf &&
-        qemu_dmabuf_get_draw_submitted(vc->gfx.guest_fb.dmabuf)) {
+    if (vc->gfx.guest_fb.dmabuf) {
         gd_egl_draw(vc);
         return;
     }
@@ -308,6 +309,26 @@ void gd_egl_scanout_dmabuf(DisplayChangeListener *dcl,
 #endif
 }
 
+static void gd_egl_cursor_texture(VirtualConsole *vc)
+{
+#ifdef CONFIG_GBM
+    uint32_t texture;
+
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glPixelStorei(GL_UNPACK_ROW_LENGTH_EXT, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, vc->gfx.cursor_fb.width,
+                 vc->gfx.cursor_fb.height, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                 vc->gfx.cursor_image);
+
+    egl_fb_setup_for_tex(&vc->gfx.cursor_fb, vc->gfx.cursor_fb.width,
+                         vc->gfx.cursor_fb.height, texture, true);
+#endif
+}
+
 void gd_egl_cursor_dmabuf(DisplayChangeListener *dcl,
                           QemuDmaBuf *dmabuf, bool have_hot,
                           uint32_t hot_x, uint32_t hot_y)
@@ -338,8 +359,27 @@ void gd_egl_cursor_position(DisplayChangeListener *dcl,
 {
     VirtualConsole *vc = container_of(dcl, VirtualConsole, gfx.dcl);
 
-    vc->gfx.cursor_x = pos_x * vc->gfx.scale_x;
-    vc->gfx.cursor_y = pos_y * vc->gfx.scale_y;
+    if (pos_x * vc->gfx.scale_x != vc->gfx.cursor_x ||
+	pos_y * vc->gfx.scale_y != vc->gfx.cursor_y) {
+        vc->gfx.cursor_x = pos_x * vc->gfx.scale_x;
+        vc->gfx.cursor_y = pos_y * vc->gfx.scale_y;
+	vc->gfx.cursor_moved = true;
+    }
+}
+
+void gd_egl_cursor_define(DisplayChangeListener *dcl,
+                          QEMUCursor *c)
+{
+    VirtualConsole *vc = container_of(dcl, VirtualConsole, gfx.dcl);
+
+    if (!gtk_widget_get_realized(vc->gfx.drawing_area)) {
+        return;
+    }
+
+    vc->gfx.cursor_image = c->data;
+    vc->gfx.cursor_fb.width = c->width;
+    vc->gfx.cursor_fb.height = c->height;
+    vc->gfx.new_cursor = true;
 }
 
 void gd_egl_scanout_flush(DisplayChangeListener *dcl,
@@ -390,13 +430,22 @@ void gd_egl_scanout_flush(DisplayChangeListener *dcl,
 
     egl_fb_setup_default(&vc->gfx.win_fb, pw_surface, ph_surface,
                          px_offset, py_offset);
-    if (vc->gfx.cursor_fb.texture) {
+
+    if (vc->gfx.cursor_image &&
+        vc->gfx.cursor_x > 0 && vc->gfx.cursor_y > 0 &&
+        vc->gfx.cursor_x < vc->gfx.win_fb.width - 1 &&
+        vc->gfx.cursor_y < vc->gfx.win_fb.height - 1) {
+        if (vc->gfx.new_cursor) {
+            gd_egl_cursor_texture(vc);
+            vc->gfx.new_cursor = false;
+        }
         egl_texture_blit(vc->gfx.gls, &vc->gfx.win_fb, &vc->gfx.guest_fb,
                          vc->gfx.y0_top);
         egl_texture_blend(vc->gfx.gls, &vc->gfx.win_fb, &vc->gfx.cursor_fb,
                           vc->gfx.y0_top,
                           vc->gfx.cursor_x, vc->gfx.cursor_y,
                           vc->gfx.scale_x, vc->gfx.scale_y);
+        vc->gfx.cursor_moved = false;
     } else {
         egl_fb_blit(&vc->gfx.win_fb, &vc->gfx.guest_fb, !vc->gfx.y0_top);
     }
