@@ -62,12 +62,14 @@ void virtio_gpu_update_cursor_data(VirtIOGPU *g,
             return;
         }
         data = res->blob;
-    } else {
+    } else if (res->image) {
         if (pixman_image_get_width(res->image)  != s->current_cursor->width ||
             pixman_image_get_height(res->image) != s->current_cursor->height) {
             return;
         }
         data = pixman_image_get_data(res->image);
+    } else {
+	return;
     }
 
     pixels = s->current_cursor->width * s->current_cursor->height;
@@ -905,6 +907,8 @@ void virtio_gpu_cleanup_mapping(VirtIOGPU *g,
 
     if (res->blob) {
         virtio_gpu_fini_udmabuf(g, res);
+	res->blob = NULL;
+	res->blob_size = 0;
     }
 }
 
