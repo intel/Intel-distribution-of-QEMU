@@ -1407,6 +1407,23 @@ static gboolean gd_event(GtkWidget *widget, GdkEvent *event, void *opaque)
     return FALSE;
 }
 
+static gboolean gd_window_event(GtkWidget *widget, GdkEvent *event,
+                                void *opaque)
+{
+    VirtualConsole *vc = opaque;
+    GtkDisplayState *s = vc->s;
+
+    if (event->window_state.new_window_state & GDK_WINDOW_STATE_FOCUSED) {
+        if (s->ptr_owner == vc) {
+            gd_grab_pointer(vc, "windows-focused");
+        }
+        if (s->kbd_owner == vc) {
+            gd_grab_keyboard(vc, "windows-focused");
+        }
+    }
+    return TRUE;
+}
+
 /** Window Menu Actions **/
 
 static void gd_menu_pause(GtkMenuItem *item, void *opaque)
@@ -1567,6 +1584,8 @@ static void gd_menu_untabify(GtkMenuItem *item, void *opaque)
 
         g_signal_connect(vc->window, "delete-event",
                          G_CALLBACK(gd_tab_window_close), vc);
+        g_signal_connect(vc->window, "window-state-event",
+                         G_CALLBACK(gd_window_event), vc);
         gtk_widget_show_all(vc->window);
 
         if (qemu_console_is_graphic(vc->gfx.dcl.con)) {
@@ -2175,6 +2194,8 @@ static void gd_connect_vc_gfx_signals(VirtualConsole *vc)
 {
     g_signal_connect(vc->gfx.drawing_area, "draw",
                      G_CALLBACK(gd_draw_event), vc);
+    g_signal_connect(vc->gfx.drawing_area, "window-state-event",
+                     G_CALLBACK(gd_window_event), vc);
 #if defined(CONFIG_OPENGL)
     if (gtk_use_gl_area) {
         /* wire up GtkGlArea events */
