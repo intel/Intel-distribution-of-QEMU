@@ -458,7 +458,6 @@ void gd_egl_flush(DisplayChangeListener *dcl,
                   uint32_t x, uint32_t y, uint32_t w, uint32_t h)
 {
     VirtualConsole *vc = container_of(dcl, VirtualConsole, gfx.dcl);
-    GtkWidget *area = vc->gfx.drawing_area;
 #ifdef CONFIG_GBM
     QemuDmaBuf *dmabuf = vc->gfx.guest_fb.dmabuf;
 
@@ -467,7 +466,7 @@ void gd_egl_flush(DisplayChangeListener *dcl,
         graphic_hw_gl_block(vc->gfx.dcl.con, true);
         qemu_dmabuf_set_draw_submitted(dmabuf, true);
         gtk_egl_set_scanout_mode(vc, true);
-        gtk_widget_queue_draw_area(area, x, y, w, h);
+        gd_egl_draw(vc);
         return;
     }
 #endif
