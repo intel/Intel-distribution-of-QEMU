@@ -1676,9 +1676,14 @@ static gboolean gd_win_grab(void *opaque)
 static void gd_tab_window_create(VirtualConsole *vc)
 {
     GtkDisplayState *s = vc->s;
+    int default_width = 960;
+    int default_height = 540;
 
     gtk_widget_set_sensitive(vc->menu_item, false);
     vc->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    gtk_window_set_default_size(GTK_WINDOW(vc->window),
+                                default_width, default_height);
+
 #if defined(CONFIG_OPENGL)
     if (vc->gfx.esurface) {
         eglDestroySurface(qemu_egl_display, vc->gfx.esurface);
