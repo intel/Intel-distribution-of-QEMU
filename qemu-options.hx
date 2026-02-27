@@ -2134,6 +2134,7 @@ DEF("display", HAS_ARG, QEMU_OPTION_display,
     "-display gtk[,full-screen=on|off][,gl=on|off][,grab-on-hover=on|off]\n"
     "            [,show-tabs=on|off][,show-cursor=on|off][,window-close=on|off]\n"
     "            [,show-menubar=on|off][,zoom-to-fit=on|off]\n"
+    "            [,connectors.<index>=<connector name>]\n"
 #endif
 #if defined(CONFIG_VNC)
     "-display vnc=<display>[,<optargs>]\n"
@@ -2229,6 +2230,9 @@ SRST
 
         ``zoom-to-fit=on|off`` : Expand video output to the window size,
                                  defaults to "off"
+
+        ``connectors=<conn name>`` : VC to connector mappings to display the VC
+                                     window on a specific monitor
 
     ``curses[,charset=<encoding>]``
         Display video output via curses. For graphics device models
