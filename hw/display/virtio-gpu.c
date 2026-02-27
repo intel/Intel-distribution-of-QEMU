@@ -32,6 +32,7 @@
 #include "qemu/module.h"
 #include "qapi/error.h"
 #include "qemu/error-report.h"
+#include <math.h>
 
 #define VIRTIO_GPU_VM_VERSION 1
 
@@ -57,9 +58,14 @@ void virtio_gpu_update_cursor_data(VirtIOGPU *g,
     }
 
     if (res->blob_size) {
-        if (res->blob_size < (s->current_cursor->width *
-                              s->current_cursor->height * 4)) {
-            return;
+        if (res->blob_size != (s->current_cursor->width *
+                               s->current_cursor->height * 4)) {
+            /* resize 'current_cursor' for the new blob_size
+             * The assumption is the cursor image is square.
+             */
+            int width = sqrt(res->blob_size / 4);
+            cursor_unref(s->current_cursor);
+            s->current_cursor = cursor_alloc(width, width);
         }
         data = res->blob;
     } else if (res->image) {
