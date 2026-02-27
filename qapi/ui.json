@@ -1366,6 +1366,9 @@
 #     can't be assigned to one VC.
 #     (Since Custom)
 #
+# @show-fps: Enable showing frame update rate (default: off).
+#     (Since Custom)
+#
 # Since: 2.12
 ##
 { 'struct'  : 'DisplayGTK',
@@ -1375,7 +1378,8 @@
                 '*show-menubar'      : 'bool',
                 '*keep-aspect-ratio' : 'bool',
                 '*scale'             : 'number',
-                '*connectors'        : ['str'] } }
+                '*connectors'        : ['str'],
+                '*show-fps'          : 'bool' } }
 
 ##
 # @DisplayEGLHeadless:
