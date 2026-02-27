@@ -597,6 +597,7 @@ static void gd_gl_release_dmabuf(DisplayChangeListener *dcl,
 
 void gd_hw_gl_flushed(void *vcon)
 {
+#ifdef CONFIG_GBM
     VirtualConsole *vc = vcon;
     QemuDmaBuf *dmabuf = vc->gfx.guest_fb.dmabuf;
     int fence_fd;
@@ -608,6 +609,7 @@ void gd_hw_gl_flushed(void *vcon)
         qemu_dmabuf_set_fence_fd(dmabuf, -1);
         graphic_hw_gl_block(vc->gfx.dcl.con, false);
     }
+#endif
 }
 
 /** DisplayState Callbacks (opengl version) **/
@@ -687,6 +689,28 @@ static const DisplayGLCtxOps egl_ctx_ops = {
 static void gd_change_runstate(void *opaque, bool running, RunState state)
 {
     GtkDisplayState *s = opaque;
+
+#ifdef CONFIG_GBM
+    int i;
+
+    if (state == RUN_STATE_SAVE_VM || state == RUN_STATE_RESTORE_VM) {
+        for (i = 0; i < s->nb_vcs; i++) {
+            VirtualConsole *vc = &s->vc[i];
+            QemuDmaBuf *dmabuf = vc->gfx.guest_fb.dmabuf;
+
+            if (dmabuf && qemu_dmabuf_get_draw_submitted(dmabuf)) {
+                qemu_dmabuf_set_draw_submitted(dmabuf, false);
+                graphic_hw_gl_block(vc->gfx.dcl.con, false);
+            }
+
+           if (dmabuf && qemu_dmabuf_get_fence_fd(dmabuf) >= 0) {
+                /* force flushing current scanout blob rendering process
+                 * just in case the fence is still not signaled */
+                gd_hw_gl_flushed(vc);
+            }
+        }
+    }
+#endif
 
     gd_update_caption(s);
 }
