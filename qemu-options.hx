@@ -2135,6 +2135,7 @@ DEF("display", HAS_ARG, QEMU_OPTION_display,
     "            [,show-tabs=on|off][,show-cursor=on|off][,window-close=on|off]\n"
     "            [,show-menubar=on|off][,zoom-to-fit=on|off]\n"
     "            [,connectors.<index>=<connector name>]\n"
+    "            [,show-fps=on|off]\n"
 #endif
 #if defined(CONFIG_VNC)
     "-display vnc=<display>[,<optargs>]\n"
@@ -2233,6 +2234,10 @@ SRST
 
         ``connectors=<conn name>`` : VC to connector mappings to display the VC
                                      window on a specific monitor
+
+        ``show-fps=on|off`` : Display Guest Scanout's flush rate and
+                              QEMU draw rate on a status bar attached to
+                              QEMU window.
 
     ``curses[,charset=<encoding>]``
         Display video output via curses. For graphics device models

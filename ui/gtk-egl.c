@@ -108,7 +108,10 @@ void gd_egl_draw(VirtualConsole *vc)
             } else {
                 graphic_hw_gl_block(vc->gfx.dcl.con, false);
 	    }
-        }
+        } else {
+            /* no fence draw is an additional draw done by host */
+            gd_gl_count_frame(&vc->gfx.dcl, false, true);
+	}
 #endif
     } else {
         eglMakeCurrent(qemu_egl_display, vc->gfx.esurface,
@@ -173,6 +176,7 @@ void gd_egl_refresh(DisplayChangeListener *dcl)
     }
 
 #ifdef CONFIG_GBM
+    gd_gl_count_frame(&vc->gfx.dcl, false, false);
     if (dmabuf &&
         qemu_dmabuf_get_fds(dmabuf, NULL)[0] >= 0) {
         gd_egl_draw(vc);
@@ -467,11 +471,13 @@ void gd_egl_flush(DisplayChangeListener *dcl,
         qemu_dmabuf_set_draw_submitted(dmabuf, true);
         gtk_egl_set_scanout_mode(vc, true);
         gd_egl_draw(vc);
+        gd_gl_count_frame(&vc->gfx.dcl, true, false);
         return;
     }
 #endif
 
     gd_egl_scanout_flush(&vc->gfx.dcl, x, y, w, h);
+    gd_gl_count_frame(&vc->gfx.dcl, true, false);
 }
 
 void gtk_egl_init(DisplayGLMode mode)

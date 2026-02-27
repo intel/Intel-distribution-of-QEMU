@@ -557,6 +557,72 @@ static void gd_switch(DisplayChangeListener *dcl,
     }
 }
 
+void gd_gl_count_frame(DisplayChangeListener *dcl, bool guest, bool host)
+{
+    VirtualConsole *vc = container_of(dcl, VirtualConsole, gfx.dcl);
+    GtkDisplayState *s = vc->s;
+    static gint64 prev;
+    gint64 curr = g_get_monotonic_time();
+
+    if (!s->opts->u.gtk.has_show_fps || !s->opts->u.gtk.show_fps) {
+        return;
+    }
+
+    if (guest) {
+        vc->gfx.guest_fps++;
+    } else if (host) {
+        vc->gfx.host_fps++;
+    }
+
+    if (prev == 0) {
+        prev = curr;
+    }
+
+    if (curr - prev > 1000000) {
+        g_autoptr(GString) status = g_string_new("");
+        double delta = (curr - prev) / 1000000.0;
+        int i, d = 0;
+
+        // HW Cursor check
+        bool hw_cursor_active = false;
+        for (i = 0; i < s->nb_vcs; i++) {
+            if (s->vc[i].type == GD_VC_GFX && s->vc[i].gfx.cursor_image) {
+                hw_cursor_active = true;
+                break;
+            }
+        }
+        g_string_append_printf(status, "HW cursor %s  ",
+                               hw_cursor_active ? "on" : "off");
+
+        for (i = 0; i < s->nb_vcs; i++) {
+            vc = &s->vc[i];
+            if (vc->type == GD_VC_GFX &&
+                qemu_console_is_graphic(vc->gfx.dcl.con)) {
+
+                if (vc->label) {
+                    g_string_append_printf(status, "%s", vc->label);
+                } else {
+                    g_string_append_printf(status, "Disp%d", d++);
+                }
+
+                g_string_append_printf(status, "[guest %0.1f fps / host %0.1f fps]  ",
+                                       vc->gfx.guest_fps / delta,
+                                       vc->gfx.host_fps / delta);
+
+                vc->gfx.guest_fps = 0;
+                vc->gfx.host_fps = 0;
+            }
+        }
+
+        guint id = gtk_statusbar_get_context_id(GTK_STATUSBAR(s->status_bar),
+                                                "Display Update Rate");
+        gtk_statusbar_pop(GTK_STATUSBAR(s->status_bar), id);
+        gtk_statusbar_push(GTK_STATUSBAR(s->status_bar), id, status->str);
+
+        prev = curr;
+    }
+}
+
 static const DisplayChangeListenerOps dcl_ops = {
     .dpy_name             = "gtk",
     .dpy_gfx_update       = gd_update,
@@ -613,6 +679,7 @@ void gd_hw_gl_flushed(void *vcon)
         close(fence_fd);
         qemu_dmabuf_set_fence_fd(dmabuf, -1);
         graphic_hw_gl_block(vc->gfx.dcl.con, false);
+	gd_gl_count_frame(&vc->gfx.dcl, false, true);
     }
 #endif
 }
@@ -2936,6 +3003,9 @@ static void gtk_display_init(DisplayState *ds, DisplayOptions *opts)
     s->vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     s->notebook = gtk_notebook_new();
     s->menu_bar = gtk_menu_bar_new();
+    if (opts->u.gtk.has_show_fps && opts->u.gtk.show_fps) {
+        s->status_bar = gtk_statusbar_new();
+    }
 
     s->free_scale = FALSE;
 
@@ -2976,6 +3046,9 @@ static void gtk_display_init(DisplayState *ds, DisplayOptions *opts)
 
     gtk_box_pack_start(GTK_BOX(s->vbox), s->menu_bar, FALSE, TRUE, 0);
     gtk_box_pack_start(GTK_BOX(s->vbox), s->notebook, TRUE, TRUE, 0);
+    if (opts->u.gtk.has_show_fps && opts->u.gtk.show_fps) {
+        gtk_box_pack_start(GTK_BOX(s->vbox), s->status_bar, FALSE, TRUE, 0);
+    }
 
     gtk_container_add(GTK_CONTAINER(s->window), s->vbox);
 
