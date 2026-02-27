@@ -1440,6 +1440,37 @@ static gboolean gd_event(GtkWidget *widget, GdkEvent *event, void *opaque)
     return FALSE;
 }
 
+static void gd_vc_fullscreen_toggle(void *opaque)
+{
+    VirtualConsole *vc = opaque;
+    GdkWindow *window;
+    GdkWindowState state;
+
+    if (!vc->window) {
+        return;
+    }
+
+    window = gtk_widget_get_window(vc->window);
+    state = gdk_window_get_state(window);
+
+    if (state & GDK_WINDOW_STATE_FULLSCREEN) {
+        gtk_window_unfullscreen(GTK_WINDOW(vc->window));
+
+        if (vc->type == GD_VC_GFX) {
+            vc->gfx.scale_x = 1.0;
+            vc->gfx.scale_y = 1.0;
+            gd_update_windowsize(vc);
+            vc->full_screen = false;
+        }
+    } else {
+        if (vc->type == GD_VC_GFX) {
+            gtk_widget_set_size_request(vc->gfx.drawing_area, -1, -1);
+        }
+        gtk_window_fullscreen(GTK_WINDOW(vc->window));
+        vc->full_screen = true;
+    }
+}
+
 static gboolean gd_window_event(GtkWidget *widget, GdkEvent *event,
                                 void *opaque)
 {
@@ -1454,6 +1485,20 @@ static gboolean gd_window_event(GtkWidget *widget, GdkEvent *event,
             gd_grab_keyboard(vc, "windows-focused");
         }
     }
+
+    /* WA to fullscreen window if it's forcefully un-fullscreened by
+     * the compositor */
+    if (!(event->window_state.new_window_state &
+          GDK_WINDOW_STATE_FULLSCREEN)) {
+        if (vc == gd_vc_find_current(vc->s) && vc->s->full_screen) {
+            vc->s->full_screen = false;
+            gtk_menu_item_activate(GTK_MENU_ITEM(vc->s->full_screen_item));
+        } else if (vc->full_screen) {
+            vc->full_screen = false;
+            gd_vc_fullscreen_toggle(vc);
+        }
+    }
+
     return TRUE;
 }
 
@@ -1561,36 +1606,6 @@ static gboolean gd_win_grab(void *opaque)
     return TRUE;
 }
 
-static void gd_vc_fullscreen_toggle(void *opaque)
-{
-    VirtualConsole *vc = opaque;
-    GdkWindow *window;
-    GdkWindowState state;
-
-    if (!vc->window) {
-        return;
-    }
-
-    window = gtk_widget_get_window(vc->window);
-    state = gdk_window_get_state(window);
-
-    if (state & GDK_WINDOW_STATE_FULLSCREEN) {
-        gtk_window_unfullscreen(GTK_WINDOW(vc->window));
-
-        if (vc->type == GD_VC_GFX) {
-            vc->gfx.scale_x = 1.0;
-            vc->gfx.scale_y = 1.0;
-            gd_update_windowsize(vc);
-        }
-    } else {
-        if (vc->type == GD_VC_GFX) {
-            gtk_widget_set_size_request(vc->gfx.drawing_area, -1, -1);
-        }
-        gtk_window_fullscreen(GTK_WINDOW(vc->window));
-    }
-}
-
-
 static void gd_tab_window_create(VirtualConsole *vc)
 {
     GtkDisplayState *s = vc->s;
@@ -1673,6 +1688,7 @@ static void gd_window_show_on_monitor(GdkDisplay *dpy, VirtualConsole *vc,
     if (s->opts->has_full_screen && s->opts->full_screen) {
         gtk_widget_set_size_request(vc->gfx.drawing_area, -1, -1);
         gtk_window_fullscreen(GTK_WINDOW(vc->window));
+        vc->full_screen = true;
     } else if ((s->window == vc->window) && s->full_screen) {
         gd_menu_show_tabs(GTK_MENU_ITEM(s->show_tabs_item), s);
         if (gtk_check_menu_item_get_active(
