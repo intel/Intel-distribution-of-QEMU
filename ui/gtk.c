@@ -39,6 +39,7 @@
 #include "qemu/error-report.h"
 #include "qemu/main-loop.h"
 #include "qemu-main.h"
+#include "qemu/option.h"
 
 #include "ui/console.h"
 #include "ui/gtk.h"
@@ -601,6 +602,10 @@ void gd_hw_gl_flushed(void *vcon)
     VirtualConsole *vc = vcon;
     QemuDmaBuf *dmabuf = vc->gfx.guest_fb.dmabuf;
     int fence_fd;
+
+    if (!dmabuf) {
+        return;
+    }
 
     fence_fd = qemu_dmabuf_get_fence_fd(dmabuf);
     if (fence_fd >= 0) {
@@ -1585,6 +1590,48 @@ static void gd_vc_fullscreen_toggle(void *opaque)
     }
 }
 
+
+static void gd_tab_window_create(VirtualConsole *vc)
+{
+    GtkDisplayState *s = vc->s;
+
+    gtk_widget_set_sensitive(vc->menu_item, false);
+    vc->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+#if defined(CONFIG_OPENGL)
+    if (vc->gfx.esurface) {
+        eglDestroySurface(qemu_egl_display, vc->gfx.esurface);
+        vc->gfx.esurface = NULL;
+    }
+    if (vc->gfx.ectx) {
+        eglDestroyContext(qemu_egl_display, vc->gfx.ectx);
+        vc->gfx.ectx = NULL;
+    }
+#endif
+    gd_widget_reparent(s->notebook, vc->window, vc->tab_item);
+
+    g_signal_connect(vc->window, "delete-event",
+                     G_CALLBACK(gd_tab_window_close), vc);
+    g_signal_connect(vc->window, "window-state-event",
+                     G_CALLBACK(gd_window_event), vc);
+    gtk_widget_show_all(vc->window);
+
+    if (qemu_console_is_graphic(vc->gfx.dcl.con)) {
+        GtkAccelGroup *ag = gtk_accel_group_new();
+        gtk_window_add_accel_group(GTK_WINDOW(vc->window), ag);
+
+        GClosure *cb_grab = g_cclosure_new_swap(G_CALLBACK(gd_win_grab),
+                                                vc, NULL);
+        gtk_accel_group_connect(ag, GDK_KEY_g, HOTKEY_MODIFIERS, 0, cb_grab);
+        GClosure *cb_fs = g_cclosure_new_swap(
+                                         G_CALLBACK(gd_vc_fullscreen_toggle),
+                                         vc, NULL);
+        gtk_accel_group_connect(ag, GDK_KEY_f, HOTKEY_MODIFIERS, 0, cb_fs);
+    }
+
+    gd_update_geometry_hints(vc);
+    gd_update_caption(s);
+}
+
 static void gd_menu_untabify(GtkMenuItem *item, void *opaque)
 {
     GtkDisplayState *s = opaque;
@@ -1595,43 +1642,263 @@ static void gd_menu_untabify(GtkMenuItem *item, void *opaque)
         gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(s->grab_item),
                                        FALSE);
     }
-    if (!vc->window) {
-        gtk_widget_set_sensitive(vc->menu_item, false);
-        vc->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-#if defined(CONFIG_OPENGL)
-        if (vc->gfx.esurface) {
-            eglDestroySurface(qemu_egl_display, vc->gfx.esurface);
-            vc->gfx.esurface = NULL;
-        }
-        if (vc->gfx.ectx) {
-            eglDestroyContext(qemu_egl_display, vc->gfx.ectx);
-            vc->gfx.ectx = NULL;
-        }
-#endif
-        gd_widget_reparent(s->notebook, vc->window, vc->tab_item);
-
-        g_signal_connect(vc->window, "delete-event",
-                         G_CALLBACK(gd_tab_window_close), vc);
-        g_signal_connect(vc->window, "window-state-event",
-                         G_CALLBACK(gd_window_event), vc);
-        gtk_widget_show_all(vc->window);
-
-        if (qemu_console_is_graphic(vc->gfx.dcl.con)) {
-            GtkAccelGroup *ag = gtk_accel_group_new();
-            gtk_window_add_accel_group(GTK_WINDOW(vc->window), ag);
-
-            GClosure *cb_grab = g_cclosure_new_swap(G_CALLBACK(gd_win_grab),
-                                                    vc, NULL);
-            gtk_accel_group_connect(ag, GDK_KEY_g, HOTKEY_MODIFIERS, 0, cb_grab);
-            GClosure *cb_fs = g_cclosure_new_swap(
-                                             G_CALLBACK(gd_vc_fullscreen_toggle),
-                                             vc, NULL);
-            gtk_accel_group_connect(ag, GDK_KEY_f, HOTKEY_MODIFIERS, 0, cb_fs);
-        }
-
-        gd_update_geometry_hints(vc);
-        gd_update_caption(s);
+    if (!vc->window || vc->window == s->window) {
+        gd_tab_window_create(vc);
     }
+}
+
+static void gd_window_show_on_monitor(GdkDisplay *dpy, VirtualConsole *vc,
+                                      gint monitor_num)
+{
+    GtkDisplayState *s = vc->s;
+    GdkMonitor *monitor = gdk_display_get_monitor(dpy, monitor_num);
+    GdkRectangle geometry;
+    GdkWindow *window;
+    QemuUIInfo info;
+
+    if (!vc->window) {
+        gd_tab_window_create(vc);
+    }
+
+    gdk_window_show(gtk_widget_get_window(vc->window));
+    gd_update_windowsize(vc);
+    gdk_monitor_get_geometry(monitor, &geometry);
+    /*
+     * Note: some compositors (mainly Wayland ones) may not honor a
+     * request to move to a particular location. The user is expected
+     * to drag the window to the preferred location in this case.
+     */
+    gtk_window_move(GTK_WINDOW(vc->window), geometry.x, geometry.y);
+
+    if (s->opts->has_full_screen && s->opts->full_screen) {
+        gtk_widget_set_size_request(vc->gfx.drawing_area, -1, -1);
+        gtk_window_fullscreen(GTK_WINDOW(vc->window));
+    } else if ((s->window == vc->window) && s->full_screen) {
+        gd_menu_show_tabs(GTK_MENU_ITEM(s->show_tabs_item), s);
+        if (gtk_check_menu_item_get_active(
+                    GTK_CHECK_MENU_ITEM(s->show_menubar_item))) {
+            gtk_widget_show(s->menu_bar);
+        }
+        s->full_screen = false;
+    }
+
+    vc->monitor = monitor;
+
+    window = gtk_widget_get_window(vc->gfx.drawing_area);
+    info = *dpy_get_ui_info(vc->gfx.dcl.con);
+    info.width = gdk_window_get_width(window);
+    info.height = gdk_window_get_height(window);
+    dpy_set_ui_info(vc->gfx.dcl.con, &info, false);
+
+    if (gd_is_grab_active(s)) {
+        gd_grab_keyboard(vc, "user-request-main-window");
+        gd_grab_pointer(vc, "user-request-main-window");
+    } else {
+        gd_ungrab_keyboard(s);
+        gd_ungrab_pointer(s);
+    }
+
+    gd_update_cursor(vc);
+}
+
+static int gd_monitor_lookup(GdkDisplay *dpy, char *label)
+{
+    GdkMonitor *monitor;
+    int total_monitors = gdk_display_get_n_monitors(dpy);
+    int i;
+
+    for (i = 0; i < total_monitors; i++) {
+        monitor = gdk_display_get_monitor(dpy, i);
+        if (monitor && !g_strcmp0(gdk_monitor_get_model(monitor), label)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+static gboolean gd_vc_is_misplaced(GdkDisplay *dpy, GdkMonitor *monitor,
+                                   VirtualConsole *vc)
+{
+    GdkWindow *window = gtk_widget_get_window(vc->gfx.drawing_area);
+    GdkMonitor *mon = gdk_display_get_monitor_at_window(dpy, window);
+    const char *monitor_name = gdk_monitor_get_model(monitor);
+
+    if (!vc->monitor) {
+        if (!g_strcmp0(monitor_name, vc->label)) {
+            return TRUE;
+        }
+    } else {
+        if (mon && mon != vc->monitor) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+static void gd_vc_disconn_monitor(GdkDisplay *dpy, GtkDisplayState *s)
+{
+    VirtualConsole *vc;
+    gint monitor_num;
+    int i;
+
+    for (i = 0; i < s->nb_vcs; i++) {
+        vc = &s->vc[i];
+        if (vc->label) {
+            monitor_num = gd_monitor_lookup(dpy, vc->label);
+            if (monitor_num < 0) {
+		if (vc->monitor) {
+		    vc->monitor = NULL;
+		}
+
+		if (dpy_ui_info_supported(vc->gfx.dcl.con)) {
+		    QemuUIInfo info = *dpy_get_ui_info(vc->gfx.dcl.con);
+                    info.width = 0;
+                    info.height = 0;
+                    dpy_set_ui_info(vc->gfx.dcl.con, &info, false);
+		}
+
+                /* if window exist, hide it */
+                if (vc->window) {
+#ifdef CONFIG_GBM
+                    QemuDmaBuf *dmabuf = vc->gfx.guest_fb.dmabuf;
+                    gdk_window_hide(gtk_widget_get_window(vc->window));
+
+                    if (dmabuf && qemu_dmabuf_get_draw_submitted(dmabuf)) {
+                        qemu_dmabuf_set_draw_submitted(dmabuf, false);
+                        graphic_hw_gl_block(vc->gfx.dcl.con, false);
+                    }
+
+                    /* force flushing current scanout blob rendering process
+                     * just in case the fence is still not signaled */
+                    gd_hw_gl_flushed(vc);
+#endif
+                }
+            }
+        }
+    }
+}
+
+static void gd_vc_conn_monitor(GdkDisplay *dpy, GtkDisplayState *s)
+{
+    VirtualConsole *vc;
+    GdkMonitor *monitor;
+    gint monitor_num;
+    int i;
+
+    /*
+     * We need to call gd_vc_is_misplaced() after a monitor is added to
+     * ensure that the Host compositor has not moved our windows around.
+     */
+    for (i = 0; i < s->nb_vcs; i++) {
+        vc = &s->vc[i];
+        if (vc->label) {
+            monitor_num = gd_monitor_lookup(dpy, vc->label);
+            if (monitor_num >= 0) {
+                monitor = gdk_display_get_monitor(dpy, monitor_num);
+                if (gd_vc_is_misplaced(dpy, monitor, vc)) {
+                    gd_window_show_on_monitor(dpy, vc, monitor_num);
+                }
+            }
+        }
+    }
+}
+
+static void gd_monitors_reset_timer(void *opaque)
+{
+    GtkDisplayState *s = opaque;
+    GdkDisplay *dpy = gdk_display_get_default();
+
+    gd_vc_conn_monitor(dpy, s);
+}
+
+static void gd_monitors_changed(GdkScreen *scr, void *opaque)
+{
+    GtkDisplayState *s = opaque;
+    GdkDisplay *dpy = gdk_display_get_default();
+    QEMUTimer *mon_reset_timer;
+
+    gd_vc_disconn_monitor(dpy, s);
+    mon_reset_timer = timer_new_ms(QEMU_CLOCK_REALTIME,
+                                   gd_monitors_reset_timer, s);
+    timer_mod(mon_reset_timer,
+              qemu_clock_get_ms(QEMU_CLOCK_REALTIME) + 2000);
+}
+
+static VirtualConsole *gd_next_gfx_vc(GtkDisplayState *s)
+{
+    VirtualConsole *vc;
+    int i;
+
+    for (i = 0; i < s->nb_vcs; i++) {
+        vc = &s->vc[i];
+        if (vc->type == GD_VC_GFX &&
+            qemu_console_is_graphic(vc->gfx.dcl.con) &&
+            !vc->label) {
+            return vc;
+        }
+    }
+    return NULL;
+}
+
+static void gd_vc_free_labels(GtkDisplayState *s)
+{
+    VirtualConsole *vc;
+    int i;
+
+    for (i = 0; i < s->nb_vcs; i++) {
+        vc = &s->vc[i];
+        if (vc->type == GD_VC_GFX &&
+            qemu_console_is_graphic(vc->gfx.dcl.con)) {
+            g_free(vc->label);
+            vc->label = NULL;
+            if (dpy_ui_info_supported(vc->gfx.dcl.con)) {
+                QemuUIInfo info = *dpy_get_ui_info(vc->gfx.dcl.con);
+
+                info.width = 0;
+                info.height = 0;
+                dpy_set_ui_info(vc->gfx.dcl.con, &info, false);
+            }
+        }
+    }
+}
+
+static void gd_connectors_init(GdkDisplay *dpy, GtkDisplayState *s)
+{
+    VirtualConsole *vc;
+    QEMUTimer *mon_reset_timer;
+    strList *conn;
+    gint monitor_num;
+    gboolean first_vc = TRUE;
+
+    gtk_notebook_set_show_tabs(GTK_NOTEBOOK(s->notebook), FALSE);
+    gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(s->grab_item),
+                                   FALSE);
+    gd_vc_free_labels(s);
+    for (conn = s->opts->u.gtk.connectors; conn; conn = conn->next) {
+        vc = gd_next_gfx_vc(s);
+        if (!vc) {
+            break;
+        }
+        if (first_vc) {
+            vc->window = s->window;
+        }
+
+        vc->label = g_strdup(conn->value);
+        monitor_num = gd_monitor_lookup(dpy, vc->label);
+        if (monitor_num >= 0) {
+            gd_window_show_on_monitor(dpy, vc, monitor_num);
+        } else if (first_vc) {
+            fprintf(stderr, "gtk: no monitor found for '%s' so terminating..\n",
+                    vc->label);
+            abort();
+        }
+        first_vc = FALSE;
+    }
+
+    mon_reset_timer = timer_new_ms(QEMU_CLOCK_REALTIME,
+                                   gd_monitors_reset_timer, s);
+    timer_mod(mon_reset_timer,
+              qemu_clock_get_ms(QEMU_CLOCK_REALTIME) + 100);
 }
 
 static void gd_menu_show_menubar(GtkMenuItem *item, void *opaque)
@@ -1962,14 +2229,24 @@ static gboolean gd_configure(GtkWidget *widget,
     VirtualConsole *vc = opaque;
     const double sx = vc->gfx.scale_x, sy = vc->gfx.scale_y;
     double width = cfg->width, height = cfg->height;
+    QemuUIInfo info;
+
+    if (!dpy_ui_info_supported(vc->gfx.dcl.con)) {
+        return FALSE;
+    }
+
+    info = *dpy_get_ui_info(vc->gfx.dcl.con);
 
     if (!vc->s->free_scale && !vc->s->full_screen) {
         width /= sx;
         height /= sy;
     }
 
-    gd_set_ui_size(vc, width, height);
+    if (vc->s->opts->u.gtk.has_connectors && !info.width && !info.height) {
+        return FALSE;
+    }
 
+    gd_set_ui_size(vc, cfg->width, cfg->height);
     return FALSE;
 }
 
@@ -2305,6 +2582,10 @@ static void gd_connect_signals(GtkDisplayState *s)
                      G_CALLBACK(gd_menu_grab_input), s);
     g_signal_connect(s->notebook, "switch-page",
                      G_CALLBACK(gd_change_page), s);
+    if (s->opts->u.gtk.has_connectors) {
+        g_signal_connect(gdk_screen_get_default(), "monitors-changed",
+                         G_CALLBACK(gd_monitors_changed), s);
+    }
 }
 
 static GtkWidget *gd_create_menu_machine(GtkDisplayState *s)
@@ -2715,6 +2996,9 @@ static void gtk_display_init(DisplayState *ds, DisplayOptions *opts)
     if (opts->u.gtk.has_show_tabs &&
         opts->u.gtk.show_tabs) {
         gtk_menu_item_activate(GTK_MENU_ITEM(s->show_tabs_item));
+    }
+    if (s->opts->u.gtk.has_connectors) {
+        gd_connectors_init(window_display, s);
     }
 #ifdef CONFIG_GTK_CLIPBOARD
     gd_clipboard_init(s);
