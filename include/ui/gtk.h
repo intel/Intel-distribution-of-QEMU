@@ -61,6 +61,8 @@ typedef struct VirtualGfxConsole {
     bool y0_top;
     bool scanout_mode;
     bool has_dmabuf;
+    unsigned int guest_fps;
+    unsigned int host_fps;
 #endif
 } VirtualGfxConsole;
 
@@ -129,6 +131,7 @@ struct GtkDisplayState {
     GtkWidget *show_tabs_item;
     GtkWidget *untabify_item;
     GtkWidget *show_menubar_item;
+    GtkWidget *status_bar;
 
     GtkWidget *vbox;
     GtkWidget *notebook;
@@ -164,6 +167,7 @@ extern bool gtk_use_gl_area;
 void gd_update_windowsize(VirtualConsole *vc);
 void gd_update_monitor_refresh_rate(VirtualConsole *vc, GtkWidget *widget);
 void gd_hw_gl_flushed(void *vc);
+void gd_gl_count_frame(DisplayChangeListener *dcl, bool guest, bool host);
 
 /* ui/gtk-egl.c */
 void gd_egl_init(VirtualConsole *vc);
