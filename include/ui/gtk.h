@@ -89,6 +89,7 @@ typedef struct VirtualConsole {
     GtkWidget *focus;
     GdkMonitor *monitor;
     VirtualConsoleType type;
+    bool full_screen;
     union {
         VirtualGfxConsole gfx;
 #if defined(CONFIG_VTE)
