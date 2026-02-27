@@ -1341,6 +1341,31 @@
 # @scale: Set preferred scale of the display.  Defaults to 1.0.
 #     (Since 10.1)
 #
+# @connectors: List of physical monitor/connector names where the
+#     GTK windows containing the respective graphics virtual consoles
+#     (VCs) are to be placed.  Index of the connector name in the list
+#     directly indicates the id of the VC.  For example, with "-device
+#     gtk,connectors.0=DP-1, connectors.1=HDMI-2", a physical display
+#     connected to DP-1 will be the target monitor for VC0 and the one
+#     on HDMI-2 will be the target for VC1.  If there is no valid
+#     connector name for a VC, it won't be displayed anywhere in any
+#     situations and the associated virtual display will be shown
+#     as disconnected in the guest.  If a valid connector name exists
+#     for a VC but its display cable is not plugged in when guest is
+#     launched, the VC won't be displayed at first but will show up on
+#     the display as soon as the cable is plugged in.  If the cable is
+#     disconnected again, the VC will immediately be hidden and guest
+#     will see its virtual display disconnected.  When this list param
+#     is used, there shouldn't be any missing elements before the last
+#     one in the list.  For example, if connectors.3 is specified,
+#     then connector names for connectors.0 through connectors.2
+#     should also be given.  Multiple VCs can have a same connector
+#     name.
+#     In this case, all of those VCs will be displayed on the same
+#     physical monitor.  But multiple different connector names
+#     can't be assigned to one VC.
+#     (Since Custom)
+#
 # Since: 2.12
 ##
 { 'struct'  : 'DisplayGTK',
@@ -1349,7 +1374,8 @@
                 '*show-tabs'         : 'bool',
                 '*show-menubar'      : 'bool',
                 '*keep-aspect-ratio' : 'bool',
-                '*scale'             : 'number'  } }
+                '*scale'             : 'number',
+                '*connectors'        : ['str'] } }
 
 ##
 # @DisplayEGLHeadless:
