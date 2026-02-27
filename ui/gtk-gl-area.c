@@ -355,6 +355,7 @@ void gd_gl_area_scanout_flush(DisplayChangeListener *dcl,
         gtk_gl_area_set_scanout_mode(vc, true);
     }
     gtk_gl_area_queue_render(GTK_GL_AREA(vc->gfx.drawing_area));
+    gd_gl_count_frame(&vc->gfx.dcl, true, false);
 }
 
 void gd_gl_area_scanout_dmabuf(DisplayChangeListener *dcl,
