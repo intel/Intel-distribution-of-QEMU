@@ -2599,7 +2599,18 @@ static void gd_connect_vc_gfx_signals(VirtualConsole *vc)
     }
 #endif
     if (qemu_console_is_graphic(vc->gfx.dcl.con)) {
-        g_signal_connect(vc->gfx.drawing_area, "event",
+        g_signal_connect(vc->gfx.drawing_area, "configure-event",
+                         G_CALLBACK(gd_configure), vc);
+        /*
+         * Don't configure input events if the user has provided an option
+         * for input and explicitly set it to off. In this case, they want
+         * passthrough HID devices to control the guest.
+         */
+        if (vc->s->opts->u.gtk.has_input && !vc->s->opts->u.gtk.input ) {
+            return;
+        }
+
+	g_signal_connect(vc->gfx.drawing_area, "event",
                          G_CALLBACK(gd_event), vc);
         g_signal_connect(vc->gfx.drawing_area, "button-press-event",
                          G_CALLBACK(gd_button_event), vc);
@@ -2613,7 +2624,6 @@ static void gd_connect_vc_gfx_signals(VirtualConsole *vc)
                          G_CALLBACK(gd_key_event), vc);
         g_signal_connect(vc->gfx.drawing_area, "touch-event",
                          G_CALLBACK(gd_touch_event), vc);
-
         g_signal_connect(vc->gfx.drawing_area, "enter-notify-event",
                          G_CALLBACK(gd_enter_event), vc);
         g_signal_connect(vc->gfx.drawing_area, "leave-notify-event",
@@ -2622,8 +2632,6 @@ static void gd_connect_vc_gfx_signals(VirtualConsole *vc)
                          G_CALLBACK(gd_focus_in_event), vc);
         g_signal_connect(vc->gfx.drawing_area, "focus-out-event",
                          G_CALLBACK(gd_focus_out_event), vc);
-        g_signal_connect(vc->gfx.drawing_area, "configure-event",
-                         G_CALLBACK(gd_configure), vc);
         g_signal_connect(vc->gfx.drawing_area, "grab-broken-event",
                          G_CALLBACK(gd_grab_broken_event), vc);
     } else {
@@ -2666,8 +2674,12 @@ static void gd_connect_signals(GtkDisplayState *s)
                      G_CALLBACK(gd_menu_zoom_fixed), s);
     g_signal_connect(s->zoom_fit_item, "activate",
                      G_CALLBACK(gd_menu_zoom_fit), s);
-    g_signal_connect(s->grab_item, "activate",
-                     G_CALLBACK(gd_menu_grab_input), s);
+
+    if (!s->opts->u.gtk.has_input || s->opts->u.gtk.input) {
+        g_signal_connect(s->grab_item, "activate",
+                         G_CALLBACK(gd_menu_grab_input), s);
+    }
+
     g_signal_connect(s->notebook, "switch-page",
                      G_CALLBACK(gd_change_page), s);
     if (s->opts->u.gtk.has_connectors) {
@@ -2891,23 +2903,25 @@ static GtkWidget *gd_create_menu_view(GtkDisplayState *s, DisplayOptions *opts)
     s->zoom_fit_item = gtk_check_menu_item_new_with_mnemonic(_("Zoom To _Fit"));
     gtk_menu_shell_append(GTK_MENU_SHELL(view_menu), s->zoom_fit_item);
 
-    separator = gtk_separator_menu_item_new();
-    gtk_menu_shell_append(GTK_MENU_SHELL(view_menu), separator);
+    if (!s->opts->u.gtk.has_input || s->opts->u.gtk.input) {
+        separator = gtk_separator_menu_item_new();
+        gtk_menu_shell_append(GTK_MENU_SHELL(view_menu), separator);
 
-    s->grab_on_hover_item = gtk_check_menu_item_new_with_mnemonic(_("Grab On _Hover"));
-    gtk_menu_shell_append(GTK_MENU_SHELL(view_menu), s->grab_on_hover_item);
+        s->grab_on_hover_item = gtk_check_menu_item_new_with_mnemonic(_("Grab On _Hover"));
+        gtk_menu_shell_append(GTK_MENU_SHELL(view_menu), s->grab_on_hover_item);
 
-    s->grab_item = gtk_check_menu_item_new_with_mnemonic(_("_Grab Input"));
-    gtk_menu_item_set_accel_path(GTK_MENU_ITEM(s->grab_item),
-                                 "<QEMU>/View/Grab Input");
-    gtk_accel_map_add_entry("<QEMU>/View/Grab Input", GDK_KEY_g,
-                            HOTKEY_MODIFIERS);
-    gtk_menu_shell_append(GTK_MENU_SHELL(view_menu), s->grab_item);
-    gtk_accel_group_connect(s->accel_group, GDK_KEY_g, HOTKEY_MODIFIERS, 0,
-                        g_cclosure_new_swap(G_CALLBACK(gd_accel_grab_input), s, NULL));
-    gtk_accel_label_set_accel(
-                             GTK_ACCEL_LABEL(gtk_bin_get_child(GTK_BIN(s->grab_item))),
-                             GDK_KEY_g, HOTKEY_MODIFIERS);
+        s->grab_item = gtk_check_menu_item_new_with_mnemonic(_("_Grab Input"));
+        gtk_menu_item_set_accel_path(GTK_MENU_ITEM(s->grab_item),
+                                     "<QEMU>/View/Grab Input");
+        gtk_accel_map_add_entry("<QEMU>/View/Grab Input", GDK_KEY_g,
+                                HOTKEY_MODIFIERS);
+        gtk_menu_shell_append(GTK_MENU_SHELL(view_menu), s->grab_item);
+        gtk_accel_group_connect(s->accel_group, GDK_KEY_g, HOTKEY_MODIFIERS, 0,
+                            g_cclosure_new_swap(G_CALLBACK(gd_accel_grab_input), s, NULL));
+        gtk_accel_label_set_accel(
+                                 GTK_ACCEL_LABEL(gtk_bin_get_child(GTK_BIN(s->grab_item))),
+                                 GDK_KEY_g, HOTKEY_MODIFIERS);
+    }
 
     separator = gtk_separator_menu_item_new();
     gtk_menu_shell_append(GTK_MENU_SHELL(view_menu), separator);
