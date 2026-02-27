@@ -1182,8 +1182,8 @@ QemuConsole *graphic_console_init(DeviceState *dev, uint32_t head,
 {
     static const char noinit[] =
         "Guest has not initialized the display (yet).";
-    int width = 640;
-    int height = 480;
+    int width = 960;
+    int height = 540;
     QemuConsole *s;
     DisplaySurface *surface;
 
