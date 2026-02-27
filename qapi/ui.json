@@ -1369,6 +1369,10 @@
 # @show-fps: Enable showing frame update rate (default: off).
 #     (Since Custom)
 #
+# @input: Don't let host's HID devices control the guest.  Defaults to
+#     "on" so they can control the guest.
+#     (Since Custom)
+#
 # Since: 2.12
 ##
 { 'struct'  : 'DisplayGTK',
@@ -1379,7 +1383,8 @@
                 '*keep-aspect-ratio' : 'bool',
                 '*scale'             : 'number',
                 '*connectors'        : ['str'],
-                '*show-fps'          : 'bool' } }
+                '*show-fps'          : 'bool',
+                '*input'             : 'bool' } }
 
 ##
 # @DisplayEGLHeadless:
