@@ -1602,7 +1602,6 @@ static gboolean gd_window_state_event(GtkWidget *widget, GdkEvent *event,
             s->kbd_owner = NULL;
             gd_grab_keyboard(vc, "windows-focused");
         }
-
     }
 
     /* WA to fullscreen window if it's forcefully un-fullscreened by
@@ -1682,7 +1681,7 @@ static void gd_menu_untabify(GtkMenuItem *item, void *opaque)
 }
 
 static void gd_accel_grab_input(void *opaque);
-static void gd_grab_update(VirtualConsole *vc, bool kbd, bool ptr);
+static bool gd_grab_update(VirtualConsole *vc, bool kbd, bool ptr);
 
 static void gd_window_show_on_monitor(GdkDisplay *dpy, VirtualConsole *vc,
                                       gint monitor_num)
@@ -2068,13 +2067,14 @@ static void gd_menu_zoom_fit(GtkMenuItem *item, void *opaque)
     gd_update_full_redraw(vc);
 }
 
-static void gd_grab_update(VirtualConsole *vc, bool kbd, bool ptr)
+static bool gd_grab_update(VirtualConsole *vc, bool kbd, bool ptr)
 {
     GdkDisplay *display = gtk_widget_get_display(vc->gfx.drawing_area);
     GdkSeat *seat = gdk_display_get_default_seat(display);
     GdkWindow *window = gtk_widget_get_window(vc->gfx.drawing_area);
     GdkSeatCapabilities caps = 0;
     GdkCursor *cursor = NULL;
+    GdkGrabStatus grab_status;
 
     if (kbd) {
         caps |= GDK_SEAT_CAPABILITY_KEYBOARD;
@@ -2085,15 +2085,21 @@ static void gd_grab_update(VirtualConsole *vc, bool kbd, bool ptr)
     }
 
     if (caps) {
-        gdk_seat_grab(seat, window, caps, false, cursor,
-                      NULL, NULL, NULL);
+        grab_status = gdk_seat_grab(seat, window, caps, false, cursor,
+                                    NULL, NULL, NULL);
+        if (grab_status != GDK_GRAB_SUCCESS) {
+            return FALSE;
+        }
     } else {
         gdk_seat_ungrab(seat);
     }
+
+    return TRUE;
 }
 
 static void gd_grab_keyboard(VirtualConsole *vc, const char *reason)
 {
+    bool grab_status;
     if (vc->s->kbd_owner) {
         if (vc->s->kbd_owner == vc) {
             return;
@@ -2103,8 +2109,10 @@ static void gd_grab_keyboard(VirtualConsole *vc, const char *reason)
     }
 
     win32_kbd_set_grab(true);
-    gd_grab_update(vc, true, vc->s->ptr_owner == vc);
-    vc->s->kbd_owner = vc;
+    grab_status = gd_grab_update(vc, true, vc->s->ptr_owner == vc);
+    if (grab_status) {
+        vc->s->kbd_owner = vc;
+    }
     gd_update_caption(vc->s);
     trace_gd_grab(vc->label, "kbd", reason);
 }
@@ -2127,6 +2135,7 @@ static void gd_ungrab_keyboard(GtkDisplayState *s)
 static void gd_grab_pointer(VirtualConsole *vc, const char *reason)
 {
     GdkDisplay *display = gtk_widget_get_display(vc->gfx.drawing_area);
+    bool grab_status;
 
     if (vc->s->ptr_owner) {
         if (vc->s->ptr_owner == vc) {
@@ -2136,10 +2145,13 @@ static void gd_grab_pointer(VirtualConsole *vc, const char *reason)
         }
     }
 
-    gd_grab_update(vc, vc->s->kbd_owner == vc, true);
-    gdk_device_get_position(gd_get_pointer(display),
-                            NULL, &vc->s->grab_x_root, &vc->s->grab_y_root);
-    vc->s->ptr_owner = vc;
+    grab_status = gd_grab_update(vc, vc->s->kbd_owner == vc, true);
+    if (grab_status) {
+        gdk_device_get_position(gd_get_pointer(display),
+                                NULL, &vc->s->grab_x_root, &vc->s->grab_y_root);
+        vc->s->ptr_owner = vc;
+    }
+
     gd_update_caption(vc->s);
     trace_gd_grab(vc->label, "ptr", reason);
 }
@@ -3019,7 +3031,6 @@ static void gtk_display_init(DisplayState *ds, DisplayOptions *opts)
     vc = gd_vc_find_current(s);
     g_signal_connect(s->window, "window-state-event",
                      G_CALLBACK(gd_window_state_event), vc);
-
     gtk_widget_set_sensitive(s->view_menu, vc != NULL);
 #ifdef CONFIG_VTE
     gtk_widget_set_sensitive(s->copy_item,
