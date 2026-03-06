@@ -200,7 +200,9 @@ Depends: ${misc:Depends},
  qemu-system-s390x,
  qemu-system-sparc,
  qemu-system-x86,
- qemu-system-misc
+ qemu-system-misc,
+ ubuntu-virt,
+Replaces: qemu-system-hwe,
 Description: QEMU full system emulation binaries
  QEMU is a fast processor emulator: currently the package supports Alpha, ARM,
  CRIS, i386, LoongArch, M68k (ColdFire), MicroBlaze, MIPS, PowerPC, RISC-V,
@@ -218,6 +220,8 @@ Multi-Arch: no
 Depends: ${misc:Depends}, ${shlibs:Depends},
 # ensure qemu modules are upgraded together with the rest of qemu
  qemu-system-common (= ${binary:Version}) [amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64] | qemu-utils (= ${binary:Version}),
+ ubuntu-virt,
+Replaces: ubuntu-block-extra-hwe,
 Enhances: qemu-utils,
  qemu-system-arm,
  qemu-system-mips,
@@ -244,6 +248,7 @@ Multi-Arch: no
 Depends: ${misc:Depends}, ${shlibs:Depends},
 # ensure qemu modules are upgraded together with the rest of qemu
  qemu-system-common (= ${binary:Version}) [amd64 arm64 ppc64el riscv64 s390x] | qemu-utils (= ${binary:Version}),
+ ubuntu-virt,
 Enhances: qemu-utils,
  qemu-system-arm,
  qemu-system-mips,
@@ -254,7 +259,8 @@ Enhances: qemu-utils,
  qemu-system-x86,
  qemu-system-misc,
 Breaks: qemu-block-extra (<< 1:8.2.0+ds-4ubuntu2~)
-Replaces: qemu-block-extra (<< 1:8.2.0+ds-4ubuntu2~)
+Replaces: qemu-block-extra (<< 1:8.2.0+ds-4ubuntu2~),
+ qemu-block-supplemental-hwe,
 Description: supplemental block backend modules for qemu-system and qemu-utils
  QEMU is a fast processor emulator: currently the package supports Alpha, ARM,
  CRIS, i386, LoongArch, M68k (ColdFire), MicroBlaze, MIPS, PowerPC, RISC-V,
@@ -273,11 +279,13 @@ Architecture: all
 Multi-Arch: foreign
 Replaces: qemu-system-common (<< 1:8.2.2+ds-1~),
   qemu-system-misc (<< 1:10.1.0~rc2+ds-1),
+  qemu-system-data-hwe,
 Breaks:   qemu-system-common (<< 1:8.2.2+ds-1~),
   qemu-system-misc (<< 1:10.1.0~rc2+ds-1),
 # s390x-netboot dropped in 9.2, breaks qemu-system-s390x
  qemu-system-s390x (<< 1:9.2.0~),
-Depends: ${misc:Depends}
+Depends: ${misc:Depends},
+ ubuntu-virt,
 Description: QEMU full system emulation (data files)
  This package provides architecture-neutral data files
  (such as keyboard definitions, icons) for system-mode
@@ -288,6 +296,8 @@ Architecture: amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc
 Multi-Arch: no
 Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${misc:Depends}, ${shlibs:Depends},
+ ubuntu-virt,
+Replaces: qemu-system-common-hwe,
 Description: QEMU full system emulation binaries (common files)
  QEMU is a fast processor emulator: currently the package supports Alpha, ARM,
  CRIS, i386, LoongArch, M68k (ColdFire), MicroBlaze, MIPS, PowerPC, RISC-V,
@@ -312,6 +322,8 @@ Depends: ${misc:Depends}, ${shlibs:Depends},
  qemu-system-common (= ${binary:Version}),
 # libgl1 is dynamically loaded by sdl display code
  libgl1,
+ ubuntu-virt,
+Replaces: qemu-system-gui-hwe,
 Description: QEMU full system emulation binaries (graphical display and audio modules)
  This package provides optional graphical guest display modules (currently GTK
  and SDL) and audio backend modules for full system emulation (qemu-system-*)
@@ -328,7 +340,9 @@ Depends: ${misc:Depends}, ${shlibs:Depends},
  qemu-system-modules-opengl (= ${binary:Version}),
 # ensure qemu modules are upgraded together with the rest of qemu
  qemu-system-common (= ${binary:Version}),
-Replaces: qemu-system-common (<< 1:8.1.0+ds-1~exp2~)
+ ubuntu-virt,
+Replaces: qemu-system-common (<< 1:8.1.0+ds-1~exp2~),
+ qemu-system-modules-spice-hwe,
 Breaks:   qemu-system-common (<< 1:8.1.0+ds-1~exp2~)
 Description: QEMU full system emulation binaries (spice display modules)
  This package provides optional spice display (qxl and spice-app) and audio
@@ -340,7 +354,9 @@ Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${misc:Depends}, ${shlibs:Depends},
 # ensure qemu modules are upgraded together with the rest of qemu
  qemu-system-common (= ${binary:Version}),
-Replaces: qemu-system-common (<< 1:8.1.0+ds-1~exp2~), qemu-system-gui (<< 1:8.1.0+ds-1~exp2~)
+ ubuntu-virt,
+Replaces: qemu-system-common (<< 1:8.1.0+ds-1~exp2~), qemu-system-gui (<< 1:8.1.0+ds-1~exp2~),
+ qemu-system-modules-opengl-hwe,
 Breaks:   qemu-system-common (<< 1:8.1.0+ds-1~exp2~), qemu-system-gui (<< 1:8.1.0+ds-1~exp2~)
 Description: QEMU full system emulation binaries (OpenGL display modules)
  This package provides optional OpenGL display support modules for QEMU full
@@ -354,6 +370,8 @@ Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${shlibs:Depends}, ${misc:Depends},
  qemu-system-common (= ${binary:Version}),
  qemu-system-data (>> ${source:Upstream-Version}~),
+ ubuntu-virt,
+Replaces: qemu-system-misc-hwe,
 Breaks:   qemu-system-data (<< 1:10.1.0~rc2+ds-1),
 Recommends: qemu-utils,
 # alpha uses vgabios
@@ -389,6 +407,8 @@ Architecture: amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc
 Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
+ ubuntu-virt,
+Replaces: qemu-system-arm-hwe,
 Recommends: qemu-utils,
 # aarch64 arm uses bootroms
  ipxe-qemu,
@@ -421,6 +441,8 @@ Architecture: amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc
 Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
+ ubuntu-virt,
+Replaces: qemu-system-mips-hwe,
 Recommends: qemu-utils,
 # all mips targets uses vgabios and bootroms
  seabios,
@@ -450,6 +472,8 @@ Architecture: amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc
 Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
+ ubuntu-virt,
+Replaces: qemu-system-ppc-hwe,
 Recommends: qemu-utils,
  ipxe-qemu-256k-compat-efi-roms,
 # ppc targets use vgabios-stdvga and bootroms
@@ -483,6 +507,7 @@ Depends: ${shlibs:Depends}, ${misc:Depends},
  qemu-system-common (= ${binary:Version}),
  qemu-system-data (>> ${source:Upstream-Version}~),
  opensbi (>> 1.5.1-1~),
+ ubuntu-virt,
 Recommends: qemu-utils,
  ipxe-qemu,
  qemu-efi-riscv64,
@@ -491,7 +516,8 @@ Recommends: qemu-utils,
  qemu-system-modules-opengl (= ${binary:Version}),
  qemu-block-extra (= ${binary:Version}),
 Breaks:   qemu-system-data (<< 1:9.1.0+ds-4~), qemu-system-misc (<< 1:9.1.0+ds-9~)
-Replaces: qemu-system-data (<< 1:9.1.0+ds-4~), qemu-system-misc (<< 1:9.1.0+ds-9~)
+Replaces: qemu-system-data (<< 1:9.1.0+ds-4~), qemu-system-misc (<< 1:9.1.0+ds-9~),
+ qemu-system-riscv-hwe,
 Suggests: samba, vde2, passt,
 Provides: ${qemu:Provides}
 Conflicts: ${qemu:Conflicts}
@@ -508,6 +534,8 @@ Architecture: amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc
 Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
+ ubuntu-virt,
+Replaces: qemu-system-s390x-hwe,
 Recommends: qemu-utils,
  qemu-system-gui (= ${binary:Version}),
  qemu-system-modules-spice (= ${binary:Version}) [amd64 i386 arm64 armel armhf loong64 mips64el mipsel ppc64el riscv64],
@@ -533,6 +561,8 @@ Architecture: amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc
 Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
+ ubuntu-virt,
+Replaces: qemu-system-sparc-hwe,
 Recommends: qemu-utils,
 # sparc64 uses vgabios-stdvga and bootroms
  seabios,
@@ -565,7 +595,9 @@ Package: qemu-system-x86-xen
 Architecture: amd64
 Multi-Arch: foreign
 Section: oldlibs
-Depends: qemu-system-xen (>= 1:7.0+dfsg-7ubuntu1), ${misc:Depends}
+Depends: qemu-system-xen (>= 1:7.0+dfsg-7ubuntu1), ${misc:Depends},
+ ubuntu-virt,
+Replaces: qemu-system-xen-hwe,
 Description: QEMU full system emulation binaries (x86)
  The former qemu-system-x86-xen binaries are now in qemu-system-xen.
  .
@@ -578,6 +610,8 @@ Build-Profiles: <!pkg.qemu.omit-system>
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common (= ${binary:Version}), qemu-system-data (>> ${source:Upstream-Version}~),
  seabios (>> 1.17.0-1~),
  ipxe-qemu (>> 1.21.1+git20220113.fbbdc3926+dfsg-1~),
+ ubuntu-virt,
+Replaces: qemu-system-x86-hwe,
 Recommends: qemu-utils,
  ipxe-qemu-256k-compat-efi-roms,
  ovmf,
@@ -611,12 +645,14 @@ Multi-Arch: no
 Build-Profiles: <!pkg.qemu.omit-system !pkg.qemu.omit-system-xen>
 # do we really need qemu-system-data? keymaps only?
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-data (>> ${source:Upstream-Version}~),
- seabios, ipxe-qemu
+ seabios, ipxe-qemu,
+ ubuntu-virt,
 Recommends: qemu-utils,
  ovmf,
 # For the transition from the former qemu-system-x86-xen name
 Breaks: qemu-system-x86-xen (<<1:7.0+dfsg-7ubuntu1)
-Replaces: qemu-system-x86-xen (<<1:7.0+dfsg-7ubuntu1)
+Replaces: qemu-system-x86-xen (<<1:7.0+dfsg-7ubuntu1),
+ qemu-system-xen-hwe,
 Provides: qemu-system-x86-xen
 Description: QEMU full system emulation (Xen helper package)
  This package provides the i386 system emulation binary to work
@@ -628,9 +664,11 @@ Architecture: amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc
 Multi-Arch: foreign
 Built-Using: ${built-using}
 Build-Profiles: <!pkg.qemu.omit-user>
-Depends: ${misc:Depends}
+Depends: ${misc:Depends},
+ ubuntu-virt,
 Breaks:   qemu-user-static (<< 1:9.1.0), qemu-user-binfmt (<< 1:9.1.0)
-Replaces: qemu-user-static (<< 1:9.1.0), qemu-user-binfmt (<< 1:9.1.0)
+Replaces: qemu-user-static (<< 1:9.1.0), qemu-user-binfmt (<< 1:9.1.0),
+ qemu-user-hwe,
 Recommends: qemu-user-binfmt
 Description: QEMU user mode emulation (static binaries)
  QEMU is a fast processor emulator: currently the package supports Alpha, ARM,
@@ -653,10 +691,12 @@ Package: qemu-user-binfmt
 Architecture: amd64 arm arm64 armel armhf i386 loong64 mips64 mips64el ppc64 ppc64el riscv64 s390x sparc sparc64
 Multi-Arch: foreign
 Build-Profiles: <!pkg.qemu.omit-user>
-Depends: ${misc:Depends}, qemu-user (>= ${binary:Version}~)
+Depends: ${misc:Depends}, qemu-user (>= ${binary:Version}~),
+ ubuntu-virt,
 Provides: qemu-user-static
 Breaks:   qemu-user-static
-Replaces: qemu-user-static (<< 1:9.1.0)
+Replaces: qemu-user-static (<< 1:9.1.0),
+ qemu-user-binfmt-hwe,
 # Recommend systemd for binfmt-misc registration
 Recommends: systemd
 Description: QEMU user mode binfmt registration for qemu-user
@@ -676,11 +716,13 @@ Package: qemu-utils
 Architecture: alpha amd64 arm arm64 armel armhf hppa i386 loong64 m68k mips64 mips64el ppc64 ppc64el riscv64 s390x sh4 sparc sparc64 x32
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends},
+ ubuntu-virt,
 Recommends:
  qemu-block-extra (= ${binary:Version}),
 Replaces:
 # qemu-storage-daemon and qemu-block-driver.7 has been moved from q-s-c.
  qemu-system-common (<< 1:8.0+dfsg-5~),
+ qemu-utils-hwe,
 Breaks:
  qemu-system-common (<< 1:8.0+dfsg-5~),
 Description: QEMU utilities
@@ -698,7 +740,9 @@ Description: QEMU utilities
 Package: qemu-guest-agent
 Architecture: linux-any
 Multi-Arch: foreign
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends},
+ ubuntu-virt,
+Replaces: qemu-guest-agent-hwe,
 Pre-Depends: ${misc:Pre-Depends}
 Description: Guest-side qemu-system agent
  QEMU is a fast processor emulator: currently the package supports Alpha, ARM,
@@ -731,3 +775,15 @@ Description: Guest-side qemu-system agent
 # qemu-system-${}{DEB_HOST_ARCH_CPU} binary specific for the host
 # architecture. This one depends on ${qemu:for-host}.
 #
+
+Package: ubuntu-virt
+Architecture: linux-any
+Multi-Arch: foreign
+Conflicts: ubuntu-virt-hwe
+Replaces: ubuntu-virt-hwe
+Description: Ubuntu virtualization base stack common package
+ This package is the common package that every binary package of the Ubuntu virt
+ base stack depends on. It has 2 main purposes:
+  - delivering common utilities for the base/hwe stack management
+  - making sure that only one variant of the stack is installed and avoids mixing
+    components from both stacks.

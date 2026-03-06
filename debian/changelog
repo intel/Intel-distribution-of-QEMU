@@ -1,3 +1,9 @@
+qemu (1:10.2.1+ds-1ubuntu2) resolute; urgency=medium
+
+  * d/control : add dependencies to -hwe components (LP: #2143146)
+
+ -- Hector Cao <hector.cao@canonical.com>  Fri, 06 Mar 2026 15:40:30 +0100
+
 qemu (1:10.2.1+ds-1ubuntu1) resolute; urgency=medium
 
   * Merge with Debian unstable (LP: #2131929):
