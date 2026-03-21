@@ -144,7 +144,7 @@ badframe:
     force_sig(TARGET_SIGSEGV);
 }
 
-static void restore_sigcontext(CPURISCVState *env, struct target_sigcontext *sc)
+static bool restore_sigcontext(CPURISCVState *env, struct target_sigcontext *sc)
 {
     int i;
 
@@ -160,9 +160,11 @@ static void restore_sigcontext(CPURISCVState *env, struct target_sigcontext *sc)
     uint32_t fcsr;
     __get_user(fcsr, &sc->fcsr);
     riscv_csr_write(env, CSR_FCSR, fcsr);
+
+    return true;
 }
 
-static void restore_ucontext(CPURISCVState *env, struct target_ucontext *uc)
+static bool restore_ucontext(CPURISCVState *env, struct target_ucontext *uc)
 {
     sigset_t blocked;
     target_sigset_t target_set;
@@ -176,7 +178,7 @@ static void restore_ucontext(CPURISCVState *env, struct target_ucontext *uc)
     target_to_host_sigset_internal(&blocked, &target_set);
     set_sigmask(&blocked);
 
-    restore_sigcontext(env, &uc->uc_mcontext);
+    return restore_sigcontext(env, &uc->uc_mcontext);
 }
 
 long do_rt_sigreturn(CPURISCVState *env)
@@ -190,7 +192,10 @@ long do_rt_sigreturn(CPURISCVState *env)
         goto badframe;
     }
 
-    restore_ucontext(env, &frame->uc);
+    if (!restore_ucontext(env, &frame->uc)) {
+        goto badframe;
+    }
+
     target_restore_altstack(&frame->uc.uc_stack, env);
 
     unlock_user_struct(frame, frame_addr, 0);
