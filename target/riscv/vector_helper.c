@@ -33,8 +33,17 @@
 #include "vector_internals.h"
 #include <math.h>
 
-target_ulong HELPER(vsetvl)(CPURISCVState *env, target_ulong s1,
-                            target_ulong s2, target_ulong x0)
+void riscv_cpu_set_vstart(CPURISCVState *env, target_ulong val)
+{
+    /*
+     * The vstart CSR is defined to have only enough writable bits
+     * to hold the largest element index, i.e. lg2(VLEN) bits.
+     */
+    env->vstart = val & ~(~0ULL << ctzl(riscv_cpu_cfg(env)->vlenb << 3));
+}
+
+target_ulong riscv_cpu_vsetvl(CPURISCVState *env, target_ulong s1,
+                              target_ulong s2, target_ulong x0)
 {
     int vlmax, vl;
     RISCVCPU *cpu = env_archcpu(env);
@@ -97,6 +106,12 @@ target_ulong HELPER(vsetvl)(CPURISCVState *env, target_ulong s1,
     env->vstart = 0;
     env->vill = 0;
     return vl;
+}
+
+target_ulong HELPER(vsetvl)(CPURISCVState *env, target_ulong s1,
+                            target_ulong s2, target_ulong x0)
+{
+    return riscv_cpu_vsetvl(env, s1, s2, x0);
 }
 
 /*

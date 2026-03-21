@@ -627,6 +627,10 @@ char *riscv_isa_string(RISCVCPU *cpu);
 int riscv_cpu_max_xlen(RISCVCPUClass *mcc);
 bool riscv_cpu_option_set(const char *optname);
 
+void riscv_cpu_set_vstart(CPURISCVState *env, target_ulong val);
+target_ulong riscv_cpu_vsetvl(CPURISCVState *env, target_ulong s1,
+                              target_ulong s2, target_ulong x0);
+
 #ifndef CONFIG_USER_ONLY
 void riscv_cpu_do_interrupt(CPUState *cpu);
 void riscv_isa_write_fdt(RISCVCPU *cpu, void *fdt, char *nodename);
