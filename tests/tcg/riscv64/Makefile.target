@@ -21,5 +21,5 @@ run-test-fcvtmod: QEMU_OPTS += -cpu rv64,d=true,zfa=true
 
 # Test signal handling.
 TESTS += test-signal-handling
-test-signal-handling: CFLAGS += -march=rv64gc
-run-test-signal-handling: QEMU_OPTS += -cpu rv64
+test-signal-handling: CFLAGS += -march=rv64gcv
+run-test-signal-handling: QEMU_OPTS += -cpu rv64,v=on
