@@ -31,14 +31,43 @@
 
    The code below is qemu re-implementation of arch/riscv/kernel/signal.c */
 
-struct target_sigcontext {
+struct target_gp_state {
     abi_long pc;
     abi_long gpr[31]; /* x0 is not present, so all offsets must be -1 */
+};
+
+struct target_fp_state {
     uint64_t fpr[32];
     uint32_t fcsr;
+};
+
+/* The Magic number for signal context frame header. */
+#define END_MAGIC       0x0
+
+/* The size of END signal context header. */
+#define END_HDR_SIZE    0x0
+
+struct target_ctx_hdr {
+    uint32_t magic;
+    uint32_t size;
+};
+
+struct target_extra_ext_header {
+    uint32_t __padding[129] __attribute__((aligned(16)));
+    uint32_t reserved;
+    struct target_ctx_hdr hdr;
+};
+
+struct target_sigcontext {
+    struct target_gp_state sc_regs;
+    union {
+        struct target_fp_state sc_fpregs;
+        struct target_extra_ext_header sc_extdesc;
+    };
 }; /* cf. riscv-linux:arch/riscv/include/uapi/asm/ptrace.h */
 
-QEMU_BUILD_BUG_ON(offsetof(struct target_sigcontext, fpr) != offsetof_freg0);
+QEMU_BUILD_BUG_ON(offsetof(struct target_sigcontext, sc_fpregs.fpr) !=
+                  offsetof_freg0);
 
 struct target_ucontext {
     abi_ulong uc_flags;
@@ -79,19 +108,26 @@ static abi_ulong get_sigframe(struct target_sigaction *ka,
 
 static void setup_sigcontext(struct target_sigcontext *sc, CPURISCVState *env)
 {
+    struct target_ctx_hdr *hdr;
     int i;
 
-    __put_user(env->pc, &sc->pc);
+    __put_user(env->pc, &sc->sc_regs.pc);
 
     for (i = 1; i < 32; i++) {
-        __put_user(env->gpr[i], &sc->gpr[i - 1]);
+        __put_user(env->gpr[i], &sc->sc_regs.gpr[i - 1]);
     }
     for (i = 0; i < 32; i++) {
-        __put_user(env->fpr[i], &sc->fpr[i]);
+        __put_user(env->fpr[i], &sc->sc_fpregs.fpr[i]);
     }
 
     uint32_t fcsr = riscv_csr_read(env, CSR_FCSR);
-    __put_user(fcsr, &sc->fcsr);
+    __put_user(fcsr, &sc->sc_fpregs.fcsr);
+
+    __put_user(0, &sc->sc_extdesc.reserved);
+
+    hdr = &sc->sc_extdesc.hdr;
+    __put_user(END_MAGIC, &hdr->magic);
+    __put_user(END_HDR_SIZE, &hdr->size);
 }
 
 static void setup_ucontext(struct target_ucontext *uc,
@@ -146,20 +182,57 @@ badframe:
 
 static bool restore_sigcontext(CPURISCVState *env, struct target_sigcontext *sc)
 {
+    struct target_ctx_hdr *hdr;
+    uint32_t rsv, magic, size;
     int i;
 
-    __get_user(env->pc, &sc->pc);
+    __get_user(env->pc, &sc->sc_regs.pc);
 
     for (i = 1; i < 32; ++i) {
-        __get_user(env->gpr[i], &sc->gpr[i - 1]);
+        __get_user(env->gpr[i], &sc->sc_regs.gpr[i - 1]);
     }
     for (i = 0; i < 32; ++i) {
-        __get_user(env->fpr[i], &sc->fpr[i]);
+        __get_user(env->fpr[i], &sc->sc_fpregs.fpr[i]);
     }
 
     uint32_t fcsr;
-    __get_user(fcsr, &sc->fcsr);
+    __get_user(fcsr, &sc->sc_fpregs.fcsr);
     riscv_csr_write(env, CSR_FCSR, fcsr);
+
+    hdr = &sc->sc_extdesc.hdr;
+    __get_user(rsv, &sc->sc_extdesc.reserved);
+    if (rsv != 0) {
+        qemu_log_mask(LOG_GUEST_ERROR, "signal: sigcontext reserved field is "
+                                       "non-zero\n");
+        return false;
+    }
+
+    __get_user(magic, &hdr->magic);
+    while (magic != END_MAGIC) {
+        switch (magic) {
+        default:
+            qemu_log_mask(LOG_GUEST_ERROR, "signal: unknown extended state in "
+                                           "sigcontext, magic=0x%08x\n", magic);
+            return false;
+        }
+
+        __get_user(size, &hdr->size);
+        if (size == 0) {
+            qemu_log_mask(LOG_GUEST_ERROR, "signal: extended state in "
+                                           "sigcontext has size 0\n");
+            return false;
+        }
+
+        hdr = (void *)hdr + size;
+        __get_user(magic, &hdr->magic);
+    }
+
+    __get_user(size, &hdr->size);
+    if (size != END_HDR_SIZE) {
+        qemu_log_mask(LOG_GUEST_ERROR, "signal: extended state end header has "
+                                       "size=%u (should be 0)\n", size);
+        return false;
+    }
 
     return true;
 }
