@@ -1,3 +1,12 @@
+qemu (1:10.2.1+ds-1ubuntu3) resolute; urgency=medium
+
+  * d/control: remove dependency on deprecated edk2 arm
+    (LP: #2145209)
+  * d/control-in: add dependency on the virt hwe helper package
+     (LP: #2145809)
+
+ -- Hector Cao <hector.cao@canonical.com>  Tue, 24 Mar 2026 23:33:32 +0100
+
 qemu (1:10.2.1+ds-1ubuntu2) resolute; urgency=medium
 
   * d/control : add dependencies to -hwe components (LP: #2143146)
