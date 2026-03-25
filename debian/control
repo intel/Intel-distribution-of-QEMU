@@ -415,7 +415,7 @@ Recommends: qemu-utils,
 # for now virtio-vga won't check arch and insist on vgabios-virtio.bin
  seabios,
  ipxe-qemu-256k-compat-efi-roms,
- qemu-efi-aarch64, qemu-efi-arm,
+ qemu-efi-aarch64,
  qemu-system-gui (= ${binary:Version}),
  qemu-system-modules-spice (= ${binary:Version}) [amd64 i386 arm64 armel armhf loong64 mips64el mipsel ppc64el riscv64],
  qemu-system-modules-opengl (= ${binary:Version}),
@@ -779,6 +779,7 @@ Description: Guest-side qemu-system agent
 Package: ubuntu-virt
 Architecture: linux-any
 Multi-Arch: foreign
+Depends: ubuntu-helper-virt-hwe
 Conflicts: ubuntu-virt-hwe
 Replaces: ubuntu-virt-hwe
 Description: Ubuntu virtualization base stack common package
