@@ -426,7 +426,7 @@ Recommends: qemu-utils,
 # for now virtio-vga won't check arch and insist on vgabios-virtio.bin
  seabios,
 :ubuntu: ipxe-qemu-256k-compat-efi-roms,
- qemu-efi-aarch64, qemu-efi-arm,
+ qemu-efi-aarch64,
  qemu-system-gui (= ${binary:Version}),
  qemu-system-modules-spice (= ${binary:Version}) [:spice-arch:],
  qemu-system-modules-opengl (= ${binary:Version}),
