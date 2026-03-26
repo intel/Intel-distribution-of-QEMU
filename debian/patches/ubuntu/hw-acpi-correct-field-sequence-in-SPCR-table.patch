@@ -1,0 +1,50 @@
+From: Heinrich Schuchardt <heinrich.schuchardt@canonical.com>
+Date: Thu, 26 Mar 2026 09:52:30 +0100
+Subject: [PATCH] hw/acpi: correct field sequence in SPCR table
+
+On LoongArch and RISC-V invalid SPCR tables are created:
+
+Terrminal Type : 00
+Language : 03
+
+The correct values are:
+
+Terrminal Type : 03
+Language : 00
+
+This is due to commit 7dd0b070fa09 ("hw/arm/virt-acpi-build.c: Migrate
+SPCR creation to common location") that swapped the fields.
+
+See the specification of the table in
+https://learn.microsoft.com/en-us/windows-hardware/drivers/bringup/serial-port-console-redirection-table
+
+Fixes: 7dd0b070fa09 ("hw/arm/virt-acpi-build.c: Migrate SPCR creation to common location")
+Signed-off-by: Heinrich Schuchardt <heinrich.schuchardt@canonical.com>
+
+Forwarded: https://lore.kernel.org/qemu-devel/20260326121947.51200-1-heinrich.schuchardt@canonical.com/T/#u
+Bug-Ubuntu: https://bugs.launchpad.net/ubuntu/+bug/2146419
+
+---
+ hw/acpi/aml-build.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/hw/acpi/aml-build.c b/hw/acpi/aml-build.c
+index 4b37405088..a999320e61 100644
+--- a/hw/acpi/aml-build.c
++++ b/hw/acpi/aml-build.c
+@@ -2115,10 +2115,10 @@ void build_spcr(GArray *table_data, BIOSLinker *linker,
+     build_append_int_noprefix(table_data, f->stop_bits, 1);
+     /* Flow Control */
+     build_append_int_noprefix(table_data, f->flow_control, 1);
+-    /* Language */
+-    build_append_int_noprefix(table_data, f->language, 1);
+     /* Terminal Type */
+     build_append_int_noprefix(table_data, f->terminal_type, 1);
++    /* Language */
++    build_append_int_noprefix(table_data, f->language, 1);
+     /* PCI Device ID  */
+     build_append_int_noprefix(table_data, f->pci_device_id, 2);
+     /* PCI Vendor ID */
+-- 
+2.53.0
+
