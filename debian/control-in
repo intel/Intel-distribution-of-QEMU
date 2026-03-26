@@ -792,6 +792,7 @@ Description: Guest-side qemu-system agent
 :ubuntu:Package: ubuntu-virt
 :ubuntu:Architecture: linux-any
 :ubuntu:Multi-Arch: foreign
+:ubuntu:Depends: ubuntu-helper-virt-hwe
 :ubuntu:Conflicts: ubuntu-virt-hwe
 :ubuntu:Replaces: ubuntu-virt-hwe
 :ubuntu:Description: Ubuntu virtualization base stack common package
