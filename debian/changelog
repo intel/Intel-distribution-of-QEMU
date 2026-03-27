@@ -1,3 +1,9 @@
+qemu (1:10.2.1+ds-1ubuntu3) resolute; urgency=medium
+
+  * d/p/u/hw-acpi-correct-field-sequence-in-SPCR-table (LP: #2146419)
+
+ -- Hector Cao <hector.cao@canonical.com>  Fri, 27 Mar 2026 10:43:10 +0100
+
 qemu (1:10.2.1+ds-1ubuntu2) resolute; urgency=medium
 
   * d/control : add dependencies to -hwe components (LP: #2143146)
