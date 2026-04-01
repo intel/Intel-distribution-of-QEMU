@@ -34,3 +34,4 @@ ubuntu/lp2133188/0002-linux-user-riscv-Allow-restore_sigcontext-to-return-.patch
 ubuntu/lp2133188/0003-linux-user-riscv-Add-extended-state-to-sigcontext.patch
 ubuntu/lp2133188/0004-linux-user-riscv-Add-vector-state-to-signal-context.patch
 ubuntu/lp2133188/0005-tests-tcg-riscv64-Add-vector-state-to-signal-test.patch
+ubuntu/hw-acpi-correct-field-sequence-in-SPCR-table.patch

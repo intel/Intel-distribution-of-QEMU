@@ -8,8 +8,9 @@ qemu (1:10.2.1+ds-1ubuntu3) resolute; urgency=medium
   [ Heinrich Schuchardt ]
   * d/p/u/lp2133188/*: Add riscv64 vector state to signal context
     (LP: #2133188)
+  * d/p/u/hw-acpi-correct-field-sequence-in-SPCR-table (LP: #2146419)
 
- -- Hector Cao <hector.cao@canonical.com>  Thu, 26 Mar 2026 22:51:06 +0100
+ -- Hector Cao <hector.cao@canonical.com>  Fri, 27 Mar 2026 10:43:10 +0100
 
 qemu (1:10.2.1+ds-1ubuntu2) resolute; urgency=medium
 
