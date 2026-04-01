@@ -5,7 +5,11 @@ qemu (1:10.2.1+ds-1ubuntu3) resolute; urgency=medium
   * d/control-in: add dependency on the virt hwe helper package
      (LP: #2145809)
 
- -- Hector Cao <hector.cao@canonical.com>  Tue, 24 Mar 2026 23:33:32 +0100
+  [ Heinrich Schuchardt ]
+  * d/p/u/lp2133188/*: Add riscv64 vector state to signal context
+    (LP: #2133188)
+
+ -- Hector Cao <hector.cao@canonical.com>  Thu, 26 Mar 2026 22:51:06 +0100
 
 qemu (1:10.2.1+ds-1ubuntu2) resolute; urgency=medium
 
