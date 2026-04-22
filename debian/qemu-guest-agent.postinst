@@ -53,6 +53,10 @@ case "$1" in
                 mv -f "$TMPCONFFILE" "$NEWCONFFILE"
             fi
         fi
+        # Trigger udev rule to start the qemu-guest-agent systemd service
+        if command -v udevadm >/dev/null 2>&1; then
+            udevadm trigger --subsystem-match=virtio-ports --attr-match=name=org.qemu.guest_agent.0 || true
+        fi
         ;;
 esac
 

@@ -1,3 +1,10 @@
+qemu (1:10.2.1+ds-1ubuntu3.1) resolute; urgency=medium
+
+  * d/qemu-guest-agent.postinst: trigger udev rule to start the service
+    (LP: #2102093)
+
+ -- Hector Cao <hector.cao@canonical.com>  Wed, 22 Apr 2026 11:24:43 +0200
+
 qemu (1:10.2.1+ds-1ubuntu3) resolute; urgency=medium
 
   * d/control: remove dependency on deprecated edk2 arm
