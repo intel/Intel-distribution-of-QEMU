@@ -2319,6 +2319,12 @@ static gboolean gd_configure(GtkWidget *widget,
     double width = cfg->width, height = cfg->height;
     QemuUIInfo info;
 
+    if (vc->s->full_screen) {
+        vc->s->full_screen = false;
+        gtk_menu_item_activate(GTK_MENU_ITEM(vc->s->full_screen_item));
+        return FALSE;
+    }
+
     if (!dpy_ui_info_supported(vc->gfx.dcl.con)) {
         return FALSE;
     }
