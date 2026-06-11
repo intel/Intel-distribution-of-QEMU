@@ -1755,12 +1755,71 @@ static void xhci_calc_iso_kick(XHCIState *xhci, XHCITransfer *xfer,
             xfer->mfindex_kick = asap;
         }
     } else {
-        xfer->mfindex_kick = ((xfer->trbs[0].control >> TRB_TR_FRAMEID_SHIFT)
-                              & TRB_TR_FRAMEID_MASK) << 3;
+        uint32_t frame_id = (xfer->trbs[0].control >> TRB_TR_FRAMEID_SHIFT)
+                            & TRB_TR_FRAMEID_MASK;
+        xfer->mfindex_kick = (uint64_t)frame_id << 3;
         xfer->mfindex_kick |= mfindex & ~0x3fff;
+        bool io_delay_applied = false;
         if (xfer->mfindex_kick + 0x100 < mfindex) {
+            /*
+             * The IO thread fell >32ms behind: mfindex advanced past the
+             * target frame by more than the lookahead threshold.  Log this
+             * so the operator can see the delay that triggered the epoch
+             * advance (enable with --trace 'usb_xhci_iso*').
+             */
+            uint64_t late_mf = mfindex - xfer->mfindex_kick;
+            trace_usb_xhci_iso_kick_io_delay(epctx->slotid, epctx->epid,
+                                             frame_id,
+                                             xfer->mfindex_kick & 0x3fff,
+                                             mfindex,
+                                             late_mf, late_mf >> 3);
             xfer->mfindex_kick += 0x4000;
+            io_delay_applied = true;
         }
+        /*
+         * Guard against epoch-advance overshoot: when the IO thread is briefly
+         * delayed, mfindex can advance past frame_kick by more than the 0x100
+         * lookahead threshold above.  Adding 0x4000 then places mfindex_kick
+         * ~2 seconds into the future, stalling all isochronous transfers until
+         * the kick timer fires (observed as periodic ~2.1 s USB audio/video
+         * stalls).
+         *
+         * Per xHCI spec §4.11.2.5 a Frame ID is only valid within ±895 ms
+         * (0x1BF8 microframes) of the current MFINDEX.  If the result exceeds
+         * that window the epoch selection was wrong; clamp to now so the
+         * missed frame is dispatched immediately instead of stalling.
+         */
+        if (xfer->mfindex_kick > mfindex + 0x1BF8) {
+            uint64_t future_mf = xfer->mfindex_kick - mfindex;
+            trace_usb_xhci_iso_kick_epoch_clamp(epctx->slotid, epctx->epid,
+                                                frame_id, mfindex,
+                                                xfer->mfindex_kick,
+                                                future_mf, future_mf >> 3);
+            xfer->mfindex_kick = mfindex;
+        }
+        /*
+         * PATH-A danger zone: IO_DELAY advanced the kick by one epoch, but
+         * the result still lies far enough ahead that audio may stall before
+         * the transfer fires.  This happens when the IO thread processes a
+         * TRB in the middle of an epoch (X in [0x2408, 0x3F5F]) so that
+         * 0x4000-X > 20 ms (0xA0 microframes) yet below the 895 ms spec
+         * clamp threshold above.
+         *
+         * Fix: clamp to now so the missed frame fires immediately, exactly
+         * as PATH-B does.  The stall_risk trace event fires first so the
+         * operator can see that CPU scheduling pressure was the root cause.
+         */
+#define XHCI_ISO_STALL_RISK_MF  0xA0  /* 160 microframes = 20 ms */
+        if (io_delay_applied &&
+            xfer->mfindex_kick > mfindex + XHCI_ISO_STALL_RISK_MF) {
+            uint64_t risk_mf = xfer->mfindex_kick - mfindex;
+            trace_usb_xhci_iso_kick_stall_risk(epctx->slotid, epctx->epid,
+                                               frame_id, mfindex,
+                                               xfer->mfindex_kick,
+                                               risk_mf, risk_mf >> 3);
+            xfer->mfindex_kick = mfindex;
+        }
+#undef XHCI_ISO_STALL_RISK_MF
     }
 }
 
@@ -1768,8 +1827,12 @@ static void xhci_check_intr_iso_kick(XHCIState *xhci, XHCITransfer *xfer,
                                      XHCIEPContext *epctx, uint64_t mfindex)
 {
     if (xfer->mfindex_kick > mfindex) {
+        uint64_t delay_mf = xfer->mfindex_kick - mfindex;
+        trace_usb_xhci_iso_kick_timer_arm(epctx->slotid, epctx->epid,
+                                         xfer->mfindex_kick, mfindex,
+                                         delay_mf, delay_mf * 125);
         timer_mod(epctx->kick_timer, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) +
-                       (xfer->mfindex_kick - mfindex) * 125000);
+                       delay_mf * 125000);
         xfer->running_retry = 1;
     } else {
         epctx->mfindex_last = xfer->mfindex_kick;
