@@ -183,6 +183,11 @@ usb_xhci_xfer_success(void *xfer, uint32_t bytes) "%p: len %d"
 usb_xhci_xfer_error(void *xfer, uint32_t ret) "%p: ret %d"
 usb_xhci_unimplemented(const char *item, int nr) "%s (0x%x)"
 usb_xhci_enforced_limit(const char *item) "%s"
+# ISO isochronous kick profiling (enable with --trace 'usb_xhci_iso*')
+usb_xhci_iso_kick_io_delay(uint32_t slotid, uint32_t epid, uint32_t frame_id, uint64_t frame_kick, uint64_t mfindex, uint64_t late_mf, uint64_t late_ms) "slotid %d epid %d frame_id 0x%03x frame_kick 0x%"PRIx64" mfindex 0x%"PRIx64" late %"PRIu64" mf (%"PRIu64" ms) [IO thread delayed >32ms -- epoch advance triggered]"
+usb_xhci_iso_kick_stall_risk(uint32_t slotid, uint32_t epid, uint32_t frame_id, uint64_t mfindex, uint64_t mfindex_kick, uint64_t risk_mf, uint64_t risk_ms) "slotid %d epid %d frame_id 0x%03x mfindex 0x%"PRIx64" mfindex_kick 0x%"PRIx64" stall_risk %"PRIu64" mf (%"PRIu64" ms) -> clamped to now [PATH-A danger zone FIXED: IO thread mid-epoch, CPU scheduling pressure]"
+usb_xhci_iso_kick_epoch_clamp(uint32_t slotid, uint32_t epid, uint32_t frame_id, uint64_t mfindex, uint64_t bad_kick, uint64_t future_mf, uint64_t future_ms) "slotid %d epid %d frame_id 0x%03x mfindex 0x%"PRIx64" bad_kick 0x%"PRIx64" would_stall %"PRIu64" mf (%"PRIu64" ms) -> clamped to now [STALL AVERTED]"
+usb_xhci_iso_kick_timer_arm(uint32_t slotid, uint32_t epid, uint64_t mfindex_kick, uint64_t mfindex, uint64_t delay_mf, uint64_t delay_us) "slotid %d epid %d mfindex_kick 0x%"PRIx64" mfindex 0x%"PRIx64" delay %"PRIu64" mf (%"PRIu64" us)"
 
 # hcd-dwc2.c
 usb_dwc2_update_irq(uint32_t level) "level=%d"
