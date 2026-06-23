@@ -35,3 +35,8 @@ ubuntu/lp2133188/0003-linux-user-riscv-Add-extended-state-to-sigcontext.patch
 ubuntu/lp2133188/0004-linux-user-riscv-Add-vector-state-to-signal-context.patch
 ubuntu/lp2133188/0005-tests-tcg-riscv64-Add-vector-state-to-signal-test.patch
 ubuntu/hw-acpi-correct-field-sequence-in-SPCR-table.patch
+ubuntu/virtio-gpu-virgl-Add-virtio-gpu-virgl-hostmem-region.patch
+ubuntu/lp2146445-module-fix-early-stop-for-module-loading-function.patch
+lp2150154-1-block-throttle-groups-fix-deadlock-with-iolimits-and.patch
+lp2150154-2-throttle-group-Fix-race-condition-in-throttle_group_.patch
+ubuntu/target-riscv-kvm-add-KVM-support-for-Zicbop-extensio.patch

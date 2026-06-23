@@ -1,3 +1,22 @@
+qemu (1:10.2.1+ds-1ubuntu3.2) resolute; urgency=medium
+
+  * Fix crash due to memory region unset for virgl (LP: #2156706)
+    d/u/virtio-gpu-virgl-Add-virtio-gpu-virgl-hostmem-region.patch
+  * d/p/u/lp2146445-* : fix early stop for module loading function
+    (LP: #2146445)
+  * d/qemu-kvm-init: load kvm kernel module for riscv64 (LP: #2157739)
+
+  [ Jorge Merlino ]
+  * Fix race condition when using iothreads and throttle groups (LP: #2150154)
+    - d/p/lp2150154-1-block-throttle-groups-fix-deadlock-with-iolimits-and.patch
+    - d/p/lp2150154-2-throttle-group-Fix-race-condition-in-throttle_group_.patch
+
+  [ Heinrich Schuchardt ]
+  * Make Zicbop extension available in RISC-V KVM VMs (LP: #2154708)
+    - d/p/u/target-riscv-kvm-add-KVM-support-for-Zicbop-extensio.patch
+
+ -- Hector Cao <hector.cao@canonical.com>  Tue, 23 Jun 2026 14:50:18 +0200
+
 qemu (1:10.2.1+ds-1ubuntu3.1) resolute; urgency=medium
 
   * d/qemu-guest-agent.postinst: trigger udev rule to start the service
