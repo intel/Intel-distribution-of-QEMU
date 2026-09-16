@@ -205,10 +205,10 @@ void gd_egl_refresh(DisplayChangeListener *dcl)
                 return;
             }
 
-            if (vc->gfx.cursor_x > 0 &&
-                vc->gfx.cursor_x < vc->gfx.win_fb.width - 1 &&
-                vc->gfx.cursor_y > 0 &&
-                vc->gfx.cursor_y < vc->gfx.win_fb.height - 1) {
+            if (vc->gfx.cursor_x >= 0 &&
+                vc->gfx.cursor_x < vc->gfx.win_fb.width &&
+                vc->gfx.cursor_y >= 0 &&
+                vc->gfx.cursor_y < vc->gfx.win_fb.height) {
 
                 eglMakeCurrent(qemu_egl_display, vc->gfx.esurface,
                                vc->gfx.esurface, vc->gfx.ectx);
@@ -445,10 +445,10 @@ void gd_egl_scanout_flush(DisplayChangeListener *dcl,
     egl_fb_setup_default(&vc->gfx.win_fb, ww, wh);
     egl_fb_blit(&vc->gfx.win_fb, &vc->gfx.guest_fb, !vc->gfx.y0_top);
     if (vc->gfx.cursor_image &&
-        vc->gfx.cursor_x > 0 &&
-        vc->gfx.cursor_x < vc->gfx.win_fb.width - 1 &&
-        vc->gfx.cursor_y > 0 &&
-        vc->gfx.cursor_y < vc->gfx.win_fb.height - 1) {
+        vc->gfx.cursor_x >= 0 &&
+        vc->gfx.cursor_x < vc->gfx.win_fb.width &&
+        vc->gfx.cursor_y >= 0 &&
+        vc->gfx.cursor_y < vc->gfx.win_fb.height) {
         if (vc->gfx.new_cursor) {
             gd_egl_cursor_texture(vc);
             vc->gfx.new_cursor = false;
