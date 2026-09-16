@@ -444,9 +444,9 @@ void gd_egl_scanout_flush(DisplayChangeListener *dcl,
                          px_offset, py_offset);
 
     if (vc->gfx.cursor_image &&
-        vc->gfx.cursor_x > 0 && vc->gfx.cursor_y > 0 &&
-        vc->gfx.cursor_x < vc->gfx.win_fb.width - 1 &&
-        vc->gfx.cursor_y < vc->gfx.win_fb.height - 1) {
+        vc->gfx.cursor_x >= 0 && vc->gfx.cursor_y >= 0 &&
+        vc->gfx.cursor_x < vc->gfx.win_fb.width &&
+        vc->gfx.cursor_y < vc->gfx.win_fb.height) {
         if (vc->gfx.new_cursor) {
             gd_egl_cursor_texture(vc);
             vc->gfx.new_cursor = false;
