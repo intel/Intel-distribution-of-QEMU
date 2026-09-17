@@ -204,7 +204,7 @@ void egl_fb_read_rect(DisplaySurface *dst, egl_fb *src, int x, int y, int w, int
 void egl_texture_blit(QemuGLShader *gls, egl_fb *dst, egl_fb *src, bool flip)
 {
     glBindFramebuffer(GL_FRAMEBUFFER_EXT, dst->framebuffer);
-    glViewport(0, 0, dst->width, dst->height);
+    glViewport(dst->x, dst->y, dst->width, dst->height);
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, src->texture);
     qemu_gl_run_texture_blit(gls, flip);
@@ -217,9 +217,9 @@ void egl_texture_blend(QemuGLShader *gls, egl_fb *dst, egl_fb *src, bool flip,
     int w = scale_x * src->width;
     int h = scale_y * src->height;
     if (flip) {
-        glViewport(x, y, w, h);
+        glViewport(x + dst->x, y + dst->y, w, h);
     } else {
-        glViewport(x, dst->height - h - y, w, h);
+        glViewport(x + dst->x, dst->height - h - y - dst->y, w, h);
     }
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, src->texture);
