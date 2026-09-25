@@ -70,7 +70,7 @@ void gd_egl_draw(VirtualConsole *vc)
     QemuDmaBuf *dmabuf = vc->gfx.guest_fb.dmabuf;
     bool cursor_updated = vc->gfx.cursor_image &&
                           (vc->gfx.cursor_moved || vc->gfx.new_cursor);
-    bool draw_submitted;
+    bool draw_submitted = 0;
 #endif
     int ww, wh, gs;
 
@@ -93,6 +93,14 @@ void gd_egl_draw(VirtualConsole *vc)
             }
         }
 #endif
+        if (!draw_submitted && cursor_updated && vc->gfx.recently_updated) {
+            vc->gfx.recently_updated = false;
+            /* if cursor image was changed after the lastest frame then do not skip */
+            if (!vc->gfx.new_cursor) {
+                return;
+            }
+        }
+
         gd_egl_scanout_flush(&vc->gfx.dcl, 0, 0, vc->gfx.w, vc->gfx.h);
 
 #ifdef CONFIG_GBM
@@ -108,6 +116,7 @@ void gd_egl_draw(VirtualConsole *vc)
             } else {
                 graphic_hw_gl_block(vc->gfx.dcl.con, false);
 	    }
+	    vc->gfx.recently_updated = true;
         } else {
             /* no fence draw is an additional draw done by host */
             gd_gl_count_frame(&vc->gfx.dcl, false, true);

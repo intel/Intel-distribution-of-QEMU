@@ -56,6 +56,7 @@ typedef struct VirtualGfxConsole {
     uint32_t *cursor_image;
     bool cursor_moved;
     bool new_cursor;
+    bool recently_updated;
     int cursor_x;
     int cursor_y;
     bool y0_top;
