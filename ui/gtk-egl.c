@@ -93,6 +93,11 @@ void gd_egl_draw(VirtualConsole *vc)
             }
         }
 #endif
+        if (!draw_submitted && cursor_updated && vc->gfx.recently_updated) {
+            vc->gfx.recently_updated = false;
+            return;
+        }
+
         gd_egl_scanout_flush(&vc->gfx.dcl, 0, 0, vc->gfx.w, vc->gfx.h);
 
 #ifdef CONFIG_GBM
@@ -108,6 +113,7 @@ void gd_egl_draw(VirtualConsole *vc)
             } else {
                 graphic_hw_gl_block(vc->gfx.dcl.con, false);
 	    }
+	    vc->gfx.recently_updated = true;
         } else {
             /* no fence draw is an additional draw done by host */
             gd_gl_count_frame(&vc->gfx.dcl, false, true);
