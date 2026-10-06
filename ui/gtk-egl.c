@@ -413,6 +413,7 @@ void gd_egl_scanout_flush(DisplayChangeListener *dcl,
     int pw_widget, ph_widget, pw_surface, ph_surface;
     int ww_widget, wh_widget, ww_surface, wh_surface;
     int fbw, fbh;
+    int ws;
 
     if (!vc->gfx.scanout_mode) {
         return;
@@ -430,6 +431,7 @@ void gd_egl_scanout_flush(DisplayChangeListener *dcl,
     wh_widget = gdk_window_get_height(window);
     fbw = surface_width(vc->gfx.ds);
     fbh = surface_height(vc->gfx.ds);
+    ws = gtk_widget_get_scale_factor(vc->gfx.drawing_area);
 
     gd_update_scale(vc, ww_widget, wh_widget, fbw, fbh);
 
@@ -464,7 +466,7 @@ void gd_egl_scanout_flush(DisplayChangeListener *dcl,
                          vc->gfx.y0_top);
         egl_texture_blend(vc->gfx.gls, &vc->gfx.win_fb, &vc->gfx.cursor_fb,
                           vc->gfx.y0_top,
-                          vc->gfx.cursor_x, vc->gfx.cursor_y,
+                          vc->gfx.cursor_x * ws, vc->gfx.cursor_y * ws,
                           vc->gfx.scale_x, vc->gfx.scale_y);
         vc->gfx.cursor_moved = false;
     } else {
